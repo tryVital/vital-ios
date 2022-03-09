@@ -1,3 +1,3 @@
-# vital-api
+# vital-ios
 
-A description of this package.
+Vital's HealthKit bridge for iOS, written in Swift.
