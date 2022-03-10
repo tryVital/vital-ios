@@ -124,8 +124,11 @@ extension VitalHealthKitClient {
       self.logger?.log(level: .info, "Syncing data for \(type)")
     }
     
-    /// 1) Start a query for each type
-    /// 2) Check if background is enabled, if it is, set it
+      /// 1) Read data from HealthKit
+      ///
+    for type in types {
+      
+    }
   }
   
   public func ask(
