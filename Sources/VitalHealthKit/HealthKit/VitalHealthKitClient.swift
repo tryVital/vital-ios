@@ -38,8 +38,7 @@ public class VitalHealthKitClient {
   private var userId: String? = nil {
     didSet {
       if configuration.autoSync {
-        let types = allTypesForBackgroundDelivery()
-        self.syncData(for: types)
+        syncData()
       }
     }
   }
@@ -110,7 +109,7 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  public func syncData(for types: [HKObjectType]) {
+  private func _syncData(for types: [HKObjectType]) {
     guard userId != nil else {
       self.logger?.log(
         level: .error,
@@ -129,6 +128,11 @@ extension VitalHealthKitClient {
     for type in types {
       
     }
+  }
+  
+  public func syncData() {
+    let types = allTypesAskedForPermission(store: store)
+    self._syncData(for: types)
   }
   
   public func ask(
@@ -155,8 +159,8 @@ extension VitalHealthKitClient {
         completion(.failure("Couldn't grant permissions"))
         return
       }
-    
-      self.syncData(for: types)
+      
+      self._syncData(for: types)
     }
   }
 }
