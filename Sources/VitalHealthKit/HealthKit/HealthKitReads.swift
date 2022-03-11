@@ -51,8 +51,8 @@ func handleBody(
   )
   
   let bodyMass = try await queryQuantities(
-    type: .quantityType(forIdentifier: .height)!,
-    transformation: { $0.doubleValue(for: .meterUnit(with: .centi))}
+    type: .quantityType(forIdentifier: .bodyMass)!,
+    transformation: { $0.doubleValue(for: .gramUnit(with: .kilo))}
   )
   
   let bodyFacePercentage = try await queryQuantities(
