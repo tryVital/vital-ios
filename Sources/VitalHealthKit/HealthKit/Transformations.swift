@@ -20,6 +20,7 @@ func toHealthKitTypes(permission: Permission) -> Set<HKObjectType> {
   }
 }
 
+
 func allTypesForBackgroundDelivery(
 ) -> [HKObjectType] {
   return Permission.all

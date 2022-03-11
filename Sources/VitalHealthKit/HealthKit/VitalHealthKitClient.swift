@@ -34,6 +34,8 @@ public class VitalHealthKitClient {
   
   private let store: HKHealthStore
   private let configuration: Configuration
+  private let storage: AnchorStorage
+  
   private var logger: Logger? = nil
   private var userId: String? = nil {
     didSet {
@@ -45,10 +47,11 @@ public class VitalHealthKitClient {
   
   init(configuration: Configuration) {
     self.store = HKHealthStore()
+    self.storage = AnchorStorage()
     self.configuration = configuration
     
     if configuration.logsEnable {
-      self.logger = Logger(subsystem: "vital", category: "healthkit-client")
+      self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
     if configuration.backgroundUpdates {
@@ -109,24 +112,34 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  private func _syncData(for types: [HKObjectType]) {
-    guard userId != nil else {
-      self.logger?.log(
-        level: .error,
-        "Can't sync data: `userId` hasn't been set. Please use VitalHealthKitClient.set(userId: \"xyz\")"
-      )
+  private func _syncData(for types: [HKObjectType]){
+    Task(priority: .high) {
+      guard userId != nil else {
+        self.logger?.log(
+          level: .error,
+          "Can't sync data: `userId` hasn't been set. Please use VitalHealthKitClient.set(userId: \"xyz\")"
+        )
+        
+        return
+      }
       
-      return
-    }
-    
-    for type in types {
-      self.logger?.log(level: .info, "Syncing data for \(type)")
-    }
-    
-      /// 1) Read data from HealthKit
-      ///
-    for type in types {
+      for type in types {
+        self.logger?.log(level: .info, "Syncing data for \(type)")
+      }
       
+      for type in types {
+        do {
+          let results = try await query(
+            healthKitStore: store,
+            anchtorStorage: storage,
+            isBackgroundUpdating: configuration.backgroundUpdates,
+            type: type
+          )
+        }
+        catch {
+          
+        }
+      }
     }
   }
   
@@ -164,3 +177,4 @@ extension VitalHealthKitClient {
     }
   }
 }
+
