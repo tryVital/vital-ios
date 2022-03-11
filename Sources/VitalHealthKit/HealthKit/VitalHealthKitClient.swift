@@ -7,18 +7,26 @@ public enum PermissionOutcome {
   case healthKitNotAvailable
 }
 
-public enum Permission {
+public enum Domain {
   public enum Vitals {
     case glucose
   }
   
+  case profile
   case body
   case workouts
   case activity
   case sleep
   case vitals(Vitals)
   
-  static var all: [Permission] = [.body, .workouts, .activity, .sleep, .vitals(.glucose)]
+  static var all: [Domain] = [
+    .profile,
+    .body,
+    .workouts,
+    .activity,
+    .sleep,
+    .vitals(.glucose),
+    ]
 }
 
 public class VitalHealthKitClient {
@@ -112,7 +120,7 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  private func _syncData(for types: [HKObjectType]){
+  private func _syncData(for domains: [Domain]){
     Task(priority: .high) {
       guard userId != nil else {
         self.logger?.log(
@@ -122,34 +130,45 @@ extension VitalHealthKitClient {
         
         return
       }
-      
-      for type in types {
-        self.logger?.log(level: .info, "Syncing data for \(type)")
+      do {
+        for domain in domains {
+          switch domain {
+            case .profile:
+             let profilePayload = try await handleProfile(
+                healthKitStore: store,
+                anchtorStorage: storage
+              )
+            case .body:
+             let bodyPayload = try await handleBody(
+                healthKitStore: store,
+                anchtorStorage: storage,
+                isBackgroundUpdating: configuration.backgroundUpdates
+              )
+              
+            case .workouts:
+              fatalError()
+            case .activity:
+              fatalError()
+            case .sleep:
+              fatalError()
+            case .vitals(let vitals):
+              fatalError()
+          }
+        }
       }
-      
-      for type in types {
-        do {
-          let results = try await query(
-            healthKitStore: store,
-            anchtorStorage: storage,
-            isBackgroundUpdating: configuration.backgroundUpdates,
-            type: type
-          )
-        }
-        catch {
-          
-        }
+      catch let error {
+        print(error)
       }
     }
   }
   
   public func syncData() {
-    let types = allTypesAskedForPermission(store: store)
-    self._syncData(for: types)
+    let domains = domainsAskedForPermission(store: store)
+    self._syncData(for: domains)
   }
   
   public func ask(
-    for permissions: [Permission],
+    for domains: [Domain],
     completion: @escaping (PermissionOutcome) -> Void = { _ in }
   ) {
     guard HKHealthStore.isHealthDataAvailable() else {
@@ -157,7 +176,7 @@ extension VitalHealthKitClient {
       return
     }
     
-    let types = permissions.flatMap(toHealthKitTypes)
+    let types = domains.flatMap(toHealthKitTypes)
     store.requestAuthorization(toShare: [], read: Set(types)) {[weak self] success, error in
       guard let self = self else {
         return
@@ -173,7 +192,7 @@ extension VitalHealthKitClient {
         return
       }
       
-      self._syncData(for: types)
+      self._syncData(for: domains)
     }
   }
 }
