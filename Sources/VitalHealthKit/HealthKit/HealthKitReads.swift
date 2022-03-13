@@ -24,7 +24,11 @@ func handleBody(
   endDate: Date = .init()
 ) async throws -> VitalBodyPatch {
   
-  func queryQuantities(type: HKSampleType, transformation: (HKQuantity) -> Double) async throws -> [DiscreteQuantity] {
+  func queryQuantities(
+    type: HKSampleType,
+    unit: DiscreteQuantity.Unit
+  ) async throws -> [DiscreteQuantity] {
+    
     return try await query(
       healthKitStore: healthKitStore,
       anchorStorage: anchtorStorage,
@@ -33,31 +37,24 @@ func handleBody(
       startDate: startDate,
       endDate: endDate
     )
-      .compactMap { $0 as? HKDiscreteQuantitySample }
-      .map {
-        let value = transformation($0.quantity)
-        return DiscreteQuantity(
-          id: $0.uuid.uuidString,
-          value: value,
-          date: $0.startDate,
-          sourceBundle: $0.sourceRevision.source.bundleIdentifier
-        )
+      .compactMap {
+        .init($0, unit: unit)
       }
   }
   
   let height = try await queryQuantities(
     type: .quantityType(forIdentifier: .height)!,
-    transformation: { $0.doubleValue(for: .meterUnit(with: .centi))}
+    unit: .height
   )
   
   let bodyMass = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyMass)!,
-    transformation: { $0.doubleValue(for: .gramUnit(with: .kilo))}
+    unit: .bodyMass
   )
   
   let bodyFacePercentage = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!,
-    transformation: { $0.doubleValue(for: .percent())}
+    unit: .bodyFatPercentage
   )
   
   return .init(height: height, bodyMass: bodyMass, bodyFatPercentage: bodyFacePercentage)
@@ -70,38 +67,50 @@ func handleSleep(
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
 ) async throws -> VitalSleepPatch {
-  
-  
-  let sleep = try await query(
+
+  let sleeps = try await query(
     healthKitStore: healthKitStore,
-    anchorStorage: anchtorStorage,
+    anchorStorage: nil, //TODO: Fix this, testing reasons
     isBackgroundUpdating: isBackgroundUpdating,
     type: .categoryType(forIdentifier: .sleepAnalysis)!,
     startDate: startDate,
     endDate: endDate
   )
+    .compactMap(VitalSleepPatch.Sleep.init)
   
+  var modified: [VitalSleepPatch.Sleep] = []
   
-  
-  let heartRate = try await query(
-    healthKitStore: healthKitStore,
-    isBackgroundUpdating: false,
-    type: .quantityType(forIdentifier: .heartRate)!,
-    startDate: startDate,
-    endDate: endDate
-  )
-  
-  
-  
-  print("ads")
-  return .init(sleep: [])
+  for sleep in sleeps {
+    
+    let heartRate: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .heartRate)!,
+      startDate: sleep.startDate,
+      endDate: sleep.endDate
+    ).compactMap { .init($0, unit: .heartRate) }
+    
+    let hearRateVariability: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+      startDate: sleep.startDate,
+      endDate: sleep.endDate
+    ).compactMap { .init($0, unit: .heartRateVariability) }
+    
+    var copy = sleep
+    copy.heartRate = heartRate
+    copy.heartRateVariability = hearRateVariability
+    
+    modified.append(copy)
+  }
+
+  return .init(sleep: modified)
 }
 
 
 private func query(
   healthKitStore: HKHealthStore,
   anchorStorage: AnchorStorage? = nil,
-  isBackgroundUpdating: Bool,
+  isBackgroundUpdating: Bool = false,
   type: HKSampleType,
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date,

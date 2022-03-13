@@ -17,7 +17,9 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
       
     case .sleep:
       return [
-        HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!
+        HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
+        HKSampleType.quantityType(forIdentifier: .heartRate)!,
+        HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!
       ]
       
     default:
