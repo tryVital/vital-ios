@@ -52,12 +52,16 @@ func handleBody(
     unit: .bodyMass
   )
   
-  let bodyFacePercentage = try await queryQuantities(
+  let bodyFatPercentage = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!,
     unit: .bodyFatPercentage
   )
   
-  return .init(height: height, bodyMass: bodyMass, bodyFatPercentage: bodyFacePercentage)
+  return .init(
+    height: height,
+    bodyMass: bodyMass,
+    bodyFatPercentage: bodyFatPercentage
+  )
 }
 
 func handleSleep(
