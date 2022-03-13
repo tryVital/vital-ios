@@ -145,12 +145,20 @@ extension VitalHealthKitClient {
                 isBackgroundUpdating: configuration.backgroundUpdates
               )
               
-            case .workouts:
-              fatalError()
-            case .activity:
-              fatalError()
             case .sleep:
-              fatalError()
+              let sleepPayload = try await handleSleep(
+                healthKitStore: store,
+                anchtorStorage: storage,
+                isBackgroundUpdating: configuration.backgroundUpdates
+              )
+      
+              
+            case .workouts:
+              fatalError("Workouts not set")
+              
+            case .activity:
+              fatalError("Activities not set")
+
             case .vitals(let vitals):
               fatalError()
           }

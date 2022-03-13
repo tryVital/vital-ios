@@ -7,12 +7,6 @@ struct DiscreteQuantity: Encodable {
   let sourceBundle: String
 }
 
-struct VitalBodyPatch: Encodable {
-  let height: [DiscreteQuantity]
-  let bodyMass: [DiscreteQuantity]
-  let bodyFatPercentage: [DiscreteQuantity]
-}
-
 struct VitalProfilePatch: Encodable {
   enum BiologicalSex: String, Encodable {
     case male
@@ -38,4 +32,23 @@ struct VitalProfilePatch: Encodable {
   
   let biologicalSex: BiologicalSex?
   let dateOfBirth: Date?
+}
+
+struct VitalBodyPatch: Encodable {
+  let height: [DiscreteQuantity]
+  let bodyMass: [DiscreteQuantity]
+  let bodyFatPercentage: [DiscreteQuantity]
+}
+
+
+
+struct VitalSleepPatch: Encodable {
+  struct Sleep: Encodable {
+    let id: String
+    let startingDate: Date
+    let endingDate: Date
+    let sourceBundle: String
+  }
+  
+  let sleep: [Sleep]
 }

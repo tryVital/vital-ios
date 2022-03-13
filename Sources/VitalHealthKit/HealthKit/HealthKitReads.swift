@@ -63,10 +63,44 @@ func handleBody(
   return .init(height: height, bodyMass: bodyMass, bodyFatPercentage: bodyFacePercentage)
 }
 
+func handleSleep(
+  healthKitStore: HKHealthStore,
+  anchtorStorage: AnchorStorage,
+  isBackgroundUpdating: Bool,
+  startDate: Date = .dateAgo(days: 30),
+  endDate: Date = .init()
+) async throws -> VitalSleepPatch {
+  
+  
+  let sleep = try await query(
+    healthKitStore: healthKitStore,
+    anchorStorage: anchtorStorage,
+    isBackgroundUpdating: isBackgroundUpdating,
+    type: .categoryType(forIdentifier: .sleepAnalysis)!,
+    startDate: startDate,
+    endDate: endDate
+  )
+  
+  
+  
+  let heartRate = try await query(
+    healthKitStore: healthKitStore,
+    isBackgroundUpdating: false,
+    type: .quantityType(forIdentifier: .heartRate)!,
+    startDate: startDate,
+    endDate: endDate
+  )
+  
+  
+  
+  print("ads")
+  return .init(sleep: [])
+}
+
 
 private func query(
   healthKitStore: HKHealthStore,
-  anchorStorage: AnchorStorage,
+  anchorStorage: AnchorStorage? = nil,
   isBackgroundUpdating: Bool,
   type: HKSampleType,
   limit: Int = HKObjectQueryNoLimit,
@@ -83,14 +117,14 @@ private func query(
       }
       
       if let anchor = newAnchor {
-        anchorStorage.set(anchor, forKey: String(describing: type.self))
+        anchorStorage?.set(anchor, forKey: String(describing: type.self))
       }
       
       continuation.resume(with: .success(samples ?? []))
     }
     
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
-    let anchor = anchorStorage.read(key: String(describing: type.self))
+    let anchor = anchorStorage?.read(key: String(describing: type.self))
     
     let query = HKAnchoredObjectQuery(
       type: type,

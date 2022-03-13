@@ -40,6 +40,9 @@ func domainsAskedForPermission(
   var domains: [Domain] = []
   
   for domain in Domain.all {
+    guard toHealthKitTypes(domain: domain).isEmpty == false else {
+      continue
+    }
     
     let hasAskedPermission = toHealthKitTypes(domain: domain)
       .map { store.authorizationStatus(for: $0) != .notDetermined }
@@ -49,7 +52,6 @@ func domainsAskedForPermission(
       domains.append(domain)
     }
   }
-  
   
   return domains
 }
