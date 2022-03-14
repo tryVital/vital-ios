@@ -28,6 +28,13 @@ extension DiscreteQuantity {
     case bodyFatPercentage
     case heartRate
     case heartRateVariability
+    case oxygenSaturation
+    
+    case basalEnergyBurned
+    case steps
+    case floorsClimbed
+    case distanceWalkingRunning
+    case vo2Max
     
     var toHealthKit: HKUnit {
       switch self {
@@ -41,6 +48,20 @@ extension DiscreteQuantity {
           return .meterUnit(with: .centi)
         case .heartRateVariability:
           return .secondUnit(with: .milli)
+        case .oxygenSaturation:
+          return .percent()
+          
+        case .basalEnergyBurned:
+          return .kilocalorie()
+        case .steps:
+          return .count()
+        case .floorsClimbed:
+          return .count()
+        case .distanceWalkingRunning:
+          return .meterUnit(with: .kilo)
+        case .vo2Max:
+          // ml/(kg*min)
+          return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
       }
     }
   }
@@ -80,7 +101,6 @@ struct VitalBodyPatch: Encodable {
 }
 
 
-
 struct VitalSleepPatch: Encodable {
   struct Sleep: Encodable {
     let id: String
@@ -90,6 +110,7 @@ struct VitalSleepPatch: Encodable {
     
     var heartRate: [DiscreteQuantity] = []
     var heartRateVariability: [DiscreteQuantity] = []
+    var oxygenSaturation: [DiscreteQuantity] = []
 
     init?(sample: HKSample) {
       guard let value = sample as? HKCategorySample else {
@@ -104,4 +125,32 @@ struct VitalSleepPatch: Encodable {
   }
   
   let sleep: [Sleep]
+}
+
+struct VitalActivityPatch: Encodable {
+  struct Activity: Encodable {
+    let date: Date?
+    let activeEnergyBurned: Double
+    let exerciseTime: Double
+    let standingTime: Double
+    let moveTime: Double
+    
+    var basalEnergyBurned: [DiscreteQuantity] = []
+    var steps: [DiscreteQuantity] = []
+    var floorsClimbed: [DiscreteQuantity] = []
+    var distanceWalkingRunning: [DiscreteQuantity] = []
+    var vo2Max: [DiscreteQuantity] = []
+    
+    init(activity: HKActivitySummary) {
+      
+      self.date = activity.dateComponents(for: .current).date
+      
+      self.activeEnergyBurned = activity.activeEnergyBurned.doubleValue(for: .kilocalorie())
+      self.exerciseTime = activity.appleExerciseTime.doubleValue(for: .minute())
+      self.standingTime = activity.appleStandHours.doubleValue(for: .count())
+      self.moveTime = activity.appleMoveTime.doubleValue(for: .minute())
+    }
+  }
+  
+  let activities: [Activity]
 }

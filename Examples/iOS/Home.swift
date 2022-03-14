@@ -7,27 +7,14 @@ struct HomeView: View {
       Form {
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
-            HStack {
-              Text("Body")
-              Spacer()
-              Button("Request Permission") {
-                VitalHealthKitClient.shared.ask(for: [.body]) { completion in
-                  print(completion)
-                }
-              }
-              .buttonStyle(PermissionStyle())
-            }
             
-            HStack {
-              Text("Sleep")
-              Spacer()
-              Button("Request Permission") {
-                VitalHealthKitClient.shared.ask(for: [.sleep]) { completion in
-                  print(completion)
-                }
-              }
-              .buttonStyle(PermissionStyle())
-            }
+            makePermissionRow("Profile", domains: [.profile])
+            
+            makePermissionRow("Body", domains: [.body])
+            
+            makePermissionRow("Sleep", domains: [.sleep])
+            
+            makePermissionRow("Activity", domains: [.activity])
           }
           .buttonStyle(PlainButtonStyle())
         }
@@ -39,5 +26,15 @@ struct HomeView: View {
 }
 
 
-
-
+@ViewBuilder func makePermissionRow(_ text: String, domains: [Domain]) -> some View {
+  HStack {
+    Text(text)
+    Spacer()
+    Button("Request Permission") {
+      VitalHealthKitClient.shared.ask(for: domains) { completion in
+        print(completion)
+      }
+    }
+    .buttonStyle(PermissionStyle())
+  }
+}

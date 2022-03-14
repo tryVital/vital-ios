@@ -1,6 +1,7 @@
 import HealthKit
 
-typealias QueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
+typealias SampleQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
+typealias ActivityQueryHandler = (HKActivitySummaryQuery, [HKActivitySummary]?, Error?) -> Void
 
 
 func handleProfile(
@@ -74,7 +75,7 @@ func handleSleep(
 
   let sleeps = try await query(
     healthKitStore: healthKitStore,
-    anchorStorage: nil, //TODO: Fix this, testing reasons
+    anchorStorage: anchtorStorage,
     isBackgroundUpdating: isBackgroundUpdating,
     type: .categoryType(forIdentifier: .sleepAnalysis)!,
     startDate: startDate,
@@ -82,7 +83,7 @@ func handleSleep(
   )
     .compactMap(VitalSleepPatch.Sleep.init)
   
-  var modified: [VitalSleepPatch.Sleep] = []
+  var copies: [VitalSleepPatch.Sleep] = []
   
   for sleep in sleeps {
     
@@ -100,14 +101,95 @@ func handleSleep(
       endDate: sleep.endDate
     ).compactMap { .init($0, unit: .heartRateVariability) }
     
+    let oxygenSaturation: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .oxygenSaturation)!,
+      startDate: sleep.startDate,
+      endDate: sleep.endDate
+    ).compactMap { .init($0, unit: .heartRateVariability) }
+    
     var copy = sleep
     copy.heartRate = heartRate
     copy.heartRateVariability = hearRateVariability
+    copy.oxygenSaturation = oxygenSaturation
     
-    modified.append(copy)
+    copies.append(copy)
   }
 
-  return .init(sleep: modified)
+  return .init(sleep: copies)
+}
+
+func handleActivity(
+  healthKitStore: HKHealthStore,
+  dateStorage: DateStorage
+) async throws -> VitalActivityPatch {
+  
+  let startDate = dateStorage.read() ?? .dateAgo(days: 30)
+  let endDate: Date = .init()
+  
+  let activities = try await activityQuery(
+    healthKitStore: healthKitStore,
+    startDate: startDate,
+    endDate: endDate
+  ).map(VitalActivityPatch.Activity.init)
+
+  
+  var copies: [VitalActivityPatch.Activity] = []
+  
+  for activity in activities {
+    
+    guard let date = activity.date else {
+      copies.append(activity)
+      continue
+    }
+        
+    let basalEnergyBurned: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .basalEnergyBurned)!,
+      startDate: date.beginningOfDay,
+      endDate: date.endingOfDay
+    ).compactMap { .init($0, unit: .basalEnergyBurned) }
+    
+    let steps: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .stepCount)!,
+      startDate: date.beginningOfDay,
+      endDate: date.endingOfDay
+    ).compactMap { .init($0, unit: .steps) }
+    
+    let floorsClimbed: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .flightsClimbed)!,
+      startDate: date.beginningOfDay,
+      endDate: date.endingOfDay
+    ).compactMap { .init($0, unit: .floorsClimbed) }
+
+    let distanceWalkingRunning: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
+      startDate: date.beginningOfDay,
+      endDate: date.endingOfDay
+    ).compactMap { .init($0, unit: .distanceWalkingRunning) }
+    
+    let vo2Max: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .vo2Max)!,
+      startDate: date.beginningOfDay,
+      endDate: date.endingOfDay
+    ).compactMap { .init($0, unit: .vo2Max) }
+
+    var copy = activity
+
+    copy.basalEnergyBurned = basalEnergyBurned
+    copy.steps = steps
+    copy.floorsClimbed = floorsClimbed
+    copy.distanceWalkingRunning = distanceWalkingRunning
+    copy.vo2Max = vo2Max
+    
+    copies.append(copy)
+  }
+  
+  return .init(activities: copies)
 }
 
 
@@ -123,7 +205,7 @@ private func query(
   
   return try await withCheckedThrowingContinuation { continuation in
     
-    let handler: QueryHandler = { (query, samples, deletedObject, newAnchor, error) in
+    let handler: SampleQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
       if let error = error {
         continuation.resume(with: .failure(error))
         return
@@ -150,6 +232,35 @@ private func query(
     if isBackgroundUpdating && limit == HKObjectQueryNoLimit {
       query.updateHandler = handler
     }
+      
+    healthKitStore.execute(query)
+  }
+}
+
+private func activityQuery(
+  healthKitStore: HKHealthStore,
+  dateStorage: DateStorage? = nil,
+  isBackgroundUpdating: Bool = false,
+  startDate: Date,
+  endDate: Date
+) async throws -> [HKActivitySummary] {
+  
+  return try await withCheckedThrowingContinuation { continuation in
+    
+    let handler: ActivityQueryHandler = { (query, activities, error) in
+      if let error = error {
+        continuation.resume(with: .failure(error))
+        return
+      }
+      
+      continuation.resume(with: .success(activities ?? []))
+    }
+    
+    let startDateComponent = startDate.dateComponentsForActivityQuery
+    let endDateComponent = endDate.dateComponentsForActivityQuery
+    
+    let predicate = HKQuery.predicate(forActivitySummariesBetweenStart: startDateComponent, end: endDateComponent)
+    let query = HKActivitySummaryQuery(predicate: predicate, resultsHandler: handler)
     
     healthKitStore.execute(query)
   }

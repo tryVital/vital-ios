@@ -19,7 +19,19 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
       return [
         HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
-        HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!
+        HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!
+      ]
+      
+    case .activity:
+      return [
+        HKSampleType.activitySummaryType(),
+        HKSampleType.quantityType(forIdentifier: .stepCount)!,
+        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       ]
       
     default:
@@ -32,7 +44,10 @@ func allTypesForBackgroundDelivery(
 ) -> [HKObjectType] {
   return Domain.all
     .flatMap(toHealthKitTypes(domain:))
-    .filter { return $0.isKind(of: HKCharacteristicType.self) == false }
+    .filter {
+      return $0.isKind(of: HKCharacteristicType.self) == false
+          && $0.isKind(of: HKActivitySummaryType.self) == false
+    }
 }
 
 func domainsAskedForPermission(

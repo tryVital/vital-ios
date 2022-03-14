@@ -42,8 +42,9 @@ public class VitalHealthKitClient {
   
   private let store: HKHealthStore
   private let configuration: Configuration
-  private let storage: AnchorStorage
-  
+  private let anchorStorage: AnchorStorage
+  private let dateStorage: DateStorage
+
   private var logger: Logger? = nil
   private var userId: String? = nil {
     didSet {
@@ -55,7 +56,8 @@ public class VitalHealthKitClient {
   
   init(configuration: Configuration) {
     self.store = HKHealthStore()
-    self.storage = AnchorStorage()
+    self.anchorStorage = AnchorStorage()
+    self.dateStorage = DateStorage()
     self.configuration = configuration
     
     if configuration.logsEnable {
@@ -136,28 +138,32 @@ extension VitalHealthKitClient {
             case .profile:
              let profilePayload = try await handleProfile(
                 healthKitStore: store,
-                anchtorStorage: storage
+                anchtorStorage: anchorStorage
               )
             case .body:
              let bodyPayload = try await handleBody(
                 healthKitStore: store,
-                anchtorStorage: storage,
+                anchtorStorage: anchorStorage,
                 isBackgroundUpdating: configuration.backgroundUpdates
               )
               
             case .sleep:
               let sleepPayload = try await handleSleep(
                 healthKitStore: store,
-                anchtorStorage: storage,
+                anchtorStorage: anchorStorage,
                 isBackgroundUpdating: configuration.backgroundUpdates
               )
-      
+              
+            case .activity:
+              let activitiesPayload = try await handleActivity(
+                healthKitStore: store,
+                dateStorage: dateStorage
+              )
               
             case .workouts:
               fatalError("Workouts not set")
               
-            case .activity:
-              fatalError("Activities not set")
+
 
             case .vitals(let vitals):
               fatalError()
