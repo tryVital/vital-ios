@@ -20,7 +20,8 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
         HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
-        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!
+        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!
       ]
       
     case .activity:
@@ -32,6 +33,13 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+      ]
+      
+    case .workout:
+      return [
+        HKSampleType.workoutType(),
+        HKSampleType.quantityType(forIdentifier: .heartRate)!,
+        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
       ]
       
     default:

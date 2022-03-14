@@ -15,6 +15,9 @@ struct HomeView: View {
             makePermissionRow("Sleep", domains: [.sleep])
             
             makePermissionRow("Activity", domains: [.activity])
+            
+            makePermissionRow("Workout", domains: [.workout])
+
           }
           .buttonStyle(PlainButtonStyle())
         }

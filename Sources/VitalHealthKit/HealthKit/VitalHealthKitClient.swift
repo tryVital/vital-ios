@@ -14,7 +14,7 @@ public enum Domain {
   
   case profile
   case body
-  case workouts
+  case workout
   case activity
   case sleep
   case vitals(Vitals)
@@ -22,7 +22,7 @@ public enum Domain {
   static var all: [Domain] = [
     .profile,
     .body,
-    .workouts,
+    .workout,
     .activity,
     .sleep,
     .vitals(.glucose),
@@ -132,6 +132,7 @@ extension VitalHealthKitClient {
         
         return
       }
+      
       do {
         for domain in domains {
           switch domain {
@@ -160,8 +161,12 @@ extension VitalHealthKitClient {
                 dateStorage: dateStorage
               )
               
-            case .workouts:
-              fatalError("Workouts not set")
+            case .workout:
+              let workoutsPayload = try await handleWorkouts(
+                healthKitStore: store,
+                anchtorStorage: anchorStorage,
+                isBackgroundUpdating: configuration.backgroundUpdates
+              )
               
 
 

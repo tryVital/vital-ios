@@ -28,6 +28,7 @@ extension DiscreteQuantity {
     case bodyFatPercentage
     case heartRate
     case heartRateVariability
+    case restingHeartRate
     case oxygenSaturation
     
     case basalEnergyBurned
@@ -48,6 +49,9 @@ extension DiscreteQuantity {
           return .meterUnit(with: .centi)
         case .heartRateVariability:
           return .secondUnit(with: .milli)
+        case .restingHeartRate:
+          return .count().unitDivided(by: .minute())
+          
         case .oxygenSaturation:
           return .percent()
           
@@ -109,6 +113,7 @@ struct VitalSleepPatch: Encodable {
     let sourceBundle: String
     
     var heartRate: [DiscreteQuantity] = []
+    var restingHeartRate: [DiscreteQuantity] = []
     var heartRateVariability: [DiscreteQuantity] = []
     var oxygenSaturation: [DiscreteQuantity] = []
 
@@ -153,4 +158,23 @@ struct VitalActivityPatch: Encodable {
   }
   
   let activities: [Activity]
+}
+
+struct VitalWorkoutPatch: Encodable {
+  struct Workout: Encodable {
+    let id: String
+    let startDate: Date
+    let endDate: Date
+
+    
+    init?(sample: HKSample) {
+      guard let workout = sample as? HKWorkout else {
+        return nil
+      }
+
+      return nil
+    }
+  }
+  
+  let workouts: [Workout]
 }
