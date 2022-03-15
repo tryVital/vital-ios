@@ -2,6 +2,7 @@ import SwiftUI
 import HealthKit
 
 class AnchorStorage {
+  private let prefix = "vital_anchor_"
   private let userDefaults: UserDefaults
   
   init(userDefaults: UserDefaults = .standard) {
@@ -22,7 +23,7 @@ class AnchorStorage {
   
   func read(key: String) -> HKQueryAnchor? {
     guard
-      let storedString = userDefaults.string(forKey: key),
+      let storedString = userDefaults.string(forKey: prefix + key),
       let data = Data(base64Encoded: storedString)
     else {
       return nil
@@ -32,6 +33,6 @@ class AnchorStorage {
   }
   
   func remove(key: String) {
-    userDefaults.removeObject(forKey: key)
+    userDefaults.removeObject(forKey: prefix + key)
   }
 }

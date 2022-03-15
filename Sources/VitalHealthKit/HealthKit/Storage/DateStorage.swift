@@ -3,7 +3,7 @@ import HealthKit
 
 class DateStorage {
   private let userDefaults: UserDefaults
-  private let key = "Vital_Activity"
+  private let key = "vital_date_activities"
   
   init(userDefaults: UserDefaults = .standard) {
     self.userDefaults = userDefaults
