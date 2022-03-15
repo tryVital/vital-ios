@@ -52,10 +52,10 @@ public class VitalHealthKitClient {
   private let anchorStorage: AnchorStorage
   private let dateStorage: DateStorage
   
-  private let statusSubject: PassthroughSubject<Status, Never>
+  private let _status: PassthroughSubject<Status, Never>
   
   public var status: AnyPublisher<Status, Never> {
-    return statusSubject.eraseToAnyPublisher()
+    return _status.eraseToAnyPublisher()
   }
   
   private var logger: Logger? = nil
@@ -72,7 +72,7 @@ public class VitalHealthKitClient {
     self.anchorStorage = AnchorStorage()
     self.dateStorage = DateStorage()
     self.configuration = configuration
-    self.statusSubject = PassthroughSubject<Status, Never>()
+    self._status = PassthroughSubject<Status, Never>()
     
     
     if configuration.logsEnable {
@@ -84,7 +84,7 @@ public class VitalHealthKitClient {
         self.store.enableBackgroundDelivery(for: type, frequency: .immediate) {[weak self] success, failure in
           
           guard failure == nil && success else {
-            self?.logger?.log(level: .error, "Failed to enable background delivery for \(String(describing: type))")
+            self?.logger?.log(level: .error, "Failed to enable background delivery for \(String(describing: type)). This is a developer mistake")
             return
           }
           
@@ -150,8 +150,8 @@ extension VitalHealthKitClient {
       
       for domain in domains {
         do {
-  
-          statusSubject.send(.syncing(domain))
+          
+          _status.send(.syncing(domain))
           
           let encodable = try await handle(
             domain: domain,
@@ -161,14 +161,22 @@ extension VitalHealthKitClient {
             isBackgroundUpdating: configuration.backgroundUpdates
           )
           
-          statusSubject.send(.successSyncing(domain))
+          // Convert to Data
+          
+          
+          // Post to the Network
+          
+          
+          // Save the anchor if it exists on succesfull network call
+          
+          _status.send(.successSyncing(domain))
           
         }
         catch let error {
-          statusSubject.send(.failedSyncing(domain, error))
+          _status.send(.failedSyncing(domain, error))
         }
       }
-
+      
     }
   }
   
