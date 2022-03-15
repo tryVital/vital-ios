@@ -327,34 +327,3 @@ private func activityQuery(
     healthKitStore.execute(query)
   }
 }
-
-private func workoutQuery(
-  healthKitStore: HKHealthStore,
-  dateStorage: DateStorage? = nil,
-  isBackgroundUpdating: Bool = false,
-  startDate: Date,
-  endDate: Date
-) async throws -> [HKActivitySummary] {
-  
-  return try await withCheckedThrowingContinuation { continuation in
-    
-//    let predicate = HKQuery.predicate
-    
-//    let handler: ActivityQueryHandler = { (query, activities, error) in
-//      if let error = error {
-//        continuation.resume(with: .failure(error))
-//        return
-//      }
-//
-//      continuation.resume(with: .success(activities ?? []))
-//    }
-//
-//    let startDateComponent = startDate.dateComponentsForActivityQuery
-//    let endDateComponent = endDate.dateComponentsForActivityQuery
-//
-//    let predicate = HKQuery.predicate(forActivitySummariesBetweenStart: startDateComponent, end: endDateComponent)
-//    let query = HKActivitySummaryQuery(predicate: predicate, resultsHandler: handler)
-//
-//    healthKitStore.execute(query)
-  }
-}
