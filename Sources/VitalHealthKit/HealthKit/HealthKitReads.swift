@@ -16,56 +16,44 @@ func handle(
 
   switch domain {
     case .profile:
-      let value = try await handleProfile(
+      return try await handleProfile(
         healthKitStore: store,
         anchtorStorage: anchorStorage
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
       
     case .body:
-      let value = try await handleBody(
+      return try await handleBody(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
       
     case .sleep:
-      let value = try await handleSleep(
+      return try await handleSleep(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
       
     case .activity:
-      let value = try await handleActivity(
+      return try await handleActivity(
         healthKitStore: store,
         dateStorage: dateStorage
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
       
     case .workout:
-      let value = try await handleWorkouts(
+      return try await handleWorkouts(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
       
     case .vitals(.glucose):
-      let value = try await handleGlucose(
+      return try await handleGlucose(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      )
-      
-      return AnyEncodable(value)
+      ).eraseToAnyEncodable
   }
 }
 

@@ -11,3 +11,9 @@ struct AnyEncodable: Encodable {
     try encode(encoder)
   }
 }
+
+extension Encodable {
+  var eraseToAnyEncodable: AnyEncodable {
+    return .init(self)
+  }
+}

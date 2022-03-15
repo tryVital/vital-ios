@@ -8,10 +8,6 @@ public enum PermissionOutcome {
   case healthKitNotAvailable
 }
 
-public enum DomainPayload {
-  case profile(VitalProfilePatch)
-}
-
 public enum Domain {
   public enum Vitals {
     case glucose
