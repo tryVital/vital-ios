@@ -169,9 +169,12 @@ extension VitalHealthKitClient {
               )
               
 
-
-            case .vitals(let vitals):
-              fatalError()
+            case .vitals(.glucose):
+              let glucosePayload = try await handleGlucose(
+                healthKitStore: store,
+                anchtorStorage: anchorStorage,
+                isBackgroundUpdating: configuration.backgroundUpdates
+              )
           }
         }
       }

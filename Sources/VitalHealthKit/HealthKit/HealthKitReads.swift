@@ -72,7 +72,7 @@ func handleSleep(
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
 ) async throws -> VitalSleepPatch {
-
+  
   let sleeps = try await query(
     healthKitStore: healthKitStore,
     anchorStorage: anchtorStorage,
@@ -131,7 +131,7 @@ func handleSleep(
     
     copies.append(copy)
   }
-
+  
   return .init(sleep: copies)
 }
 
@@ -148,7 +148,7 @@ func handleActivity(
     startDate: startDate,
     endDate: endDate
   ).map(VitalActivityPatch.Activity.init)
-
+  
   var copies: [VitalActivityPatch.Activity] = []
   
   for activity in activities {
@@ -157,7 +157,7 @@ func handleActivity(
       copies.append(activity)
       continue
     }
-        
+    
     let basalEnergyBurned: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .basalEnergyBurned)!,
@@ -178,7 +178,7 @@ func handleActivity(
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
     ).compactMap { .init($0, unit: .floorsClimbed) }
-
+    
     let distanceWalkingRunning: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
@@ -192,9 +192,9 @@ func handleActivity(
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
     ).compactMap { .init($0, unit: .vo2Max) }
-
+    
     var copy = activity
-
+    
     copy.basalEnergyBurned = basalEnergyBurned
     copy.steps = steps
     copy.floorsClimbed = floorsClimbed
@@ -254,6 +254,27 @@ func handleWorkouts(
   return .init(workouts: copies)
 }
 
+func handleGlucose(
+  healthKitStore: HKHealthStore,
+  anchtorStorage: AnchorStorage,
+  isBackgroundUpdating: Bool,
+  startDate: Date = .dateAgo(days: 30),
+  endDate: Date = .init()
+) async throws -> VitalGlucosePatch {
+  
+  let glucose: [DiscreteQuantity] = try await query(
+    healthKitStore: healthKitStore,
+    anchorStorage: nil,
+    isBackgroundUpdating: isBackgroundUpdating,
+    type: .quantityType(forIdentifier: .bloodGlucose)!,
+    startDate: startDate,
+    endDate: endDate
+  )
+    .compactMap { .init($0, unit: .glucose) }
+  
+  return .init(glucose: glucose)
+}
+
 
 private func query(
   healthKitStore: HKHealthStore,
@@ -294,7 +315,7 @@ private func query(
     if isBackgroundUpdating && limit == HKObjectQueryNoLimit {
       query.updateHandler = handler
     }
-      
+    
     healthKitStore.execute(query)
   }
 }

@@ -38,6 +38,8 @@ extension DiscreteQuantity {
     case distanceWalkingRunning
     case vo2Max
     
+    case glucose
+    
     var toHealthKit: HKUnit {
       switch self {
         case .heartRate:
@@ -48,6 +50,7 @@ extension DiscreteQuantity {
           return .percent()
         case .height:
           return .meterUnit(with: .centi)
+          
         case .heartRateVariability:
           return .secondUnit(with: .milli)
         case .restingHeartRate:
@@ -68,6 +71,10 @@ extension DiscreteQuantity {
         case .vo2Max:
           // ml/(kg*min)
           return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
+        
+        case .glucose:
+          //  mmol/L
+          return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
       }
     }
   }
@@ -193,4 +200,8 @@ struct VitalWorkoutPatch: Encodable {
   }
   
   let workouts: [Workout]
+}
+
+struct VitalGlucosePatch: Encodable {  
+  let glucose: [DiscreteQuantity]
 }
