@@ -21,7 +21,8 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
-        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!, 
+        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
       ]
       
     case .activity:

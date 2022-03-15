@@ -30,6 +30,7 @@ extension DiscreteQuantity {
     case heartRateVariability
     case restingHeartRate
     case oxygenSaturation
+    case respiratoryRate
     
     case basalEnergyBurned
     case steps
@@ -51,7 +52,8 @@ extension DiscreteQuantity {
           return .secondUnit(with: .milli)
         case .restingHeartRate:
           return .count().unitDivided(by: .minute())
-          
+        case .respiratoryRate:
+          return .count().unitDivided(by: .minute())
         case .oxygenSaturation:
           return .percent()
           
@@ -116,6 +118,7 @@ struct VitalSleepPatch: Encodable {
     var restingHeartRate: [DiscreteQuantity] = []
     var heartRateVariability: [DiscreteQuantity] = []
     var oxygenSaturation: [DiscreteQuantity] = []
+    var respiratoryRate: [DiscreteQuantity] = []
 
     init?(sample: HKSample) {
       guard let value = sample as? HKCategorySample else {
@@ -165,14 +168,27 @@ struct VitalWorkoutPatch: Encodable {
     let id: String
     let startDate: Date
     let endDate: Date
+    let sourceBundle: String
+    let sport: String
+    let calories: Double
+    let distance: Double
 
+    var heartRate: [DiscreteQuantity] = []
+    var respiratoryRate: [DiscreteQuantity] = []
     
     init?(sample: HKSample) {
       guard let workout = sample as? HKWorkout else {
         return nil
       }
+      
 
-      return nil
+      self.id = workout.uuid.uuidString
+      self.startDate = workout.startDate
+      self.endDate = workout.endDate
+      self.sport = workout.workoutActivityType.toString
+      self.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0
+      self.distance = workout.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)) ?? 0
+      self.sourceBundle = workout.sourceRevision.source.bundleIdentifier
     }
   }
   

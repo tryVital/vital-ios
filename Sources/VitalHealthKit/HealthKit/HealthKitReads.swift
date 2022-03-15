@@ -115,11 +115,19 @@ func handleSleep(
       endDate: sleep.endDate
     ).compactMap { .init($0, unit: .restingHeartRate) }
     
+    let respiratoryRate: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .respiratoryRate)!,
+      startDate: sleep.startDate,
+      endDate: sleep.endDate
+    ).compactMap { .init($0, unit: .restingHeartRate) }
+    
     var copy = sleep
     copy.heartRate = heartRate
     copy.heartRateVariability = hearRateVariability
     copy.restingHeartRate = restingHeartRate
     copy.oxygenSaturation = oxygenSaturation
+    copy.respiratoryRate = respiratoryRate
     
     copies.append(copy)
   }
@@ -209,7 +217,7 @@ func handleWorkouts(
   
   let workouts = try await query(
     healthKitStore: healthKitStore,
-    anchorStorage: anchtorStorage,
+    anchorStorage: nil,
     isBackgroundUpdating: isBackgroundUpdating,
     type: .workoutType(),
     startDate: startDate,
@@ -217,8 +225,9 @@ func handleWorkouts(
   )
     .compactMap(VitalWorkoutPatch.Workout.init)
   
+  var copies: [VitalWorkoutPatch.Workout] = []
+  
   for workout in workouts {
-    
     let heartRate: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .heartRate)!,
@@ -226,9 +235,23 @@ func handleWorkouts(
       endDate: workout.endDate
     ).compactMap { .init($0, unit: .heartRate) }
     
+    
+    let respiratoryRate: [DiscreteQuantity] = try await query(
+      healthKitStore: healthKitStore,
+      type: .quantityType(forIdentifier: .respiratoryRate)!,
+      startDate: workout.startDate,
+      endDate: workout.endDate
+    ).compactMap { .init($0, unit: .restingHeartRate) }
+    
+    
+    var copy = workout
+    copy.heartRate = heartRate
+    copy.respiratoryRate = respiratoryRate
+    
+    copies.append(copy)
   }
   
-  fatalError("asd")
+  return .init(workouts: copies)
 }
 
 
