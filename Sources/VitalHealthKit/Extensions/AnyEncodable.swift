@@ -13,7 +13,7 @@ struct AnyEncodable: Encodable {
 }
 
 extension Encodable {
-  var eraseToAnyEncodable: AnyEncodable {
+  func eraseToAnyEncodable() -> AnyEncodable {
     return .init(self)
   }
 }

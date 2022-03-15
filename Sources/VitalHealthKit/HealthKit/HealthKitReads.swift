@@ -19,41 +19,41 @@ func handle(
       return try await handleProfile(
         healthKitStore: store,
         anchtorStorage: anchorStorage
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
       
     case .body:
       return try await handleBody(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
       
     case .sleep:
       return try await handleSleep(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
       
     case .activity:
       return try await handleActivity(
         healthKitStore: store,
         dateStorage: dateStorage
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
       
     case .workout:
       return try await handleWorkouts(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
       
     case .vitals(.glucose):
       return try await handleGlucose(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable
+      ).eraseToAnyEncodable()
   }
 }
 
