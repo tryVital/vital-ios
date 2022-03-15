@@ -43,8 +43,10 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
       ]
       
-    default:
-      return []
+    case .vitals(.glucose):
+      return [
+        HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
+      ]
   }
 }
 
