@@ -1,10 +1,15 @@
 import HealthKit
+import Combine
 import os.log
 
 public enum PermissionOutcome {
   case success
   case failure(String)
   case healthKitNotAvailable
+}
+
+public enum DomainPayload {
+  case profile(VitalProfilePatch)
 }
 
 public enum Domain {
@@ -26,10 +31,16 @@ public enum Domain {
     .activity,
     .sleep,
     .vitals(.glucose),
-    ]
+  ]
 }
 
 public class VitalHealthKitClient {
+  public enum Status {
+    case syncing(Domain)
+    case failedSyncing(Domain, Error?)
+    case successSyncing(Domain)
+  }
+  
   public static var shared: VitalHealthKitClient {
     guard let client = Self.client else {
       fatalError("`VitalHealthKitClient` hasn't been configured.")
@@ -44,7 +55,13 @@ public class VitalHealthKitClient {
   private let configuration: Configuration
   private let anchorStorage: AnchorStorage
   private let dateStorage: DateStorage
-
+  
+  private let statusSubject: PassthroughSubject<Status, Never>
+  
+  public var status: AnyPublisher<Status, Never> {
+    return statusSubject.eraseToAnyPublisher()
+  }
+  
   private var logger: Logger? = nil
   private var userId: String? = nil {
     didSet {
@@ -59,6 +76,8 @@ public class VitalHealthKitClient {
     self.anchorStorage = AnchorStorage()
     self.dateStorage = DateStorage()
     self.configuration = configuration
+    self.statusSubject = PassthroughSubject<Status, Never>()
+    
     
     if configuration.logsEnable {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
@@ -133,54 +152,27 @@ extension VitalHealthKitClient {
         return
       }
       
-      do {
-        for domain in domains {
-          switch domain {
-            case .profile:
-             let profilePayload = try await handleProfile(
-                healthKitStore: store,
-                anchtorStorage: anchorStorage
-              )
-            case .body:
-             let bodyPayload = try await handleBody(
-                healthKitStore: store,
-                anchtorStorage: anchorStorage,
-                isBackgroundUpdating: configuration.backgroundUpdates
-              )
-              
-            case .sleep:
-              let sleepPayload = try await handleSleep(
-                healthKitStore: store,
-                anchtorStorage: anchorStorage,
-                isBackgroundUpdating: configuration.backgroundUpdates
-              )
-              
-            case .activity:
-              let activitiesPayload = try await handleActivity(
-                healthKitStore: store,
-                dateStorage: dateStorage
-              )
-              
-            case .workout:
-              let workoutsPayload = try await handleWorkouts(
-                healthKitStore: store,
-                anchtorStorage: anchorStorage,
-                isBackgroundUpdating: configuration.backgroundUpdates
-              )
-              
-
-            case .vitals(.glucose):
-              let glucosePayload = try await handleGlucose(
-                healthKitStore: store,
-                anchtorStorage: anchorStorage,
-                isBackgroundUpdating: configuration.backgroundUpdates
-              )
-          }
+      for domain in domains {
+        do {
+  
+          statusSubject.send(.syncing(domain))
+          
+          let encodable = try await handle(
+            domain: domain,
+            store: store,
+            anchorStorage: anchorStorage,
+            dateStorage: dateStorage,
+            isBackgroundUpdating: configuration.backgroundUpdates
+          )
+          
+          statusSubject.send(.successSyncing(domain))
+          
+        }
+        catch let error {
+          statusSubject.send(.failedSyncing(domain, error))
         }
       }
-      catch let error {
-        print(error)
-      }
+
     }
   }
   

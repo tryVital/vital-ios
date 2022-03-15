@@ -4,6 +4,71 @@ typealias SampleQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedOb
 typealias ActivityQueryHandler = (HKActivitySummaryQuery, [HKActivitySummary]?, Error?) -> Void
 
 
+func handle(
+  domain: Domain,
+  store: HKHealthStore,
+  anchorStorage: AnchorStorage,
+  dateStorage: DateStorage,
+  isBackgroundUpdating: Bool,
+  startDate: Date = .dateAgo(days: 30),
+  endDate: Date = .init()
+) async throws -> AnyEncodable {
+
+  switch domain {
+    case .profile:
+      let value = try await handleProfile(
+        healthKitStore: store,
+        anchtorStorage: anchorStorage
+      )
+      
+      return AnyEncodable(value)
+      
+    case .body:
+      let value = try await handleBody(
+        healthKitStore: store,
+        anchtorStorage: anchorStorage,
+        isBackgroundUpdating: isBackgroundUpdating
+      )
+      
+      return AnyEncodable(value)
+      
+    case .sleep:
+      let value = try await handleSleep(
+        healthKitStore: store,
+        anchtorStorage: anchorStorage,
+        isBackgroundUpdating: isBackgroundUpdating
+      )
+      
+      return AnyEncodable(value)
+      
+    case .activity:
+      let value = try await handleActivity(
+        healthKitStore: store,
+        dateStorage: dateStorage
+      )
+      
+      return AnyEncodable(value)
+      
+    case .workout:
+      let value = try await handleWorkouts(
+        healthKitStore: store,
+        anchtorStorage: anchorStorage,
+        isBackgroundUpdating: isBackgroundUpdating
+      )
+      
+      return AnyEncodable(value)
+      
+    case .vitals(.glucose):
+      let value = try await handleGlucose(
+        healthKitStore: store,
+        anchtorStorage: anchorStorage,
+        isBackgroundUpdating: isBackgroundUpdating
+      )
+      
+      return AnyEncodable(value)
+  }
+}
+
 func handleProfile(
   healthKitStore: HKHealthStore,
   anchtorStorage: AnchorStorage
@@ -235,7 +300,6 @@ func handleWorkouts(
       endDate: workout.endDate
     ).compactMap { .init($0, unit: .heartRate) }
     
-    
     let respiratoryRate: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
@@ -274,7 +338,6 @@ func handleGlucose(
   
   return .init(glucose: glucose)
 }
-
 
 private func query(
   healthKitStore: HKHealthStore,
