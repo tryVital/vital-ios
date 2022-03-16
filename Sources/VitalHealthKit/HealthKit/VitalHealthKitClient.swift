@@ -51,6 +51,7 @@ public class VitalHealthKitClient {
   private let configuration: Configuration
   private let anchorStorage: AnchorStorage
   private let dateStorage: DateStorage
+  private let networkClient: VitalNetworkClient
   
   private let _status: PassthroughSubject<Status, Never>
   
@@ -67,13 +68,13 @@ public class VitalHealthKitClient {
     }
   }
   
-  init(configuration: Configuration) {
+  init(configuration: Configuration, networkClient: VitalNetworkClient) {
     self.store = HKHealthStore()
     self.anchorStorage = AnchorStorage()
     self.dateStorage = DateStorage()
     self.configuration = configuration
+    self.networkClient = networkClient
     self._status = PassthroughSubject<Status, Never>()
-    
     
     if configuration.logsEnable {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
@@ -108,7 +109,8 @@ public class VitalHealthKitClient {
     environment: Environment,
     configuration: Configuration = .init()
   ) {
-    let client = VitalHealthKitClient(configuration: configuration)
+    let networkClient = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    let client = VitalHealthKitClient(configuration: configuration, networkClient: networkClient)
     Self.setInstance(client: client)
   }
   

@@ -11,7 +11,7 @@ struct ExampleApp: App {
           VitalHealthKitClient.configure(
             clientId: "xyz",
             clientSecret: "zys",
-            environment: .sandbox
+            environment: .sandbox(.us)
           )
           
           VitalHealthKitClient.set(userId: "xyz-zyx")

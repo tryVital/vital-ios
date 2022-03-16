@@ -11,9 +11,9 @@
 		E85A25AE27D6AAFA00B2212C /* Home.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258527D6AAF900B2212C /* Home.swift */; };
 		E85A25B027D6AAFA00B2212C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E85A258627D6AAFA00B2212C /* Assets.xcassets */; };
 		E85A25C127D6AC9D00B2212C /* vital-ios in Resources */ = {isa = PBXBuildFile; fileRef = E85A25C027D6AC9D00B2212C /* vital-ios */; };
-		E85A25C627D6AE8E00B2212C /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E85A25C527D6AE8E00B2212C /* VitalHealthKit */; };
 		E892239427D79B8700733C13 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892239327D79B8700733C13 /* Styles.swift */; };
 		E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E892239627D7A29F00733C13 /* HealthKit.framework */; };
+		E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E8D6BF6427E249E6000A9589 /* VitalHealthKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,7 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E85A25C627D6AE8E00B2212C /* VitalHealthKit in Frameworks */,
+				E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */,
 				E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -124,7 +124,7 @@
 			);
 			name = "Example (iOS)";
 			packageProductDependencies = (
-				E85A25C527D6AE8E00B2212C /* VitalHealthKit */,
+				E8D6BF6427E249E6000A9589 /* VitalHealthKit */,
 			);
 			productName = "Example (iOS)";
 			productReference = E85A258B27D6AAFA00B2212C /* Example.app */;
@@ -484,7 +484,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		E85A25C527D6AE8E00B2212C /* VitalHealthKit */ = {
+		E8D6BF6427E249E6000A9589 /* VitalHealthKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VitalHealthKit;
 		};
