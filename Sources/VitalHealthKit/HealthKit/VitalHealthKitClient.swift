@@ -155,7 +155,7 @@ extension VitalHealthKitClient {
           
           _status.send(.syncing(domain))
           
-          let encodable = try await handle(
+          let (encodable, entitiesToStore) = try await handle(
             domain: domain,
             store: store,
             anchorStorage: anchorStorage,
@@ -170,7 +170,7 @@ extension VitalHealthKitClient {
           
           
           // Save the anchor if it exists on succesfull network call
-          
+          VitalHealthKit.store(entities: entitiesToStore, anchorStorage: anchorStorage, dateStorage: dateStorage)
           _status.send(.successSyncing(domain))
           
         }
