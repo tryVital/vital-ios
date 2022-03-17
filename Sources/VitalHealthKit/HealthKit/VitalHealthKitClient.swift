@@ -184,7 +184,7 @@ extension VitalHealthKitClient {
   
   public func syncData() {
     let domains = domainsAskedForPermission(store: store)
-    self._syncData(for: domains)
+    _syncData(for: domains)
   }
   
   public func ask(

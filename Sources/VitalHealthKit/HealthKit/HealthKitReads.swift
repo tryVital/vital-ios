@@ -12,48 +12,75 @@ func handle(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> AnyEncodable {
+) async throws -> (AnyEncodable, [EntityToStore]) {
 
   switch domain {
     case .profile:
-      return try await handleProfile(
+      let profilePayload = try await handleProfile(
         healthKitStore: store,
         anchtorStorage: anchorStorage
       ).eraseToAnyEncodable()
       
+      return (profilePayload, [])
+      
     case .body:
-      return try await handleBody(
+      let payload = try await handleBody(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable()
+      )
+        
+      let body = payload.bodyPatch.eraseToAnyEncodable()
+      let entitiesToStore = payload.anchors.map { EntityToStore.anchor($0.key, $0.value) }
+      
+      return (body, entitiesToStore)
       
     case .sleep:
-      return try await handleSleep(
+      let payload = try await handleSleep(
         healthKitStore: store,
         anchtorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable()
+      )
+        
+      let sleep = payload.sleepPatch.eraseToAnyEncodable()
+      let entitiesToStore = payload.anchors.map { EntityToStore.anchor($0.key, $0.value) }
+
+      return (sleep, entitiesToStore)
       
     case .activity:
-      return try await handleActivity(
+      let payload = try await handleActivity(
         healthKitStore: store,
         dateStorage: dateStorage
-      ).eraseToAnyEncodable()
+      )
+      
+      let activity = payload.acitivtyPatch.eraseToAnyEncodable()
+      let data = payload.lastActivityDate == nil ? [] : [EntityToStore.date(payload.lastActivityDate!)]
+      
+      return (activity, data)
       
     case .workout:
-      return try await handleWorkouts(
+      let payload = try await handleWorkouts(
         healthKitStore: store,
-        anchtorStorage: anchorStorage,
+        anchorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable()
+      )
+        
+      let workout = payload.workoutPatch.eraseToAnyEncodable()
+      let entitiesToStore = payload.anchors.map { EntityToStore.anchor($0.key, $0.value) }
+
+      return (workout, entitiesToStore)
       
     case .vitals(.glucose):
-      return try await handleGlucose(
+      let payload = try await handleGlucose(
         healthKitStore: store,
-        anchtorStorage: anchorStorage,
+        anchorStorage: anchorStorage,
         isBackgroundUpdating: isBackgroundUpdating
-      ).eraseToAnyEncodable()
+      )
+        
+      let glucose = payload.glucosePatch.eraseToAnyEncodable()
+      let entitiesToStore = payload.anchors.map { EntityToStore.anchor($0.key, $0.value) }
+
+      return (glucose, entitiesToStore)
   }
 }
 
@@ -76,14 +103,14 @@ func handleBody(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> VitalBodyPatch {
+) async throws -> (bodyPatch: VitalBodyPatch, anchors: [String: HKQueryAnchor]) {
   
   func queryQuantities(
     type: HKSampleType,
     unit: DiscreteQuantity.Unit
-  ) async throws -> [DiscreteQuantity] {
+  ) async throws -> (quantities: [DiscreteQuantity], (key: String, anchor: HKQueryAnchor? )) {
     
-    return try await query(
+    let payload = try await query(
       healthKitStore: healthKitStore,
       anchorStorage: anchtorStorage,
       isBackgroundUpdating: isBackgroundUpdating,
@@ -91,31 +118,42 @@ func handleBody(
       startDate: startDate,
       endDate: endDate
     )
-      .compactMap {
-        .init($0, unit: unit)
-      }
+  
+    let quantities: [DiscreteQuantity] = payload.sample.compactMap {
+      .init($0, unit: unit)
+    }
+    
+    return (quantities, (String(describing: type), payload.anchor))
   }
   
-  let height = try await queryQuantities(
+  var anchors: [String: HKQueryAnchor] = [:]
+  
+  let (height, heightAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .height)!,
     unit: .height
   )
   
-  let bodyMass = try await queryQuantities(
+  let (bodyMass, bodyMassAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyMass)!,
     unit: .bodyMass
   )
   
-  let bodyFatPercentage = try await queryQuantities(
+  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!,
     unit: .bodyFatPercentage
   )
   
-  return .init(
-    height: height,
-    bodyMass: bodyMass,
-    bodyFatPercentage: bodyFatPercentage
-  )
+  anchors.setSafely(heightAnchor.anchor, key: heightAnchor.key)
+  anchors.setSafely(bodyMassAnchor.anchor, key: bodyMassAnchor.key)
+  anchors.setSafely(bodyFatPercentageAnchor.anchor, key: bodyFatPercentageAnchor.key)
+  
+  return (.init(
+              height: height,
+              bodyMass: bodyMass,
+              bodyFatPercentage: bodyFatPercentage
+          ),
+          anchors
+        )
 }
 
 func handleSleep(
@@ -124,18 +162,23 @@ func handleSleep(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> VitalSleepPatch {
+) async throws -> (sleepPatch: VitalSleepPatch, anchors: [String: HKQueryAnchor]) {
   
-  let sleeps = try await query(
+  var anchors: [String: HKQueryAnchor] = [:]
+  let sleepType = HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!
+
+  let payload = try await query(
     healthKitStore: healthKitStore,
     anchorStorage: anchtorStorage,
     isBackgroundUpdating: isBackgroundUpdating,
-    type: .categoryType(forIdentifier: .sleepAnalysis)!,
+    type: sleepType,
     startDate: startDate,
     endDate: endDate
   )
-    .compactMap(VitalSleepPatch.Sleep.init)
   
+  let sleeps = payload.sample.compactMap(VitalSleepPatch.Sleep.init)
+  anchors.setSafely(payload.anchor, key: String(describing: sleepType))
+
   var copies: [VitalSleepPatch.Sleep] = []
   
   for sleep in sleeps {
@@ -145,35 +188,35 @@ func handleSleep(
       type: .quantityType(forIdentifier: .heartRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap { .init($0, unit: .heartRate) }
+    ).sample.compactMap { .init($0, unit: .heartRate) }
     
     let hearRateVariability: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap { .init($0, unit: .heartRateVariability) }
+    ).sample.compactMap { .init($0, unit: .heartRateVariability) }
     
     let oxygenSaturation: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .oxygenSaturation)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap { .init($0, unit: .oxygenSaturation) }
+    ).sample.compactMap { .init($0, unit: .oxygenSaturation) }
     
     let restingHeartRate: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .restingHeartRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap { .init($0, unit: .restingHeartRate) }
+    ).sample.compactMap { .init($0, unit: .restingHeartRate) }
     
     let respiratoryRate: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap { .init($0, unit: .restingHeartRate) }
+    ).sample.compactMap { .init($0, unit: .restingHeartRate) }
     
     var copy = sleep
     copy.heartRate = heartRate
@@ -185,13 +228,13 @@ func handleSleep(
     copies.append(copy)
   }
   
-  return .init(sleep: copies)
+  return (.init(sleep: copies), anchors)
 }
 
 func handleActivity(
   healthKitStore: HKHealthStore,
   dateStorage: DateStorage
-) async throws -> VitalActivityPatch {
+) async throws -> (acitivtyPatch: VitalActivityPatch, lastActivityDate: Date?) {
   
   let startDate = dateStorage.read() ?? .dateAgo(days: 30)
   let endDate: Date = .init()
@@ -205,7 +248,6 @@ func handleActivity(
   var copies: [VitalActivityPatch.Activity] = []
   
   for activity in activities {
-    
     guard let date = activity.date else {
       copies.append(activity)
       continue
@@ -216,35 +258,35 @@ func handleActivity(
       type: .quantityType(forIdentifier: .basalEnergyBurned)!,
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
-    ).compactMap { .init($0, unit: .basalEnergyBurned) }
+    ).sample.compactMap { .init($0, unit: .basalEnergyBurned) }
     
     let steps: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .stepCount)!,
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
-    ).compactMap { .init($0, unit: .steps) }
+    ).sample.compactMap { .init($0, unit: .steps) }
     
     let floorsClimbed: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .flightsClimbed)!,
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
-    ).compactMap { .init($0, unit: .floorsClimbed) }
+    ).sample.compactMap { .init($0, unit: .floorsClimbed) }
     
     let distanceWalkingRunning: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
-    ).compactMap { .init($0, unit: .distanceWalkingRunning) }
+    ).sample.compactMap { .init($0, unit: .distanceWalkingRunning) }
     
     let vo2Max: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .vo2Max)!,
       startDate: date.beginningOfDay,
       endDate: date.endingOfDay
-    ).compactMap { .init($0, unit: .vo2Max) }
+    ).sample.compactMap { .init($0, unit: .vo2Max) }
     
     var copy = activity
     
@@ -257,26 +299,32 @@ func handleActivity(
     copies.append(copy)
   }
   
-  return .init(activities: copies)
+  let lastActivityDate = copies.lastDate()
+  return (.init(activities: copies), lastActivityDate)
 }
 
 func handleWorkouts(
   healthKitStore: HKHealthStore,
-  anchtorStorage: AnchorStorage,
+  anchorStorage: AnchorStorage,
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> VitalWorkoutPatch {
+) async throws -> (workoutPatch: VitalWorkoutPatch, anchors: [String: HKQueryAnchor]) {
   
-  let workouts = try await query(
+  var anchors: [String: HKQueryAnchor] = [:]
+
+  let workoutType = HKSampleType.workoutType()
+  let payload = try await query(
     healthKitStore: healthKitStore,
-    anchorStorage: nil,
+    anchorStorage: anchorStorage,
     isBackgroundUpdating: isBackgroundUpdating,
     type: .workoutType(),
     startDate: startDate,
     endDate: endDate
   )
-    .compactMap(VitalWorkoutPatch.Workout.init)
+  
+  let workouts = payload.sample.compactMap(VitalWorkoutPatch.Workout.init)
+  anchors.setSafely(payload.anchor, key: String(describing: workoutType))
   
   var copies: [VitalWorkoutPatch.Workout] = []
   
@@ -286,14 +334,14 @@ func handleWorkouts(
       type: .quantityType(forIdentifier: .heartRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
-    ).compactMap { .init($0, unit: .heartRate) }
+    ).sample.compactMap { .init($0, unit: .heartRate) }
     
     let respiratoryRate: [DiscreteQuantity] = try await query(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
-    ).compactMap { .init($0, unit: .restingHeartRate) }
+    ).sample.compactMap { .init($0, unit: .restingHeartRate) }
     
     
     var copy = workout
@@ -303,28 +351,32 @@ func handleWorkouts(
     copies.append(copy)
   }
   
-  return .init(workouts: copies)
+  return (.init(workouts: copies), anchors)
 }
 
 func handleGlucose(
   healthKitStore: HKHealthStore,
-  anchtorStorage: AnchorStorage,
+  anchorStorage: AnchorStorage,
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> VitalGlucosePatch {
+) async throws -> (glucosePatch: VitalGlucosePatch, anchors: [String: HKQueryAnchor]) {
   
-  let glucose: [DiscreteQuantity] = try await query(
+  let bloodGlucoseType = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
+  let payload = try await query(
     healthKitStore: healthKitStore,
-    anchorStorage: nil,
+    anchorStorage: anchorStorage,
     isBackgroundUpdating: isBackgroundUpdating,
-    type: .quantityType(forIdentifier: .bloodGlucose)!,
+    type: bloodGlucoseType,
     startDate: startDate,
     endDate: endDate
   )
-    .compactMap { .init($0, unit: .glucose) }
   
-  return .init(glucose: glucose)
+  var anchors: [String: HKQueryAnchor] = [:]
+  let glucose: [DiscreteQuantity] = payload.sample.compactMap { .init($0, unit: .glucose) }
+  
+  anchors.setSafely(payload.anchor, key: String(describing: bloodGlucoseType))
+  return (.init(glucose: glucose), anchors)
 }
 
 private func query(
@@ -335,7 +387,7 @@ private func query(
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date,
   endDate: Date
-) async throws -> [HKSample] {
+) async throws -> (sample: [HKSample], anchor: HKQueryAnchor?) {
   
   return try await withCheckedThrowingContinuation { continuation in
     
@@ -345,11 +397,7 @@ private func query(
         return
       }
       
-      if let anchor = newAnchor {
-        anchorStorage?.set(anchor, forKey: String(describing: type.self))
-      }
-      
-      continuation.resume(with: .success(samples ?? []))
+      continuation.resume(with: .success((samples ?? [], newAnchor)))
     }
     
     let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -373,7 +421,6 @@ private func query(
 
 private func activityQuery(
   healthKitStore: HKHealthStore,
-  dateStorage: DateStorage? = nil,
   isBackgroundUpdating: Bool = false,
   startDate: Date,
   endDate: Date

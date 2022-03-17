@@ -170,6 +170,17 @@ struct VitalActivityPatch: Encodable {
   let activities: [Activity]
 }
 
+extension Array where Element == VitalActivityPatch.Activity {
+  func lastDate() -> Date? {
+    let ordered = self.filter { $0.date != nil }.sorted { $0.date! > $1.date! }
+    guard let element = ordered.first else {
+      return nil
+    }
+    
+    return element.date
+  }
+}
+
 struct VitalWorkoutPatch: Encodable {
   struct Workout: Encodable {
     let id: String
