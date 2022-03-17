@@ -49,8 +49,7 @@ public class VitalHealthKitClient {
   
   private let store: HKHealthStore
   private let configuration: Configuration
-  private let anchorStorage: AnchorStorage
-  private let dateStorage: DateStorage
+  private let vitalStorage: VitalStorage
   private let networkClient: VitalNetworkClient
   
   private let _status: PassthroughSubject<Status, Never>
@@ -70,8 +69,7 @@ public class VitalHealthKitClient {
   
   init(configuration: Configuration, networkClient: VitalNetworkClient) {
     self.store = HKHealthStore()
-    self.anchorStorage = AnchorStorage()
-    self.dateStorage = DateStorage()
+    self.vitalStorage = VitalStorage()
     self.configuration = configuration
     self.networkClient = networkClient
     self._status = PassthroughSubject<Status, Never>()
@@ -153,32 +151,33 @@ extension VitalHealthKitClient {
       for domain in domains {
         do {
           
+          // Signal syncing (so the consumer can convey it to the user)
           _status.send(.syncing(domain))
           
+          // Fetch from HealthKit
           let (encodable, entitiesToStore) = try await handle(
             domain: domain,
             store: store,
-            anchorStorage: anchorStorage,
-            dateStorage: dateStorage,
+            vitalStorage: vitalStorage,
             isBackgroundUpdating: configuration.backgroundUpdates
           )
           
-          // Convert to Data
+          // Post to the network
+          // TODO
           
+          // Save the anchor/date on succesfull network call
+          entitiesToStore.forEach(vitalStorage.store(entity:))
           
-          // Post to the Network
-          
-          
-          // Save the anchor if it exists on succesfull network call
-          VitalHealthKit.store(entities: entitiesToStore, anchorStorage: anchorStorage, dateStorage: dateStorage)
+          // Signal success
           _status.send(.successSyncing(domain))
           
         }
         catch let error {
+          // Signal failure
           _status.send(.failedSyncing(domain, error))
+          return
         }
       }
-      
     }
   }
   
