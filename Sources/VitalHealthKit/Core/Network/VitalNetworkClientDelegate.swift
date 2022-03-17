@@ -26,23 +26,33 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     }
   }
   
+  private func refreshAndStore() async throws {
+    let newToken = try await refresh()
+    self.token = newToken
+    
+    let encoded = try JSONEncoder().encode(newToken)
+    keychain.set(encoded, forKey: key)
+  }
+  
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
     
-    if let token = token, token.expiresIn < Date() {
-      request.setValue("Bearer: \(token.accessToken)", forHTTPHeaderField: "Authorization")
-      
-    } else {
-      let newToken = try await refresh()
-      self.token = newToken
-
-      let encoded = try JSONEncoder().encode(newToken)
-      keychain.set(encoded, forKey: key)
-      
-      request.setValue("Bearer: \(newToken.accessToken)", forHTTPHeaderField: "Authorization")
+    if token?.expiresIn ?? .distantPast < Date() {
+      try await refreshAndStore()
     }
+    
+    guard let token = self.token else {
+      return
+    }
+    
+    request.setValue("Bearer: \(token.accessToken)", forHTTPHeaderField: "Authorization")
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
+    guard case .unacceptableStatusCode(401) = error as? APIError else {
+      return false
+    }
+    
+    try await refreshAndStore()
     return true
   }
 }
