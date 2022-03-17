@@ -18,31 +18,34 @@ class VitalStorage {
   }
   
   func store(entity: StoredEntity) {
+    
+    let prefixedKey = prefix + entity.key
+    
     switch entity {
-      case .anchor(let key, let anchor):
+      case .anchor(_, let anchor):
         guard let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true) else {
           return
         }
         
         let encoded = data.base64EncodedString()
-        userDefaults.set(encoded, forKey: key)
+        userDefaults.set(encoded, forKey: prefixedKey)
         
-        
-      case .date(let key, let date):
-        userDefaults.set(date.timeIntervalSinceNow, forKey: key)
+      case .date(_, let date):
+        userDefaults.set(date.timeIntervalSinceNow, forKey: prefixedKey)
     }
   }
   
   func read(key: String) -> StoredEntity? {
     
-    let timeInterval = userDefaults.double(forKey: key)
+    let prefixedKey = prefix + key
+    let timeInterval = userDefaults.double(forKey: prefixedKey)
     
     if timeInterval != 0 {
       /// From the docs: If the value is absent or can't be converted to an integer, 0 will be returned.
       return .date(key, Date(timeIntervalSinceNow: timeInterval))
     }
     
-    if let storedString = userDefaults.string(forKey: prefix + key),
+    if let storedString = userDefaults.string(forKey: prefixedKey),
        let data = Data(base64Encoded: storedString) {
       
       let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
@@ -76,6 +79,15 @@ enum StoredEntity {
         return nil
       case let .date(_, date):
         return date
+    }
+  }
+  
+  var key: String {
+    switch self {
+      case let .anchor(key, _):
+        return key
+      case let .date(key, _):
+        return key
     }
   }
 }
