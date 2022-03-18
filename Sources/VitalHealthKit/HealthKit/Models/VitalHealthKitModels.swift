@@ -1,27 +1,29 @@
 import HealthKit
 
-struct DiscreteQuantity: Encodable {
+struct QuantitySample: Encodable {
   let id: String
   let value: Double
-  let date: Date
+  let startDate: Date
+  let endDate: Date
   let sourceBundle: String
   
   init?(
     _ sample: HKSample,
     unit: Unit
   ) {
-    guard let value = sample as? HKDiscreteQuantitySample else {
+    guard let value = sample as? HKQuantitySample else {
       return nil
     }
     
     self.id = value.uuid.uuidString
     self.value = value.quantity.doubleValue(for: unit.toHealthKit)
-    self.date = value.startDate
+    self.startDate = value.startDate
+    self.endDate = value.endDate
     self.sourceBundle = value.sourceRevision.source.bundleIdentifier
   }
 }
 
-extension DiscreteQuantity {
+extension QuantitySample {
   enum Unit {
     case height
     case bodyMass
@@ -108,9 +110,9 @@ struct VitalProfilePatch: Encodable {
 }
 
 struct VitalBodyPatch: Encodable {
-  let height: [DiscreteQuantity]
-  let bodyMass: [DiscreteQuantity]
-  let bodyFatPercentage: [DiscreteQuantity]
+  let height: [QuantitySample]
+  let bodyMass: [QuantitySample]
+  let bodyFatPercentage: [QuantitySample]
 }
 
 
@@ -121,11 +123,11 @@ struct VitalSleepPatch: Encodable {
     let endDate: Date
     let sourceBundle: String
     
-    var heartRate: [DiscreteQuantity] = []
-    var restingHeartRate: [DiscreteQuantity] = []
-    var heartRateVariability: [DiscreteQuantity] = []
-    var oxygenSaturation: [DiscreteQuantity] = []
-    var respiratoryRate: [DiscreteQuantity] = []
+    var heartRate: [QuantitySample] = []
+    var restingHeartRate: [QuantitySample] = []
+    var heartRateVariability: [QuantitySample] = []
+    var oxygenSaturation: [QuantitySample] = []
+    var respiratoryRate: [QuantitySample] = []
 
     init?(sample: HKSample) {
       guard let value = sample as? HKCategorySample else {
@@ -150,11 +152,11 @@ struct VitalActivityPatch: Encodable {
     let standingTime: Double
     let moveTime: Double
     
-    var basalEnergyBurned: [DiscreteQuantity] = []
-    var steps: [DiscreteQuantity] = []
-    var floorsClimbed: [DiscreteQuantity] = []
-    var distanceWalkingRunning: [DiscreteQuantity] = []
-    var vo2Max: [DiscreteQuantity] = []
+    var basalEnergyBurned: [QuantitySample] = []
+    var steps: [QuantitySample] = []
+    var floorsClimbed: [QuantitySample] = []
+    var distanceWalkingRunning: [QuantitySample] = []
+    var vo2Max: [QuantitySample] = []
     
     init(activity: HKActivitySummary) {
       
@@ -191,8 +193,8 @@ struct VitalWorkoutPatch: Encodable {
     let calories: Double
     let distance: Double
 
-    var heartRate: [DiscreteQuantity] = []
-    var respiratoryRate: [DiscreteQuantity] = []
+    var heartRate: [QuantitySample] = []
+    var respiratoryRate: [QuantitySample] = []
     
     init?(sample: HKSample) {
       guard let workout = sample as? HKWorkout else {
@@ -214,5 +216,5 @@ struct VitalWorkoutPatch: Encodable {
 }
 
 struct VitalGlucosePatch: Encodable {  
-  let glucose: [DiscreteQuantity]
+  let glucose: [QuantitySample]
 }

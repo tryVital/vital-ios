@@ -53,5 +53,13 @@ class VitalStorageTests: XCTestCase {
     XCTAssertNotNil(storedDate)
     XCTAssertEqual(storedDate!.timeIntervalSinceReferenceDate, date.timeIntervalSinceReferenceDate, accuracy: 0.01)
   }
+  
+  func testNilDateStorage() throws {
+    let storage = VitalStorage()
+    let key = "key"
+    
+    let storedDate = storage.read(key: key)
+    XCTAssertNil(storedDate)
+  }
 }
 
