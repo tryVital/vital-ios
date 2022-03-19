@@ -14,12 +14,12 @@ extension Date {
     return dateComponents
   }
   
-  var beginningOfDay: Date {
+  var dayStart: Date {
     return Calendar.current.startOfDay(for: self)
   }
   
-  var endingOfDay: Date {
-    let components = DateComponents(hour: 23, minute: 59, second: 59)
-    return Calendar.current.date(byAdding: components, to: self.beginningOfDay) ?? self
+  var dayEnd: Date {
+    let components = DateComponents(day: 1)
+    return Calendar.current.date(byAdding: components, to: dayStart) ?? self
   }
 }

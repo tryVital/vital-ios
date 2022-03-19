@@ -255,42 +255,42 @@ func handleActivity(
       continue
     }
     
-    let beginningOfDay = date.beginningOfDay
-    let endingOfDay = date.endingOfDay
+    let dayStart = date.dayStart
+    let dayEnd = date.dayEnd
 
     let basalEnergyBurned: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .basalEnergyBurned)!,
-      startDate: beginningOfDay,
-      endDate: endingOfDay
+      startDate: dayStart,
+      endDate: dayEnd
     ).compactMap { .init($0, unit: .basalEnergyBurned) }
     
     let steps: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .stepCount)!,
-      startDate: beginningOfDay,
-      endDate: endingOfDay
+      startDate: dayStart,
+      endDate: dayEnd
     ).compactMap { .init($0, unit: .steps) }
     
     let floorsClimbed: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .flightsClimbed)!,
-      startDate: beginningOfDay,
-      endDate: endingOfDay
+      startDate: dayStart,
+      endDate: dayEnd
     ).compactMap { .init($0, unit: .floorsClimbed) }
     
     let distanceWalkingRunning: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
-      startDate: beginningOfDay,
-      endDate:endingOfDay
+      startDate: dayStart,
+      endDate: dayEnd
     ).compactMap { .init($0, unit: .distanceWalkingRunning) }
     
     let vo2Max: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .vo2Max)!,
-      startDate: beginningOfDay,
-      endDate: endingOfDay
+      startDate: dayStart,
+      endDate: dayEnd
     ).compactMap { .init($0, unit: .vo2Max) }
     
     var copy = activity

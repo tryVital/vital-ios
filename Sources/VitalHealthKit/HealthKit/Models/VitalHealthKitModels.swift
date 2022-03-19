@@ -1,7 +1,7 @@
 import HealthKit
 
 struct QuantitySample: Encodable {
-  let id: String
+  let id: UUID
   let value: Double
   let startDate: Date
   let endDate: Date
@@ -15,7 +15,7 @@ struct QuantitySample: Encodable {
       return nil
     }
     
-    self.id = value.uuid.uuidString
+    self.id = value.uuid
     self.value = value.quantity.doubleValue(for: unit.toHealthKit)
     self.startDate = value.startDate
     self.endDate = value.endDate
@@ -118,7 +118,7 @@ struct VitalBodyPatch: Encodable {
 
 struct VitalSleepPatch: Encodable {
   struct Sleep: Encodable {
-    let id: String
+    let id: UUID
     let startDate: Date
     let endDate: Date
     let sourceBundle: String
@@ -134,7 +134,7 @@ struct VitalSleepPatch: Encodable {
         return nil
       }
       
-      self.id = value.uuid.uuidString
+      self.id = value.uuid
       self.startDate = value.startDate
       self.endDate = value.endDate
       self.sourceBundle = value.sourceRevision.source.bundleIdentifier
@@ -185,7 +185,7 @@ extension Array where Element == VitalActivityPatch.Activity {
 
 struct VitalWorkoutPatch: Encodable {
   struct Workout: Encodable {
-    let id: String
+    let id: UUID
     let startDate: Date
     let endDate: Date
     let sourceBundle: String
@@ -202,7 +202,7 @@ struct VitalWorkoutPatch: Encodable {
       }
       
 
-      self.id = workout.uuid.uuidString
+      self.id = workout.uuid
       self.startDate = workout.startDate
       self.endDate = workout.endDate
       self.sport = workout.workoutActivityType.toString
