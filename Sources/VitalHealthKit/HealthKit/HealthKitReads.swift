@@ -29,9 +29,11 @@ func handle(
       let payload = try await handleBody(
         healthKitStore: store,
         vitalStorage: vitalStorage,
-        isBackgroundUpdating: isBackgroundUpdating
+        isBackgroundUpdating: isBackgroundUpdating,
+        startDate: startDate,
+        endDate: endDate
       )
-        
+      
       let body = payload.bodyPatch.eraseToAnyEncodable()
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
@@ -41,18 +43,22 @@ func handle(
       let payload = try await handleSleep(
         healthKitStore: store,
         vitalStorage: vitalStorage,
-        isBackgroundUpdating: isBackgroundUpdating
+        isBackgroundUpdating: isBackgroundUpdating,
+        startDate: startDate,
+        endDate: endDate
       )
-        
+      
       let sleep = payload.sleepPatch.eraseToAnyEncodable()
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
-
+      
       return (sleep, entitiesToStore)
       
     case .activity:
       let payload = try await handleActivity(
         healthKitStore: store,
-        vitalStorage: vitalStorage
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
       )
       
       let activity = payload.acitivtyPatch.eraseToAnyEncodable()
@@ -64,7 +70,9 @@ func handle(
       let payload = try await handleWorkouts(
         healthKitStore: store,
         vitalStorage: vitalStorage,
-        isBackgroundUpdating: isBackgroundUpdating
+        isBackgroundUpdating: isBackgroundUpdating,
+        startDate: startDate,
+        endDate: endDate
       )
         
       let workout = payload.workoutPatch.eraseToAnyEncodable()
@@ -76,7 +84,9 @@ func handle(
       let payload = try await handleGlucose(
         healthKitStore: store,
         vitalStorage: vitalStorage,
-        isBackgroundUpdating: isBackgroundUpdating
+        isBackgroundUpdating: isBackgroundUpdating,
+        startDate: startDate,
+        endDate: endDate
       )
         
       let glucose = payload.glucosePatch.eraseToAnyEncodable()
@@ -150,10 +160,9 @@ func handleBody(
   anchors.setSafely(bodyFatPercentageAnchor.anchor, key: bodyFatPercentageAnchor.key)
   
   return (.init(
-              height: height,
-              bodyMass: bodyMass,
-              bodyFatPercentage: bodyFatPercentage
-          ),
+    height: height,
+    bodyMass: bodyMass,
+    bodyFatPercentage: bodyFatPercentage
           anchors
         )
 }
@@ -235,11 +244,12 @@ func handleSleep(
 
 func handleActivity(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalStorage
+  vitalStorage: VitalStorage,
+  startDate: Date = .dateAgo(days: 30),
+  endDate: Date = .init()
 ) async throws -> (acitivtyPatch: VitalActivityPatch, lastActivityDate: Date?) {
   
-  let startDate = vitalStorage.read(key: VitalStorage.activitiesKey)?.date ?? .dateAgo(days: 30)
-  let endDate: Date = .init()
+  let startDate = vitalStorage.read(key: VitalStorage.activitiesKey)?.date ?? startDate
   
   let activities = try await activityQuery(
     healthKitStore: healthKitStore,
@@ -424,6 +434,48 @@ private func query(
   }
 }
 
+private func querySeries(
+  healthKitStore: HKHealthStore,
+  type: HKQuantityType,
+  startDate: Date,
+  endDate: Date
+) async throws -> [HKQuantity] {
+  
+  return try await withCheckedThrowingContinuation { continuation in
+    
+    var quantities: [HKQuantity] = []
+    let handler: SeriesSampleHandler = { (query, quantity, dateInterval, sample, isFinished, error) in
+      if let error = error {
+        continuation.resume(with: .failure(error))
+        return
+      }
+      
+      if let quantity = quantity {
+        quantities.append(quantity)
+      }
+      
+      if isFinished {
+        continuation.resume(with: .success(quantities))
+      }
+    }
+    
+    let predicate = HKQuery.predicateForSamples(
+      withStart: startDate,
+      end: endDate,
+      options: [.strictStartDate]
+    )
+    
+    let query = HKQuantitySeriesSampleQuery(
+      quantityType: type,
+      predicate: predicate,
+      quantityHandler: handler
+    )
+    
+    healthKitStore.execute(query)
+    
+  }
+}
+
 private func querySample(
   healthKitStore: HKHealthStore,
   type: HKSampleType,
@@ -442,7 +494,12 @@ private func querySample(
       continuation.resume(with: .success(samples ?? []))
     }
     
-    let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+    let predicate = HKQuery.predicateForSamples(
+      withStart: startDate,
+      end: endDate,
+      options: [.strictStartDate]
+    )
+    
     let query = HKSampleQuery(
       sampleType: type,
       predicate: predicate,
@@ -454,34 +511,6 @@ private func querySample(
     healthKitStore.execute(query)
   }
 }
-
-// TODO: Think about how to deal with the continuation
-//private func querySeries(
-//  healthKitStore: HKHealthStore,
-//  type: HKQuantityType,
-//  startDate: Date,
-//  endDate: Date
-//) async throws -> [HKSample] {
-//
-//  return try await withCheckedThrowingContinuation { continuation in
-//
-//    let handler: SeriesSampleHandler = { (query, quantity, dateInterval, quantitySample, isFinished,  error) in
-//      if let error = error {
-//        continuation.resume(with: .failure(error))
-//        return
-//      }
-//
-//    }
-//
-//
-//    let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
-//    let query = HKQuantitySeriesSampleQuery(quantityType: type, predicate: predicate, quantityHandler: handler)
-//    query.includeSample = true
-//
-//    healthKitStore.execute(query)
-//  }
-//}
-
 
 private func activityQuery(
   healthKitStore: HKHealthStore,
