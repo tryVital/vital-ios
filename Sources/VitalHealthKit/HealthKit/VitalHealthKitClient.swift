@@ -8,33 +8,11 @@ public enum PermissionOutcome {
   case healthKitNotAvailable
 }
 
-public enum Domain {
-  public enum Vitals {
-    case glucose
-  }
-  
-  case profile
-  case body
-  case workout
-  case activity
-  case sleep
-  case vitals(Vitals)
-  
-  static var all: [Domain] = [
-    .profile,
-    .body,
-    .workout,
-    .activity,
-    .sleep,
-    .vitals(.glucose),
-  ]
-}
-
 public class VitalHealthKitClient {
   public enum Status {
-    case syncing(Domain)
-    case failedSyncing(Domain, Error?)
-    case successSyncing(Domain)
+    case syncing(VitalResource)
+    case failedSyncing(VitalResource, Error?)
+    case successSyncing(VitalResource)
   }
   
   public static var shared: VitalHealthKitClient {
@@ -137,7 +115,7 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  private func _syncData(for domains: [Domain]){
+  private func _syncData(for resources: [VitalResource]){
     Task(priority: .high) {
       guard userId != nil else {
         self.logger?.log(
@@ -148,15 +126,15 @@ extension VitalHealthKitClient {
         return
       }
       
-      for domain in domains {
+      for resource in resources {
         do {
           
           // Signal syncing (so the consumer can convey it to the user)
-          _status.send(.syncing(domain))
+          _status.send(.syncing(resource))
           
           // Fetch from HealthKit
           let (encodable, entitiesToStore) = try await handle(
-            domain: domain,
+            resource: resource,
             store: store,
             vitalStorage: vitalStorage,
             isBackgroundUpdating: configuration.backgroundUpdates
@@ -169,12 +147,12 @@ extension VitalHealthKitClient {
           entitiesToStore.forEach(vitalStorage.store(entity:))
           
           // Signal success
-          _status.send(.successSyncing(domain))
+          _status.send(.successSyncing(resource))
           
         }
         catch let error {
           // Signal failure
-          _status.send(.failedSyncing(domain, error))
+          _status.send(.failedSyncing(resource, error))
           return
         }
       }
@@ -182,12 +160,12 @@ extension VitalHealthKitClient {
   }
   
   public func syncData() {
-    let domains = domainsAskedForPermission(store: store)
-    _syncData(for: domains)
+    let resources = resourcesAskedForPermission(store: store)
+    _syncData(for: resources)
   }
   
   public func ask(
-    for domains: [Domain],
+    for resources: [VitalResource],
     completion: @escaping (PermissionOutcome) -> Void = { _ in }
   ) {
     guard HKHealthStore.isHealthDataAvailable() else {
@@ -195,7 +173,7 @@ extension VitalHealthKitClient {
       return
     }
     
-    let types = domains.flatMap(toHealthKitTypes)
+    let types = resources.flatMap(toHealthKitTypes)
     store.requestAuthorization(toShare: [], read: Set(types)) {[weak self] success, error in
       guard let self = self else {
         return
@@ -211,7 +189,7 @@ extension VitalHealthKitClient {
         return
       }
       
-      self._syncData(for: domains)
+      self._syncData(for: resources)
     }
   }
 }

@@ -47,7 +47,7 @@ extension QuantitySample {
         case .heartRate:
           return .count().unitDivided(by: .minute())
         case .bodyMass:
-          return .gramUnit(with: .kilo)
+          return .gram()
         case .bodyFatPercentage:
           return .percent()
         case .height:
@@ -107,10 +107,10 @@ struct VitalProfilePatch: Encodable {
   
   let biologicalSex: BiologicalSex?
   let dateOfBirth: Date?
+  let height: Int?
 }
 
 struct VitalBodyPatch: Encodable {
-  let height: [QuantitySample]
   let bodyMass: [QuantitySample]
   let bodyFatPercentage: [QuantitySample]
 }
@@ -146,7 +146,7 @@ struct VitalSleepPatch: Encodable {
 
 struct VitalActivityPatch: Encodable {
   struct Activity: Encodable {
-    let date: Date?
+    let date: Date
     let activeEnergyBurned: Double
     let exerciseTime: Double
     let standingTime: Double
@@ -158,9 +158,13 @@ struct VitalActivityPatch: Encodable {
     var distanceWalkingRunning: [QuantitySample] = []
     var vo2Max: [QuantitySample] = []
     
-    init(activity: HKActivitySummary) {
+    init?(activity: HKActivitySummary) {
       
-      self.date = activity.dateComponents(for: .current).date
+      guard let date = activity.dateComponents(for: .current).date else {
+        return nil
+      }
+      
+      self.date = date
       
       self.activeEnergyBurned = activity.activeEnergyBurned.doubleValue(for: .kilocalorie())
       self.exerciseTime = activity.appleExerciseTime.doubleValue(for: .minute())
@@ -170,17 +174,6 @@ struct VitalActivityPatch: Encodable {
   }
   
   let activities: [Activity]
-}
-
-extension Array where Element == VitalActivityPatch.Activity {
-  func lastDate() -> Date? {
-    let ordered = self.filter { $0.date != nil }.sorted { $0.date! > $1.date! }
-    guard let element = ordered.first else {
-      return nil
-    }
-    
-    return element.date
-  }
 }
 
 struct VitalWorkoutPatch: Encodable {
@@ -200,7 +193,6 @@ struct VitalWorkoutPatch: Encodable {
       guard let workout = sample as? HKWorkout else {
         return nil
       }
-      
 
       self.id = workout.uuid
       self.startDate = workout.startDate

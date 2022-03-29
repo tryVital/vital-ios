@@ -5,7 +5,8 @@ import HealthKit
 
 class VitalStorage {
 
-  static let activitiesKey = "activities"
+  static let activityKey = "activity"
+  static let profileKey = "profile"
   
   private let prefix = "vital_anchor_"
   private let userDefaults: UserDefaults

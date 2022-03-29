@@ -1,16 +1,38 @@
 import HealthKit
 
-func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
-  switch domain {
+public enum VitalResource {
+  public enum Vitals {
+    case glucose
+  }
+  
+  case profile
+  case body
+  case workout
+  case activity
+  case sleep
+  case vitals(Vitals)
+  
+  static var all: [VitalResource] = [
+    .profile,
+    .body,
+    .workout,
+    .activity,
+    .sleep,
+    .vitals(.glucose),
+  ]
+}
+
+func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
+  switch resource {
     case .profile:
       return [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
         HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
+        HKQuantityType.quantityType(forIdentifier: .height)!,
       ]
       
     case .body:
       return [
-        HKQuantityType.quantityType(forIdentifier: .height)!,
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
         HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
       ]
@@ -53,33 +75,33 @@ func toHealthKitTypes(domain: Domain) -> Set<HKObjectType> {
 
 func allTypesForBackgroundDelivery(
 ) -> [HKObjectType] {
-  return Domain.all
-    .flatMap(toHealthKitTypes(domain:))
+  return VitalResource.all
+    .flatMap(toHealthKitTypes(resource:))
     .filter {
       return $0.isKind(of: HKCharacteristicType.self) == false
           && $0.isKind(of: HKActivitySummaryType.self) == false
     }
 }
 
-func domainsAskedForPermission(
+func resourcesAskedForPermission(
   store: HKHealthStore
-) -> [Domain] {
+) -> [VitalResource] {
   
-  var domains: [Domain] = []
+  var resources: [VitalResource] = []
   
-  for domain in Domain.all {
-    guard toHealthKitTypes(domain: domain).isEmpty == false else {
+  for resource in VitalResource.all {
+    guard toHealthKitTypes(resource: resource).isEmpty == false else {
       continue
     }
     
-    let hasAskedPermission = toHealthKitTypes(domain: domain)
+    let hasAskedPermission = toHealthKitTypes(resource: resource)
       .map { store.authorizationStatus(for: $0) != .notDetermined }
       .reduce(true, { $0 && $1})
     
     if hasAskedPermission {
-      domains.append(domain)
+      resources.append(resource)
     }
   }
   
-  return domains
+  return resources
 }
