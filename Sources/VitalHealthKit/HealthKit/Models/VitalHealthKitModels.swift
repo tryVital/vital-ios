@@ -69,7 +69,7 @@ extension QuantitySample {
         case .floorsClimbed:
           return .count()
         case .distanceWalkingRunning:
-          return .meterUnit(with: .kilo)
+          return .meter()
         case .vo2Max:
           // ml/(kg*min)
           return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
