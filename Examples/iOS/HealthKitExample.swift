@@ -1,7 +1,7 @@
 import SwiftUI
 import VitalHealthKit
 
-struct HomeView: View {
+struct HealthKitExample: View {
   var body: some View {
     NavigationView {
       Form {
@@ -25,7 +25,7 @@ struct HomeView: View {
         }
       }
       .listStyle(GroupedListStyle())
-      .navigationBarTitle(Text("Vital Home"), displayMode: .large)
+      .navigationBarTitle(Text("HealthKit"), displayMode: .large)
     }
   }
 }

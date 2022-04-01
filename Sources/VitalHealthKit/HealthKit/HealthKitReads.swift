@@ -524,8 +524,6 @@ private func querySeries(
   }
 }
 
-
-
 private func activityQuery(
   healthKitStore: HKHealthStore,
   isBackgroundUpdating: Bool = false,
