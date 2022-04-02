@@ -1,6 +1,7 @@
 import HealthKit
 import Combine
 import os.log
+import VitalCore
 
 public enum PermissionOutcome {
   case success

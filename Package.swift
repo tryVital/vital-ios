@@ -15,6 +15,9 @@ let package = Package(
         .library(
           name: "VitalDevices",
           targets: ["VitalDevices"]),
+        .library(
+          name: "VitalCore",
+          targets: ["VitalCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/kean/Get", from: "0.5.0"),
@@ -24,10 +27,13 @@ let package = Package(
     targets: [
         .target(
             name: "VitalHealthKit",
-            dependencies: ["Get", "KeychainSwift"]),
+            dependencies: ["VitalCore"]),
         .target(
           name: "VitalDevices",
           dependencies: ["CombineCoreBluetooth"]),
+        .target(
+          name: "VitalCore",
+          dependencies: ["Get", "KeychainSwift"]),
         .testTarget(
             name: "VitalHealthKitTests",
             dependencies: ["VitalHealthKit"]),
