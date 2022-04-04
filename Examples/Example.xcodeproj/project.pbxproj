@@ -364,6 +364,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -397,6 +398,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
