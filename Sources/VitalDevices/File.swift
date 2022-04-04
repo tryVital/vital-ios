@@ -20,57 +20,116 @@ let BLE_BLOOD_PRESSURE_SERVICE = "1810"
 let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
 let BLOOD_PRESSURE_UNITS = 1;
 
-public class DevicesManager {
+public class DevicesManager: ObservableObject {
   private let manager: CentralManager
   var cancellables = Set<AnyCancellable>()
-  
+  @Published public var peripheralDiscovery: PeripheralDiscovery?
+    
   public init() {
     self.manager = .live()
   }
   
   
-  public func startSearch() {
-    self.manager.scanForPeripherals(withServices: nil, options: nil)
-      .filter { (peripheral: PeripheralDiscovery) -> Bool in
-        if peripheral.peripheral.name?.contains("X4 Smart") ?? false {
-          print("==Name =")
-          dump(peripheral.peripheral.name)
-          print("==ServiceUUIDS=")
-          dump(peripheral.advertisementData.serviceUUIDs?[0])
-          print("==AdvetisementData=")
-          dump(peripheral.advertisementData)
-          print("==Services=")
-          dump(peripheral.peripheral.services)
-          return true
+  public func connect(peripheral: Peripheral) {
+    manager.connect(peripheral).flatMap { peripheral -> AnyPublisher<[CBCharacteristic], Error> in
+      let service = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_SERVICE))
+      let characteristic = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC))
+      
+      print(service)
+      print(characteristic)
+      
+     return peripheral.discoverServices([service])
+      .flatMap { services -> AnyPublisher<[CBCharacteristic], Error>  in
+        print(services)
+        return peripheral.discoverCharacteristics(nil, for: services[0])
+      }.eraseToAnyPublisher()
+    }
+    
+        .sink(receiveCompletion: {error in
+          dump(error)
+        }) { chars in
+    
+          for char in chars {
+            print("\(char.uuid): properties contains .read \(char.properties.contains(.read))")
+            print("\(char.uuid): properties contains .notify \(char.properties.contains(.notify))")
+            print("\(char.uuid): properties contains .broadcast \(char.properties.contains(.broadcast))")
+          }
+
         }
-        else {
-          return false
-        }
+    .store(in: &cancellables)
+
+  }
+  
+  
+  public func startSearch(name: String) {
+    
+    
+    manager.scanForPeripherals(withServices: nil)
+      .filter { peripheralDiscover in
+        peripheralDiscover.peripheral.name?.contains(name) ?? false
       }
-      .flatMap { peripheral in
-        return self.manager.connect(peripheral.peripheral)
-      }
-      .flatMap { peripheral -> AnyPublisher<(Peripheral, [CBService]), Error> in
-                
-        let service = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_SERVICE))
-        let characteristic = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC))
-        
-        ////discoverCharacteristic(withUUID: characteristic, inServiceWithUUID: service)
-        return peripheral.discoverServices([service]).map { (peripheral, $0) }.eraseToAnyPublisher()
-      }
-//      .flatMap { (peripheral, services) in
-//        print(services)
+      .first()
+      .map { Optional($0) }
+      .receive(on: DispatchQueue.main)
+      .assign(to: \.peripheralDiscovery, on: self) 
+      .store(in: &cancellables)
+    
+    
+//    self.manager.scanForPeripherals(withServices: nil, options: .init(allowDuplicates: false, solicitedServiceUUIDs: nil))
+//      .filter { (peripheral: PeripheralDiscovery) -> Bool in
+//        if peripheral.peripheral.name?.contains("X4 Smart") ?? false {
+//          print("==Name =")
+//          dump(peripheral.peripheral.name)
+//          print("==ServiceUUIDS=")
+//          dump(peripheral.advertisementData.serviceUUIDs?[0])
+//          print("==AdvetisementData=")
+//          dump(peripheral.advertisementData)
+//          print("==Services=")
+//          dump(peripheral.peripheral.services)
+//          return true
+//        }
+//        else {
+//          return false
+//        }
+//      }
+//      .flatMap { peripheral in
+//        return self.manager.connect(peripheral.peripheral)
+//      }
+//      .map(Result.success)
+//      .catch({ Just(Result.failure($0)) })
+//        .receive(on: DispatchQueue.main)
+//        .assign(to: &$peripheralConnectResult)
+//
+//
+//    peripheralConnectResult?.publisher.eraseToAnyPublisher().sink(receiveCompletion: {error in
+//      print(error)
+//    }) { value in
+//      print(value)
+//    }
+//    .store(in: &cancellables)
+//      .flatMap { peripheral -> AnyPublisher<(Peripheral,CBCharacteristic), Error> in
+//
+//        let service = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_SERVICE))
+//        let characteristic = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC))
+//
+//        ////discoverCharacteristic(withUUID: characteristic, inServiceWithUUID: service)
+//        return peripheral.discoverCharacteristic(withUUID: characteristic, inServiceWithUUID: service).map { (peripheral, $0) }.eraseToAnyPublisher()
+//      }
+//      .flatMap { (peripheral, characteristic) -> AnyPublisher<CBCharacteristic, Error> in
 //
 //        return peripheral.readValue(for: characteristic)
 //      }
-    
-    .sink(receiveCompletion: {error in
-      dump(error)
-    }) { value in
-      
-    
-      dump(value)
-    }
-    .store(in: &cancellables)
+//
+//    .sink(receiveCompletion: {error in
+//      dump(error)
+//    }) { value in
+//
+//
+//      dump(value)
+//    }
+//    .store(in: &cancellables)
   }
 }
+
+
+   

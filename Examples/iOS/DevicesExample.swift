@@ -4,12 +4,21 @@ import VitalDevices
 
 struct DevicesExample: View {
   
-  let device = DevicesManager()
+  @ObservedObject var manager = DevicesManager()
   
   var body: some View {
     NavigationView {
       Form {
         Section(header: Text("Devices")) {
+          
+          if let device = manager.peripheralDiscovery {
+            HStack {
+              Text("\(device.peripheral.id)")
+              Button("Connect") {
+                manager.connect(peripheral: device.peripheral)
+              }
+            }
+          }
 
         }
       }
@@ -17,7 +26,7 @@ struct DevicesExample: View {
       .navigationBarTitle(Text("Devices"), displayMode: .large)
     }
     .onAppear {
-      device.startSearch()
+      manager.startSearch(name: "X4")
     }
   }
 }
