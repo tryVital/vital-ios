@@ -412,6 +412,8 @@ private func query(
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: AnchorQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
+      healthKitStore.stop(query)
+      
       if let error = error {
         continuation.resume(with: .failure(error))
         return
@@ -452,6 +454,8 @@ private func querySample(
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: SampleQueryHandler = { (query, samples, error) in
+      healthKitStore.stop(query)
+      
       if let error = error {
         continuation.resume(with: .failure(error))
         return
@@ -492,6 +496,7 @@ private func querySeries(
     
     var quantities: [HKQuantity] = []
     let handler: SeriesSampleHandler = { (query, quantity, dateInterval, sample, isFinished, error) in
+      healthKitStore.stop(query)
       if let error = error {
         continuation.resume(with: .failure(error))
         return
@@ -520,11 +525,8 @@ private func querySeries(
     )
     
     healthKitStore.execute(query)
-    
   }
 }
-
-
 
 private func activityQuery(
   healthKitStore: HKHealthStore,
@@ -536,6 +538,7 @@ private func activityQuery(
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: ActivityQueryHandler = { (query, activities, error) in
+      healthKitStore.stop(query)
       if let error = error {
         continuation.resume(with: .failure(error))
         return
