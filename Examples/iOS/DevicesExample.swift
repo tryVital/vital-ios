@@ -14,6 +14,7 @@ struct DevicesExample: View {
           if let device = manager.peripheralDiscovery {
             HStack {
               Text("\(device.peripheral.id)")
+              Spacer()
               Button("Connect") {
                 manager.connect(peripheral: device.peripheral)
               }

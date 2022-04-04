@@ -1,5 +1,6 @@
 import Foundation
 import CombineCoreBluetooth
+import CoreBluetooth
 
 
 func fullUUID(value: String) -> String {
@@ -23,6 +24,7 @@ let BLOOD_PRESSURE_UNITS = 1;
 public class DevicesManager: ObservableObject {
   private let manager: CentralManager
   var cancellables = Set<AnyCancellable>()
+  
   @Published public var peripheralDiscovery: PeripheralDiscovery?
     
   public init() {
@@ -31,29 +33,44 @@ public class DevicesManager: ObservableObject {
   
   
   public func connect(peripheral: Peripheral) {
-    manager.connect(peripheral).flatMap { peripheral -> AnyPublisher<[CBCharacteristic], Error> in
+    manager.connect(peripheral).flatMap { peripheral -> AnyPublisher<CBCharacteristic, Error> in
       let service = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_SERVICE))
       let characteristic = CBUUID(string: fullUUID(value: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC))
       
-      print(service)
-      print(characteristic)
-      
-     return peripheral.discoverServices([service])
+
+     let foo =  peripheral.discoverServices([service])
       .flatMap { services -> AnyPublisher<[CBCharacteristic], Error>  in
-        print(services)
-        return peripheral.discoverCharacteristics(nil, for: services[0])
-      }.eraseToAnyPublisher()
+        peripheral.discoverCharacteristics([characteristic], for: services[0]).eraseToAnyPublisher()
+      }.flatMap { characteristic -> AnyPublisher<CBCharacteristic, Error> in
+        peripheral.setNotifyValue(true, for: characteristic[0]).eraseToAnyPublisher()
+      }
+      .flatMap {
+        peripheral.listenForUpdates(on: $0)
+      }
+      .eraseToAnyPublisher()
+      
+      
+      
+      
+      return foo
     }
     
         .sink(receiveCompletion: {error in
           dump(error)
-        }) { chars in
+        }) { (char: CBCharacteristic) in
     
-          for char in chars {
+            
+//          for char in chars {
             print("\(char.uuid): properties contains .read \(char.properties.contains(.read))")
             print("\(char.uuid): properties contains .notify \(char.properties.contains(.notify))")
             print("\(char.uuid): properties contains .broadcast \(char.properties.contains(.broadcast))")
-          }
+          
+          let value: String? = char.value.map {  String(decoding: $0, as: UTF8.self)}
+          
+          
+          
+          print(value ?? "")
+//          }
 
         }
     .store(in: &cancellables)
@@ -62,8 +79,6 @@ public class DevicesManager: ObservableObject {
   
   
   public func startSearch(name: String) {
-    
-    
     manager.scanForPeripherals(withServices: nil)
       .filter { peripheralDiscover in
         peripheralDiscover.peripheral.name?.contains(name) ?? false
