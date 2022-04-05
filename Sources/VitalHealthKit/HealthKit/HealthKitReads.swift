@@ -1,4 +1,5 @@
 import HealthKit
+import VitalCore
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
 typealias AnchorQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void

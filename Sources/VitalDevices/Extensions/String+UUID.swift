@@ -1,4 +1,3 @@
-
 extension String {
   var fullUUID: String {
     let suffix =  "-0000-1000-8000-00805f9b34fb"

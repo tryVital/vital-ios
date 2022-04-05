@@ -30,7 +30,7 @@ let package = Package(
             dependencies: ["VitalCore"]),
         .target(
           name: "VitalDevices",
-          dependencies: ["CombineCoreBluetooth"]),
+          dependencies: ["CombineCoreBluetooth", "VitalCore"]),
         .target(
           name: "VitalCore",
           dependencies: ["Get", "KeychainSwift"]),
