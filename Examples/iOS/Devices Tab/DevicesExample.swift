@@ -44,7 +44,15 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
       return .none
   }
 }
-let devicesStore = Store(initialState: DevicesExample.State(), reducer: reducer, environment: DevicesExample.Environment())
+
+let globalReducer = Reducer.combine(reducer)
+
+
+let devicesStore = Store(
+  initialState: DevicesExample.State(),
+  reducer: reducer,
+  environment: DevicesExample.Environment()
+)
 
 
 extension DevicesExample {
@@ -107,7 +115,6 @@ extension DevicesExample {
         .listRowInsets(EdgeInsets())
       }
     }
-    
   }
 }
 

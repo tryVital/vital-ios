@@ -16,7 +16,6 @@
 		E892239427D79B8700733C13 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892239327D79B8700733C13 /* Styles.swift */; };
 		E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E892239627D7A29F00733C13 /* HealthKit.framework */; };
 		E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */; };
-		E8A286E527FC7C7D00F1F1B1 /* DevicesEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286E427FC7C7D00F1F1B1 /* DevicesEntities.swift */; };
 		E8A286E827FC8CDE00F1F1B1 /* Devices+Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286E727FC8CDE00F1F1B1 /* Devices+Support.swift */; };
 		E8A286EB27FC92DF00F1F1B1 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8A286EA27FC92DF00F1F1B1 /* NukeUI */; };
 		E8A286ED27FC992900F1F1B1 /* DeviceConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */; };
@@ -45,7 +44,6 @@
 		E892239527D7A29F00733C13 /* Example.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Example.entitlements; sourceTree = "<group>"; };
 		E892239627D7A29F00733C13 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.2.sdk/System/Library/Frameworks/HealthKit.framework; sourceTree = DEVELOPER_DIR; };
 		E892239827D8F2A500733C13 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		E8A286E427FC7C7D00F1F1B1 /* DevicesEntities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesEntities.swift; sourceTree = "<group>"; };
 		E8A286E727FC8CDE00F1F1B1 /* Devices+Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Devices+Support.swift"; sourceTree = "<group>"; };
 		E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConnection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -126,7 +124,6 @@
 			isa = PBXGroup;
 			children = (
 				E8A286E627FC8CC800F1F1B1 /* Models */,
-				E8A286E427FC7C7D00F1F1B1 /* DevicesEntities.swift */,
 				E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */,
 				E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */,
 			);
@@ -263,7 +260,6 @@
 				E8A286E827FC8CDE00F1F1B1 /* Devices+Support.swift in Sources */,
 				E85A25AE27D6AAFA00B2212C /* HealthKitExample.swift in Sources */,
 				E8A286ED27FC992900F1F1B1 /* DeviceConnection.swift in Sources */,
-				E8A286E527FC7C7D00F1F1B1 /* DevicesEntities.swift in Sources */,
 				E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */,
 				E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */,
 			);

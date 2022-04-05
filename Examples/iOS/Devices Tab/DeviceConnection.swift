@@ -8,10 +8,19 @@ enum DeviceConnection {}
 
 extension DeviceConnection {
   public struct State: Equatable {
+    enum Status: String {
+      case connected = "Connected"
+      case searching = "Searching"
+      case failed = "Failed"
+      case noneFound = "None found"
+    }
+    
     let device: DeviceModel
-
+    var status: Status
+    
     init(device: DeviceModel) {
       self.device = device
+      self.status = .searching
     }
   }
   
@@ -19,10 +28,8 @@ extension DeviceConnection {
   public struct Environment {}
 }
 
-private let reducer = Reducer<DeviceConnection.State, DeviceConnection.Action, DeviceConnection.Environment>.empty
+private let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.Action, DeviceConnection.Environment>.empty
 
-//let deviceConnection = Store(
-//  initialState: DeviceConnection.State(), reducer: reducer, environment: DevicesExample.Environment())
 
 extension DeviceConnection {
   struct RootView: View {
@@ -31,15 +38,19 @@ extension DeviceConnection {
     
     var body: some View {
       WithViewStore(self.store) { viewStore in
-          List {
-            
+        VStack {
+          VStack(alignment: .center) {
+            LazyImage(source: url(for: viewStore.device), resizingMode: .aspectFit)
+              .frame(width: 200, height: 200, alignment: .leading)
+            Text("Status: \(viewStore.status.rawValue)")
+            Spacer()
           }
-          .environment(\.defaultMinListRowHeight, 25)
-          .listStyle(PlainListStyle())
-          .background(Color.white)
-          .navigationBarTitle(viewStore.device.name, displayMode: .inline)
         }
-
+        .environment(\.defaultMinListRowHeight, 25)
+        .listStyle(PlainListStyle())
+        .background(Color.white)
+        .navigationBarTitle(viewStore.device.name, displayMode: .inline)
+      }
     }
   }
 }

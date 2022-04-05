@@ -1,5 +1,6 @@
 import SwiftUI
 import VitalHealthKit
+import HealthKit
 
 struct HealthKitExample: View {
   var body: some View {
@@ -35,11 +36,18 @@ struct HealthKitExample: View {
   HStack {
     Text(text)
     Spacer()
-    Button("Request Permission") {
-      VitalHealthKitClient.shared.ask(for: resources) { completion in
-        print(completion)
+    
+    if hasAskedForPermission(resource: resources[0], store: HKHealthStore()) {
+      Button("Permission requested") {}
+        .disabled(true)
+        .buttonStyle(PermissionStyle())
+    } else {
+      Button("Request Permission") {
+        VitalHealthKitClient.shared.ask(for: resources) { completion in
+          
+        }
       }
+      .buttonStyle(PermissionStyle())
     }
-    .buttonStyle(PermissionStyle())
   }
 }
