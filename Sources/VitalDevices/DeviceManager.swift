@@ -2,7 +2,7 @@ import Foundation
 import CombineCoreBluetooth
 import CoreBluetooth
 
-public class DevicesManager: ObservableObject {
+public class DevicesManager {
   private let manager: CentralManager
 
   public init() {

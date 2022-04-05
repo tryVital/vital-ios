@@ -31,23 +31,3 @@ struct ExampleApp: App {
     }
   }
 }
-
-//return TabView {
-//  DashFeed.RootView(store: feedStore)
-//    .tabItem {
-//      Image(systemName: "chart.bar.xaxis")
-//      Text("Dashboard")
-//    }
-//    .tag(0)
-//  NavigationView {
-//    DashProfile.RootView(store: profileStore)
-//  }
-//  .tag(1)
-//  .tabItem {
-//    Image(systemName: "gear")
-//    Text("Settings")
-//  }
-//}
-//.accentColor(Color("primary"))
-//.background(Color("primary_background"))
-//.eraseToAnyView()
