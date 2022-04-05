@@ -199,7 +199,7 @@ struct VitalWorkoutPatch: Encodable {
       self.endDate = workout.endDate
       self.sport = workout.workoutActivityType.toString
       self.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0
-      self.distance = workout.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)) ?? 0
+      self.distance = workout.totalDistance?.doubleValue(for: .meter()) ?? 0
       self.sourceBundle = workout.sourceRevision.source.bundleIdentifier
     }
   }
