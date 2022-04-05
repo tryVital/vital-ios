@@ -1,6 +1,3 @@
 import VitalDevices
+import ComposableArchitecture
 
-public struct DevicesState: Equatable {
-  
-  let brands = 
-}

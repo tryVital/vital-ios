@@ -1,4 +1,4 @@
-public enum Brand {
+public enum Brand: Equatable {
   case omron
   case accuCheck
   case contour
@@ -15,12 +15,12 @@ public enum Brand {
   }
 }
 
-public struct DeviceModel {
+public struct DeviceModel: Equatable, Identifiable {
   public let name: String
   public let kind: Kind
   public let brand: Brand
 
-  let id: String
+  public let id: String
   let codes: [String]
   
   init(
@@ -39,7 +39,7 @@ public struct DeviceModel {
 }
 
 public extension DeviceModel {
-  enum Kind {
+  enum Kind: Equatable {
     case bloodPressure
     case glucoseMeter
   }

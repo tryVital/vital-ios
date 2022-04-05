@@ -12,7 +12,7 @@ struct ExampleApp: App {
             Text("HealthKit")
           }
           .tag(0)
-        DevicesExample()
+        DevicesExample.RootView(store: devicesStore)
           .tabItem {
             Image(systemName: "laptopcomputer.and.iphone")
             Text("Devices")

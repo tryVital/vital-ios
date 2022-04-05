@@ -61,4 +61,12 @@ public extension DevicesManager {
     
     return CBUUID(string: id.fullUUID)
   }
+  
+  static func brands() -> [Brand] {
+    return [
+      .omron,
+      .accuCheck,
+      .contour
+    ]
+  }
 }
