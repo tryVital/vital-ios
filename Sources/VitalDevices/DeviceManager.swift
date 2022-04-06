@@ -41,6 +41,7 @@ public class DevicesManager {
           name: peripheral.name!,
           uuid: peripheral.id.uuidString,
           brand: deviceModel.brand,
+          kind: deviceModel.kind,
           peripheral: peripheral
         )
       }

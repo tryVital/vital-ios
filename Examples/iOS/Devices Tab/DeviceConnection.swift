@@ -7,6 +7,20 @@ import Combine
 
 enum DeviceConnection {}
 
+enum Reading: Equatable, Hashable, IdentifiableByHashable {
+  case bloodPressure(BloodPressureDataPoint)
+  case glucose(GlucoseDataPoint)
+  
+  var isBloodPressure: Bool {
+    switch self {
+      case .bloodPressure:
+        return true
+      case .glucose:
+        return false
+    }
+  }
+}
+
 extension DeviceConnection {
   public struct State: Equatable {
     enum Status: String {
@@ -22,7 +36,7 @@ extension DeviceConnection {
     var status: Status
     var scannedDevice: ScannedDevice?
     
-    var readings: [BloodPressureDataPoint] = []
+    var readings: [Reading] = []
     
     init(device: DeviceModel) {
       self.device = device
@@ -36,7 +50,7 @@ extension DeviceConnection {
     
     case scannedDeviceUpdate(Bool)
     
-    case newDataPoint(BloodPressureDataPoint)
+    case newReading(Reading)
     
     case pairDevice(ScannedDevice)
     case pairedSuccesfully(ScannedDevice)
@@ -54,7 +68,7 @@ extension DeviceConnection {
 let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.Action, DeviceConnection.Environment> { state, action, env in
   struct LongRunningReads: Hashable {}
   struct LongRunningScan: Hashable {}
-
+  
   switch action {
     case .startScanning:
       return env.deviceManager.startSearch(for: state.device)
@@ -75,8 +89,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .cancellable(id: LongRunningScan())
       
       return Effect.concatenate(pairedSuccessfully, monitorDevice)
-            
-    case let .newDataPoint(dataPoint):
+      
+    case let .newReading(dataPoint):
       
       if state.readings.contains(dataPoint) == false {
         state.readings.append(dataPoint)
@@ -94,18 +108,40 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case let .pairedSuccesfully(scannedDevice):
       state.status = .paired
-      let reader = env.deviceManager.bloodPressureReader(for: scannedDevice)
       
-      return reader.read(device: scannedDevice)
-        .map(DeviceConnection.Action.newDataPoint)
+      let publisher: AnyPublisher<Reading, Error>
+      
+      if scannedDevice.kind == .bloodPressure {
+        let reader = env.deviceManager.bloodPressureReader(for: scannedDevice)
+        
+        publisher = reader.read(device: scannedDevice)
+          .map(Reading.bloodPressure)
+          .eraseToAnyPublisher()
+        
+      } else {
+        let reader = env.deviceManager.glucoseMeter(for: scannedDevice)
+        
+        publisher = reader.read(device: scannedDevice)
+          .map(Reading.glucose)
+          .eraseToAnyPublisher()
+      }
+      
+      return publisher
+        .map(DeviceConnection.Action.newReading)
         .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
         .receive(on: env.mainQueue)
         .eraseToEffect()
         .cancellable(id: LongRunningReads())
-
+      
       
     case let .pairDevice(device):
-      let reader = env.deviceManager.bloodPressureReader(for: device)
+      let reader: DevicePairable
+      
+      if device.kind == .bloodPressure {
+        reader = env.deviceManager.bloodPressureReader(for: device)
+      } else {
+        reader = env.deviceManager.glucoseMeter(for: device)
+      }
       
       return reader.pair(device: device)
         .map { _ in DeviceConnection.Action.pairedSuccesfully(device) }
@@ -134,27 +170,41 @@ extension DeviceConnection {
             Spacer()
             
             List {
-              ForEach(viewStore.readings) { point in
-                HStack {
-                VStack {
-                  HStack {
-                    Text("\(point.systolic)")
-                    Text("\(point.units)")
-                  }
-                  
-                  HStack {
-                    Text("\(point.diastolic)")
-                    Text("\(point.units)")
-                  }
-                  
-                  HStack {
-                    Text("\(point.pulseRate)")
-                    Text("bpm")
-                  }
-                }
-                  Text("\(point.date)")
-                    .foregroundColor(.gray)
-                    .font(.footnote)
+              ForEach(viewStore.readings) { (reading: Reading) in
+                
+                switch reading {
+                  case let .bloodPressure(point):
+                    HStack {
+                      VStack {
+                        HStack {
+                          Text("\(point.systolic)")
+                          Text("\(point.units)")
+                        }
+                        
+                        HStack {
+                          Text("\(point.diastolic)")
+                          Text("\(point.units)")
+                        }
+                        
+                        HStack {
+                          Text("\(point.pulseRate)")
+                          Text("bpm")
+                        }
+                      }
+                      Text("\(point.date)")
+                        .foregroundColor(.gray)
+                        .font(.footnote)
+                    }
+                  case let .glucose(point):
+                    HStack {
+                      VStack {
+                        Text("\(point.value)")
+                        Text("\(point.units)")
+                      }
+                      Text("\(point.date)")
+                        .foregroundColor(.gray)
+                        .font(.footnote)
+                    }
                 }
               }
             }

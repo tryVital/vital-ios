@@ -78,7 +78,7 @@ extension DevicesExample {
     }
     
     @ViewBuilder func render(_ viewStore: ViewStore<State, Action>) -> some View {
-      ForEach(viewStore.devices) { device in
+      ForEach(viewStore.devices) { (device: DeviceModel) in        
         NavigationLink(
           destination: IfLetStore(
             self.store.scope(

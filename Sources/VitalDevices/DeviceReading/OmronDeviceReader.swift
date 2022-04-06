@@ -10,8 +10,7 @@ public struct BloodPressureDataPoint: Equatable, Hashable {
   public let units: String
 }
 
-public protocol BloodPressureReadable {
-  func pair(device: ScannedDevice) -> AnyPublisher<Void, Error>
+public protocol BloodPressureReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error>
 }
 

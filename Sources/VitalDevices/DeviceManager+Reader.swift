@@ -5,7 +5,16 @@ public extension DevicesManager {
       case .omron:
         return OmronDeviceReader(manager: manager)
       default:
-        fatalError("Not supported")
+        fatalError("\(device.brand) not supported")
+    }
+  }
+  
+  func glucoseMeter(for device: ScannedDevice) -> GlucoseMeterReadable {
+    switch device.brand {
+      case .accuCheck, .contour:
+        return AccuchekDeviceReader(manager: manager)
+      default:
+        fatalError("\(device.brand) not supported")
     }
   }
 }
