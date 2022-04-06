@@ -2,12 +2,6 @@ import VitalCore
 import CombineCoreBluetooth
 import Combine
 
-public struct GlucoseDataPoint: Equatable, Hashable {
-  public let value: Float
-  public let date: Date
-  public let units: String
-}
-
 public protocol GlucoseMeterReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<GlucoseDataPoint, Error>
 }

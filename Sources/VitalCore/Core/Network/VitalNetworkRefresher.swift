@@ -9,7 +9,11 @@ private struct Payload: Encodable {
   let domain: String
 }
 
-func refreshToken(clientId: String, clientSecret: String, environment: Environment) -> () async throws -> JWT {
+func refreshToken(
+  clientId: String,
+  clientSecret: String,
+  environment: Environment
+) -> () async throws -> JWT {
   return {
     let payload = Payload(
       clientId: clientId,

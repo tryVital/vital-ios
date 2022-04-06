@@ -31,12 +31,43 @@ public enum Environment {
 
 public class VitalNetworkClient {
   
-  private let environment: Environment
-  private let apiClient: APIClient
-  private var userId: String?
+  let environment: Environment
+  let apiClient: APIClient
+  var userId: String?
   private let apiVersion: String
   
   let refresh: () async throws -> JWT
+  
+  public static var shared: VitalNetworkClient {
+    guard let client = Self.client else {
+      fatalError("`VitalNetworkClient` hasn't been configured.")
+    }
+    
+    return client
+  }
+  
+  private static var client: VitalNetworkClient?
+  
+  private static func setInstance(client: VitalNetworkClient) {
+    guard Self.client == nil else {
+      fatalError("`VitalNetworkClient` is already configured.")
+    }
+    
+    Self.client = client
+  }
+  
+  public static func configure(
+    clientId: String,
+    clientSecret: String,
+    environment: Environment
+  ) {
+    let client = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    Self.setInstance(client: client)
+  }
+  
+  public static func setUserId(_ userId: String) {
+    VitalNetworkClient.shared.userId = userId
+  }
   
   public init(
     clientId: String,

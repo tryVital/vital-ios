@@ -29,7 +29,6 @@ public class VitalHealthKitClient {
   private let store: HKHealthStore
   private let configuration: Configuration
   private let vitalStorage: VitalStorage
-  private let networkClient: VitalNetworkClient
   
   private let _status: PassthroughSubject<Status, Never>
   
@@ -46,11 +45,10 @@ public class VitalHealthKitClient {
     }
   }
   
-  init(configuration: Configuration, networkClient: VitalNetworkClient) {
+  init(configuration: Configuration) {
     self.store = HKHealthStore()
     self.vitalStorage = VitalStorage()
     self.configuration = configuration
-    self.networkClient = networkClient
     self._status = PassthroughSubject<Status, Never>()
     
     if configuration.logsEnable {
@@ -86,12 +84,12 @@ public class VitalHealthKitClient {
     environment: Environment,
     configuration: Configuration = .init()
   ) {
-    let networkClient = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    let client = VitalHealthKitClient(configuration: configuration, networkClient: networkClient)
-    Self.setInstance(client: client)
+    VitalNetworkClient.configure(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    Self.setInstance(client: .init(configuration: configuration))
   }
   
   public static func set(userId: String) {
+    VitalNetworkClient.setUserId(userId)
     self.shared.userId = userId
   }
 }
