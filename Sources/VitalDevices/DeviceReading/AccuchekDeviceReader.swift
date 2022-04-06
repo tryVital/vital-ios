@@ -29,7 +29,7 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
       let measurementCharacteristic = characteristics.first { $0.uuid == measurementCharacteristicUUID }
       let RACPCharacteristic = characteristics.first { $0.uuid == RACPCharacteristicUUID }
       
-      let write = peripheral.writeValue(Data([1, 1]), for: RACPCharacteristic!, type: .withoutResponse)
+      let write = peripheral.writeValue(Data([1, 1]), for: RACPCharacteristic!, type: .withResponse)
       
       return write.flatMapLatest { _ in
         peripheral.listenForUpdates(on: measurementCharacteristic!)
@@ -60,9 +60,8 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
           guard characteristics.count == 2 else {
             return .empty
           }
-          
-          let first = peripheral.setNotifyValue(true, for: characteristics[0])
           let second = peripheral.setNotifyValue(true, for: characteristics[1])
+          let first = peripheral.setNotifyValue(true, for: characteristics[0])
           
           let zipped = first.zip(second).eraseToAnyPublisher()
           
@@ -76,6 +75,29 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
   }
 }
 
+extension Date {
+    func adding(minutes: Int) -> Date {
+        return Calendar.current.date(byAdding: .minute, value: minutes, to: self)!
+    }
+}
+
 private func toGlucoseReading(characteristic: CBCharacteristic) -> GlucoseDataPoint? {
-  fatalError("Need to Implement")
+    guard let data = characteristic.value else {
+      return nil
+    }
+    let byteArrayFromData: [UInt8] = [UInt8](data)
+    let record: UInt16 = [byteArrayFromData[1], byteArrayFromData[2]].withUnsafeBytes { $0.load(as: UInt16.self) }
+    let year: UInt16 = [byteArrayFromData[3], byteArrayFromData[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
+    let month = byteArrayFromData[5]
+    let day = byteArrayFromData[6]
+    let hour = byteArrayFromData[7]
+    let minute = byteArrayFromData[8]
+    let second = byteArrayFromData[9]
+    let timeOff = [byteArrayFromData[10], byteArrayFromData[11]].withUnsafeBytes { $0.load(as: UInt16.self) }
+
+    let components = DateComponents(year: Int(year), month: Int(month), day: Int(day), hour: Int(hour), minute: Int(minute), second: Int(second))
+    let date = Calendar.current.date(from: components) ?? .init()
+    let correctDate = date.adding(minutes: Int(timeOff))
+    let glucose = byteArrayFromData[12]
+    return GlucoseDataPoint(value: Float(glucose), date: correctDate, units: "mg/dL")
 }
