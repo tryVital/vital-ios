@@ -2,9 +2,9 @@ import VitalCore
 import CombineCoreBluetooth
 
 public struct BloodPressureDataPoint: Equatable, Hashable {
-  public let systolic: Float
-  public let diastolic: Float
-  public let pulseRate: Float
+  public let systolic: Double
+  public let diastolic: Double
+  public let pulseRate: Double
   
   public let date: Date
   public let units: String
@@ -14,8 +14,9 @@ public protocol BloodPressureReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error>
 }
 
-class OmronDeviceReader: BloodPressureReadable {
+class DeviceReader1810: BloodPressureReadable {
   
+  private let service = CBUUID(string: "1810")
   private let manager: CentralManager
   private let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
   
@@ -85,9 +86,9 @@ private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPr
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
   
   return BloodPressureDataPoint(
-    systolic: Float(systolic),
-    diastolic: Float(diastolic),
-    pulseRate: Float(pulseRate),
+    systolic: Double(systolic),
+    diastolic: Double(diastolic),
+    pulseRate: Double(pulseRate),
     date: date,
     units: units
   )

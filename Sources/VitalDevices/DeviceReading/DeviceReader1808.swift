@@ -3,13 +3,14 @@ import CombineCoreBluetooth
 import Combine
 
 public protocol GlucoseMeterReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<GlucoseDataPoint, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<QuantitySample, Error>
 }
 
+private let service = CBUUID(string: "1808")
 private let measurementCharacteristicUUID = CBUUID(string: "2A18".fullUUID)
 private let RACPCharacteristicUUID = CBUUID(string: "2A52".fullUUID)
 
-class AccuchekDeviceReader: GlucoseMeterReadable {
+class DeviceReader1808: GlucoseMeterReadable {
   
   private let manager: CentralManager
   
@@ -17,8 +18,8 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
     self.manager = manager
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<GlucoseDataPoint, Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<GlucoseDataPoint, Error> in
+  public func read(device: ScannedDevice) -> AnyPublisher<QuantitySample, Error> {
+    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<QuantitySample, Error> in
       
       let measurementCharacteristic = characteristics.first { $0.uuid == measurementCharacteristicUUID }
       let RACPCharacteristic = characteristics.first { $0.uuid == RACPCharacteristicUUID }
@@ -37,9 +38,6 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
   }
   
   private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
-    let service = DevicesManager.service(for: device.brand)
-    
-    
     return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
       
       peripheral.discoverServices([service])
@@ -69,7 +67,7 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
   }
 }
 
-private func toGlucoseReading(characteristic: CBCharacteristic) -> GlucoseDataPoint? {
+private func toGlucoseReading(characteristic: CBCharacteristic) -> QuantitySample? {
   guard let data = characteristic.value else {
     return nil
   }
@@ -97,5 +95,12 @@ private func toGlucoseReading(characteristic: CBCharacteristic) -> GlucoseDataPo
   let correctedDate = calendar.date(byAdding: .minute, value:  Int(timeOff), to: date) ?? .init()
   
   let glucose = byteArrayFromData[12]
-  return GlucoseDataPoint(value: Float(glucose), date: correctedDate, units: "mg/dL")
+  
+  return QuantitySample(
+    value: Double(glucose),
+    startDate: correctedDate,
+    endDate: correctedDate,
+    type: "fingerprick",
+    units: "mg/dL"
+  )
 }

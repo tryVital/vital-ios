@@ -14,17 +14,17 @@ public enum Environment {
   var host: String {
     switch self {
       case .dev(.eu):
-        return "https://api.dev.eu.tryvital.io"
+        return "api.dev.eu.tryvital.io"
       case .dev(.us):
-        return "https://api.dev.tryvital.io"
+        return "api.dev.tryvital.io"
       case .sandbox(.eu):
-        return "https://api.sandbox.eu.tryvital.io"
+        return "api.sandbox.eu.tryvital.io"
       case .sandbox(.us):
-        return "https://api.sandbox.tryvital.io"
+        return "api.sandbox.tryvital.io"
       case .production(.eu):
-        return "https://api.eu.tryvital.io"
+        return "api.eu.tryvital.io"
       case .production(.us):
-        return "https://api.tryvital.io"
+        return "api.tryvital.io"
     }
   }
 }
@@ -34,7 +34,7 @@ public class VitalNetworkClient {
   let environment: Environment
   let apiClient: APIClient
   var userId: String?
-  private let apiVersion: String
+  let apiVersion: String
   
   let refresh: () async throws -> JWT
   
@@ -81,14 +81,17 @@ public class VitalNetworkClient {
     self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment)
     let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh)
     
-    self.apiClient = APIClient.init(host: environment.host) { configuration in
+    self.apiClient = APIClient(host: environment.host) { configuration in
       configuration.delegate = apiClientDelegate
       
+      
       let encoder = JSONEncoder()
+      encoder.dateEncodingStrategy = .iso8601
       encoder.keyEncodingStrategy = .convertToSnakeCase
       
       let decoder = JSONDecoder()
       decoder.keyDecodingStrategy = .convertFromSnakeCase
+      decoder.dateDecodingStrategy = .iso8601
       
       configuration.encoder = encoder
       configuration.decoder = decoder

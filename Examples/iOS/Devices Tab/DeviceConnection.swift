@@ -58,6 +58,9 @@ extension DeviceConnection {
     case pairingFailed(String)
     
     case readingFailed(String)
+    
+    case lol
+    case lolFailure(String)
   }
   
   public struct Environment {
@@ -71,12 +74,31 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   struct LongRunningScan: Hashable {}
   
   switch action {
+    case .lol:
+      print("lol")
+      return .none
+    case let .lolFailure(error):
+      print(error)
+      return .none
+      
     case .startScanning:
-      return env.deviceManager.startSearch(for: state.device)
-        .first()
-        .map(DeviceConnection.Action.scannedDevice)
-        .receive(on: env.mainQueue)
-        .eraseToEffect()
+      let effect = Effect<Void, Error>.task {
+        let patch = GlucosePatch(glucose: [.init(value: 10, startDate: .init(), endDate: .init())])
+        
+        try await VitalNetworkClient.shared.summary.post(to: .glucose(patch, .historical(start: .init(), end: .init())))
+        }
+        .map { _ in DeviceConnection.Action.lol}
+        .catch { error in
+          return Just(DeviceConnection.Action.lolFailure(error.localizedDescription))
+          
+        }
+
+      return effect.receive(on: env.mainQueue).eraseToEffect()
+//      return env.deviceManager.startSearch(for: state.device)
+//        .first()
+//        .map(DeviceConnection.Action.scannedDevice)
+//        .receive(on: env.mainQueue)
+//        .eraseToEffect()
       
     case let .scannedDevice(device):
       state.status = .found
@@ -96,9 +118,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       if state.readings.contains(dataPoint) == false {
         state.readings.append(dataPoint)
       }
-      
-      
-      
+
       return .none
       
     case let .readingFailed(reason):
@@ -202,9 +222,9 @@ extension DeviceConnection {
                     HStack {
                       VStack {
                         Text("\(point.value)")
-                        Text("\(point.units)")
+                        Text("\(point.units ?? "")")
                       }
-                      Text("\(point.date)")
+                      Text("\(point.startDate)")
                         .foregroundColor(.gray)
                         .font(.footnote)
                     }

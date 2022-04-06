@@ -1,20 +1,20 @@
 import Get
 public extension VitalNetworkClient {
-  class Vitals {
+  class Summary {
     let client: VitalNetworkClient
-    let path = "vitals"
+    let path = "summary"
     
     init(client: VitalNetworkClient) {
       self.client = client
     }
   }
 
-  var vitals: Vitals {
+  var summary: Summary {
     .init(client: self)
   }
 }
 
-public extension VitalNetworkClient.Vitals {
+public extension VitalNetworkClient.Summary {
   enum Resource {
     case glucose(GlucosePatch, TaggedPayload.Stage, TaggedPayload.Provider = .manual)
   }
@@ -31,10 +31,11 @@ public extension VitalNetworkClient.Vitals {
         let taggedPayload = TaggedPayload(
           stage: stage,
           provider: provider,
-          data: .vitals(.glucose(sample))
+          data: AnyEncodable(sample.glucose)
         )
       
-        request = Request.post("/\(path)/\(userId)/glucose", body: taggedPayload)
+        let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/glucose"
+        request = Request.post(path, body: taggedPayload)
     }
     
     try await self.client.apiClient.send(request)

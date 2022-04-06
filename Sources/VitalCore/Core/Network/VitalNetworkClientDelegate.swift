@@ -35,7 +35,8 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
-    
+    print(request.url)
+    print(String(data: request.httpBody!, encoding: .utf8))
     if token?.expiresIn ?? .distantPast < Date() {
       try await refreshAndStore()
     }
@@ -48,6 +49,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
+    print(error)
     guard case .unacceptableStatusCode(401) = error as? APIError else {
       return false
     }
