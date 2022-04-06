@@ -9,11 +9,10 @@ enum DevicesExample {}
 extension DevicesExample {
   public struct State: Equatable {
     let devices: [DeviceModel]
-    var selection: Identified<String, DeviceConnection.State>?
+    var deviceConnection: DeviceConnection.State? = nil
     
     init() {
       self.devices = DevicesManager.brands().flatMap(DevicesManager.devices(for:))
-      self.selection = nil
     }
   }
   
@@ -21,39 +20,42 @@ extension DevicesExample {
     case deviceConnection(DeviceConnection.Action)
     case navigateToDeviceConnection(String?)
   }
-  public struct Environment {}
+  
+  public struct Environment {
+    let deviceManager: DevicesManager
+    let mainQueue: AnySchedulerOf<DispatchQueue>
+  }
 }
 
 private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, DevicesExample.Environment> { state, action, _ in
-  
   switch action {
     case .deviceConnection:
       return .none
       
     case .navigateToDeviceConnection(nil):
-      state.selection = nil
+      state.deviceConnection = nil
       return .none
       
     case let .navigateToDeviceConnection(.some(id)):
       for device in state.devices {
         if device.id == id {
-          state.selection = .init(.init(device: device), id: id)
+          state.deviceConnection = DeviceConnection.State(device: device)
         }
       }
       
       return .none
   }
 }
-
-let globalReducer = Reducer.combine(reducer)
+  .presents(deviceConnectionReducer, cancelEffectsOnDismiss: true, state: \.deviceConnection, action: /DevicesExample.Action.deviceConnection) { env in
+    DeviceConnection.Environment(deviceManager: env.deviceManager, mainQueue: env.mainQueue)
+  }
 
 
 let devicesStore = Store(
   initialState: DevicesExample.State(),
   reducer: reducer,
-  environment: DevicesExample.Environment()
+  environment: DevicesExample.Environment(deviceManager: DevicesManager(), mainQueue: DispatchQueue.main.eraseToAnyScheduler())
 )
-
 
 extension DevicesExample {
   struct RootView: View {
@@ -80,14 +82,14 @@ extension DevicesExample {
         NavigationLink(
           destination: IfLetStore(
             self.store.scope(
-              state: \.selection?.value,
+              state: \.deviceConnection,
               action: DevicesExample.Action.deviceConnection
             ),
             then: DeviceConnection.RootView.init(store:))
           ,
           tag: device.id,
           selection: viewStore.binding(
-            get: \.selection?.id,
+            get: \.deviceConnection?.device.id,
             send: DevicesExample.Action.navigateToDeviceConnection
           )
         ) {
@@ -98,11 +100,9 @@ extension DevicesExample {
             VStack(alignment: .leading) {
               Text("\(device.name)")
                 .font(.headline)
-                .fontWeight(.medium)
               
               Text("\(name(for: device.kind))")
                 .font(.subheadline)
-                .fontWeight(.medium)
                 .foregroundColor(.gray)
             }
             

@@ -3,7 +3,7 @@ import CombineCoreBluetooth
 import CoreBluetooth
 
 public class DevicesManager {
-  private let manager: CentralManager
+  let manager: CentralManager
 
   public init() {
     self.manager = .live()
@@ -29,7 +29,7 @@ public class DevicesManager {
           
           return name.contains(code)
         }
-        
+                
         guard outcome else {
           return nil
         }

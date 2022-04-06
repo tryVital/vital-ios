@@ -6,7 +6,7 @@ public extension DevicesManager {
             id: "omron_m4",
             name: "Omron Intelli IT M4",
             brand: .omron,
-            codes: ["OMRON", "M4", "BLESMART"],
+            codes: ["OMRON", "M4","X4", "BLESMART"],
             kind: .bloodPressure
           ),
           .init(

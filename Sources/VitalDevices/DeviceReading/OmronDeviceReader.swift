@@ -1,7 +1,7 @@
 import VitalCore
 import CombineCoreBluetooth
 
-public struct OmronDataPoint {
+public struct BloodPressureDataPoint: Equatable, Hashable {
   public let systolic: Float
   public let diastolic: Float
   public let pulseRate: Float
@@ -10,7 +10,12 @@ public struct OmronDataPoint {
   public let units: String
 }
 
-class OmronDeviceReader {
+public protocol BloodPressureReadable {
+  func pair(device: ScannedDevice) -> AnyPublisher<Void, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error>
+}
+
+class OmronDeviceReader: BloodPressureReadable {
   
   private let manager: CentralManager
   private let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
@@ -19,12 +24,12 @@ class OmronDeviceReader {
     self.manager = manager
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<OmronDataPoint, Error> {
-    
+  
+  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error> {
     let service = DevicesManager.service(for: device.brand)
     let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
     
-    return manager.connect(device.peripheral).flatMap { peripheral -> AnyPublisher<OmronDataPoint, Error> in
+    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<BloodPressureDataPoint, Error> in
       
       peripheral.discoverServices([service])
         .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
@@ -34,23 +39,48 @@ class OmronDeviceReader {
           
           return peripheral.discoverCharacteristics([characteristic], for: services[0])
         }
-        .flatMapLatest { characteristics -> AnyPublisher<CBCharacteristic, Error> in
+        .flatMapLatest { characteristics -> AnyPublisher<BloodPressureDataPoint, Error> in
           guard characteristics.isEmpty == false else {
             return .empty
           }
           
-          return peripheral.setNotifyValue(true, for: characteristics[0])
-        }
-        .flatMapLatest { characteristic -> AnyPublisher<OmronDataPoint, Error> in
-          peripheral.listenForUpdates(on: characteristic).compactMap(toOmronDataPoint).eraseToAnyPublisher()
+          print("===")
+          print("Got a reading \(toBloodPressureReading(characteristic: characteristics[0]))")
+          
+          return peripheral.listenForUpdates(on: characteristics[0]).compactMap(toBloodPressureReading).eraseToAnyPublisher()
         }
     }
     .eraseToAnyPublisher()
-
+  }
+    
+  public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
+    
+    let service = DevicesManager.service(for: device.brand)
+    let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
+    
+    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<Void, Error> in
+      
+      peripheral.discoverServices([service])
+        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
+          guard services.isEmpty == false else {
+            return .empty
+          }
+          
+          return peripheral.discoverCharacteristics([characteristic], for: services[0])
+        }
+        .flatMapLatest { characteristics -> AnyPublisher<Void, Error> in
+          guard characteristics.isEmpty == false else {
+            return .empty
+          }
+          
+          return peripheral.setNotifyValue(true, for: characteristics[0]).map { _ in () }.eraseToAnyPublisher()
+        }
+    }
+    .eraseToAnyPublisher()
   }
 }
   
-private func toOmronDataPoint(characteristic: CBCharacteristic) -> OmronDataPoint? {
+private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressureDataPoint? {
   guard let data = characteristic.value else {
     return nil
   }
@@ -74,7 +104,7 @@ private func toOmronDataPoint(characteristic: CBCharacteristic) -> OmronDataPoin
   
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
   
-  return OmronDataPoint(
+  return BloodPressureDataPoint(
     systolic: Float(systolic),
     diastolic: Float(diastolic),
     pulseRate: Float(pulseRate),

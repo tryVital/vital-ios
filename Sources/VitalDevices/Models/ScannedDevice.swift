@@ -1,6 +1,6 @@
 import CombineCoreBluetooth
 
-public struct ScannedDevice {
+public struct ScannedDevice: Equatable {
   public let name: String
   public let uuid: String
   
