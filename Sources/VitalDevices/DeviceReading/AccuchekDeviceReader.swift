@@ -1,5 +1,6 @@
 import VitalCore
 import CombineCoreBluetooth
+import Combine
 
 public struct GlucoseDataPoint: Equatable, Hashable {
   public let value: Float
@@ -63,9 +64,9 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
           let first = peripheral.setNotifyValue(true, for: characteristics[0])
           let second = peripheral.setNotifyValue(true, for: characteristics[1])
           
-          let merged = first.merge(with: second).eraseToAnyPublisher()
+          let zipped = first.zip(second).eraseToAnyPublisher()
           
-          return merged.map { _ in
+          return zipped.map { _ in
             return (peripheral, characteristics)
           }
           .eraseToAnyPublisher()
@@ -78,4 +79,3 @@ class AccuchekDeviceReader: GlucoseMeterReadable {
 private func toGlucoseReading(characteristic: CBCharacteristic) -> GlucoseDataPoint? {
   fatalError("Need to Implement")
 }
-
