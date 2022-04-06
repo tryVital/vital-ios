@@ -1,25 +1,43 @@
 import Foundation
 
 public struct TaggedPayload: Encodable {
-  public let stage: Stage
-  public let provider: String
+  public let stage: String
+  public let startDate: Date?
+  public let endDate: Date?
+  public let provider: Provider
   public let data: TaggedPayloadData
   
   public init(
     stage: Stage = .daily,
-    provider: String = "manual",
+    provider: Provider = .manual,
     data: TaggedPayload.TaggedPayloadData
   ) {
-    self.stage = stage
     self.provider = provider
     self.data = data
+    
+    switch stage {
+      case .daily:
+        self.stage = "daily"
+        self.startDate = nil
+        self.endDate = nil
+        
+      case let .historical(start: startDate, end: endDate):
+        self.stage = "historical"
+        self.startDate = startDate
+        self.endDate = endDate
+    }
   }
 }
 
 public extension TaggedPayload {
-  enum Stage: String, Encodable {
+  enum Stage {
     case daily
-    case historical
+    case historical(start: Date, end: Date)
+  }
+  
+  enum Provider: String, Encodable {
+    case manual
+    case healthKit
   }
   
   enum TaggedPayloadData: Encodable {

@@ -4,12 +4,13 @@ import VitalDevices
 import ComposableArchitecture
 import NukeUI
 import Combine
+import VitalCore
 
 enum DeviceConnection {}
 
 enum Reading: Equatable, Hashable, IdentifiableByHashable {
   case bloodPressure(BloodPressureDataPoint)
-  case glucose(GlucoseDataPoint)
+  case glucose(QuantitySample)
   
   var isBloodPressure: Bool {
     switch self {
@@ -95,6 +96,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       if state.readings.contains(dataPoint) == false {
         state.readings.append(dataPoint)
       }
+      
+      
       
       return .none
       

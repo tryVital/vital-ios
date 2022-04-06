@@ -80,6 +80,18 @@ public class VitalNetworkClient {
     
     self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment)
     let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh)
-    self.apiClient = APIClient(configuration: .init(host: environment.host, delegate: apiClientDelegate))
+    
+    self.apiClient = APIClient.init(host: environment.host) { configuration in
+      configuration.delegate = apiClientDelegate
+      
+      let encoder = JSONEncoder()
+      encoder.keyEncodingStrategy = .convertToSnakeCase
+      
+      let decoder = JSONDecoder()
+      decoder.keyDecodingStrategy = .convertFromSnakeCase
+      
+      configuration.encoder = encoder
+      configuration.decoder = decoder
+    }
   }
 }
