@@ -24,41 +24,22 @@ class OmronDeviceReader: BloodPressureReadable {
     self.manager = manager
   }
   
-  
   public func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error> {
-    let service = DevicesManager.service(for: device.brand)
-    let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
-    
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<BloodPressureDataPoint, Error> in
-      
-      peripheral.discoverServices([service])
-        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
-          guard services.isEmpty == false else {
-            return .empty
-          }
-          
-          return peripheral.discoverCharacteristics([characteristic], for: services[0])
-        }
-        .flatMapLatest { characteristics -> AnyPublisher<BloodPressureDataPoint, Error> in
-          guard characteristics.isEmpty == false else {
-            return .empty
-          }
-          
-          print("===")
-          print("Got a reading \(toBloodPressureReading(characteristic: characteristics[0]))")
-          
-          return peripheral.listenForUpdates(on: characteristics[0]).compactMap(toBloodPressureReading).eraseToAnyPublisher()
-        }
+    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressureDataPoint, Error> in
+      return peripheral.listenForUpdates(on: characteristic)
+        .compactMap(toBloodPressureReading).eraseToAnyPublisher()
     }
-    .eraseToAnyPublisher()
   }
-    
+  
   public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
-    
+    _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
+  }
+  
+  private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, CBCharacteristic), Error> {
     let service = DevicesManager.service(for: device.brand)
     let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
     
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<Void, Error> in
+    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
       
       peripheral.discoverServices([service])
         .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
@@ -68,12 +49,12 @@ class OmronDeviceReader: BloodPressureReadable {
           
           return peripheral.discoverCharacteristics([characteristic], for: services[0])
         }
-        .flatMapLatest { characteristics -> AnyPublisher<Void, Error> in
+        .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
           guard characteristics.isEmpty == false else {
             return .empty
           }
           
-          return peripheral.setNotifyValue(true, for: characteristics[0]).map { _ in () }.eraseToAnyPublisher()
+          return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, $0) }.eraseToAnyPublisher()
         }
     }
     .eraseToAnyPublisher()

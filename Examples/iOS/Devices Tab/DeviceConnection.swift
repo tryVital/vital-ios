@@ -34,6 +34,8 @@ extension DeviceConnection {
     case startScanning
     case scannedDevice(ScannedDevice)
     
+    case scannedDeviceUpdate(Bool)
+    
     case newDataPoint(BloodPressureDataPoint)
     
     case pairDevice(ScannedDevice)
@@ -51,7 +53,8 @@ extension DeviceConnection {
 
 let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.Action, DeviceConnection.Environment> { state, action, env in
   struct LongRunningReads: Hashable {}
-  
+  struct LongRunningScan: Hashable {}
+
   switch action {
     case .startScanning:
       return env.deviceManager.startSearch(for: state.device)
@@ -64,8 +67,15 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       state.status = .found
       state.scannedDevice = device
       
-      return Effect<DeviceConnection.Action, Never>(value: DeviceConnection.Action.pairDevice(device))
+      let pairedSuccessfully = Effect<DeviceConnection.Action, Never>(value: DeviceConnection.Action.pairedSuccesfully(device))
       
+      let monitorDevice = env.deviceManager.deviceConnection(for: device).map(DeviceConnection.Action.scannedDeviceUpdate)
+        .receive(on: env.mainQueue)
+        .eraseToEffect()
+        .cancellable(id: LongRunningScan())
+      
+      return Effect.concatenate(pairedSuccessfully, monitorDevice)
+            
     case let .newDataPoint(dataPoint):
       
       if state.readings.contains(dataPoint) == false {
@@ -102,6 +112,10 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .catch { error in Just(DeviceConnection.Action.pairingFailed(error.localizedDescription))}
         .receive(on: env.mainQueue)
         .eraseToEffect()
+      
+    case let .scannedDeviceUpdate(isConnected):
+      print(isConnected)
+      return .none
   }
 }
 

@@ -46,4 +46,8 @@ public class DevicesManager {
       }
       .eraseToAnyPublisher()
   }
+  
+  public func deviceConnection(for device: ScannedDevice) -> AnyPublisher<Bool, Never> {
+    manager.monitorConnection(for: device.peripheral).eraseToAnyPublisher()
+  }
 }
