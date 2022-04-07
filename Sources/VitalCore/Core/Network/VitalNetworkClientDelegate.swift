@@ -28,7 +28,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     self.keychain = KeychainSwift()
     self.environment = environment
     
-    let data = self.keychain.getData(key)
+    let data = keychain.getData(key)
     
     let token = data.flatMap {
       try? JSONDecoder().decode(StoredJWT.self, from: $0)
@@ -36,6 +36,8 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     
     if token?.environment == environment {
       self.token = token
+    } else {
+      keychain.delete(key)
     }
   }
   
