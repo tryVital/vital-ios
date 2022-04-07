@@ -20,6 +20,24 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
         return false
     }
   }
+  
+  var glucose: QuantitySample? {
+    switch self {
+      case .bloodPressure:
+        return nil
+      case let .glucose(glucosePoint):
+        return glucosePoint
+    }
+  }
+  
+  var bloodPressure: BloodPressureSample? {
+    switch self {
+      case let .bloodPressure(bloodPressurePoint):
+        return bloodPressurePoint
+      case .glucose:
+        return nil
+    }
+  }
 }
 
 extension DeviceConnection {
@@ -53,7 +71,7 @@ extension DeviceConnection {
     
     case scannedDeviceUpdate(Bool)
     
-    case newReading(Reading)
+    case newReading([Reading])
     case readingSentToServer(Reading)
     case failedSentToServer(String)
     
@@ -99,19 +117,24 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       return Effect.concatenate(pairedSuccessfully, monitorDevice)
       
-    case let .newReading(dataPoint):
-      if state.readings.contains(dataPoint) == false {
-        state.readings.append(dataPoint)
-      }
+    case let .newReading(dataPoints):
+      state.readings.append(contentsOf: dataPoints)
       
       guard let scannedDevice = state.scannedDevice else {
         return .none
       }
       
+      guard let dataPoint = dataPoints.first else {
+        return .none
+      }
+      
       if case let .bloodPressure(reading) = dataPoint {
+        
+        let bloodPressures = dataPoints.compactMap { $0.bloodPressure }
+        
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.summary.post(
-            resource: .bloodPressure(reading, .daily, .omron)
+            resource: .bloodPressure(bloodPressures, .daily, .omron)
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -123,8 +146,11 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       }
       
       if case let .glucose(reading) = dataPoint {
+        
+        let glucosePoints = dataPoints.compactMap { $0.glucose }
+
         let effect = Effect<Void, Error>.task {
-          let patch = GlucosePatch(glucose: [reading])
+          let patch = GlucosePatch(glucose: glucosePoints)
           
           try await VitalNetworkClient.shared.summary.post(
             resource: .glucose(patch, .daily, .omron)
@@ -175,6 +201,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       }
       
       return publisher
+        .collect(.byTimeOrCount(env.mainQueue, 2.0, 10))
         .map(DeviceConnection.Action.newReading)
         .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
         .receive(on: env.mainQueue)
