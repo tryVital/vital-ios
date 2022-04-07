@@ -58,7 +58,6 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
-    
     guard case .unacceptableStatusCode(401) = error as? APIError else {
       return false
     }
@@ -68,11 +67,15 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   }
   
   nonisolated func client(_ client: APIClient, didReceiveInvalidResponse response: HTTPURLResponse, data: Data) -> Error {
-    return NetworkError(
+    let networkError = NetworkError(
       url: response.url,
       headers: response.allHeaderFields,
       statusCode: response.statusCode,
       payload: data
     )
+    
+    print(networkError)
+    
+    return network
   }
 }
