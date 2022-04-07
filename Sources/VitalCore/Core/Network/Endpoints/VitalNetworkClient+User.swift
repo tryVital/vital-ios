@@ -16,7 +16,7 @@ public extension VitalNetworkClient {
 }
 
 public extension VitalNetworkClient.User {
-  func createUser(_ payload: CreateUserRequest) async throws -> CreateUserResponse {
+  func create(_ payload: CreateUserRequest) async throws -> CreateUserResponse {
     let path = "/\(self.client.apiVersion)/\(path)/"
     let request = Request<CreateUserResponse>.post(path, body: payload)
     let response = try await self.client.apiClient.send(request)

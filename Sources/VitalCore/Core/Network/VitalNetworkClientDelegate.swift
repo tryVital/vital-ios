@@ -55,11 +55,10 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     }
     
     request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-    print(request.cURLDescription())
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
-    print(error)
+    
     guard case .unacceptableStatusCode(401) = error as? APIError else {
       return false
     }
