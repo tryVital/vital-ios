@@ -17,7 +17,7 @@ public extension VitalNetworkClient {
 
 public extension VitalNetworkClient.Summary {
   enum Resource {
-    case glucose(GlucosePatch, TaggedPayload.Stage = .daily, Provider = .manual)
+    case glucose([QuantitySample], TaggedPayload.Stage = .daily, Provider = .manual)
     case bloodPressure([BloodPressureSample], TaggedPayload.Stage = .daily, Provider = .manual)
   }
   
@@ -29,21 +29,21 @@ public extension VitalNetworkClient.Summary {
     let request: Request<Void>
     
     switch resource {
-      case let .glucose(patch, stage, provider):
+      case let .glucose(dataPoints, stage, provider):
         let taggedPayload = TaggedPayload(
           stage: stage,
           provider: provider,
-          data: AnyEncodable(patch.glucose)
+          data: AnyEncodable(dataPoints)
         )
       
         let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/glucose"
         request = Request.post(path, body: taggedPayload)
         
-      case let .bloodPressure(patch, stage, provider):
+      case let .bloodPressure(dataPoints, stage, provider):
         let taggedPayload = TaggedPayload(
           stage: stage,
           provider: provider,
-          data: AnyEncodable([patch])
+          data: AnyEncodable(dataPoints)
         )
         
         let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/blood_pressure"
