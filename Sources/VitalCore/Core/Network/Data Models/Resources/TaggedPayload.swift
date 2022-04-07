@@ -35,11 +35,6 @@ public extension TaggedPayload {
     case historical(start: Date, end: Date)
   }
   
-  enum Provider: String, Encodable {
-    case manual
-    case healthKit
-  }
-  
   enum TaggedPayloadData: Encodable {
     public enum Vitals: Encodable {
       case glucose([QuantitySample])

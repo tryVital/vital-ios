@@ -4,12 +4,12 @@ import CoreBluetooth
 
 public class DevicesManager {
   let manager: CentralManager
-
+  
   public init() {
     self.manager = .live()
   }
   
-  public func startSearch(
+  public func search(
     for deviceModel: DeviceModel
   ) -> AnyPublisher<ScannedDevice, Never> {
     
@@ -29,7 +29,7 @@ public class DevicesManager {
           
           return name.contains(code)
         }
-                
+        
         guard outcome else {
           return nil
         }
@@ -48,7 +48,7 @@ public class DevicesManager {
       .eraseToAnyPublisher()
   }
   
-  public func deviceConnection(for device: ScannedDevice) -> AnyPublisher<Bool, Never> {
+  public func monitorConnection(for device: ScannedDevice) -> AnyPublisher<Bool, Never> {
     manager.monitorConnection(for: device.peripheral).eraseToAnyPublisher()
   }
 }

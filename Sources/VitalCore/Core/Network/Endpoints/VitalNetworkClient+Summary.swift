@@ -17,8 +17,8 @@ public extension VitalNetworkClient {
 
 public extension VitalNetworkClient.Summary {
   enum Resource {
-    case glucose(GlucosePatch, TaggedPayload.Stage, TaggedPayload.Provider = .manual)
-    case bloodPressure(BloodPressurePatch, TaggedPayload.Stage, TaggedPayload.Provider = .manual)
+    case glucose(GlucosePatch, TaggedPayload.Stage, Provider = .manual)
+    case bloodPressure(BloodPressureSample, TaggedPayload.Stage, Provider = .manual)
   }
   
   func post(to resource: Resource) async throws -> Void {

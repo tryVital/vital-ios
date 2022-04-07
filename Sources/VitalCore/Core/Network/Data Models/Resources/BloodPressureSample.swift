@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BloodPressurePatch: Equatable, Hashable, Encodable {
+public struct BloodPressureSample: Equatable, Hashable, Encodable {
   public let systolic: Double
   public let diastolic: Double
   public let pulseRate: Double

@@ -9,7 +9,7 @@ import VitalCore
 enum DeviceConnection {}
 
 enum Reading: Equatable, Hashable, IdentifiableByHashable {
-  case bloodPressure(BloodPressureDataPoint)
+  case bloodPressure(BloodPressureSample)
   case glucose(QuantitySample)
   
   var isBloodPressure: Bool {
@@ -106,7 +106,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       let pairedSuccessfully = Effect<DeviceConnection.Action, Never>(value: DeviceConnection.Action.pairedSuccesfully(device))
       
-      let monitorDevice = env.deviceManager.deviceConnection(for: device).map(DeviceConnection.Action.scannedDeviceUpdate)
+      let monitorDevice = env.deviceManager.monitorConnection(for: device).map(DeviceConnection.Action.scannedDeviceUpdate)
         .receive(on: env.mainQueue)
         .eraseToEffect()
         .cancellable(id: LongRunningScan())
@@ -222,7 +222,7 @@ extension DeviceConnection {
                     HStack {
                       VStack {
                         Text("\(point.value)")
-                        Text("\(point.units ?? "")")
+                        Text("\(point.unit ?? "")")
                       }
                       Text("\(point.startDate)")
                         .foregroundColor(.gray)

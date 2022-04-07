@@ -2,7 +2,7 @@ import VitalCore
 import CombineCoreBluetooth
 
 public protocol BloodPressureReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<BloodPressurePatch, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<BloodPressureSample, Error>
 }
 
 class BloodPressureReader1810: BloodPressureReadable {
@@ -15,8 +15,8 @@ class BloodPressureReader1810: BloodPressureReadable {
     self.manager = manager
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressurePatch, Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressurePatch, Error> in
+  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressureSample, Error> {
+    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressureSample, Error> in
       return peripheral.listenForUpdates(on: characteristic)
         .compactMap(toBloodPressureReading).eraseToAnyPublisher()
     }
@@ -52,7 +52,7 @@ class BloodPressureReader1810: BloodPressureReadable {
   }
 }
   
-private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressurePatch? {
+private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressureSample? {
   guard let data = characteristic.value else {
     return nil
   }
@@ -76,7 +76,7 @@ private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPr
   
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
   
-  return BloodPressurePatch(
+  return BloodPressureSample(
     systolic: Double(systolic),
     diastolic: Double(diastolic),
     pulseRate: Double(pulseRate),

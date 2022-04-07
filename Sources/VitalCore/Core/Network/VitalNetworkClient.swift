@@ -33,7 +33,7 @@ public class VitalNetworkClient {
   
   let environment: Environment
   let apiClient: APIClient
-  var userId: String?
+  var userId: UUID?
   let apiVersion: String
   
   let refresh: () async throws -> JWT
@@ -65,7 +65,7 @@ public class VitalNetworkClient {
     Self.setInstance(client: client)
   }
   
-  public static func setUserId(_ userId: String) {
+  public static func setUserId(_ userId: UUID) {
     VitalNetworkClient.shared.userId = userId
   }
   

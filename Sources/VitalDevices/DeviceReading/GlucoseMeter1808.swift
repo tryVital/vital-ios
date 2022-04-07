@@ -101,6 +101,6 @@ private func toGlucoseReading(characteristic: CBCharacteristic) -> QuantitySampl
     startDate: correctedDate,
     endDate: correctedDate,
     type: "fingerprick",
-    units: "mg/dL"
+    unit: "mg/dL"
   )
 }

@@ -1,3 +1,5 @@
+import Foundation
+
 public struct CreateUserRequest: Encodable {
   public let clientUserId: String
   public let teamId: String?
@@ -10,5 +12,5 @@ public struct CreateUserRequest: Encodable {
 
 public struct CreateUserResponse: Decodable {
   public let clientUserId: String
-  public let userId: String
+  public let userId: UUID
 }

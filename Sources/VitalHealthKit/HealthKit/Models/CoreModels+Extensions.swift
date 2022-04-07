@@ -15,7 +15,9 @@ extension QuantitySample {
       value: value.quantity.doubleValue(for: unit.toHealthKit),
       startDate: value.startDate,
       endDate: value.endDate,
-      sourceBundle: value.sourceRevision.source.bundleIdentifier
+      sourceBundle: value.sourceRevision.source.bundleIdentifier,
+      type: "manual",
+      unit: unit.toStringRepresentation
     )
   }
 }
@@ -38,6 +40,11 @@ extension QuantitySample {
     case vo2Max
     
     case glucose
+    
+    var toStringRepresentation: String {
+      // TODO: Fix
+      return ""
+    }
     
     var toHealthKit: HKUnit {
       switch self {

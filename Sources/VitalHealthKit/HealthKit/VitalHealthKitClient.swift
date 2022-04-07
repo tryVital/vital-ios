@@ -37,13 +37,7 @@ public class VitalHealthKitClient {
   }
   
   private var logger: Logger? = nil
-  private var userId: String? = nil {
-    didSet {
-      if configuration.autoSync {
-        syncData()
-      }
-    }
-  }
+
   
   init(configuration: Configuration) {
     self.store = HKHealthStore()
@@ -69,29 +63,6 @@ public class VitalHealthKitClient {
       }
     }
   }
-  
-  private static func setInstance(client: VitalHealthKitClient) {
-    guard Self.client == nil else {
-      fatalError("`VitalHealthKitClient` is already configured.")
-    }
-    
-    Self.client = client
-  }
-  
-  public static func configure(
-    clientId: String,
-    clientSecret: String,
-    environment: Environment,
-    configuration: Configuration = .init()
-  ) {
-    VitalNetworkClient.configure(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    Self.setInstance(client: .init(configuration: configuration))
-  }
-  
-  public static func set(userId: String) {
-    VitalNetworkClient.setUserId(userId)
-    self.shared.userId = userId
-  }
 }
 
 public extension VitalHealthKitClient {
@@ -116,15 +87,6 @@ extension VitalHealthKitClient {
   
   private func _syncData(for resources: [VitalResource]){
     Task(priority: .high) {
-      guard userId != nil else {
-        self.logger?.log(
-          level: .error,
-          "Can't sync data: `userId` hasn't been set. Please use VitalHealthKitClient.set(userId: \"xyz\")"
-        )
-        
-        return
-      }
-      
       for resource in resources {
         do {
           
