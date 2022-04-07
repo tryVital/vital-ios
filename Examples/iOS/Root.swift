@@ -1,6 +1,8 @@
 import SwiftUI
 import VitalHealthKit
+import VitalCore
 
+let userId = UUID(uuidString: "xxx")!
 @main
 struct ExampleApp: App {
   var body: some Scene {
@@ -20,13 +22,13 @@ struct ExampleApp: App {
           .tag(1)
       }
       .onAppear {
-        VitalHealthKitClient.configure(
-          clientId: "xyz",
-          clientSecret: "zys",
-          environment: .sandbox(.us)
+        VitalNetworkClient.configure(
+          clientId: "xxx",
+          clientSecret: "xxx",
+          environment: .dev(.us)
         )
         
-        VitalHealthKitClient.set(userId: "xyz-zyx")
+         VitalNetworkClient.setUserId(userId)
       }
     }
   }
