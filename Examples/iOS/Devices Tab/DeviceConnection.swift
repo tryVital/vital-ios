@@ -83,23 +83,38 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case .startScanning:
       let effect = Effect<Void, Error>.task {
-        let patch = GlucosePatch(glucose: [.init(value: 10, startDate: .init(), endDate: .init())])
+        let sample = QuantitySample(
+          value: 10,
+          startDate: .init(),
+          endDate: .init(), sourceBundle: "", type: "fingerprick", unit: "mg/dl")
+        let patch = GlucosePatch(glucose: [sample])
+
+//        let foo = try await VitalNetworkClient.shared.user.create(.init(clientUserId: "a new thing_____"))
+        let userId = UUID(uuidString: "aede8389-2ece-4782-9a3c-ac32f65d1036")!
+        VitalNetworkClient.setUserId(userId)
+        let bar = try await VitalNetworkClient.shared.link.createConnectedSource(
+          .init(userId: userId),
+          provider: .omron
+        )
         
-        try await VitalNetworkClient.shared.summary.post(to: .glucose(patch, .historical(start: .init(), end: .init())))
+        try await VitalNetworkClient.shared.summary.post(
+          to: .glucose(patch, .daily, .omron)
+        )
+        
         }
         .map { _ in DeviceConnection.Action.lol}
         .catch { error in
           return Just(DeviceConnection.Action.lolFailure(error.localizedDescription))
-          
+
         }
 
       return effect.receive(on: env.mainQueue).eraseToEffect()
-//      return env.deviceManager.startSearch(for: state.device)
+//      return env.deviceManager.search(for: state.device)
 //        .first()
 //        .map(DeviceConnection.Action.scannedDevice)
 //        .receive(on: env.mainQueue)
 //        .eraseToEffect()
-      
+//
     case let .scannedDevice(device):
       state.status = .found
       state.scannedDevice = device
