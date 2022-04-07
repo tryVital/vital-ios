@@ -32,6 +32,7 @@ extension DeviceConnection {
       case readingFailed = "Reading failed"
       case serverFailed = "Sending to server failed"
       case noneFound = "None found"
+      case serverSuccess = "Value sent to the server"
     }
     
     let device: DeviceModel
@@ -75,7 +76,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   
   switch action {
     case let .readingSentToServer(reading):
-      print("lol")
+      state.status = .serverSuccess
       return .none
       
     case .startScanning:
