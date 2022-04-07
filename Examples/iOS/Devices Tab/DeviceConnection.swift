@@ -150,10 +150,9 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let glucosePoints = dataPoints.compactMap { $0.glucose }
 
         let effect = Effect<Void, Error>.task {
-          let patch = GlucosePatch(glucose: glucosePoints)
           
           try await VitalNetworkClient.shared.summary.post(
-            resource: .glucose(patch, .daily, .omron)
+            resource: .glucose(glucosePoints, .daily, .omron)
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }

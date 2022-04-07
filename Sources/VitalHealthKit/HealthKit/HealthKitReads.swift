@@ -380,7 +380,7 @@ func handleGlucose(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (glucosePatch: GlucosePatch, anchors: [String: HKQueryAnchor]) {
+) async throws -> (glucosePatch: [QuantitySample], anchors: [String: HKQueryAnchor]) {
   
   let bloodGlucoseType = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
   let payload = try await query(
@@ -396,7 +396,7 @@ func handleGlucose(
   let glucose: [QuantitySample] = payload.sample.compactMap { .init($0, unit: .glucose) }
   
   anchors.setSafely(payload.anchor, key: String(describing: bloodGlucoseType))
-  return (.init(glucose: glucose), anchors)
+  return (glucose, anchors)
 }
 
 private func query(
