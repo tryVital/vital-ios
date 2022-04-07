@@ -76,6 +76,6 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     
     print(networkError)
     
-    return network
+    return networkError
   }
 }
