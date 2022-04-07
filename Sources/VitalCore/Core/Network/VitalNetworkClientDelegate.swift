@@ -10,6 +10,7 @@ struct JWT: Decodable {
 struct StoredJWT: Codable {
   let accessToken: String
   let validUntil: Date
+  let environment: Environment
 }
 
 actor VitalNetworkClientDelegate: APIClientDelegate {
@@ -17,17 +18,24 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   private let key = "vital_client_jwt"
   private let refresh: () async throws -> JWT
   private let keychain: KeychainSwift
+  private let environment: Environment
   
   init(
-    refresh: @escaping () async throws -> JWT
+    refresh: @escaping () async throws -> JWT,
+    environment: Environment
   ) {
     self.refresh = refresh
     self.keychain = KeychainSwift()
+    self.environment = environment
     
     let data = self.keychain.getData(key)
     
-    self.token = data.flatMap {
+    let token = data.flatMap {
       try? JSONDecoder().decode(StoredJWT.self, from: $0)
+    }
+    
+    if token?.environment == environment {
+      self.token = token
     }
   }
   
@@ -38,7 +46,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     let calendar = Calendar.current
     let validUntil = calendar.date(byAdding: .second, value: Int(Double(newToken.expiresIn) * 0.9), to: date)!
     
-    let storedToken = StoredJWT.init(accessToken: newToken.accessToken, validUntil: validUntil)
+    let storedToken = StoredJWT(accessToken: newToken.accessToken, validUntil: validUntil, environment: self.environment)
     self.token = storedToken
     
     let encoded = try JSONEncoder().encode(storedToken)

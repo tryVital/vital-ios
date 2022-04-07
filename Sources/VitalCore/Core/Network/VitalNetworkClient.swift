@@ -1,8 +1,8 @@
 import Foundation
 import Get
 
-public enum Environment {
-  public enum Region {
+public enum Environment: Equatable, Codable {
+  public enum Region: Equatable, Codable {
     case eu
     case us
   }
@@ -79,7 +79,7 @@ public class VitalNetworkClient {
     self.apiVersion = apiVersion
     
     self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh)
+    let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh, environment: environment)
     
     self.apiClient = APIClient(host: environment.host) { configuration in
       configuration.delegate = apiClientDelegate
