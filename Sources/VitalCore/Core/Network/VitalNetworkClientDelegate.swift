@@ -66,4 +66,13 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     try await refreshAndStore()
     return true
   }
+  
+  nonisolated func client(_ client: APIClient, didReceiveInvalidResponse response: HTTPURLResponse, data: Data) -> Error {
+    return NetworkError(
+      url: response.url,
+      headers: response.allHeaderFields,
+      statusCode: response.statusCode,
+      payload: data
+    )
+  }
 }

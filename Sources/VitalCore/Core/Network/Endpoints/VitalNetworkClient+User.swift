@@ -16,12 +16,22 @@ public extension VitalNetworkClient {
 }
 
 public extension VitalNetworkClient.User {
-  func create(_ payload: CreateUserRequest) async throws -> CreateUserResponse {
+  func create(_ payload: CreateUserRequest, setUserIdOnSuccess: Bool = true) async throws -> CreateUserResponse {
     let path = "/\(self.client.apiVersion)/\(path)/"
     let request = Request<CreateUserResponse>.post(path, body: payload)
-    let response = try await self.client.apiClient.send(request)
-  
-    return response.value
+    let value = try await self.client.apiClient.send(request).value
+    
+    VitalNetworkClient.setUserId(value.userId)
+    
+    return value
   }
+  
+  func createConnectedSource(_ payload: CreateUserRequest, setUserIdOnSuccess: Bool = true) async throws -> CreateUserResponse {
+    let path = "/\(self.client.apiVersion)/\(path)/"
+    let request = Request<CreateUserResponse>.post(path, body: payload)
+
+    fatalError()
+  }
+
 }
 
