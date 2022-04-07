@@ -152,7 +152,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let effect = Effect<Void, Error>.task {
           
           try await VitalNetworkClient.shared.summary.post(
-            resource: .glucose(glucosePoints, .daily, .omron)
+            resource: .glucose(glucosePoints, .daily, .accucheck)
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -200,7 +200,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       }
       
       return publisher
-        .collect(.byTimeOrCount(env.mainQueue, 2.0, 10))
+        .collect(.byTimeOrCount(env.mainQueue, 5.0, 50))
         .map(DeviceConnection.Action.newReading)
         .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
         .receive(on: env.mainQueue)

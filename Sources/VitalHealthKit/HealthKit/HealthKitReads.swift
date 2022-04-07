@@ -90,7 +90,7 @@ func handle(
         endDate: endDate
       )
       
-      let glucose = payload.glucosePatch.eraseToAnyEncodable()
+      let glucose = payload.glucose.eraseToAnyEncodable()
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
       return (glucose, entitiesToStore)
@@ -380,7 +380,7 @@ func handleGlucose(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (glucosePatch: [QuantitySample], anchors: [String: HKQueryAnchor]) {
+) async throws -> (glucose: [QuantitySample], anchors: [String: HKQueryAnchor]) {
   
   let bloodGlucoseType = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
   let payload = try await query(
