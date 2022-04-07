@@ -1,20 +1,11 @@
 import VitalCore
 import CombineCoreBluetooth
 
-public struct BloodPressureDataPoint: Equatable, Hashable {
-  public let systolic: Double
-  public let diastolic: Double
-  public let pulseRate: Double
-  
-  public let date: Date
-  public let units: String
-}
-
 public protocol BloodPressureReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<BloodPressurePatch, Error>
 }
 
-class DeviceReader1810: BloodPressureReadable {
+class BloodPressureReader1810: BloodPressureReadable {
   
   private let service = CBUUID(string: "1810")
   private let manager: CentralManager
@@ -24,8 +15,8 @@ class DeviceReader1810: BloodPressureReadable {
     self.manager = manager
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressureDataPoint, Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressureDataPoint, Error> in
+  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressurePatch, Error> {
+    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressurePatch, Error> in
       return peripheral.listenForUpdates(on: characteristic)
         .compactMap(toBloodPressureReading).eraseToAnyPublisher()
     }
@@ -61,7 +52,7 @@ class DeviceReader1810: BloodPressureReadable {
   }
 }
   
-private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressureDataPoint? {
+private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressurePatch? {
   guard let data = characteristic.value else {
     return nil
   }
@@ -85,11 +76,12 @@ private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPr
   
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
   
-  return BloodPressureDataPoint(
+  return BloodPressurePatch(
     systolic: Double(systolic),
     diastolic: Double(diastolic),
     pulseRate: Double(pulseRate),
     date: date,
-    units: units
+    units: units,
+    type: nil
   )
 }

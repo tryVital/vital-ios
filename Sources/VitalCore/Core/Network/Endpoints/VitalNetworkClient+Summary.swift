@@ -1,4 +1,5 @@
 import Get
+
 public extension VitalNetworkClient {
   class Summary {
     let client: VitalNetworkClient
@@ -17,6 +18,7 @@ public extension VitalNetworkClient {
 public extension VitalNetworkClient.Summary {
   enum Resource {
     case glucose(GlucosePatch, TaggedPayload.Stage, TaggedPayload.Provider = .manual)
+    case bloodPressure(BloodPressurePatch, TaggedPayload.Stage, TaggedPayload.Provider = .manual)
   }
   
   func post(to resource: Resource) async throws -> Void {
@@ -27,14 +29,24 @@ public extension VitalNetworkClient.Summary {
     let request: Request<Void>
     
     switch resource {
-      case let .glucose(sample, stage, provider):
+      case let .glucose(patch, stage, provider):
         let taggedPayload = TaggedPayload(
           stage: stage,
           provider: provider,
-          data: AnyEncodable(sample.glucose)
+          data: AnyEncodable(patch.glucose)
         )
       
         let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/glucose"
+        request = Request.post(path, body: taggedPayload)
+        
+      case let .bloodPressure(patch, stage, provider):
+        let taggedPayload = TaggedPayload(
+          stage: stage,
+          provider: provider,
+          data: AnyEncodable(patch)
+        )
+        
+        let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/bloodPressure"
         request = Request.post(path, body: taggedPayload)
     }
     

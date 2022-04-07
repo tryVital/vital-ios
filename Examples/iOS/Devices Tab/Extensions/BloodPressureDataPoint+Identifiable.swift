@@ -1,7 +1,4 @@
 import VitalDevices
+import VitalCore
 
-extension BloodPressureDataPoint: IdentifiableByHashable {
-//  public var id: ObjectIdentifier {
-//    <#code#>
-//  }
-}
+extension BloodPressurePatch: IdentifiableByHashable {}

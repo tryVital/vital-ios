@@ -3,7 +3,7 @@ public extension DevicesManager {
   func bloodPressureReader(for device: ScannedDevice) -> BloodPressureReadable {
     switch device.brand {
       case .omron:
-        return DeviceReader1810(manager: manager)
+        return BloodPressureReader1810(manager: manager)
       default:
         fatalError("\(device.brand) not supported")
     }
@@ -12,7 +12,7 @@ public extension DevicesManager {
   func glucoseMeter(for device: ScannedDevice) -> GlucoseMeterReadable {
     switch device.brand {
       case .accuCheck, .contour:
-        return DeviceReader1808(manager: manager)
+        return GlucoseMeter1808(manager: manager)
       default:
         fatalError("\(device.brand) not supported")
     }

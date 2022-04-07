@@ -10,7 +10,7 @@ private let service = CBUUID(string: "1808")
 private let measurementCharacteristicUUID = CBUUID(string: "2A18".fullUUID)
 private let RACPCharacteristicUUID = CBUUID(string: "2A52".fullUUID)
 
-class DeviceReader1808: GlucoseMeterReadable {
+class GlucoseMeter1808: GlucoseMeterReadable {
   
   private let manager: CentralManager
   
