@@ -17,11 +17,11 @@ public extension VitalNetworkClient {
 
 public extension VitalNetworkClient.Summary {
   enum Resource {
-    case glucose(GlucosePatch, TaggedPayload.Stage, Provider = .manual)
-    case bloodPressure(BloodPressureSample, TaggedPayload.Stage, Provider = .manual)
+    case glucose(GlucosePatch, TaggedPayload.Stage = .daily, Provider = .manual)
+    case bloodPressure(BloodPressureSample, TaggedPayload.Stage = .daily, Provider = .manual)
   }
   
-  func post(to resource: Resource) async throws -> Void {
+  func post(resource: Resource) async throws -> Void {
     guard let userId = self.client.userId else {
       fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
     }
@@ -43,10 +43,10 @@ public extension VitalNetworkClient.Summary {
         let taggedPayload = TaggedPayload(
           stage: stage,
           provider: provider,
-          data: AnyEncodable(patch)
+          data: AnyEncodable([patch])
         )
         
-        let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/bloodPressure"
+        let path = "/\(self.client.apiVersion)/\(path)/vitals/\(userId)/blood_pressure"
         request = Request.post(path, body: taggedPayload)
     }
     

@@ -76,12 +76,13 @@ private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPr
   
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
   
+  let systolicSample = QuantitySample(value: Double(systolic), startDate: date, endDate: date, unit: units)
+  let diastolicSample = QuantitySample(value: Double(diastolic), startDate: date, endDate: date, unit: units)
+  let pulseSample = QuantitySample(value: Double(pulseRate), startDate: date, endDate: date, unit: "bpm")
+  
   return BloodPressureSample(
-    systolic: Double(systolic),
-    diastolic: Double(diastolic),
-    pulseRate: Double(pulseRate),
-    date: date,
-    units: units,
-    type: nil
+    systolic: systolicSample,
+    diastolic: diastolicSample,
+    pulse: pulseSample
   )
 }

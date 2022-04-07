@@ -30,6 +30,7 @@ extension DeviceConnection {
       case searching = "Searching"
       case pairingFailed = "Pairing failed"
       case readingFailed = "Reading failed"
+      case serverFailed = "Sending to server failed"
       case noneFound = "None found"
     }
     
@@ -52,15 +53,14 @@ extension DeviceConnection {
     case scannedDeviceUpdate(Bool)
     
     case newReading(Reading)
+    case readingSentToServer(Reading)
+    case failedSentToServer(String)
     
     case pairDevice(ScannedDevice)
     case pairedSuccesfully(ScannedDevice)
     case pairingFailed(String)
     
     case readingFailed(String)
-    
-    case lol
-    case lolFailure(String)
   }
   
   public struct Environment {
@@ -74,47 +74,17 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   struct LongRunningScan: Hashable {}
   
   switch action {
-    case .lol:
+    case let .readingSentToServer(reading):
       print("lol")
-      return .none
-    case let .lolFailure(error):
-      print(error)
       return .none
       
     case .startScanning:
-      let effect = Effect<Void, Error>.task {
-        let sample = QuantitySample(
-          value: 10,
-          startDate: .init(),
-          endDate: .init(), sourceBundle: "", type: "fingerprick", unit: "mg/dl")
-        let patch = GlucosePatch(glucose: [sample])
+      return env.deviceManager.search(for: state.device)
+        .first()
+        .map(DeviceConnection.Action.scannedDevice)
+        .receive(on: env.mainQueue)
+        .eraseToEffect()
 
-//        let foo = try await VitalNetworkClient.shared.user.create(.init(clientUserId: "a new thing_____"))
-        let userId = UUID(uuidString: "aede8389-2ece-4782-9a3c-ac32f65d1036")!
-        VitalNetworkClient.setUserId(userId)
-        let bar = try await VitalNetworkClient.shared.link.createConnectedSource(
-          .init(userId: userId),
-          provider: .omron
-        )
-        
-        try await VitalNetworkClient.shared.summary.post(
-          to: .glucose(patch, .daily, .omron)
-        )
-        
-        }
-        .map { _ in DeviceConnection.Action.lol}
-        .catch { error in
-          return Just(DeviceConnection.Action.lolFailure(error.localizedDescription))
-
-        }
-
-      return effect.receive(on: env.mainQueue).eraseToEffect()
-//      return env.deviceManager.search(for: state.device)
-//        .first()
-//        .map(DeviceConnection.Action.scannedDevice)
-//        .receive(on: env.mainQueue)
-//        .eraseToEffect()
-//
     case let .scannedDevice(device):
       state.status = .found
       state.scannedDevice = device
@@ -129,11 +99,49 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return Effect.concatenate(pairedSuccessfully, monitorDevice)
       
     case let .newReading(dataPoint):
-      
       if state.readings.contains(dataPoint) == false {
         state.readings.append(dataPoint)
       }
+      
+      guard let scannedDevice = state.scannedDevice else {
+        return .none
+      }
+      
+      if case let .bloodPressure(reading) = dataPoint {
+        let effect = Effect<Void, Error>.task {
+          try await VitalNetworkClient.shared.summary.post(
+            resource: .bloodPressure(reading, .daily, .omron)
+          )
+        }
+          .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
+          .catch { error in
+            return Just(DeviceConnection.Action.failedSentToServer(error.localizedDescription))
+          }
+        
+        return effect.receive(on: env.mainQueue).eraseToEffect()
+      }
+      
+      if case let .glucose(reading) = dataPoint {
+        let effect = Effect<Void, Error>.task {
+          let patch = GlucosePatch(glucose: [reading])
+          
+          try await VitalNetworkClient.shared.summary.post(
+            resource: .glucose(patch, .daily, .omron)
+          )
+        }
+          .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
+          .catch { error in
+            return Just(DeviceConnection.Action.failedSentToServer(error.localizedDescription))
+          }
+        
+        return effect.receive(on: env.mainQueue).eraseToEffect()
+      }
+      
 
+      return .none
+      
+    case let .failedSentToServer(reason):
+      state.status = .serverFailed
       return .none
       
     case let .readingFailed(reason):
@@ -146,6 +154,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case let .pairedSuccesfully(scannedDevice):
       state.status = .paired
+      state.scannedDevice = scannedDevice
       
       let publisher: AnyPublisher<Reading, Error>
       
@@ -215,21 +224,21 @@ extension DeviceConnection {
                     HStack {
                       VStack {
                         HStack {
-                          Text("\(point.systolic)")
-                          Text("\(point.units)")
+                          Text("\(point.systolic.value)")
+                          Text("\(point.systolic.unit)")
                         }
                         
                         HStack {
-                          Text("\(point.diastolic)")
-                          Text("\(point.units)")
+                          Text("\(point.diastolic.value)")
+                          Text("\(point.diastolic.unit)")
                         }
                         
                         HStack {
-                          Text("\(point.pulseRate)")
+                          Text("\(point.pulse.value)")
                           Text("bpm")
                         }
                       }
-                      Text("\(point.date)")
+                      Text("\(point.systolic.startDate)")
                         .foregroundColor(.gray)
                         .font(.footnote)
                     }
