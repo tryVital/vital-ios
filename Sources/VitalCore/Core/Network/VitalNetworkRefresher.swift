@@ -39,7 +39,6 @@ func refreshToken(
     configuration.decoder = decoder
     
     let client = APIClient(configuration: configuration)
-    
     return try await client.send(request).value
   }
 }

@@ -2,13 +2,18 @@ import Get
 import Foundation
 import KeychainSwift
 
-struct JWT: Codable {
+struct JWT: Decodable {
   let accessToken: String
-  let expiresIn: Date
+  let expiresIn: Int
+}
+
+struct StoredJWT: Codable {
+  let accessToken: String
+  let validUntil: Date
 }
 
 actor VitalNetworkClientDelegate: APIClientDelegate {
-  private var token: JWT?
+  private var token: StoredJWT?
   private let key = "vital_client_jwt"
   private let refresh: () async throws -> JWT
   private let keychain: KeychainSwift
@@ -22,22 +27,26 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     let data = self.keychain.getData(key)
     
     self.token = data.flatMap {
-      try? JSONDecoder().decode(JWT.self, from: $0)
+      try? JSONDecoder().decode(StoredJWT.self, from: $0)
     }
   }
   
   private func refreshAndStore() async throws {
     let newToken = try await refresh()
-    self.token = newToken
     
-    let encoded = try JSONEncoder().encode(newToken)
+    let date = Date()
+    let calendar = Calendar.current
+    let validUntil = calendar.date(byAdding: .second, value: Int(Double(newToken.expiresIn) * 0.9), to: date)!
+    
+    let storedToken = StoredJWT.init(accessToken: newToken.accessToken, validUntil: validUntil)
+    self.token = storedToken
+    
+    let encoded = try JSONEncoder().encode(storedToken)
     keychain.set(encoded, forKey: key)
   }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
-    print(request.url)
-    print(String(data: request.httpBody!, encoding: .utf8))
-    if token?.expiresIn ?? .distantPast < Date() {
+    if token?.validUntil ?? .distantPast < Date()  {
       try await refreshAndStore()
     }
     
@@ -45,7 +54,8 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
       return
     }
     
-    request.setValue("Bearer: \(token.accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+    print(request.cURLDescription())
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
