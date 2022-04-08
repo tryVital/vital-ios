@@ -21,21 +21,21 @@ public extension DevicesManager {
           .init(
             id: "accuchek_guide",
             name: "Accu-Chek Guide",
-            brand: .accuCheck,
+            brand: .accuChek,
             codes: ["meter"],
             kind: .glucoseMeter
           ),
           .init(
             id: "accuchek_guide_me",
             name: "Accu-Chek Guide Me",
-            brand: .accuCheck,
+            brand: .accuChek,
             codes: ["meter"],
             kind: .glucoseMeter
           ),
           .init(
             id: "accuchek_guide_active",
             name: "Accu-Chek Active",
-            brand: .accuCheck,
+            brand: .accuChek,
             codes: ["meter"],
             kind: .glucoseMeter
           ),
@@ -57,7 +57,7 @@ public extension DevicesManager {
     switch brand {
       case .omron:
         id = "1810"
-      case .accuCheck, .contour:
+      case .accuChek, .contour:
         id = "1808"
     }
     
@@ -67,7 +67,7 @@ public extension DevicesManager {
   static func brands() -> [Brand] {
     return [
       .omron,
-      .accuCheck,
+      .accuChek,
       .contour
     ]
   }
@@ -76,8 +76,8 @@ public extension DevicesManager {
     switch brand {
       case .omron:
         return .omron
-      case .accuCheck:
-        return .accucheck
+      case .accuChek:
+        return .accuchek
       case .contour:
         return .contour
     }

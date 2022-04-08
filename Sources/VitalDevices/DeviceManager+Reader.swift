@@ -2,7 +2,7 @@ import Foundation
 
 public extension DevicesManager {
   
-  func bloodPressureReader(for device: ScannedDevice, queue: DispatchQueue) -> BloodPressureReadable {
+  func bloodPressureReader(for device: ScannedDevice, queue: DispatchQueue = .global()) -> BloodPressureReadable {
     switch device.deviceModel.brand {
       case .omron:
         return BloodPressureReader1810(manager: manager, queue: queue)
@@ -11,9 +11,9 @@ public extension DevicesManager {
     }
   }
   
-  func glucoseMeter(for device: ScannedDevice, queue: DispatchQueue) -> GlucoseMeterReadable {
+  func glucoseMeter(for device: ScannedDevice, queue: DispatchQueue = .global()) -> GlucoseMeterReadable {
     switch device.deviceModel.brand {
-      case .accuCheck, .contour:
+      case .accuChek, .contour:
         return GlucoseMeter1808(manager: manager, queue: queue)
       default:
         fatalError("\(device.deviceModel.brand) not supported")
