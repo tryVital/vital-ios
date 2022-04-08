@@ -27,7 +27,7 @@ class BloodPressureReader1810: BloodPressureReadable {
   }
   
   private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, CBCharacteristic), Error> {
-    let service = DevicesManager.service(for: device.brand)
+    let service = DevicesManager.service(for: device.deviceModel.brand)
     let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
     
     return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in

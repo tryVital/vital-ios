@@ -29,8 +29,8 @@ public extension VitalNetworkClient.Link {
   }
   
   
-  func createConnectedSourceForActiveUser(
-    provider: Provider
+  func createConnectedSource(
+    for provider: Provider
   ) async throws -> Void {
     
     guard let userId = self.client.userId else {

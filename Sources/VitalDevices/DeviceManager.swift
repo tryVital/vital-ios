@@ -38,10 +38,9 @@ public class DevicesManager {
       }
       .map { (peripheral: Peripheral) -> ScannedDevice in
         ScannedDevice(
+          id: peripheral.id,
           name: peripheral.name!,
-          uuid: peripheral.id.uuidString,
-          brand: deviceModel.brand,
-          kind: deviceModel.kind,
+          deviceModel: deviceModel,
           peripheral: peripheral
         )
       }

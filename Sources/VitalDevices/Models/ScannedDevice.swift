@@ -1,24 +1,21 @@
 import CombineCoreBluetooth
 
 public struct ScannedDevice: Equatable {
+  public let id: UUID
   public let name: String
-  public let uuid: String
-  public let brand: Brand
-  public let kind: DeviceModel.Kind
-
+  public let deviceModel: DeviceModel
+  
   let peripheral: Peripheral
   
   init(
+    id: UUID,
     name: String,
-    uuid: String,
-    brand: Brand,
-    kind: DeviceModel.Kind,
+    deviceModel: DeviceModel,
     peripheral: Peripheral
   ) {
+    self.id = id
     self.name = name
-    self.uuid = uuid
-    self.brand = brand
-    self.kind = kind
+    self.deviceModel = deviceModel
     self.peripheral = peripheral
   }
 }

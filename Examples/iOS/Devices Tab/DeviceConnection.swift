@@ -104,7 +104,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       let createConnectedSource = Effect<Void, Error>.task {
         let provider = DevicesManager.provider(for: brand)
-        try await VitalNetworkClient.shared.link.createConnectedSourceForActiveUser(provider: provider)
+        try await VitalNetworkClient.shared.link.createConnectedSource(for: provider)
       }
       
       let search = env.deviceManager.search(for: state.device)
@@ -145,7 +145,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.summary.post(
-            resource: .bloodPressure(bloodPressures, .daily, DevicesManager.provider(for: scannedDevice.brand))
+            resource: .bloodPressure(bloodPressures, .daily, DevicesManager.provider(for: scannedDevice.deviceModel.brand))
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -163,7 +163,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let effect = Effect<Void, Error>.task {
           
           try await VitalNetworkClient.shared.summary.post(
-            resource: .glucose(glucosePoints, .daily, DevicesManager.provider(for: scannedDevice.brand))
+            resource: .glucose(glucosePoints, .daily, DevicesManager.provider(for: scannedDevice.deviceModel.brand))
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -195,7 +195,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       let publisher: AnyPublisher<Reading, Error>
       
-      if scannedDevice.kind == .bloodPressure {
+      if scannedDevice.deviceModel.kind == .bloodPressure {
         let reader = env.deviceManager.bloodPressureReader(for: scannedDevice)
         
         publisher = reader.read(device: scannedDevice)
@@ -222,7 +222,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
     case let .pairDevice(device):
       let reader: DevicePairable
       
-      if device.kind == .bloodPressure {
+      if device.deviceModel.kind == .bloodPressure {
         reader = env.deviceManager.bloodPressureReader(for: device)
       } else {
         reader = env.deviceManager.glucoseMeter(for: device)
