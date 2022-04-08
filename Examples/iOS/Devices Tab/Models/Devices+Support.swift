@@ -19,7 +19,7 @@ func url(for device: DeviceModel) -> URL {
       image = "https://storage.googleapis.com/vital-assets/accu_chek_guide_me.jpeg"
       
     case "Accu-Chek Active":
-      image = "https://storage.googleapis.com/vital-assets/accu_chek_active.png"
+      image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
     
     case "Contour Next One":
       image = "https://storage.googleapis.com/vital-assets/Contour.png"
