@@ -23,7 +23,7 @@ extension DevicesExample {
   
   public struct Environment {
     let deviceManager: DevicesManager
-    let mainQueue: AnySchedulerOf<DispatchQueue>
+    let mainQueue: DispatchQueue
   }
 }
 
@@ -54,7 +54,7 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
 let devicesStore = Store(
   initialState: DevicesExample.State(),
   reducer: reducer,
-  environment: DevicesExample.Environment(deviceManager: DevicesManager(), mainQueue: DispatchQueue.main.eraseToAnyScheduler())
+  environment: DevicesExample.Environment(deviceManager: DevicesManager(), mainQueue: DispatchQueue.main)
 )
 
 extension DevicesExample {

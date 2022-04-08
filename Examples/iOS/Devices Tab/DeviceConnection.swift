@@ -84,7 +84,7 @@ extension DeviceConnection {
   
   public struct Environment {
     let deviceManager: DevicesManager
-    let mainQueue: AnySchedulerOf<DispatchQueue>
+    let mainQueue: DispatchQueue
   }
 }
 
@@ -193,25 +193,24 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       state.status = .paired
       state.scannedDevice = scannedDevice
       
-      let publisher: AnyPublisher<Reading, Error>
+      let publisher: AnyPublisher<[Reading], Error>
       
       if scannedDevice.deviceModel.kind == .bloodPressure {
-        let reader = env.deviceManager.bloodPressureReader(for: scannedDevice)
+        let reader = env.deviceManager.bloodPressureReader(for: scannedDevice, queue: env.mainQueue)
         
         publisher = reader.read(device: scannedDevice)
-          .map(Reading.bloodPressure)
+          .map { $0.map(Reading.bloodPressure) }
           .eraseToAnyPublisher()
         
       } else {
-        let reader = env.deviceManager.glucoseMeter(for: scannedDevice)
+        let reader = env.deviceManager.glucoseMeter(for: scannedDevice, queue: env.mainQueue)
         
         publisher = reader.read(device: scannedDevice)
-          .map(Reading.glucose)
+          .map { $0.map(Reading.glucose) }
           .eraseToAnyPublisher()
       }
       
       return publisher
-        .collect(.byTimeOrCount(env.mainQueue, 5.0, 50))
         .map(DeviceConnection.Action.newReading)
         .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
         .receive(on: env.mainQueue)
@@ -223,9 +222,9 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       let reader: DevicePairable
       
       if device.deviceModel.kind == .bloodPressure {
-        reader = env.deviceManager.bloodPressureReader(for: device)
+        reader = env.deviceManager.bloodPressureReader(for: device, queue: env.mainQueue)
       } else {
-        reader = env.deviceManager.glucoseMeter(for: device)
+        reader = env.deviceManager.glucoseMeter(for: device, queue: env.mainQueue)
       }
       
       return reader.pair(device: device)

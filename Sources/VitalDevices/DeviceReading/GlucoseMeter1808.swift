@@ -3,7 +3,7 @@ import CombineCoreBluetooth
 import Combine
 
 public protocol GlucoseMeterReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<QuantitySample, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error>
 }
 
 private let service = CBUUID(string: "1808")
@@ -13,13 +13,15 @@ private let RACPCharacteristicUUID = CBUUID(string: "2A52".fullUUID)
 class GlucoseMeter1808: GlucoseMeterReadable {
   
   private let manager: CentralManager
+  private let queue: DispatchQueue
   
-  init(manager: CentralManager = .live()) {
+  init(manager: CentralManager = .live(), queue: DispatchQueue) {
     self.manager = manager
+    self.queue = queue    
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<QuantitySample, Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<QuantitySample, Error> in
+  public func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
+    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<[QuantitySample], Error> in
       
       let measurementCharacteristic = characteristics.first { $0.uuid == measurementCharacteristicUUID }
       let RACPCharacteristic = characteristics.first { $0.uuid == RACPCharacteristicUUID }
@@ -28,9 +30,12 @@ class GlucoseMeter1808: GlucoseMeterReadable {
       
       return write.flatMapLatest { _ in
         peripheral.listenForUpdates(on: measurementCharacteristic!)
-          .compactMap(toGlucoseReading).eraseToAnyPublisher()
+          .compactMap(toGlucoseReading)
       }
+      .collect(.byTimeOrCount(self.queue, 3.0, 50))
+      .eraseToAnyPublisher()
     }
+    
   }
   
   public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {

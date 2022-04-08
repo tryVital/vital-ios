@@ -2,23 +2,29 @@ import VitalCore
 import CombineCoreBluetooth
 
 public protocol BloodPressureReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<BloodPressureSample, Error>
+  func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error>
 }
 
+private let service = CBUUID(string: "1810")
+private let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
+
+
 class BloodPressureReader1810: BloodPressureReadable {
-  
-  private let service = CBUUID(string: "1810")
+    
   private let manager: CentralManager
-  private let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
+  private let queue: DispatchQueue
   
-  init(manager: CentralManager = .live()) {
+  init(manager: CentralManager = .live(), queue: DispatchQueue) {
     self.manager = manager
+    self.queue = queue
   }
   
-  public func read(device: ScannedDevice) -> AnyPublisher<BloodPressureSample, Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<BloodPressureSample, Error> in
+  public func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error> {
+    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<[BloodPressureSample], Error> in
       return peripheral.listenForUpdates(on: characteristic)
         .compactMap(toBloodPressureReading).eraseToAnyPublisher()
+        .collect(.byTimeOrCount(self.queue, 3.0, 50))
+        .eraseToAnyPublisher()
     }
   }
   
