@@ -1,4 +1,5 @@
 import HealthKit
+import VitalCore
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
 typealias AnchorQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
@@ -89,7 +90,7 @@ func handle(
         endDate: endDate
       )
       
-      let glucose = payload.glucosePatch.eraseToAnyEncodable()
+      let glucose = payload.glucose.eraseToAnyEncodable()
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
       return (glucose, entitiesToStore)
@@ -99,10 +100,10 @@ func handle(
 func handleProfile(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalStorage
-) async throws -> VitalProfilePatch {
+) async throws -> ProfilePatch {
   
   let sex = try healthKitStore.biologicalSex().biologicalSex
-  let biologicalSex = VitalProfilePatch.BiologicalSex(healthKitSex: sex)
+  let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
   
   let dateOfBirth = try healthKitStore.dateOfBirthComponents().date
   
@@ -128,7 +129,7 @@ func handleBody(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (bodyPatch: VitalBodyPatch, anchors: [String: HKQueryAnchor]) {
+) async throws -> (bodyPatch: BodyPatch, anchors: [String: HKQueryAnchor]) {
   
   func queryQuantities(
     type: HKSampleType,
@@ -180,7 +181,7 @@ func handleSleep(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (sleepPatch: VitalSleepPatch, anchors: [String: HKQueryAnchor]) {
+) async throws -> (sleepPatch: SleepPatch, anchors: [String: HKQueryAnchor]) {
   
   var anchors: [String: HKQueryAnchor] = [:]
   let sleepType = HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!
@@ -194,10 +195,10 @@ func handleSleep(
     endDate: endDate
   )
   
-  let sleeps = payload.sample.compactMap(VitalSleepPatch.Sleep.init)
+  let sleeps = payload.sample.compactMap(SleepPatch.Sleep.init)
   anchors.setSafely(payload.anchor, key: String(describing: sleepType))
   
-  var copies: [VitalSleepPatch.Sleep] = []
+  var copies: [SleepPatch.Sleep] = []
   
   for sleep in sleeps {
     
@@ -254,7 +255,7 @@ func handleActivity(
   vitalStorage: VitalStorage,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (acitivtyPatch: VitalActivityPatch, lastActivityDate: Date?) {
+) async throws -> (acitivtyPatch: ActivityPatch, lastActivityDate: Date?) {
   
   let startDate = vitalStorage.read(key: VitalStorage.activityKey)?.date ?? startDate
   
@@ -262,10 +263,10 @@ func handleActivity(
     healthKitStore: healthKitStore,
     startDate: startDate,
     endDate: endDate
-  ).compactMap(VitalActivityPatch.Activity.init)
+  ).compactMap(ActivityPatch.Activity.init)
   
   
-  var copies: [VitalActivityPatch.Activity] = []
+  var copies: [ActivityPatch.Activity] = []
   
   for activity in activities {
     
@@ -318,7 +319,6 @@ func handleActivity(
     copies.append(copy)
   }
   
-
   let lastActivityDate = copies.sorted { $0.date > $1.date }.first?.date
   return (.init(activities: copies), lastActivityDate)
 }
@@ -329,7 +329,7 @@ func handleWorkouts(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (workoutPatch: VitalWorkoutPatch, anchors: [String: HKQueryAnchor]) {
+) async throws -> (workoutPatch: WorkoutPatch, anchors: [String: HKQueryAnchor]) {
   
   var anchors: [String: HKQueryAnchor] = [:]
   
@@ -343,10 +343,10 @@ func handleWorkouts(
     endDate: endDate
   )
   
-  let workouts = payload.sample.compactMap(VitalWorkoutPatch.Workout.init)
+  let workouts = payload.sample.compactMap(WorkoutPatch.Workout.init)
   anchors.setSafely(payload.anchor, key: String(describing: workoutType))
   
-  var copies: [VitalWorkoutPatch.Workout] = []
+  var copies: [WorkoutPatch.Workout] = []
   
   for workout in workouts {
     let heartRate: [QuantitySample] = try await querySample(
@@ -380,7 +380,7 @@ func handleGlucose(
   isBackgroundUpdating: Bool,
   startDate: Date = .dateAgo(days: 30),
   endDate: Date = .init()
-) async throws -> (glucosePatch: VitalGlucosePatch, anchors: [String: HKQueryAnchor]) {
+) async throws -> (glucose: [QuantitySample], anchors: [String: HKQueryAnchor]) {
   
   let bloodGlucoseType = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
   let payload = try await query(
@@ -396,7 +396,7 @@ func handleGlucose(
   let glucose: [QuantitySample] = payload.sample.compactMap { .init($0, unit: .glucose) }
   
   anchors.setSafely(payload.anchor, key: String(describing: bloodGlucoseType))
-  return (.init(glucose: glucose), anchors)
+  return (glucose, anchors)
 }
 
 private func query(

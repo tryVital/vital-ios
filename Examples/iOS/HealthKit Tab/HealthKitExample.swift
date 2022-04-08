@@ -1,7 +1,8 @@
 import SwiftUI
 import VitalHealthKit
+import HealthKit
 
-struct HomeView: View {
+struct HealthKitExample: View {
   var body: some View {
     NavigationView {
       Form {
@@ -25,7 +26,7 @@ struct HomeView: View {
         }
       }
       .listStyle(GroupedListStyle())
-      .navigationBarTitle(Text("Vital Home"), displayMode: .large)
+      .navigationBarTitle(Text("HealthKit"), displayMode: .large)
     }
   }
 }
@@ -35,11 +36,18 @@ struct HomeView: View {
   HStack {
     Text(text)
     Spacer()
-    Button("Request Permission") {
-      VitalHealthKitClient.shared.ask(for: resources) { completion in
-        print(completion)
+    
+    if hasAskedForPermission(resource: resources[0], store: HKHealthStore()) {
+      Button("Permission requested") {}
+        .disabled(true)
+        .buttonStyle(PermissionStyle())
+    } else {
+      Button("Request Permission") {
+        VitalHealthKitClient.shared.ask(for: resources) { completion in
+          
+        }
       }
+      .buttonStyle(PermissionStyle())
     }
-    .buttonStyle(PermissionStyle())
   }
 }

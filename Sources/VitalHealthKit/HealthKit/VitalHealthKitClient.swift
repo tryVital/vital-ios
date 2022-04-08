@@ -1,6 +1,7 @@
 import HealthKit
 import Combine
 import os.log
+import VitalCore
 
 public enum PermissionOutcome {
   case success
@@ -28,7 +29,6 @@ public class VitalHealthKitClient {
   private let store: HKHealthStore
   private let configuration: Configuration
   private let vitalStorage: VitalStorage
-  private let networkClient: VitalNetworkClient
   
   private let _status: PassthroughSubject<Status, Never>
   
@@ -37,19 +37,12 @@ public class VitalHealthKitClient {
   }
   
   private var logger: Logger? = nil
-  private var userId: String? = nil {
-    didSet {
-      if configuration.autoSync {
-        syncData()
-      }
-    }
-  }
+
   
-  init(configuration: Configuration, networkClient: VitalNetworkClient) {
+  init(configuration: Configuration) {
     self.store = HKHealthStore()
     self.vitalStorage = VitalStorage()
     self.configuration = configuration
-    self.networkClient = networkClient
     self._status = PassthroughSubject<Status, Never>()
     
     if configuration.logsEnable {
@@ -69,29 +62,6 @@ public class VitalHealthKitClient {
         }
       }
     }
-  }
-  
-  private static func setInstance(client: VitalHealthKitClient) {
-    guard Self.client == nil else {
-      fatalError("`VitalHealthKitClient` is already configured.")
-    }
-    
-    Self.client = client
-  }
-  
-  public static func configure(
-    clientId: String,
-    clientSecret: String,
-    environment: Environment,
-    configuration: Configuration = .init()
-  ) {
-    let networkClient = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    let client = VitalHealthKitClient(configuration: configuration, networkClient: networkClient)
-    Self.setInstance(client: client)
-  }
-  
-  public static func set(userId: String) {
-    self.shared.userId = userId
   }
 }
 
@@ -117,15 +87,6 @@ extension VitalHealthKitClient {
   
   private func _syncData(for resources: [VitalResource]){
     Task(priority: .high) {
-      guard userId != nil else {
-        self.logger?.log(
-          level: .error,
-          "Can't sync data: `userId` hasn't been set. Please use VitalHealthKitClient.set(userId: \"xyz\")"
-        )
-        
-        return
-      }
-      
       for resource in resources {
         do {
           

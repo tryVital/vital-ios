@@ -7,12 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E85A25AC27D6AAFA00B2212C /* ExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258427D6AAF900B2212C /* ExampleApp.swift */; };
-		E85A25AE27D6AAFA00B2212C /* Home.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258527D6AAF900B2212C /* Home.swift */; };
+		E83CAEEB27F792CD001EDB12 /* VitalDevices in Frameworks */ = {isa = PBXBuildFile; productRef = E83CAEEA27F792CD001EDB12 /* VitalDevices */; };
+		E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */; };
+		E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258427D6AAF900B2212C /* Root.swift */; };
+		E85A25AE27D6AAFA00B2212C /* HealthKitExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258527D6AAF900B2212C /* HealthKitExample.swift */; };
 		E85A25B027D6AAFA00B2212C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E85A258627D6AAFA00B2212C /* Assets.xcassets */; };
 		E85A25C127D6AC9D00B2212C /* vital-ios in Resources */ = {isa = PBXBuildFile; fileRef = E85A25C027D6AC9D00B2212C /* vital-ios */; };
 		E892239427D79B8700733C13 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892239327D79B8700733C13 /* Styles.swift */; };
 		E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E892239627D7A29F00733C13 /* HealthKit.framework */; };
+		E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */; };
+		E8A286E827FC8CDE00F1F1B1 /* Devices+Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286E727FC8CDE00F1F1B1 /* Devices+Support.swift */; };
+		E8A286EB27FC92DF00F1F1B1 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8A286EA27FC92DF00F1F1B1 /* NukeUI */; };
+		E8A286ED27FC992900F1F1B1 /* DeviceConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */; };
+		E8A286F027FD85E300F1F1B1 /* Reducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286EF27FD85E300F1F1B1 /* Reducer.swift */; };
+		E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286F127FDA44600F1F1B1 /* Identifiable.swift */; };
+		E8A286F427FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */; };
 		E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E8D6BF6427E249E6000A9589 /* VitalHealthKit */; };
 /* End PBXBuildFile section */
 
@@ -27,8 +36,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		E85A258427D6AAF900B2212C /* ExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleApp.swift; sourceTree = "<group>"; };
-		E85A258527D6AAF900B2212C /* Home.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Home.swift; sourceTree = "<group>"; };
+		E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesExample.swift; sourceTree = "<group>"; };
+		E85A258427D6AAF900B2212C /* Root.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Root.swift; sourceTree = "<group>"; };
+		E85A258527D6AAF900B2212C /* HealthKitExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitExample.swift; sourceTree = "<group>"; };
 		E85A258627D6AAFA00B2212C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E85A258B27D6AAFA00B2212C /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E85A259827D6AAFA00B2212C /* Tests iOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Tests iOS.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -37,6 +47,11 @@
 		E892239527D7A29F00733C13 /* Example.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Example.entitlements; sourceTree = "<group>"; };
 		E892239627D7A29F00733C13 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.2.sdk/System/Library/Frameworks/HealthKit.framework; sourceTree = DEVELOPER_DIR; };
 		E892239827D8F2A500733C13 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E8A286E727FC8CDE00F1F1B1 /* Devices+Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Devices+Support.swift"; sourceTree = "<group>"; };
+		E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConnection.swift; sourceTree = "<group>"; };
+		E8A286EF27FD85E300F1F1B1 /* Reducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reducer.swift; sourceTree = "<group>"; };
+		E8A286F127FDA44600F1F1B1 /* Identifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identifiable.swift; sourceTree = "<group>"; };
+		E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BloodPressureDataPoint+Identifiable.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,8 +59,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E8A286EB27FC92DF00F1F1B1 /* NukeUI in Frameworks */,
 				E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */,
 				E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */,
+				E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */,
+				E83CAEEB27F792CD001EDB12 /* VitalDevices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,9 +92,10 @@
 		E85A258327D6AAF900B2212C /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				E8A286E327FC7BF400F1F1B1 /* HealthKit Tab */,
+				E8A286E227FC7BD900F1F1B1 /* Devices Tab */,
 				E892239227D79B7A00733C13 /* UI */,
-				E85A258427D6AAF900B2212C /* ExampleApp.swift */,
-				E85A258527D6AAF900B2212C /* Home.swift */,
+				E85A258427D6AAF900B2212C /* Root.swift */,
 				E85A258627D6AAFA00B2212C /* Assets.xcassets */,
 			);
 			path = iOS;
@@ -107,6 +126,43 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
+		E8A286E227FC7BD900F1F1B1 /* Devices Tab */ = {
+			isa = PBXGroup;
+			children = (
+				E8A286EE27FD85D800F1F1B1 /* Extensions */,
+				E8A286E627FC8CC800F1F1B1 /* Models */,
+				E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */,
+				E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */,
+			);
+			path = "Devices Tab";
+			sourceTree = "<group>";
+		};
+		E8A286E327FC7BF400F1F1B1 /* HealthKit Tab */ = {
+			isa = PBXGroup;
+			children = (
+				E85A258527D6AAF900B2212C /* HealthKitExample.swift */,
+			);
+			path = "HealthKit Tab";
+			sourceTree = "<group>";
+		};
+		E8A286E627FC8CC800F1F1B1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				E8A286E727FC8CDE00F1F1B1 /* Devices+Support.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E8A286EE27FD85D800F1F1B1 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				E8A286EF27FD85E300F1F1B1 /* Reducer.swift */,
+				E8A286F127FDA44600F1F1B1 /* Identifiable.swift */,
+				E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -125,6 +181,9 @@
 			name = "Example (iOS)";
 			packageProductDependencies = (
 				E8D6BF6427E249E6000A9589 /* VitalHealthKit */,
+				E83CAEEA27F792CD001EDB12 /* VitalDevices */,
+				E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */,
+				E8A286EA27FC92DF00F1F1B1 /* NukeUI */,
 			);
 			productName = "Example (iOS)";
 			productReference = E85A258B27D6AAFA00B2212C /* Example.app */;
@@ -176,6 +235,10 @@
 				Base,
 			);
 			mainGroup = E85A257E27D6AAF900B2212C;
+			packageReferences = (
+				E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
+				E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */,
+			);
 			productRefGroup = E85A258C27D6AAFA00B2212C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -210,9 +273,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E8A286F427FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift in Sources */,
 				E892239427D79B8700733C13 /* Styles.swift in Sources */,
-				E85A25AE27D6AAFA00B2212C /* Home.swift in Sources */,
-				E85A25AC27D6AAFA00B2212C /* ExampleApp.swift in Sources */,
+				E8A286E827FC8CDE00F1F1B1 /* Devices+Support.swift in Sources */,
+				E85A25AE27D6AAFA00B2212C /* HealthKitExample.swift in Sources */,
+				E8A286ED27FC992900F1F1B1 /* DeviceConnection.swift in Sources */,
+				E8A286F027FD85E300F1F1B1 /* Reducer.swift in Sources */,
+				E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */,
+				E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */,
+				E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,19 +426,21 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example.Example;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example;
 				PRODUCT_NAME = Example;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -390,19 +461,21 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example.Example;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example;
 				PRODUCT_NAME = Example;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -483,7 +556,40 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.0;
+			};
+		};
+		E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/NukeUI";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.8.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		E83CAEEA27F792CD001EDB12 /* VitalDevices */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VitalDevices;
+		};
+		E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
+			productName = ComposableArchitecture;
+		};
+		E8A286EA27FC92DF00F1F1B1 /* NukeUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */;
+			productName = NukeUI;
+		};
 		E8D6BF6427E249E6000A9589 /* VitalHealthKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VitalHealthKit;
