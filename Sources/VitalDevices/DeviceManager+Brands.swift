@@ -1,4 +1,6 @@
 import CoreBluetooth
+import VitalCore
+
 public extension DevicesManager {
   static func devices(for brand: Brand) -> [DeviceModel] {
         return [
@@ -68,5 +70,16 @@ public extension DevicesManager {
       .accuCheck,
       .contour
     ]
+  }
+  
+  static func provider(for brand: Brand) -> Provider {
+    switch brand {
+      case .omron:
+        return .omron
+      case .accuCheck:
+        return .accucheck
+      case .contour:
+        return .contour
+    }
   }
 }

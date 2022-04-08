@@ -1,5 +1,5 @@
 import SwiftUI
-import VitalHealthKit
+import VitalCore
 
 @main
 struct ExampleApp: App {
@@ -20,13 +20,14 @@ struct ExampleApp: App {
           .tag(1)
       }
       .onAppear {
-        VitalHealthKitClient.configure(
+        VitalNetworkClient.configure(
           clientId: "xyz",
-          clientSecret: "zys",
-          environment: .sandbox(.us)
+          clientSecret: "xyz",
+          environment: .dev(.us)
         )
         
-        VitalHealthKitClient.set(userId: "xyz-zyx")
+        let userId = UUID(uuidString: "xyz")!
+        VitalNetworkClient.setUserId(userId)
       }
     }
   }

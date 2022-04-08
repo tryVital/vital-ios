@@ -28,6 +28,19 @@ public extension VitalNetworkClient.Link {
     try await self.client.apiClient.send(request)
   }
   
+  
+  func createConnectedSourceForActiveUser(
+    provider: Provider
+  ) async throws -> Void {
+    
+    guard let userId = self.client.userId else {
+      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+    }
+    
+    let payload = CreateConnectionSourceRequest(userId: userId)
+    try await createConnectedSource(payload, provider: provider)
+  }
+
 }
 
 

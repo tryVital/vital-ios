@@ -98,12 +98,23 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return .none
       
     case .startScanning:
-      return env.deviceManager.search(for: state.device)
+      
+      
+      let brand = state.device.brand
+      
+      let createConnectedSource = Effect<Void, Error>.task {
+        let provider = DevicesManager.provider(for: brand)
+        try await VitalNetworkClient.shared.link.createConnectedSourceForActiveUser(provider: provider)
+      }
+      
+      let search = env.deviceManager.search(for: state.device)
         .first()
         .map(DeviceConnection.Action.scannedDevice)
         .receive(on: env.mainQueue)
         .eraseToEffect()
-
+      
+      return Effect.concatenate(createConnectedSource.fireAndForget(), search)
+      
     case let .scannedDevice(device):
       state.status = .found
       state.scannedDevice = device
@@ -134,7 +145,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.summary.post(
-            resource: .bloodPressure(bloodPressures, .daily, .omron)
+            resource: .bloodPressure(bloodPressures, .daily, DevicesManager.provider(for: scannedDevice.brand))
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -152,7 +163,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let effect = Effect<Void, Error>.task {
           
           try await VitalNetworkClient.shared.summary.post(
-            resource: .glucose(glucosePoints, .daily, .accucheck)
+            resource: .glucose(glucosePoints, .daily, DevicesManager.provider(for: scannedDevice.brand))
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
