@@ -13,6 +13,8 @@
 		E85A25AE27D6AAFA00B2212C /* HealthKitExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258527D6AAF900B2212C /* HealthKitExample.swift */; };
 		E85A25B027D6AAFA00B2212C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E85A258627D6AAFA00B2212C /* Assets.xcassets */; };
 		E85A25C127D6AC9D00B2212C /* vital-ios in Resources */ = {isa = PBXBuildFile; fileRef = E85A25C027D6AC9D00B2212C /* vital-ios */; };
+		E891318D280458540049608B /* DateFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E891318C280458540049608B /* DateFormatter.swift */; };
+		E8913192280464DC0049608B /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8913191280464DC0049608B /* Settings.swift */; };
 		E892239427D79B8700733C13 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E892239327D79B8700733C13 /* Styles.swift */; };
 		E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E892239627D7A29F00733C13 /* HealthKit.framework */; };
 		E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */; };
@@ -43,6 +45,8 @@
 		E85A258B27D6AAFA00B2212C /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E85A259827D6AAFA00B2212C /* Tests iOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Tests iOS.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E85A25C027D6AC9D00B2212C /* vital-ios */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = "vital-ios"; path = "../../vital-ios"; sourceTree = "<group>"; };
+		E891318C280458540049608B /* DateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatter.swift; sourceTree = "<group>"; };
+		E8913191280464DC0049608B /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		E892239327D79B8700733C13 /* Styles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Styles.swift; sourceTree = "<group>"; };
 		E892239527D7A29F00733C13 /* Example.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Example.entitlements; sourceTree = "<group>"; };
 		E892239627D7A29F00733C13 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.2.sdk/System/Library/Frameworks/HealthKit.framework; sourceTree = DEVELOPER_DIR; };
@@ -92,10 +96,11 @@
 		E85A258327D6AAF900B2212C /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				E85A258427D6AAF900B2212C /* Root.swift */,
+				E89131902804649E0049608B /* Settings */,
 				E8A286E327FC7BF400F1F1B1 /* HealthKit Tab */,
 				E8A286E227FC7BD900F1F1B1 /* Devices Tab */,
 				E892239227D79B7A00733C13 /* UI */,
-				E85A258427D6AAF900B2212C /* Root.swift */,
 				E85A258627D6AAFA00B2212C /* Assets.xcassets */,
 			);
 			path = iOS;
@@ -116,6 +121,14 @@
 				E892239627D7A29F00733C13 /* HealthKit.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		E89131902804649E0049608B /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				E8913191280464DC0049608B /* Settings.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		E892239227D79B7A00733C13 /* UI */ = {
@@ -159,6 +172,7 @@
 				E8A286EF27FD85E300F1F1B1 /* Reducer.swift */,
 				E8A286F127FDA44600F1F1B1 /* Identifiable.swift */,
 				E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */,
+				E891318C280458540049608B /* DateFormatter.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -273,6 +287,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E891318D280458540049608B /* DateFormatter.swift in Sources */,
 				E8A286F427FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift in Sources */,
 				E892239427D79B8700733C13 /* Styles.swift in Sources */,
 				E8A286E827FC8CDE00F1F1B1 /* Devices+Support.swift in Sources */,
@@ -281,6 +296,7 @@
 				E8A286F027FD85E300F1F1B1 /* Reducer.swift in Sources */,
 				E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */,
 				E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */,
+				E8913192280464DC0049608B /* Settings.swift in Sources */,
 				E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

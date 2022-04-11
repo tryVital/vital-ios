@@ -83,9 +83,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
       statusCode: response.statusCode,
       payload: data
     )
-    
-    print(networkError)
-    
+        
     return networkError
   }
 }

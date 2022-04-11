@@ -6,20 +6,21 @@ private struct Payload: Encodable {
   let clientId: String
   let clientSecret: String
   let audience: String
-  let domain: String
+//  let domain: String
 }
 
 func refreshToken(
   clientId: String,
   clientSecret: String,
-  environment: Environment
+  environment: Environment,
+  delegate: VitalNetworkBasicClientDelegate
 ) -> () async throws -> JWT {
   return {
     let payload = Payload(
       clientId: clientId,
       clientSecret: clientSecret,
-      audience: audience(from: environment),
-      domain: host(from: environment)
+      audience: audience(from: environment)
+//      domain: host(from: environment)
     )
     
     let encoder = JSONEncoder()
@@ -31,12 +32,14 @@ func refreshToken(
     let request: Request<JWT> = .post(
       "/oauth/token",
       body: payload,
-      headers: ["content-type": "application/x-www-form-urlencoded"]
+      headers: [:]
     )
     
     var configuration = APIClient.Configuration(host: host(from: environment))
     configuration.encoder = encoder
     configuration.decoder = decoder
+    configuration.delegate = delegate
+    configuration.sessionConfiguration.httpAdditionalHeaders = ["Content-Type": "application/x-www-form-urlencoded"]
     
     let client = APIClient(configuration: configuration)
     return try await client.send(request).value

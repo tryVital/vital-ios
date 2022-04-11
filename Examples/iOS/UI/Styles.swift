@@ -16,3 +16,41 @@ struct PermissionStyle: ButtonStyle {
       )
   }
 }
+
+public struct LoadingButtonStyle: ButtonStyle {
+  let isLoading: Bool
+  
+  public init(isLoading: Bool = false) {
+    self.isLoading = isLoading
+  }
+  
+  public func makeBody(configuration: Configuration) -> some View {
+    Group {
+      if isLoading {
+        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+      } else {
+        configuration.label.foregroundColor(.white)
+      }
+    }
+    .frame(maxWidth: .infinity, idealHeight: 30, alignment: .center)
+    .padding()
+    .background(configuration.isPressed ? Color.gray : Color.accentColor)
+    .disabled(isLoading)
+  }
+}
+
+
+public struct RegularButtonStyle: ButtonStyle {
+  let isDisabled: Bool
+  
+  public init(isDisabled: Bool = false) {
+    self.isDisabled = isDisabled
+  }
+  
+  public func makeBody(configuration: Configuration) -> some View {
+    configuration.label.foregroundColor(.white)
+    .frame(maxWidth: .infinity, idealHeight: 30, alignment: .center)
+    .padding()
+    .background(isDisabled ? Color.gray : Color.accentColor)
+  }
+}

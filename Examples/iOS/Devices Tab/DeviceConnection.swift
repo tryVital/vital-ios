@@ -38,6 +38,15 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
         return nil
     }
   }
+  
+  var date: Date {
+    switch self {
+      case let .glucose(glucose):
+        return glucose.startDate
+      case let .bloodPressure(bloodPressure):
+        return bloodPressure.systolic.startDate
+    }
+  }
 }
 
 extension DeviceConnection {
@@ -45,9 +54,10 @@ extension DeviceConnection {
     enum Status: String {
       case found = "Found device"
       case paired = "Device paired"
-      case searching = "Searching"
+      case searching = "Searching..."
       case pairingFailed = "Pairing failed"
       case readingFailed = "Reading failed"
+      case sendingToServer = "Sending to server..."
       case serverFailed = "Sending to server failed"
       case noneFound = "None found"
       case serverSuccess = "Value sent to the server"
@@ -62,6 +72,15 @@ extension DeviceConnection {
     init(device: DeviceModel) {
       self.device = device
       self.status = .searching
+    }
+    
+    var isLoading: Bool {
+      switch self.status {
+        case .serverSuccess, .serverFailed, .pairingFailed:
+          return false
+        default:
+          return true
+      }
     }
   }
   
@@ -99,20 +118,20 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case .startScanning:
       
-      
       let brand = state.device.brand
-      
+      state.status = .searching
+
       let createConnectedSource = Effect<Void, Error>.task {
         let provider = DevicesManager.provider(for: brand)
         try await VitalNetworkClient.shared.link.createConnectedSource(for: provider)
       }
-      
+
       let search = env.deviceManager.search(for: state.device)
         .first()
         .map(DeviceConnection.Action.scannedDevice)
         .receive(on: env.mainQueue)
         .eraseToEffect()
-      
+
       return Effect.concatenate(createConnectedSource.fireAndForget(), search)
       
     case let .scannedDevice(device):
@@ -129,7 +148,12 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return Effect.concatenate(pairedSuccessfully, monitorDevice)
       
     case let .newReading(dataPoints):
-      state.readings.append(contentsOf: dataPoints)
+      state.status = .sendingToServer
+      
+      let allReadings = Set(state.readings + dataPoints)
+      let unique = Array(allReadings).sorted { $0.date > $1.date }
+      
+      state.readings = unique
       
       guard let scannedDevice = state.scannedDevice else {
         return .none
@@ -161,7 +185,6 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let glucosePoints = dataPoints.compactMap { $0.glucose }
 
         let effect = Effect<Void, Error>.task {
-          
           try await VitalNetworkClient.shared.summary.post(
             resource: .glucose(glucosePoints, .daily, DevicesManager.provider(for: scannedDevice.deviceModel.brand))
           )
@@ -174,7 +197,6 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         return effect.receive(on: env.mainQueue).eraseToEffect()
       }
       
-
       return .none
       
     case let .failedSentToServer(reason):
@@ -247,11 +269,15 @@ extension DeviceConnection {
     var body: some View {
       WithViewStore(self.store) { viewStore in
         VStack {
-          VStack(alignment: .center) {
+          VStack(alignment: .center, spacing: 5) {
             LazyImage(source: url(for: viewStore.device), resizingMode: .aspectFit)
               .frame(width: 200, height: 200, alignment: .leading)
-            Text("Status: \(viewStore.status.rawValue)")
-            Spacer()
+            
+              Text("\(viewStore.status.rawValue)")
+                .font(.title3)
+                .fontWeight(.medium)
+
+            Spacer(minLength: 15)
             
             List {
               ForEach(viewStore.readings) { (reading: Reading) in
@@ -259,39 +285,75 @@ extension DeviceConnection {
                 switch reading {
                   case let .bloodPressure(point):
                     HStack {
-                      VStack {
+                      VStack(alignment: .leading, spacing: 5) {
                         HStack {
-                          Text("\(point.systolic.value)")
+                          Text("\(Int(point.systolic.value))")
+                            .font(.title)
+                            .fontWeight(.medium)
                           Text("\(point.systolic.unit)")
+                            .foregroundColor(.gray)
+                            .font(.footnote)
                         }
                         
                         HStack {
-                          Text("\(point.diastolic.value)")
+                          Text("\(Int(point.diastolic.value))")
+                            .font(.title)
+                            .fontWeight(.medium)
                           Text("\(point.diastolic.unit)")
+                            .foregroundColor(.gray)
+                            .font(.footnote)
                         }
                         
                         HStack {
-                          Text("\(point.pulse.value)")
+                          Text("\(Int(point.pulse.value))")
+                            .font(.title)
+                            .fontWeight(.medium)
                           Text("bpm")
+                            .foregroundColor(.gray)
+                            .font(.footnote)
                         }
                       }
-                      Text("\(point.systolic.startDate)")
-                        .foregroundColor(.gray)
-                        .font(.footnote)
+                      
+                      Spacer()
+                      
+                      VStack(alignment: .trailing) {
+                        Text("\(point.systolic.startDate.getDay())")
+                          .font(.body)
+                        Text("\(point.systolic.startDate.getDate())")
+                          .font(.body)
+                      }
                     }
+                    .padding([.horizontal], 10)
                   case let .glucose(point):
                     HStack {
                       VStack {
-                        Text("\(point.value)")
-                        Text("\(point.unit ?? "")")
+                        Text("\(Int(point.value))")
+                          .font(.title)
+                          .fontWeight(.medium)
+
+                        Text("\(point.unit)")
+                          .font(.footnote)
                       }
-                      Text("\(point.startDate)")
-                        .foregroundColor(.gray)
-                        .font(.footnote)
+                      
+                      Spacer()
+                      
+                      VStack(alignment: .trailing) {
+                        Text("\(point.startDate.getDay())")
+                          .font(.body)
+                        Text("\(point.startDate.getDate())")
+                          .font(.body)
+                      }
                     }
+                    .padding([.horizontal], 10)
                 }
               }
             }
+            
+            Button("Start scanning", action: {
+              viewStore.send(.startScanning)
+            })
+            .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
+            .padding([.bottom], 20)
           }
         }
         .onAppear {

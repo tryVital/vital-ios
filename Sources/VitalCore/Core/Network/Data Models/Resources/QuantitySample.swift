@@ -26,4 +26,23 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     self.type = type
     self.unit = unit
   }
+  
+  public init(
+    id: UUID? = nil,
+    value: Double,
+    date: Date,
+    sourceBundle: String? = nil,
+    type: String? = nil,
+    unit: String
+  ) {
+    self.init(
+      id: id,
+      value: value,
+      startDate: date,
+      endDate: date,
+      sourceBundle: sourceBundle,
+      type: type,
+      unit: unit
+    )
+  }
 }

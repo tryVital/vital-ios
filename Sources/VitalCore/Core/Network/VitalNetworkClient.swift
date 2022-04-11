@@ -78,12 +78,12 @@ public class VitalNetworkClient {
     self.environment = environment
     self.apiVersion = apiVersion
     
-    self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    let basicDelegate = VitalNetworkBasicClientDelegate()
+    self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment, delegate: basicDelegate)
     let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh, environment: environment)
     
     self.apiClient = APIClient(host: environment.host) { configuration in
       configuration.delegate = apiClientDelegate
-      
       
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .iso8601
