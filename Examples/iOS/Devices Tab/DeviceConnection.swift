@@ -256,7 +256,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .eraseToEffect()
       
     case let .scannedDeviceUpdate(isConnected):
-      print(isConnected)
+      print("Is device connected: \(isConnected)")
       return .none
   }
 }

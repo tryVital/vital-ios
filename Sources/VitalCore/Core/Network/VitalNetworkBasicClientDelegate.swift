@@ -4,14 +4,8 @@ import Foundation
 class VitalNetworkBasicClientDelegate: APIClientDelegate {
   init() {}
   
-  func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
-//    request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "content-type")
-//    request.allHTTPHeaderFields?.removeValue(forKey: "Accept")
-    
-    print(request.cURLDescription())
-  }
+  func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {}
 
-  
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
     return false
   }

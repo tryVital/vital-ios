@@ -56,7 +56,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         VitalNetworkClient.configure(
           clientId: state.credentials.clientId,
           clientSecret: state.credentials.clientSecret,
-          environment: .dev(.us)
+          environment: .sandbox(.us)
         )
       }
       
