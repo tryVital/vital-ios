@@ -435,13 +435,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Example.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = RYFZ57MRDN;
+				DEVELOPMENT_TEAM = 6M4FS53SNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vital Demo";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -456,12 +458,12 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vital.ios.vital-demo";
 				PRODUCT_NAME = Example;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -470,13 +472,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Example.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = RYFZ57MRDN;
+				DEVELOPMENT_TEAM = 6M4FS53SNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vital Demo";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -491,12 +495,12 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vital.ios.example;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vital.ios.vital-demo";
 				PRODUCT_NAME = Example;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
