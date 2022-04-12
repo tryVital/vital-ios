@@ -176,11 +176,11 @@ extension Settings {
               }
             }, footer: {
               VStack(spacing: 5) {
-                
                 Spacer()
                 Button("Generate userId", action: {
                   viewStore.send(.genetareUserId)
                 })
+                .disabled(viewStore.canGenerateUserId == false)
                 .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canGenerateUserId == false))
                 .cornerRadius(5.0)
                 .padding([.bottom], 20)
@@ -190,6 +190,7 @@ extension Settings {
                   self.activeKeyboard = false
                   viewStore.send(.save)
                 })
+                .disabled(viewStore.canSave == false)
                 .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canSave == false))
                 .cornerRadius(5.0)
                 .padding([.bottom], 20)
