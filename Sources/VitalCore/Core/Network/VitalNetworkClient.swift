@@ -48,21 +48,13 @@ public class VitalNetworkClient {
   
   private static var client: VitalNetworkClient?
   
-  private static func setInstance(client: VitalNetworkClient) {
-    guard Self.client == nil else {
-      fatalError("`VitalNetworkClient` is already configured.")
-    }
-    
-    Self.client = client
-  }
-  
   public static func configure(
     clientId: String,
     clientSecret: String,
     environment: Environment
   ) {
     let client = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    Self.setInstance(client: client)
+    Self.client = client
   }
   
   public static func setUserId(_ userId: UUID) {
