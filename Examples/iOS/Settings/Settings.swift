@@ -196,6 +196,9 @@ extension Settings {
               }
             })
           }
+          .onAppear {
+            UIScrollView.appearance().keyboardDismissMode = .onDrag
+          }
           .navigationBarTitle(Text("Settings"), displayMode: .large)
         }
       }
