@@ -2,84 +2,95 @@ import CoreBluetooth
 import VitalCore
 
 public extension DevicesManager {
-  static func devices(for brand: Brand) -> [DeviceModel] {
+    static func devices(for brand: Brand) -> [DeviceModel] {
         return [
-          .init(
-            id: "omron_m4",
-            name: "Omron Intelli IT M4",
-            brand: .omron,
-            codes: ["OMRON", "M4","X4", "BLESMART"],
-            kind: .bloodPressure
-          ),
-          .init(
-            id: "omron_m7",
-            name: "Omron Intelli IT M7",
-            brand: .omron,
-            codes: ["OMRON", "M7", "BLESMART"],
-            kind: .bloodPressure
-          ),
-          .init(
-            id: "accuchek_guide",
-            name: "Accu-Chek Guide",
-            brand: .accuChek,
-            codes: ["meter"],
-            kind: .glucoseMeter
-          ),
-          .init(
-            id: "accuchek_guide_me",
-            name: "Accu-Chek Guide Me",
-            brand: .accuChek,
-            codes: ["meter"],
-            kind: .glucoseMeter
-          ),
-          .init(
-            id: "accuchek_guide_active",
-            name: "Accu-Chek Active",
-            brand: .accuChek,
-            codes: ["meter"],
-            kind: .glucoseMeter
-          ),
-          .init(
-            id: "contour_next_one",
-            name: "Contour Next One",
-            brand: .contour,
-            codes: ["contour"],
-            kind: .glucoseMeter
-          )
+            .init(
+                id: "omron_m4",
+                name: "Omron Intelli IT M4",
+                brand: .omron,
+                codes: ["OMRON", "M4","X4", "BLESMART"],
+                kind: .bloodPressure
+            ),
+            .init(
+                id: "omron_m7",
+                name: "Omron Intelli IT M7",
+                brand: .omron,
+                codes: ["OMRON", "M7", "BLESMART"],
+                kind: .bloodPressure
+            ),
+            .init(
+                id: "accuchek_guide",
+                name: "Accu-Chek Guide",
+                brand: .accuChek,
+                codes: ["meter"],
+                kind: .glucoseMeter
+            ),
+            .init(
+                id: "accuchek_guide_me",
+                name: "Accu-Chek Guide Me",
+                brand: .accuChek,
+                codes: ["meter"],
+                kind: .glucoseMeter
+            ),
+            .init(
+                id: "accuchek_guide_active",
+                name: "Accu-Chek Active",
+                brand: .accuChek,
+                codes: ["meter"],
+                kind: .glucoseMeter
+            ),
+            .init(
+                id: "contour_next_one",
+                name: "Contour Next One",
+                brand: .contour,
+                codes: ["contour"],
+                kind: .glucoseMeter
+            ),
+            .init(
+                id: "beurer",
+                name: "Beurer Devices",
+                brand: .beurer,
+                codes: ["Beuerer", "BC","bc"],
+                kind: .bloodPressure
+            )
         ].filter {
-          $0.brand == brand
+            $0.brand == brand
         }
-  }
-  
-  static func service(for brand: Brand) -> CBUUID {
-    let id: String
-    
-    switch brand {
-      case .omron:
-        id = "1810"
-      case .accuChek, .contour:
-        id = "1808"
     }
     
-    return CBUUID(string: id.fullUUID)
-  }
-  
-  static func brands() -> [Brand] {
-    return [
-      .omron,
-      .accuChek,
-      .contour
-    ]
-  }
-  
-  static func provider(for brand: Brand) -> Provider {
-    switch brand {
-      case .omron:
-        return .omron
-      case .accuChek:
-        return .accuchek
-      case .contour:
-        return .contour
+    static func service(for brand: Brand) -> CBUUID {
+        let id: String
+        
+        switch brand {
+        case .omron, .beurer:
+            id = "1810"
+        case .accuChek, .contour:
+            id = "1808"
+        }
+        
+        return CBUUID(string: id.fullUUID)
     }
-  }
+    
+    static func brands() -> [Brand] {
+        return [
+            .omron,
+            .accuChek,
+            .contour,
+            .beurer
+        ]
+    }
+    
+    static func provider(for brand: Brand) -> Provider {
+        switch brand {
+        case .omron:
+            return .omron
+        case .accuChek:
+            return .accuchek
+        case .contour:
+            return .contour
+        case .beurer:
+            return .beurer
+            
+        }
+    }
 }

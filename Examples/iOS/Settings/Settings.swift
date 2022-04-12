@@ -184,6 +184,7 @@ extension Settings {
                   viewStore.send(.genetareUserId)
                 })
                 .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canGenerateUserId == false))
+                .cornerRadius(5.0)
                 .padding([.bottom], 20)
                 
                 
@@ -192,6 +193,7 @@ extension Settings {
                   viewStore.send(.save)
                 })
                 .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canSave == false))
+                .cornerRadius(5.0)
                 .padding([.bottom], 20)
               }
             })

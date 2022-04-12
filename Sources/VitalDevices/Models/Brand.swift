@@ -2,6 +2,7 @@ public enum Brand: Equatable {
   case omron
   case accuChek
   case contour
+  case beurer
   
   public var name: String {
     switch self {
@@ -11,6 +12,8 @@ public enum Brand: Equatable {
         return "Omron"
       case .accuChek:
         return "Accu-Chek"
+    case .beurer:
+        return "Beurer"
     }
   }
 }

@@ -24,6 +24,8 @@ func url(for device: DeviceModel) -> URL {
     case "Contour Next One":
       image = "https://storage.googleapis.com/vital-assets/Contour.png"
     
+    case "Beurer Devices":
+      image = "https://storage.googleapis.com/vital-assets/beurer.png"
     default:
       fatalError("Device not supported")
   }
