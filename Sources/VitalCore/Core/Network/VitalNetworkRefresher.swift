@@ -6,7 +6,6 @@ private struct Payload: Encodable {
   let clientId: String
   let clientSecret: String
   let audience: String
-//  let domain: String
 }
 
 func refreshToken(
@@ -20,7 +19,6 @@ func refreshToken(
       clientId: clientId,
       clientSecret: clientSecret,
       audience: audience(from: environment)
-//      domain: host(from: environment)
     )
     
     let encoder = JSONEncoder()

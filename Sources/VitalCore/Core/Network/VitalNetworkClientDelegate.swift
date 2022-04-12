@@ -15,29 +15,25 @@ struct StoredJWT: Codable {
 
 actor VitalNetworkClientDelegate: APIClientDelegate {
   private var token: StoredJWT?
-  private let key = "vital_client_jwt"
   private let refresh: () async throws -> JWT
-  private let keychain: KeychainSwift
+  private let keychain: VitalKeychain
   private let environment: Environment
   
   init(
     refresh: @escaping () async throws -> JWT,
+    keychain: VitalKeychain,
     environment: Environment
   ) {
     self.refresh = refresh
-    self.keychain = KeychainSwift()
+    self.keychain = keychain
     self.environment = environment
     
-    let data = keychain.getData(key)
-    
-    let token = data.flatMap {
-      try? JSONDecoder().decode(StoredJWT.self, from: $0)
-    }
+    let token = keychain.storedJWT()
     
     if token?.environment == environment {
       self.token = token
     } else {
-      keychain.delete(key)
+      keychain.clean()
     }
   }
   
@@ -51,8 +47,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     let storedToken = StoredJWT(accessToken: newToken.accessToken, validUntil: validUntil, environment: self.environment)
     self.token = storedToken
     
-    let encoded = try JSONEncoder().encode(storedToken)
-    keychain.set(encoded, forKey: key)
+    try keychain.store(storedToken)
   }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {

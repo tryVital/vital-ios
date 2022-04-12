@@ -1,8 +1,14 @@
 import Foundation
 import Get
 
-public enum Environment: Equatable, Codable {
-  public enum Region: Equatable, Codable {
+struct Credentials: Equatable, Hashable {
+  let clientId: String
+  let clientSecret: String
+  let environment: Environment
+}
+
+public enum Environment: Equatable, Hashable, Codable {
+  public enum Region: Equatable, Hashable, Codable {
     case eu
     case us
   }
@@ -35,6 +41,7 @@ public class VitalNetworkClient {
   let apiClient: APIClient
   var userId: UUID?
   let apiVersion: String
+  let keychain: VitalKeychain
   
   let refresh: () async throws -> JWT
   
@@ -53,12 +60,25 @@ public class VitalNetworkClient {
     clientSecret: String,
     environment: Environment
   ) {
-    let client = VitalNetworkClient(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    let client = VitalNetworkClient(
+      clientId: clientId,
+      clientSecret: clientSecret,
+      environment: environment
+    )
+    
     Self.client = client
+  }
+  
+  public static var isSetup: Bool {
+    Self.client != nil
   }
   
   public static func setUserId(_ userId: UUID) {
     VitalNetworkClient.shared.userId = userId
+  }
+  
+  public func clean() {
+    keychain.clean()
   }
   
   public init(
@@ -69,10 +89,25 @@ public class VitalNetworkClient {
   ) {
     self.environment = environment
     self.apiVersion = apiVersion
+    self.keychain = VitalKeychain()
     
     let basicDelegate = VitalNetworkBasicClientDelegate()
-    self.refresh = refreshToken(clientId: clientId, clientSecret: clientSecret, environment: environment, delegate: basicDelegate)
-    let apiClientDelegate = VitalNetworkClientDelegate(refresh: refresh, environment: environment)
+    
+    self.refresh = refreshToken(
+      clientId: clientId,
+      clientSecret: clientSecret,
+      environment: environment,
+      delegate: basicDelegate
+    )
+    
+    let apiClientDelegate = VitalNetworkClientDelegate(
+      refresh: refresh,
+      keychain: keychain,
+      environment: environment
+    )
+    
+    let credentials = Credentials(clientId: clientId, clientSecret: clientSecret, environment: environment)
+    keychain.check(credentials)
     
     self.apiClient = APIClient(host: environment.host) { configuration in
       configuration.delegate = apiClientDelegate
