@@ -66,7 +66,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       let date = Date()
       let string = DateFormatter().string(from: date)
       
-      let clientUserId = "user_generated_\(date)"
+      let clientUserId = "user_generated_demo_\(date)"
       let payload = CreateUserRequest.init(clientUserId: clientUserId)
       
       let effect = Effect<CreateUserResponse, Error>.task {
