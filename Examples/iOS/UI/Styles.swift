@@ -48,9 +48,18 @@ public struct RegularButtonStyle: ButtonStyle {
   }
   
   public func makeBody(configuration: Configuration) -> some View {
-    configuration.label.foregroundColor(.white)
-    .frame(maxWidth: .infinity, idealHeight: 30, alignment: .center)
-    .padding()
-    .background(isDisabled ? Color.gray : Color.accentColor)
+    
+    if isDisabled {
+      return configuration.label.foregroundColor(.white)
+        .frame(maxWidth: .infinity, idealHeight: 30, alignment: .center)
+        .padding()
+        .background(Color.gray)
+    }
+    
+   
+    return configuration.label.foregroundColor(.white)
+      .frame(maxWidth: .infinity, idealHeight: 30, alignment: .center)
+      .padding()
+      .background(configuration.isPressed ? Color.gray : .accentColor)
   }
 }

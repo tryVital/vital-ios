@@ -4,6 +4,7 @@ import VitalDevices
 import VitalCore
 import ComposableArchitecture
 import NukeUI
+import Combine
 
 enum Settings {}
 
@@ -29,6 +30,11 @@ extension Settings {
       credentials.clientId.isEmpty == false &&
       UUID(uuidString: credentials.userId) != nil
     }
+    
+    var canGenerateUserId: Bool {
+      return credentials.clientSecret.isEmpty == false &&
+      credentials.clientId.isEmpty == false
+    }
   }
   
   enum Action: BindableAction, Equatable {
@@ -36,6 +42,9 @@ extension Settings {
     case start
     case save
     case setup
+    case genetareUserId
+    case successfulGenerateUserId(UUID)
+    case failedGeneratedUserId
   }
   
   class Environment {
@@ -45,6 +54,40 @@ extension Settings {
 
 private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
   switch action {
+      
+    case .failedGeneratedUserId:
+      return .none
+      
+    case let .successfulGenerateUserId(userId):
+      state.credentials.userId = userId.uuidString
+      return .none
+      
+    case .genetareUserId:
+      let date = Date()
+      let string = DateFormatter().string(from: date)
+      
+      let clientUserId = "user_generated_\(date)"
+      let payload = CreateUserRequest.init(clientUserId: clientUserId)
+      
+      let effect = Effect<CreateUserResponse, Error>.task {
+        let userResponse = try await VitalNetworkClient.shared.user.create(payload)
+        return userResponse
+      }
+      
+      let outcome: Effect<Settings.Action, Never> = effect.map { (result: CreateUserResponse) -> Settings.Action in
+        return .successfulGenerateUserId(result.userId)
+      }
+      .catch { error in
+        return Just(Settings.Action.failedGeneratedUserId)
+      }
+      .receive(on: DispatchQueue.main)
+      .eraseToEffect()
+      
+      let setup: Effect<Settings.Action, Never> = .init(value: .setup).receive(on: DispatchQueue.main).eraseToEffect()
+      
+      
+      return Effect.concatenate(setup, outcome)
+      
     case .binding:
       return .none
       
@@ -86,7 +129,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         UserDefaults.standard.setValue(value, forKey: "credentials")
       }
       
-      return .init(value: .setup)
+      return .none//.init(value: .setup)
   }
 }
   .binding()
@@ -102,26 +145,58 @@ extension Settings {
   struct RootView: View {
     
     let store: Store<State, Action>
+    @FocusState private var activeKeyboard: Bool
+    
     
     var body: some View {
       WithViewStore(self.store) { viewStore in
-        Form {
-          Section(content: {
-            TextField("Client ID", text: viewStore.binding(\.$credentials.clientId))
-              .disableAutocorrection(true)
-            
-            TextField("Client Secret", text: viewStore.binding(\.$credentials.clientSecret))
-              .disableAutocorrection(true)
-            
-            TextField("User ID (UUID-4)", text: viewStore.binding(\.$credentials.userId))
-              .disableAutocorrection(true)
-          }, footer: {
-            Button("Save", action: {
-              viewStore.send(.save)
+        NavigationView {
+          Form {
+            Section(content: {
+              HStack {
+                Text("Client ID")
+                  .fontWeight(.bold)
+                TextField("Client ID", text: viewStore.binding(\.$credentials.clientId))
+                  .disableAutocorrection(true)
+                  .focused($activeKeyboard)
+              }
+              
+              HStack {
+                Text("Client Secret")
+                  .fontWeight(.bold)
+                TextField("Client Secret", text: viewStore.binding(\.$credentials.clientSecret))
+                  .disableAutocorrection(true)
+                  .focused($activeKeyboard)
+              }
+              
+              HStack {
+                Text("User ID (UUID-4)")
+                  .fontWeight(.bold)
+                TextField("User ID (UUID-4)", text: viewStore.binding(\.$credentials.userId))
+                  .disableAutocorrection(true)
+                  .focused($activeKeyboard)
+              }
+            }, footer: {
+              VStack(spacing: 5) {
+                
+                Spacer()
+                Button("Generate userId", action: {
+                  viewStore.send(.genetareUserId)
+                })
+                .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canGenerateUserId == false))
+                .padding([.bottom], 20)
+                
+                
+                Button("Save", action: {
+                  self.activeKeyboard = false
+                  viewStore.send(.save)
+                })
+                .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canSave == false))
+                .padding([.bottom], 20)
+              }
             })
-            .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canSave == false))
-            .padding([.bottom], 20)
-          })
+          }
+          .navigationBarTitle(Text("Settings"), displayMode: .large)
         }
       }
     }

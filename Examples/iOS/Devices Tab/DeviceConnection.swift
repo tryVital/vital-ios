@@ -114,7 +114,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   switch action {
     case let .readingSentToServer(reading):
       state.status = .serverSuccess
-      return .none
+      return .init(value: .startScanning)
       
     case .startScanning:
       
@@ -201,7 +201,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case let .failedSentToServer(reason):
       state.status = .serverFailed
-      return .none
+      return .init(value: .startScanning)
       
     case let .readingFailed(reason):
       state.status = .readingFailed
@@ -348,12 +348,6 @@ extension DeviceConnection {
                 }
               }
             }
-            
-            Button("Start scanning", action: {
-              viewStore.send(.startScanning)
-            })
-            .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
-            .padding([.bottom], 20)
           }
         }
         .onAppear {
