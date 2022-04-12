@@ -8,12 +8,12 @@ struct ExampleApp: App {
     WindowGroup {
       WithViewStore(settingsStore) { viewStore in
         TabView {
-          HealthKitExample()
-            .tabItem {
-              Image(systemName: "suit.heart")
-              Text("HealthKit")
-            }
-            .tag(0)
+//          HealthKitExample()
+//            .tabItem {
+//              Image(systemName: "suit.heart")
+//              Text("HealthKit")
+//            }
+//            .tag(0)
           DevicesExample.RootView(store: devicesStore)
             .tabItem {
               Image(systemName: "laptopcomputer.and.iphone")

@@ -60,7 +60,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case let .successfulGenerateUserId(userId):
       state.credentials.userId = userId.uuidString
-      return .none
+      return .init(value: .save)
       
     case .genetareUserId:
       let date = Date()
@@ -84,8 +84,6 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       .eraseToEffect()
       
       let setup: Effect<Settings.Action, Never> = .init(value: .setup).receive(on: DispatchQueue.main).eraseToEffect()
-      
-      
       return Effect.concatenate(setup, outcome)
       
     case .binding:
@@ -95,7 +93,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       if
         state.credentials.clientId.isEmpty == false,
         state.credentials.clientSecret.isEmpty == false
-      {
+      {        
         VitalNetworkClient.configure(
           clientId: state.credentials.clientId,
           clientSecret: state.credentials.clientSecret,
@@ -129,7 +127,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         UserDefaults.standard.setValue(value, forKey: "credentials")
       }
       
-      return .none//.init(value: .setup)
+      return .init(value: .setup)
   }
 }
   .binding()

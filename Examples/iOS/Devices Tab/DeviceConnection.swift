@@ -52,6 +52,7 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
 extension DeviceConnection {
   public struct State: Equatable {
     enum Status: String {
+      case notSetup = "Missing credentials. Go to Settings."
       case found = "Found device"
       case paired = "Device paired"
       case searching = "Searching..."
@@ -117,6 +118,10 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return .init(value: .startScanning)
       
     case .startScanning:
+      if VitalNetworkClient.isSetup == false {
+        state.status = .notSetup
+        return .none
+      }
       
       let brand = state.device.brand
       state.status = .searching
