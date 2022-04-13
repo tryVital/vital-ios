@@ -115,7 +115,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   switch action {
     case let .readingSentToServer(reading):
       state.status = .serverSuccess
-      return .init(value: .startScanning)
+      return .none
       
     case .startScanning:
       if VitalNetworkClient.isSetup == false {
@@ -261,8 +261,11 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .eraseToEffect()
       
     case let .scannedDeviceUpdate(isConnected):
-      print("Is device connected: \(isConnected)")
-      return .none
+      if isConnected == false {
+        return .init(value: .startScanning)
+      } else {
+        return .none
+      }
   }
 }
 
