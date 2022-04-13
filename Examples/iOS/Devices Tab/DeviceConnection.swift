@@ -174,7 +174,9 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.summary.post(
-            resource: .bloodPressure(bloodPressures, .daily, DevicesManager.provider(for: scannedDevice.deviceModel.brand))
+            resource: .bloodPressure(bloodPressures),
+            stage: .daily,
+            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -191,7 +193,9 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
 
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.summary.post(
-            resource: .glucose(glucosePoints, .daily, DevicesManager.provider(for: scannedDevice.deviceModel.brand))
+            resource: .glucose(glucosePoints),
+            stage: .daily,
+            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }

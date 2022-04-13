@@ -85,8 +85,12 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  private func _syncData(for resources: [VitalResource]){
+  private func syncData(for resources: [VitalResource]){
     Task(priority: .high) {
+      
+      let startDate: Date = .dateAgo(days: 30)
+      let endDate: Date = Date()
+      
       for resource in resources {
         do {
           
@@ -94,15 +98,21 @@ extension VitalHealthKitClient {
           _status.send(.syncing(resource))
           
           // Fetch from HealthKit
-          let (encodable, entitiesToStore) = try await handle(
+          let (summaryToPost, entitiesToStore) = try await handle(
             resource: resource,
             store: store,
             vitalStorage: vitalStorage,
-            isBackgroundUpdating: configuration.backgroundUpdates
+            startDate: startDate,
+            endDate: endDate
           )
           
+          let stage: TaggedPayload.Stage = vitalStorage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
+          
           // Post to the network
-          // TODO
+          try await VitalNetworkClient.shared.summary.post(resource: summaryToPost, stage: stage, provider: .appleHealthKit)
+          
+          vitalStorage.storeFlag(for: resource)
+
           
           // Save the anchor/date on succesfull network call
           entitiesToStore.forEach(vitalStorage.store(entity:))
@@ -120,9 +130,13 @@ extension VitalHealthKitClient {
     }
   }
   
+  
+  
+  
+  
   public func syncData() {
     let resources = resourcesAskedForPermission(store: store)
-    _syncData(for: resources)
+    syncData(for: resources)
   }
   
   public func ask(
@@ -150,7 +164,7 @@ extension VitalHealthKitClient {
         return
       }
       
-      self._syncData(for: resources)
+      self.syncData(for: resources)
     }
   }
 }

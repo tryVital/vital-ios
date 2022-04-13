@@ -35,7 +35,6 @@ class GlucoseMeter1808: GlucoseMeterReadable {
       .collect(.byTimeOrCount(self.queue, 3.0, 50))
       .eraseToAnyPublisher()
     }
-    
   }
   
   public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {

@@ -1,14 +1,13 @@
 import SwiftUI
 import HealthKit
 
-
-
 class VitalStorage {
 
   static let activityKey = "activity"
-  static let profileKey = "profile"
   
   private let prefix = "vital_anchor_"
+  private let flag = "vital_anchor_"
+
   private let userDefaults: UserDefaults
   
   init(userDefaults: UserDefaults = .standard) {
@@ -18,8 +17,15 @@ class VitalStorage {
     userDefaults.register(defaults: defaultValue)
   }
   
+  func storeFlag(for resource: VitalResource) {
+    userDefaults.set(true, forKey: String(describing: resource))
+  }
+  
+  func readFlag(for resource: VitalResource) -> Bool {
+    return userDefaults.bool(forKey: String(describing: resource))
+  }
+  
   func store(entity: StoredEntity) {
-    
     let prefixedKey = prefix + entity.key
     
     switch entity {
