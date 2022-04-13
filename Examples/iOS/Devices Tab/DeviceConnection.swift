@@ -52,7 +52,7 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
 extension DeviceConnection {
   public struct State: Equatable {
     enum Status: String {
-      case notSetup = "Missing credentials. Go to Settings."
+      case notSetup = "Missing credentials. Visit settings tab."
       case found = "Found device"
       case paired = "Device paired"
       case searching = "Searching..."
@@ -282,8 +282,11 @@ extension DeviceConnection {
               .frame(width: 200, height: 200, alignment: .leading)
             
               Text("\(viewStore.status.rawValue)")
-                .font(.title3)
+                  .font(.system(size: 14))
                 .fontWeight(.medium)
+                .padding(.all, 5)
+                .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
+                .cornerRadius(5.0)
 
             Spacer(minLength: 15)
             
