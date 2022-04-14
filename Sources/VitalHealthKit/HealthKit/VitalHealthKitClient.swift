@@ -26,6 +26,13 @@ public class VitalHealthKitClient {
   
   private static var client: VitalHealthKitClient?
   
+  public static func configure(
+    _ configuration: Configuration = .init()
+  ) {
+    let client = VitalHealthKitClient(configuration: configuration)
+    Self.client = client
+  }
+  
   private let store: HKHealthStore
   private let configuration: Configuration
   private let vitalStorage: VitalStorage
@@ -73,11 +80,10 @@ public extension VitalHealthKitClient {
     
     public init(
       autoSync: Bool = true,
-      backgroundUpdates: Bool = true,
       logsEnable: Bool = true
     ) {
       self.autoSync = autoSync
-      self.backgroundUpdates = backgroundUpdates
+      self.backgroundUpdates = false
       self.logsEnable = logsEnable
     }
   }
@@ -101,6 +107,10 @@ extension VitalHealthKitClient {
   
   private func syncData(for resources: [VitalResource]){
     Task(priority: .high) {
+      
+      
+      /// Testing purposes for now
+      try await VitalNetworkClient.shared.link.createConnectedSource(for: .appleHealthKit)
       
       let startDate: Date = .dateAgo(days: 30)
       let endDate: Date = Date()
@@ -150,10 +160,6 @@ extension VitalHealthKitClient {
       }
     }
   }
-  
-  
-  
-  
   
   public func syncData() {
     let resources = resourcesAskedForPermission(store: store)

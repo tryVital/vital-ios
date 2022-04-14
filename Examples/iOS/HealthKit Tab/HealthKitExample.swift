@@ -27,10 +27,13 @@ struct HealthKitExample: View {
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
+      .onAppear {
+        VitalHealthKitClient.configure(.init(autoSync: true))
+        VitalHealthKitClient.shared.syncData()
+      }
     }
   }
 }
-
 
 @ViewBuilder func makePermissionRow(_ text: String, resources: [VitalResource]) -> some View {
   HStack {
