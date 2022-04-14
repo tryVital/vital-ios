@@ -1,7 +1,7 @@
 import HealthKit
 
-public enum VitalResource {
-  public enum Vitals {
+public enum VitalResource: Equatable {
+  public enum Vitals: Equatable {
     case glucose
   }
   

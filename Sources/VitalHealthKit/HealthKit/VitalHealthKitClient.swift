@@ -85,6 +85,20 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
+  private func calculateStage(
+    resource: VitalResource,
+    startDate: Date,
+    endDate: Date
+  ) -> TaggedPayload.Stage  {
+    
+    /// We don't keep a historical record for profile data
+    if resource == .profile {
+      return .daily
+    }
+    
+    return vitalStorage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
+  }
+  
   private func syncData(for resources: [VitalResource]){
     Task(priority: .high) {
       
@@ -106,13 +120,20 @@ extension VitalHealthKitClient {
             endDate: endDate
           )
           
-          let stage: TaggedPayload.Stage = vitalStorage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
+          let stage = calculateStage(
+            resource: resource,
+            startDate: startDate,
+            endDate: endDate
+          )
           
           // Post to the network
-          try await VitalNetworkClient.shared.summary.post(resource: summaryToPost, stage: stage, provider: .appleHealthKit)
+          try await VitalNetworkClient.shared.summary.post(
+            resource: summaryToPost,
+            stage: stage,
+            provider: .appleHealthKit
+          )
           
           vitalStorage.storeFlag(for: resource)
-
           
           // Save the anchor/date on succesfull network call
           entitiesToStore.forEach(vitalStorage.store(entity:))

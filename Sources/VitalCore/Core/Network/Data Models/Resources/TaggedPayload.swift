@@ -10,7 +10,7 @@ public struct TaggedPayload: Encodable {
   public init(
     stage: Stage = .daily,
     provider: Provider = .manual,
-    data: AnyEncodable//TaggedPayload.TaggedPayloadData
+    data: AnyEncodable
   ) {
     self.provider = provider
     self.data = data
