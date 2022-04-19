@@ -31,6 +31,10 @@ public class VitalHealthKitClient {
   ) {
     let client = VitalHealthKitClient(configuration: configuration)
     Self.client = client
+    
+    if configuration.autoSync {
+      client.syncData()
+    }
   }
   
   private let store: HKHealthStore
