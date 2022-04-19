@@ -42,8 +42,16 @@ extension QuantitySample {
     case glucose
     
     var toStringRepresentation: String {
-      // TODO: Fix
-      return ""
+      switch self {
+        case .bodyMass:
+          return "kg"
+        case .bodyFatPercentage:
+          return "bmi"
+        case .height:
+          return "cm"
+        default:
+          return ""
+      }
     }
     
     var toHealthKit: HKUnit {
@@ -51,7 +59,7 @@ extension QuantitySample {
         case .heartRate:
           return .count().unitDivided(by: .minute())
         case .bodyMass:
-          return .gram()
+          return .gramUnit(with: .kilo)
         case .bodyFatPercentage:
           return .percent()
         case .height:

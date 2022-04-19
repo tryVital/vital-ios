@@ -16,43 +16,18 @@ public extension VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient.Summary {
-  enum Resource {
-    case profile(ProfilePatch)
-    case body(BodyPatch)
-    case activity(ActivityPatch)
-    case sleep(SleepPatch)
-    case workout(WorkoutPatch)
-    case glucose([QuantitySample])
-    case bloodPressure([BloodPressureSample])
-    
-    var payload: Encodable {
-      switch self {
-        case let .profile(patch):
-          return patch
-        case let .body(patch):
-          return patch
-        case let .activity(patch):
-          return patch
-        case let .sleep(patch):
-          return patch
-        case let .workout(patch):
-          return patch
-        case let .glucose(dataPoints):
-          return dataPoints
-        case let .bloodPressure(dataPoints):
-          return dataPoints
-      }
-    }
-  }
-  
+public extension VitalNetworkClient.Summary {  
   func post(
-    resource: Resource,
+    resource: PostResource,
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
     guard let userId = self.client.userId else {
       fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+    }
+    
+    guard resource.shouldSkipPost == false else {
+      return
     }
         
     let taggedPayload = TaggedPayload(
@@ -70,15 +45,15 @@ public extension VitalNetworkClient.Summary {
 }
 
 func makePath(
-  for resource: VitalNetworkClient.Summary.Resource,
+  for resource: PostResource,
   userId: String,
   withPrefix prefix: String
 ) -> String {
   switch resource {
-    case .glucose:
+    case .vitals(.glucose):
       return prefix + "vitals/\(userId)/glucose"
       
-    case .bloodPressure:
+    case .vitals(.bloodPressure):
       return prefix + "vitals/\(userId)/blood_pressure"
       
     case .profile:

@@ -2,10 +2,10 @@ import Foundation
 
 public struct SleepPatch: Encodable {
   public struct Sleep: Encodable {
-    public let id: UUID?
-    public let startDate: Date
-    public let endDate: Date
-    public let sourceBundle: String
+    public var id: UUID?
+    public var startDate: Date
+    public var endDate: Date
+    public var sourceBundle: String
     
     public var heartRate: [QuantitySample] = []
     public var restingHeartRate: [QuantitySample] = []

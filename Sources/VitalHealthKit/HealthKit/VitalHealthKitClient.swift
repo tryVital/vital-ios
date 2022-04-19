@@ -112,10 +112,6 @@ extension VitalHealthKitClient {
   private func syncData(for resources: [VitalResource]){
     Task(priority: .high) {
       
-      
-      /// Testing purposes for now
-      try await VitalNetworkClient.shared.link.createConnectedSource(for: .appleHealthKit)
-      
       let startDate: Date = .dateAgo(days: 30)
       let endDate: Date = Date()
       
@@ -133,6 +129,8 @@ extension VitalHealthKitClient {
             startDate: startDate,
             endDate: endDate
           )
+          
+          // If there's no data, don't post it
           
           let stage = calculateStage(
             resource: resource,

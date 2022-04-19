@@ -14,7 +14,7 @@ func handle(
   vitalStorage: VitalStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (VitalNetworkClient.Summary.Resource, [StoredEntity]) {
+) async throws -> (PostResource, [StoredEntity]) {
   
   switch resource {
     case .profile:
@@ -79,7 +79,7 @@ func handle(
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
-      return (.glucose(payload.glucose), entitiesToStore)
+      return (.vitals(.glucose(payload.glucose)), entitiesToStore)
   }
 }
 
@@ -89,14 +89,12 @@ func handleProfile(
   
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
+    
+  var components = try healthKitStore.dateOfBirthComponents()
+  components.timeZone = TimeZone(secondsFromGMT: 0)
   
-  var calendar = Calendar.current
-  calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-  
-  let components = try healthKitStore.dateOfBirthComponents()
-  let dateOfBirth = calendar.date(from: components)
+  let dateOfBirth = components.date!
 
-  
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
@@ -175,13 +173,19 @@ func handleSleep(
   
   let payload = try await query(
     healthKitStore: healthKitStore,
-    vitalStorage: vitalStorage,
+    vitalStorage: nil,
     type: sleepType,
     startDate: startDate,
     endDate: endDate
   )
   
-  let sleeps = payload.sample.compactMap(SleepPatch.Sleep.init)
+  let filteredSamples = filter(samples: payload.sample, by: [.appleHealthKit])
+  
+  let sleeps = filteredSamples.compactMap(SleepPatch.Sleep.init)
+  
+  let stitchedData = stichedSleeps(sleeps: sleeps)
+  let mergedData = mergeSleeps(sleeps: stitchedData)
+  
   anchors.setSafely(payload.anchor, key: String(describing: sleepType))
   
   var copies: [SleepPatch.Sleep] = []
@@ -532,3 +536,65 @@ private func activityQuery(
   }
 }
 
+private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSample] {
+  return samples.filter { sample in
+    let identifier = sample.sourceRevision.source.bundleIdentifier
+    
+    for dataSource in dataSources {
+      if identifier.contains(dataSource.rawValue) {
+        return true
+      }
+    }
+    
+    return false
+  }
+}
+
+
+private func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
+  func _mergeSleeps(sleeps: [SleepPatch.Sleep], sleep: SleepPatch.Sleep) -> [SleepPatch.Sleep] {
+    for value in sleeps {
+      if (value.startDate ... value.endDate).overlaps(sleep.startDate ... sleep.endDate) {
+        
+        let diffExisting = value.endDate.timeIntervalSinceReferenceDate - value.startDate.timeIntervalSinceReferenceDate
+        let diffNew = sleep.endDate.timeIntervalSinceReferenceDate - sleep.startDate.timeIntervalSinceReferenceDate
+        
+        if diffExisting > diffNew {
+          return sleeps
+        } else {
+          let newAcc = Array(sleeps.dropLast())
+          return _mergeSleeps(sleeps: newAcc, sleep: sleep)
+        }
+      }
+    }
+    
+    return sleeps + [sleep]
+  }
+
+  
+  return sleeps.reduce([]) { acc, sleep in
+    return _mergeSleeps(sleeps: acc, sleep: sleep)
+  }
+}
+
+private func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
+  return sleeps.reduce([]) { acc, sleep in
+    
+    guard var lastValue = acc.last else {
+      return [sleep]
+    }
+    
+    let diff = sleep.startDate.timeIntervalSinceReferenceDate - lastValue.endDate.timeIntervalSinceReferenceDate
+    let longerThanThirtyMinutes = diff > 60 * 30
+    
+    if longerThanThirtyMinutes == false && lastValue.sourceBundle == sleep.sourceBundle {
+      
+      let newAcc = acc.dropLast()
+      lastValue.endDate = sleep.endDate
+      
+      return newAcc + [lastValue]
+    }
+    
+    return acc + [sleep]
+  }
+}
