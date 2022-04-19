@@ -54,14 +54,14 @@ public extension VitalNetworkClient.Summary {
     guard let userId = self.client.userId else {
       fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
     }
-    
+        
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
       data: AnyEncodable(resource.payload)
     )
     
-    let prefix: String = "/\(self.client.apiVersion)/\(resource)/"
+    let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
     let fullPath = makePath(for: resource, userId: userId.uuidString, withPrefix: prefix)
         
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
