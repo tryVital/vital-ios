@@ -90,7 +90,12 @@ func handleProfile(
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
   
-  let dateOfBirth = try healthKitStore.dateOfBirthComponents().date
+  var calendar = Calendar.current
+  calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+  
+  let components = try healthKitStore.dateOfBirthComponents()
+  let dateOfBirth = calendar.date(from: components)
+
   
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
