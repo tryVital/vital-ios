@@ -190,7 +190,7 @@ func handleSleep(
   
   var copies: [SleepPatch.Sleep] = []
   
-  for sleep in sleeps {
+  for sleep in mergedData {
     
     let heartRate: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
