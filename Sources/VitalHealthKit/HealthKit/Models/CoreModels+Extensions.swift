@@ -1,6 +1,43 @@
 import HealthKit
 import VitalCore
 
+extension BloodPressureSample {
+  init?(
+    _ sample: HKSample
+  ) {
+    
+    func testType(_ identifier: HKQuantityTypeIdentifier) -> (HKSample) -> Bool {
+      return { sample in
+        guard
+          let value = sample as? HKQuantitySample,
+          value.quantityType == HKQuantityType.quantityType(forIdentifier: identifier)
+        else {
+          return false
+        }
+        
+        return true
+      }
+    }
+    
+    guard
+      let correlation = sample as? HKCorrelation,
+      correlation.objects.count == 2,
+      let diastolic = correlation.objects.first(where: testType(.bloodPressureDiastolic)),
+      let systolic = correlation.objects.first(where: testType(.bloodPressureSystolic)),
+      let diastolicSample = QuantitySample(diastolic, unit: .bloodPressure),
+      let systolicSample = QuantitySample(systolic, unit: .bloodPressure)
+    else {
+      return nil
+    }
+        
+    self.init(
+      systolic: systolicSample,
+      diastolic: diastolicSample,
+      pulse: nil
+    )
+  }
+}
+
 extension QuantitySample {
   init?(
     _ sample: HKSample,
@@ -41,6 +78,8 @@ extension QuantitySample {
     
     case glucose
     
+    case bloodPressure
+    
     var toStringRepresentation: String {
       switch self {
         case .bodyMass:
@@ -72,6 +111,9 @@ extension QuantitySample {
           return "mL/kg/min)"
         case .glucose:
           return "mmol/L"
+          
+        case .bloodPressure:
+          return "mmHg"
       }
     }
     
@@ -110,6 +152,9 @@ extension QuantitySample {
         case .glucose:
           //  mmol/L
           return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
+          
+        case .bloodPressure:
+          return .millimeterOfMercury()
       }
     }
   }

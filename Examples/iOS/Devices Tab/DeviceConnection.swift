@@ -320,7 +320,7 @@ extension DeviceConnection {
                         }
                         
                         HStack {
-                          Text("\(Int(point.pulse.value))")
+                          Text("\(Int(point.pulse?.value ?? 0))")
                             .font(.title)
                             .fontWeight(.medium)
                           Text("bpm")

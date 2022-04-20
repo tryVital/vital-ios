@@ -31,7 +31,7 @@ func handle(
         startDate: startDate,
         endDate: endDate
       )
-            
+      
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       return (.body(payload.bodyPatch), entitiesToStore)
       
@@ -80,6 +80,18 @@ func handle(
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
       return (.vitals(.glucose(payload.glucose)), entitiesToStore)
+      
+    case .vitals(.bloodPressure):
+      let payload = try await handleBloodPressure(
+        healthKitStore: store,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+      
+      let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
+      
+      return (.vitals(.bloodPressure(payload.bloodPressure)), entitiesToStore)
   }
 }
 
@@ -89,12 +101,12 @@ func handleProfile(
   
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
-    
+  
   var components = try healthKitStore.dateOfBirthComponents()
   components.timeZone = TimeZone(secondsFromGMT: 0)
   
   let dateOfBirth = components.date!
-
+  
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
@@ -125,7 +137,7 @@ func handleBody(
     
     let payload = try await query(
       healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
+      vitalStorage: nil,
       type: type,
       startDate: startDate,
       endDate: endDate
@@ -189,7 +201,6 @@ func handleSleep(
   let filteredSamples = filter(samples: payload.sample, by: [.appleHealthKit])
   
   let sleeps = filteredSamples.compactMap(SleepPatch.Sleep.init)
-  
   let stitchedData = stichedSleeps(sleeps: sleeps)
   let mergedData = mergeSleeps(sleeps: stitchedData)
   
@@ -392,6 +403,31 @@ func handleGlucose(
   return (glucose, anchors)
 }
 
+func handleBloodPressure(
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalStorage,
+  startDate: Date,
+  endDate: Date
+) async throws -> (bloodPressure: [BloodPressureSample], anchors: [String: HKQueryAnchor]) {
+  
+  let bloodPressureIdentifier = HKCorrelationType.correlationType(forIdentifier: .bloodPressure)!
+
+  let payload = try await query(
+    healthKitStore: healthKitStore,
+    vitalStorage: nil,
+    type: bloodPressureIdentifier,
+    startDate: startDate,
+    endDate: endDate
+  )
+  
+  var anchors: [String: HKQueryAnchor] = [:]
+  let bloodPressure: [BloodPressureSample] = payload.sample.compactMap(BloodPressureSample.init)
+
+  anchors.setSafely(payload.anchor, key: String(describing: bloodPressureIdentifier))
+  
+  return (bloodPressure: bloodPressure, anchors: anchors)
+}
+
 private func query(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalStorage? = nil,
@@ -577,7 +613,7 @@ private func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
     
     return sleeps + [sleep]
   }
-
+  
   
   return sleeps.reduce([]) { acc, sleep in
     return _mergeSleeps(sleeps: acc, sleep: sleep)

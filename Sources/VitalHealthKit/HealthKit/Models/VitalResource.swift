@@ -3,6 +3,7 @@ import HealthKit
 public enum VitalResource: Equatable {
   public enum Vitals: Equatable {
     case glucose
+    case bloodPressure
   }
   
   case profile
@@ -68,6 +69,12 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
     case .vitals(.glucose):
       return [
         HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
+      ]
+      
+    case .vitals(.bloodPressure):
+      return [
+        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
       ]
   }
 }
