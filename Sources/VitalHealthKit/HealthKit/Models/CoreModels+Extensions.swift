@@ -46,11 +46,32 @@ extension QuantitySample {
         case .bodyMass:
           return "kg"
         case .bodyFatPercentage:
-          return "bmi"
+          return "percent"
         case .height:
           return "cm"
-        default:
+        case .heartRate:
+          return "bpm"
+        case .respiratoryRate:
+          //  "breaths per minute"
+          return "bpm"
+        case .heartRateVariability:
+          return "rmssd"
+        case .oxygenSaturation:
+          return "percent"
+        case .restingHeartRate:
+          return "bpm"
+        case .basalEnergyBurned:
+          return "kJ"
+        case .steps:
           return ""
+        case .floorsClimbed:
+          return ""
+        case .distanceWalkingRunning:
+          return "m"
+        case .vo2Max:
+          return "mL/kg/min)"
+        case .glucose:
+          return "mmol/L"
       }
     }
     
