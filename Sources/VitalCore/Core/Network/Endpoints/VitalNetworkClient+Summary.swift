@@ -69,6 +69,6 @@ func makePath(
       return prefix + "sleep/\(userId)"
       
     case .workout:
-      return prefix + "workout/\(userId)"
+      return prefix + "workouts/\(userId)"
   }
 }
