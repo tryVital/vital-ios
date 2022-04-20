@@ -83,7 +83,7 @@ public extension VitalHealthKitClient {
     public let logsEnable: Bool
     
     public init(
-      autoSync: Bool = true,
+      autoSync: Bool = false,
       logsEnable: Bool = true
     ) {
       self.autoSync = autoSync
@@ -109,7 +109,12 @@ extension VitalHealthKitClient {
     return vitalStorage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
   }
   
-  private func syncData(for resources: [VitalResource]){
+  public func syncData() {
+    let resources = resourcesAskedForPermission(store: store)
+    syncData(for: resources)
+  }
+  
+  public func syncData(for resources: [VitalResource]){
     Task(priority: .high) {
       
       let startDate: Date = .dateAgo(days: 30)
@@ -161,11 +166,6 @@ extension VitalHealthKitClient {
         }
       }
     }
-  }
-  
-  public func syncData() {
-    let resources = resourcesAskedForPermission(store: store)
-    syncData(for: resources)
   }
   
   public func ask(
