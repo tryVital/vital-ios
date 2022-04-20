@@ -2,12 +2,12 @@ import Foundation
 
 public struct QuantitySample: Equatable, Hashable, Encodable {
   public let id: UUID?
-  public let value: Double
-  public let startDate: Date
-  public let endDate: Date
-  public let sourceBundle: String?
-  public let type: String?
-  public let unit: String
+  public var value: Double
+  public var startDate: Date
+  public var endDate: Date
+  public var sourceBundle: String?
+  public var type: String?
+  public var unit: String
   
   public init(
     id: UUID? = nil,

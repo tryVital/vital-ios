@@ -145,19 +145,26 @@ func handleBody(
     unit: .bodyMass
   )
   
-  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
+  var (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!,
     unit: .bodyFatPercentage
   )
   
+  bodyFatPercentage = bodyFatPercentage.map {
+    var copy = $0
+    copy.value = $0.value * 100
+    return copy
+  }
+  
   anchors.setSafely(bodyMassAnchor.anchor, key: bodyMassAnchor.key)
   anchors.setSafely(bodyFatPercentageAnchor.anchor, key: bodyFatPercentageAnchor.key)
   
-  return (.init(
-    bodyMass: bodyMass,
-    bodyFatPercentage: bodyFatPercentage
-  ),
-          anchors
+  return (
+    .init(
+      bodyMass: bodyMass,
+      bodyFatPercentage: bodyFatPercentage
+    ),
+    anchors
   )
 }
 
