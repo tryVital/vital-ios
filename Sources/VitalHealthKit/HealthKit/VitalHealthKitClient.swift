@@ -14,6 +14,7 @@ public class VitalHealthKitClient {
     case syncing(VitalResource)
     case failedSyncing(VitalResource, Error?)
     case successSyncing(VitalResource)
+    case nothingToSync(VitalResource)
   }
   
   public static var shared: VitalHealthKitClient {
@@ -65,11 +66,11 @@ public class VitalHealthKitClient {
         self.store.enableBackgroundDelivery(for: type, frequency: .immediate) {[weak self] success, failure in
           
           guard failure == nil && success else {
-            self?.logger?.log(level: .error, "Failed to enable background delivery for \(String(describing: type)). This is a developer mistake")
+            self?.logger?.error("Failed to enable background delivery for \(String(describing: type)). This is a developer mistake")
             return
           }
           
-          self?.logger?.log(level: .info, "Succesfully enabled background delivery for \(String(describing: type))")
+          self?.logger?.info("Succesfully enabled background delivery for \(String(describing: type))")
         }
       }
     }
@@ -87,6 +88,7 @@ public extension VitalHealthKitClient {
       logsEnable: Bool = true
     ) {
       self.autoSync = autoSync
+      // More testing is required before exposing this feature
       self.backgroundUpdates = false
       self.logsEnable = logsEnable
     }
@@ -123,8 +125,11 @@ extension VitalHealthKitClient {
       for resource in resources {
         do {
           
+          try await VitalNetworkClient.shared.link.createConnectedSource(for: .appleHealthKit)
+          
           // Signal syncing (so the consumer can convey it to the user)
           _status.send(.syncing(resource))
+          self.logger?.info("Getting HealthKit data for: \(resource.logDescription)")
           
           // Fetch from HealthKit
           let (summaryToPost, entitiesToStore) = try await handle(
@@ -135,14 +140,19 @@ extension VitalHealthKitClient {
             endDate: endDate
           )
           
-          // If there's no data, don't post it
+          guard summaryToPost.shouldSkipPost == false else {
+            self.logger?.info("No new data available for: \(summaryToPost.logDescription)")
+            _status.send(.nothingToSync(resource))
+            break
+          }
           
+          // Calculate if this daily data or historical
           let stage = calculateStage(
             resource: resource,
             startDate: startDate,
             endDate: endDate
           )
-          
+                    
           // Post to the network
           try await VitalNetworkClient.shared.summary.post(
             resource: summaryToPost,
@@ -161,8 +171,10 @@ extension VitalHealthKitClient {
         }
         catch let error {
           // Signal failure
+          self.logger?.error(
+            "Failed syncing data for: \(resource.logDescription). Error: \(error.localizedDescription)"
+          )
           _status.send(.failedSyncing(resource, error))
-          return
         }
       }
     }

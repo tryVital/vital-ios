@@ -4,6 +4,15 @@ public enum VitalResource: Equatable {
   public enum Vitals: Equatable {
     case glucose
     case bloodPressure
+    
+    var logDescription: String {
+      switch self {
+        case .glucose:
+          return "glucose"
+        case .bloodPressure:
+          return "bloodPressure"
+      }
+    }
   }
   
   case profile
@@ -21,6 +30,23 @@ public enum VitalResource: Equatable {
     .sleep,
     .vitals(.glucose),
   ]
+  
+  var logDescription: String {
+    switch self {
+      case .profile:
+        return "profile"
+      case .body:
+        return "body"
+      case .workout:
+        return "workout"
+      case .activity:
+        return "activity"
+      case .sleep:
+        return "sleep"
+      case .vitals(let vitals):
+        return vitals.logDescription
+    }
+  }
 }
 
 func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {

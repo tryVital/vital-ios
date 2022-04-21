@@ -1,6 +1,7 @@
 import SwiftUI
 import VitalCore
 import ComposableArchitecture
+import VitalHealthKit
 
 @main
 struct ExampleApp: App {
@@ -32,6 +33,9 @@ struct ExampleApp: App {
         }
         .onAppear {
           viewStore.send(.start)
+          
+          VitalHealthKitClient.configure()
+          VitalHealthKitClient.shared.syncData(for: [.vitals(.bloodPressure)])
         }
       }
     }

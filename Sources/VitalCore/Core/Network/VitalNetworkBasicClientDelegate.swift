@@ -1,8 +1,13 @@
 import Get
 import Foundation
+import os.log
 
 class VitalNetworkBasicClientDelegate: APIClientDelegate {
-  init() {}
+  private let logger: Logger?
+  
+  init(logger: Logger? = nil) {
+    self.logger = logger
+  }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {}
 
@@ -11,6 +16,7 @@ class VitalNetworkBasicClientDelegate: APIClientDelegate {
   }
   
   nonisolated func client(_ client: APIClient, didReceiveInvalidResponse response: HTTPURLResponse, data: Data) -> Error {
+    
     let networkError = NetworkError(
       url: response.url,
       headers: response.allHeaderFields,
@@ -18,7 +24,8 @@ class VitalNetworkBasicClientDelegate: APIClientDelegate {
       payload: data
     )
     
+    self.logger?.error("Failed refreshing token: \(networkError.localizedDescription)")
+    
     return networkError
   }
 }
-

@@ -20,6 +20,15 @@ public enum PostResource {
           return samples.isEmpty
       }
     }
+    
+    public var logDescription: String {
+      switch self {
+        case .bloodPressure:
+          return "bloodPressure"
+        case .glucose:
+          return "glucose"
+      }
+    }
   }
   
   case profile(ProfilePatch)
@@ -60,6 +69,23 @@ public enum PostResource {
         return patch.sleep.isEmpty
       case let .vitals(vitals):
         return vitals.shouldSkipPost
+    }
+  }
+  
+  public var logDescription: String {
+    switch self {
+      case .activity:
+        return "activity"
+      case .body:
+        return "body"
+      case .profile:
+        return "profile"
+      case .sleep:
+        return "sleep"
+      case .workout:
+        return "workout"
+      case let .vitals(vitals):
+        return vitals.logDescription
     }
   }
 }

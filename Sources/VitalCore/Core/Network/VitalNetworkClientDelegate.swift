@@ -1,6 +1,7 @@
 import Get
 import Foundation
 import KeychainSwift
+import os.log
 
 struct JWT: Decodable {
   let accessToken: String
@@ -18,15 +19,18 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   private let refresh: () async throws -> JWT
   private let keychain: VitalKeychain
   private let environment: Environment
-  
+  private let logger: Logger?
+
   init(
     refresh: @escaping () async throws -> JWT,
     keychain: VitalKeychain,
-    environment: Environment
+    environment: Environment,
+    logger: Logger? = nil
   ) {
     self.refresh = refresh
     self.keychain = keychain
     self.environment = environment
+    self.logger = logger
     
     let token = keychain.storedJWT()
     
@@ -52,6 +56,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
     if token?.validUntil ?? .distantPast < Date()  {
+      self.logger?.info("Refreshing token")
       try await refreshAndStore()
     }
     
@@ -67,6 +72,8 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
       return false
     }
     
+    self.logger?.info("Retrying after error: \(error.localizedDescription)")
+    
     try await refreshAndStore()
     return true
   }
@@ -78,6 +85,8 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
       statusCode: response.statusCode,
       payload: data
     )
+    
+    self.logger?.error("Failed request with error: \(networkError.localizedDescription)")
         
     return networkError
   }

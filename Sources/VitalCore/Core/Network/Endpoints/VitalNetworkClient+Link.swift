@@ -1,4 +1,5 @@
 import Get
+import Foundation
 
 public extension VitalNetworkClient {
   class Link {
@@ -18,16 +19,17 @@ public extension VitalNetworkClient {
 public extension VitalNetworkClient.Link {
   
   func createConnectedSource(
-    _ payload: CreateConnectionSourceRequest,
+    _ userId: UUID,
     provider: Provider
   ) async throws -> Void {
-    
+
     let path = "/\(self.client.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
+    
+    let payload = CreateConnectionSourceRequest(userId: userId)
     let request = Request<Void>.post(path, body: payload)
     
     try await self.client.apiClient.send(request)
   }
-  
   
   func createConnectedSource(
     for provider: Provider
@@ -37,10 +39,6 @@ public extension VitalNetworkClient.Link {
       fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
     }
     
-    let payload = CreateConnectionSourceRequest(userId: userId)
-    try await createConnectedSource(payload, provider: provider)
+    try await createConnectedSource(userId, provider: provider)
   }
-
 }
-
-

@@ -25,10 +25,6 @@ public extension VitalNetworkClient.Summary {
     guard let userId = self.client.userId else {
       fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
     }
-    
-    guard resource.shouldSkipPost == false else {
-      return
-    }
         
     let taggedPayload = TaggedPayload(
       stage: stage,
@@ -36,10 +32,13 @@ public extension VitalNetworkClient.Summary {
       data: AnyEncodable(resource.payload)
     )
     
+    
     let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
     let fullPath = makePath(for: resource, userId: userId.uuidString, withPrefix: prefix)
         
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
+    
+    self.client.logger?.info("Posting data for: \(resource.logDescription)")
     try await self.client.apiClient.send(request)
   }
 }

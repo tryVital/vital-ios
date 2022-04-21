@@ -1,5 +1,6 @@
 import Foundation
 import Get
+import os.log
 
 struct Credentials: Equatable, Hashable {
   let clientId: String
@@ -37,12 +38,16 @@ public enum Environment: Equatable, Hashable, Codable {
 
 public class VitalNetworkClient {
   
-  let environment: Environment
-  let apiClient: APIClient
+  private let environment: Environment
+
+  private let keychain: VitalKeychain
+  private let configuration: Configuration
+  
+  var logger: Logger? = nil
   var userId: UUID?
   let apiVersion: String
-  let keychain: VitalKeychain
-  
+  let apiClient: APIClient
+
   let refresh: () async throws -> JWT
   
   public static var shared: VitalNetworkClient {
@@ -58,12 +63,14 @@ public class VitalNetworkClient {
   public static func configure(
     clientId: String,
     clientSecret: String,
-    environment: Environment
+    environment: Environment,
+    configuration: Configuration = .init()
   ) {
     let client = VitalNetworkClient(
       clientId: clientId,
       clientSecret: clientSecret,
-      environment: environment
+      environment: environment,
+      configuration: configuration
     )
     
     Self.client = client
@@ -85,13 +92,21 @@ public class VitalNetworkClient {
     clientId: String,
     clientSecret: String,
     environment: Environment,
+    configuration: Configuration,
     apiVersion: String = "v2"
   ) {
     self.environment = environment
     self.apiVersion = apiVersion
     self.keychain = VitalKeychain()
+    self.configuration = configuration
     
-    let basicDelegate = VitalNetworkBasicClientDelegate()
+    if configuration.logsEnable {
+      self.logger = Logger(subsystem: "vital", category: "vital-network-client")
+    }
+    
+    self.logger?.info("VitalNetworkClient setup for environment \(String(describing: environment))")
+    
+    let basicDelegate = VitalNetworkBasicClientDelegate(logger: self.logger)
     
     self.refresh = refreshToken(
       clientId: clientId,
@@ -122,6 +137,18 @@ public class VitalNetworkClient {
       
       configuration.encoder = encoder
       configuration.decoder = decoder
+    }
+  }
+}
+
+public extension VitalNetworkClient {
+  struct Configuration {
+    public let logsEnable: Bool
+    
+    public init(
+      logsEnable: Bool = true
+    ) {
+      self.logsEnable = logsEnable
     }
   }
 }
