@@ -137,7 +137,7 @@ func handleBody(
     
     let payload = try await query(
       healthKitStore: healthKitStore,
-      vitalStorage: nil,
+      vitalStorage: vitalStorage,
       type: type,
       startDate: startDate,
       endDate: endDate
@@ -192,7 +192,7 @@ func handleSleep(
   
   let payload = try await query(
     healthKitStore: healthKitStore,
-    vitalStorage: nil,
+    vitalStorage: vitalStorage,
     type: sleepType,
     startDate: startDate,
     endDate: endDate
@@ -414,7 +414,7 @@ func handleBloodPressure(
 
   let payload = try await query(
     healthKitStore: healthKitStore,
-    vitalStorage: nil,
+    vitalStorage: vitalStorage,
     type: bloodPressureIdentifier,
     startDate: startDate,
     endDate: endDate
