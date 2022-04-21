@@ -116,14 +116,18 @@ func allTypesForBackgroundDelivery(
     }
 }
 
-public func hasAskedForPermission(resource: VitalResource, store: HKHealthStore) -> Bool {
+public func hasAskedForPermission(
+  resource: VitalResource,
+  store: HKHealthStore
+) -> Bool {
+  
   return toHealthKitTypes(resource: resource)
     .map { store.authorizationStatus(for: $0) != .notDetermined }
     .reduce(true, { $0 && $1})
 }
 
 func resourcesAskedForPermission(
-  store: HKHealthStore
+  store: VitalHealthKitStore
 ) -> [VitalResource] {
   
   var resources: [VitalResource] = []
@@ -133,7 +137,7 @@ func resourcesAskedForPermission(
       continue
     }
     
-    let hasAskedPermission = hasAskedForPermission(resource: resource, store: store)
+    let hasAskedPermission = store.hasAskedForPermission(resource)
     
     if hasAskedPermission {
       resources.append(resource)

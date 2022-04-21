@@ -30,8 +30,7 @@ struct HealthKitExample: View {
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
       .onAppear {
-        VitalHealthKitClient.configure(.init(autoSync: true))
-        VitalHealthKitClient.shared.syncData()
+        print("HealthKitExample-onAppear")
       }
     }
   }
@@ -48,8 +47,8 @@ struct HealthKitExample: View {
         .buttonStyle(PermissionStyle())
     } else {
       Button("Request Permission") {
-        VitalHealthKitClient.shared.ask(for: resources) { completion in
-          
+        Task {
+          await VitalHealthKitClient.shared.ask(for: resources)
         }
       }
       .buttonStyle(PermissionStyle())

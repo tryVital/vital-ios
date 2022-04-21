@@ -77,7 +77,7 @@ public class VitalNetworkClient {
   }
   
   public static var isSetup: Bool {
-    Self.client != nil
+    Self.client != nil && Self.client?.userId != nil
   }
   
   public static func setUserId(_ userId: UUID) {
