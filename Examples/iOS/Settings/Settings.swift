@@ -97,12 +97,16 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         VitalNetworkClient.configure(
           clientId: state.credentials.clientId,
           clientSecret: state.credentials.clientSecret,
-          environment: .sandbox(.us)
+          environment: .sandbox(.us),
+          configuration: .init(logsEnable: true)
         )
       }
       
-      if state.credentials.userId.isEmpty == false {
-        VitalNetworkClient.setUserId(UUID(uuidString: state.credentials.userId)!)
+      if
+        state.credentials.userId.isEmpty == false,
+        let userId = UUID(uuidString: state.credentials.userId)
+      {
+        VitalNetworkClient.setUserId(userId)
       }
       
       return .none

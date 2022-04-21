@@ -33,9 +33,6 @@ struct ExampleApp: App {
         }
         .onAppear {
           viewStore.send(.start)
-          
-          VitalHealthKitClient.configure()
-          VitalHealthKitClient.shared.syncData(for: [.vitals(.bloodPressure)])
         }
       }
     }
