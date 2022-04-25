@@ -67,7 +67,7 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       let string = DateFormatter().string(from: date)
       
       let clientUserId = "user_generated_demo_\(date)"
-      let payload = CreateUserRequest.init(clientUserId: clientUserId)
+      let payload = CreateUserRequest(clientUserId: clientUserId)
       
       let effect = Effect<CreateUserResponse, Error>.task {
         let userResponse = try await VitalNetworkClient.shared.user.create(payload)

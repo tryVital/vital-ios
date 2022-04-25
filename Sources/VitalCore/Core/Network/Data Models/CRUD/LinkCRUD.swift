@@ -9,3 +9,30 @@ public struct CreateConnectionSourceRequest: Encodable {
     self.providerId = providerId
   }
 }
+
+struct CreateLinkRequest: Encodable {
+  let userId: UUID
+  let provider: String?
+  let redirectUrl: String
+  
+  init(
+    userId: UUID,
+    provider: String?,
+    redirectUrl: String
+  ) {
+    self.userId = userId
+    self.provider = provider
+    self.redirectUrl = redirectUrl
+  }
+}
+
+
+public struct CreateLinkResponse: Decodable {
+  public let linkToken: String
+  
+  public init(
+    linkToken: String
+  ) {
+    self.linkToken = linkToken
+  }
+}

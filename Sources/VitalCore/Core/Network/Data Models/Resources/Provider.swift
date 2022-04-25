@@ -5,4 +5,5 @@ public enum Provider: String, Encodable {
   case contour = "contour_ble"
   case appleHealthKit = "apple_health_kit"
   case manual = "manual"
+  case iHealth = "ihealth"
 }

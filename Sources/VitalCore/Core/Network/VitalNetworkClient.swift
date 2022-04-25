@@ -12,6 +12,15 @@ public enum Environment: Equatable, Hashable, Codable {
   public enum Region: Equatable, Hashable, Codable {
     case eu
     case us
+    
+    var name: String {
+      switch self {
+        case .eu:
+          return "eu"
+        case .us:
+          return "us"
+      }
+    }
   }
   
   case dev(Region)
@@ -34,12 +43,34 @@ public enum Environment: Equatable, Hashable, Codable {
         return "api.tryvital.io"
     }
   }
+  
+  var name: String {
+    switch self {
+      case .dev:
+        return "dev"
+      case .sandbox:
+        return "sandbox"
+      case .production:
+        return "production"
+    }
+  }
+  
+  var region: Region {
+    switch self {
+      case .dev(let region):
+        return region
+      case .sandbox(let region):
+        return region
+      case .production(let region):
+        return region
+    }
+  }
 }
 
 public class VitalNetworkClient {
   
-  private let environment: Environment
-
+  
+  
   private let keychain: VitalKeychain
   private let configuration: Configuration
   
@@ -47,7 +78,8 @@ public class VitalNetworkClient {
   var userId: UUID?
   let apiVersion: String
   let apiClient: APIClient
-
+  let environment: Environment
+  
   let refresh: () async throws -> JWT
   
   public static var shared: VitalNetworkClient {

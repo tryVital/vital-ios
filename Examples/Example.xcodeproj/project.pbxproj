@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E83CAEEB27F792CD001EDB12 /* VitalDevices in Frameworks */ = {isa = PBXBuildFile; productRef = E83CAEEA27F792CD001EDB12 /* VitalDevices */; };
 		E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */; };
+		E84BB6602816C2280075327D /* LinkCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E84BB65F2816C2280075327D /* LinkCreation.swift */; };
 		E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258427D6AAF900B2212C /* Root.swift */; };
 		E85A25AE27D6AAFA00B2212C /* HealthKitExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258527D6AAF900B2212C /* HealthKitExample.swift */; };
 		E85A25B027D6AAFA00B2212C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E85A258627D6AAFA00B2212C /* Assets.xcassets */; };
@@ -39,6 +40,7 @@
 
 /* Begin PBXFileReference section */
 		E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesExample.swift; sourceTree = "<group>"; };
+		E84BB65F2816C2280075327D /* LinkCreation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkCreation.swift; sourceTree = "<group>"; };
 		E85A258427D6AAF900B2212C /* Root.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Root.swift; sourceTree = "<group>"; };
 		E85A258527D6AAF900B2212C /* HealthKitExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitExample.swift; sourceTree = "<group>"; };
 		E85A258627D6AAFA00B2212C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -81,6 +83,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		E84BB65E2816C2170075327D /* Link Creation */ = {
+			isa = PBXGroup;
+			children = (
+				E84BB65F2816C2280075327D /* LinkCreation.swift */,
+			);
+			path = "Link Creation";
+			sourceTree = "<group>";
+		};
 		E85A257E27D6AAF900B2212C = {
 			isa = PBXGroup;
 			children = (
@@ -97,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				E85A258427D6AAF900B2212C /* Root.swift */,
+				E84BB65E2816C2170075327D /* Link Creation */,
 				E89131902804649E0049608B /* Settings */,
 				E8A286E327FC7BF400F1F1B1 /* HealthKit Tab */,
 				E8A286E227FC7BD900F1F1B1 /* Devices Tab */,
@@ -295,6 +306,7 @@
 				E8A286ED27FC992900F1F1B1 /* DeviceConnection.swift in Sources */,
 				E8A286F027FD85E300F1F1B1 /* Reducer.swift in Sources */,
 				E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */,
+				E84BB6602816C2280075327D /* LinkCreation.swift in Sources */,
 				E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */,
 				E8913192280464DC0049608B /* Settings.swift in Sources */,
 				E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */,

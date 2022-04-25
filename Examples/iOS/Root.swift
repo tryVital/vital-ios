@@ -24,12 +24,19 @@ struct ExampleApp: App {
             }
             .tag(1)
           
+          LinkCreation.RootView(store: linkCreationStore)
+            .tabItem {
+              Image(systemName: "link")
+              Text("Link")
+            }
+            .tag(2)
+          
           Settings.RootView(store: settingsStore)
             .tabItem {
               Image(systemName: "gear")
               Text("Settings")
             }
-            .tag(2)
+            .tag(3)
         }
         .onAppear {
           viewStore.send(.start)

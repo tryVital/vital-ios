@@ -63,7 +63,7 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
     guard let token = self.token else {
       return
     }
-    
+        
     request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
   }
   
