@@ -1,9 +1,7 @@
 import SwiftUI
-import VitalHealthKit
 import VitalDevices
 import VitalCore
 import ComposableArchitecture
-import NukeUI
 import Combine
 
 enum LinkCreation {}
@@ -45,6 +43,8 @@ extension LinkCreation {
     case generateLink
     case successGeneratedLink(URL)
     case failureGeneratedLink(String)
+    
+    case callback(URL)
   }
   
   class Environment {
@@ -52,9 +52,15 @@ extension LinkCreation {
   }
 }
 
-private let reducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreation.Environment> { state, action, _ in
+let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreation.Environment> { state, action, _ in
   
   switch action {
+      
+    case let .callback(url):
+      state.status = .initial
+      state.link = nil
+      
+      return .none
       
     case let .failureGeneratedLink(error):
       state.status = .initial
@@ -70,10 +76,7 @@ private let reducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreat
       state.status = .loading
       
       let effect = Effect<URL, Error>.task {
-        let url = try await VitalNetworkClient.shared.link.createProviderLink(
-          provider: .iHealth,
-          redirectURL: "vitalExample.io"
-        )
+        let url = try await VitalNetworkClient.shared.link.createProviderLink(redirectURL: "vitalExample://")
         
         return url
       }
@@ -91,19 +94,10 @@ private let reducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreat
   }
 }
 
-
-let linkCreationStore = Store(
-  initialState: LinkCreation.State(),
-  reducer: reducer,
-  environment: LinkCreation.Environment()
-)
-
 extension LinkCreation {
   struct RootView: View {
     
     let store: Store<State, Action>
-    @FocusState private var activeKeyboard: Bool
-    
     
     var body: some View {
       WithViewStore(self.store) { viewStore in
@@ -113,7 +107,6 @@ extension LinkCreation {
               Text("No data")
             }, footer: {
               Button(viewStore.title, action: {
-                
                 if let url = viewStore.state.link {
                   UIApplication.shared.open(url, options: [:])
                 } else {

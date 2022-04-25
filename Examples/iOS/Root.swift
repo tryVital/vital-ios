@@ -7,7 +7,7 @@ import VitalHealthKit
 struct ExampleApp: App {
   var body: some Scene {
     WindowGroup {
-      WithViewStore(settingsStore) { viewStore in
+      WithViewStore(appStore) { viewStore in
         TabView {
           #if DEBUG
           HealthKitExample()
@@ -24,14 +24,14 @@ struct ExampleApp: App {
             }
             .tag(1)
           
-          LinkCreation.RootView(store: linkCreationStore)
+          LinkCreation.RootView(store: appStore.scope(state: \.linkCreationState, action: AppAction.linkCreation))
             .tabItem {
               Image(systemName: "link")
               Text("Link")
             }
             .tag(2)
           
-          Settings.RootView(store: settingsStore)
+          Settings.RootView(store: appStore.scope(state: \.settingsState, action: AppAction.settings))
             .tabItem {
               Image(systemName: "gear")
               Text("Settings")
@@ -41,7 +41,55 @@ struct ExampleApp: App {
         .onAppear {
           viewStore.send(.start)
         }
+        .onOpenURL { url in
+          viewStore.send(.callback(url))
+        }
       }
     }
   }
 }
+
+
+struct AppState: Equatable {
+  var linkCreationState: LinkCreation.State = .init()
+  var settingsState: Settings.State = .init()
+}
+
+struct AppEnvironment: Equatable {}
+
+enum AppAction: Equatable {
+  case settings(Settings.Action)
+  case linkCreation(LinkCreation.Action)
+  
+  case callback(URL)
+  case start
+}
+
+let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
+  settingsReducer.pullback(state: \.settingsState, action: /AppAction.settings, environment: { env in
+    return Settings.Environment()
+  }),
+  
+  linkCreationReducer.pullback(state: \.linkCreationState, action: /AppAction.linkCreation, environment: { env in
+    return LinkCreation.Environment()
+  }),
+
+  Reducer { state, action, environment in
+    switch action {
+      case let .callback(url):
+        return Effect<AppAction, Never>(value: AppAction.linkCreation(.callback(url)))
+        
+      case .start:
+        return Effect<AppAction, Never>(value: AppAction.settings(.start))
+        
+      default:
+        return .none
+    }
+  }
+)
+
+let appStore = Store(
+  initialState: .init(),
+  reducer: appReducer,
+  environment: .init()
+)

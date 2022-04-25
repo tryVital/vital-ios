@@ -52,7 +52,7 @@ extension Settings {
   }
 }
 
-private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
+let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
   switch action {
       
     case .failedGeneratedUserId:
@@ -135,13 +135,6 @@ private let reducer = Reducer<Settings.State, Settings.Action, Settings.Environm
   }
 }
   .binding()
-
-
-let settingsStore = Store(
-  initialState: Settings.State(),
-  reducer: reducer,
-  environment: Settings.Environment()
-)
 
 extension Settings {
   struct RootView: View {
