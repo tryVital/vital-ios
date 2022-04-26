@@ -33,7 +33,9 @@ func refreshToken(
       headers: [:]
     )
     
-    var configuration = APIClient.Configuration(host: host(from: environment))
+    let baseURL = URL(string: host(from: environment))!
+
+    var configuration = APIClient.Configuration(baseURL: baseURL)
     configuration.encoder = encoder
     configuration.decoder = decoder
     configuration.delegate = delegate
@@ -48,11 +50,11 @@ func refreshToken(
 private func host(from environment: Environment) -> String {
   switch environment {
     case .production:
-      return "auth.tryvital.io"
+      return "https://auth.tryvital.io"
     case .sandbox:
-      return "auth.sandbox.tryvital.io"
+      return "https://auth.sandbox.tryvital.io"
     case .dev:
-      return "dev-vital-api.us.auth0.com"
+      return "https://dev-vital-api.us.auth0.com"
   }
 }
 

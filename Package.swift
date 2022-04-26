@@ -20,7 +20,7 @@ let package = Package(
           targets: ["VitalCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/kean/Get", from: "0.5.0"),
+        .package(url: "https://github.com/CreateAPI/Get", from: "0.7.1"),
         .package(name: "KeychainSwift", url: "https://github.com/evgenyneu/keychain-swift", from: "20.0.0"),
         .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.2.1"),
     ],
