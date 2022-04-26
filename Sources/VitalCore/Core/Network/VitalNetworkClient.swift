@@ -79,6 +79,7 @@ public class VitalNetworkClient {
   let apiVersion: String
   let apiClient: APIClient
   let environment: Environment
+  let dateFormatter: ISO8601DateFormatter
   
   let refresh: () async throws -> JWT
   
@@ -139,6 +140,9 @@ public class VitalNetworkClient {
     self.logger?.info("VitalNetworkClient setup for environment \(String(describing: environment))")
     
     let basicDelegate = VitalNetworkBasicClientDelegate(logger: self.logger)
+    
+    
+    self.dateFormatter = ISO8601DateFormatter()
     
     self.refresh = refreshToken(
       clientId: clientId,

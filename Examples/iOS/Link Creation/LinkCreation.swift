@@ -6,6 +6,8 @@ import Combine
 
 enum LinkCreation {}
 
+extension TimeSeriesDataPoint: Identifiable {}
+
 extension LinkCreation {
   
   struct State: Equatable {
@@ -17,6 +19,7 @@ extension LinkCreation {
     
     var link: URL?
     var status: Status = .initial
+    var dataPoints: [TimeSeriesDataPoint] = []
     
     var isLoading: Bool {
       switch status {
@@ -42,9 +45,11 @@ extension LinkCreation {
   enum Action: Equatable {
     case generateLink
     case successGeneratedLink(URL)
-    case failureGeneratedLink(String)
+    case failedGeneratedLink(String)
     
     case callback(URL)
+    case successFetchingGlucose([TimeSeriesDataPoint])
+    case failedFetchingGlucose(String)
   }
   
   class Environment {
@@ -60,16 +65,38 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       state.status = .initial
       state.link = nil
       
+      let effect = Effect<[TimeSeriesDataPoint], Error>.task {
+        let calendar = Calendar.current
+        let aWeekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: Date())!
+        
+        let timeSeries = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .appleHealthKit, startDate: aWeekAgo)
+        return timeSeries
+        
+      }.map { (points: [TimeSeriesDataPoint]) -> LinkCreation.Action in
+        return .successFetchingGlucose(points)
+      }.catch { error in
+        return Just(LinkCreation.Action.failedFetchingGlucose(error.localizedDescription))
+      }
+        .receive(on: DispatchQueue.main)
+        .eraseToEffect()
+      
       return .none
       
-    case let .failureGeneratedLink(error):
+    case let .successFetchingGlucose(points):
+      
+      state.dataPoints = points
+      return .none
+      
+    case let .failedFetchingGlucose(points):
+      return .none
+      
+    case let .failedGeneratedLink(error):
       state.status = .initial
       return .none
       
     case let .successGeneratedLink(url):
       state.status = .successLink
       state.link = url
-      
       return .none
       
     case .generateLink:
@@ -77,20 +104,17 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       
       let effect = Effect<URL, Error>.task {
         let url = try await VitalNetworkClient.shared.link.createProviderLink(redirectURL: "vitalExample://")
-        
         return url
-      }
-      
-      let outcome: Effect<LinkCreation.Action, Never> = effect.map { (url: URL) -> LinkCreation.Action in
+        
+      }.map { (url: URL) -> LinkCreation.Action in
         return .successGeneratedLink(url)
+      }.catch { error in
+        return Just(LinkCreation.Action.failedGeneratedLink(error.localizedDescription))
       }
-        .catch { error in
-          return Just(LinkCreation.Action.failureGeneratedLink(error.localizedDescription))
-        }
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
       
-      return outcome
+      return effect
   }
 }
 
@@ -104,7 +128,34 @@ extension LinkCreation {
         NavigationView {
           Form {
             Section(content: {
-              Text("No data")
+              
+              if viewStore.dataPoints.isEmpty {
+                Text("No data")
+              } else {
+                ForEach(viewStore.dataPoints) { (point: TimeSeriesDataPoint) in
+                  HStack {
+                    VStack {
+                      Text("\(Int(point.value))")
+                        .font(.title)
+                        .fontWeight(.medium)
+                      
+                      Text("\(point.unit ?? "")")
+                        .font(.footnote)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing) {
+                      Text("\(point.timestamp.getDay())")
+                        .font(.body)
+                      Text("\(point.timestamp.getDate())")
+                        .font(.body)
+                    }
+                  }
+                  .padding([.horizontal], 10)
+                }
+              }
+              
             }, footer: {
               Button(viewStore.title, action: {
                 if let url = viewStore.state.link {
@@ -125,4 +176,4 @@ extension LinkCreation {
     }
   }
 }
-  
+

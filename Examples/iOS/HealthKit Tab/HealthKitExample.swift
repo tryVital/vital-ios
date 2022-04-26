@@ -1,6 +1,7 @@
 import SwiftUI
 import VitalHealthKit
 import HealthKit
+import VitalCore
 
 struct HealthKitExample: View {
   var body: some View {

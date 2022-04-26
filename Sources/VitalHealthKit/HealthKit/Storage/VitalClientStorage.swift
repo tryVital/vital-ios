@@ -1,5 +1,6 @@
 import SwiftUI
 import HealthKit
+import VitalCore
 
 class VitalStorage {
 

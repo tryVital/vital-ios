@@ -566,7 +566,7 @@ private func activityQuery(
         return
       }
       
-      continuation.resume(with: .success(activities ?? []))
+      continuation.resume(with: .success(activities ?? [])) 
     }
     
     let startDateComponent = startDate.dateComponentsForActivityQuery
