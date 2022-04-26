@@ -80,7 +80,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
       
-      return .none
+      return effect
       
     case let .successFetchingGlucose(points):
       
