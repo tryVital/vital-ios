@@ -14,8 +14,9 @@ extension LinkCreation {
   
   struct State: Equatable {
     enum Status {
-      case loading
+      case generatingLink
       case initial
+      case fetchingData
     }
     
     var link: URL?
@@ -24,21 +25,39 @@ extension LinkCreation {
     var bloodPressurePoints: [BloodPressureDataPoint] = []
     var showingWebAuthentication: Bool = false
     
-    var isLoading: Bool {
+    var isGeneratingLink: Bool {
       switch status {
-        case .loading:
+        case .generatingLink:
           return true
         default:
           return false
       }
     }
     
-    var title: String {
+    var isFetchingData: Bool {
       switch status {
-        case .loading:
+        case .fetchingData:
+          return true
+        default:
+          return false
+      }
+    }
+    
+    var generateLinkTitle: String {
+      switch status {
+        case .generatingLink:
           return "Loading..."
-        case .initial:
+        default:
           return "Generate link"
+      }
+    }
+    
+    var fetchDataTitle: String {
+      switch status {
+        case .fetchingData:
+          return "Loading..."
+        default:
+          return "Fetch Data"
       }
     }
   }
@@ -52,6 +71,7 @@ extension LinkCreation {
     case successFetchingData([TimeSeriesDataPoint], [BloodPressureDataPoint])
     case failedFetchingData(String)
     case toggleWebView(Bool)
+    case fetchData
   }
   
   class Environment {
@@ -73,9 +93,14 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .none
       
     case let .callback(url):
-        
+      /// do something with the URL
       state.status = .initial
       state.link = nil
+      
+      return .init(value: .toggleWebView(false))
+      
+    case .fetchData:
+      state.status = .fetchingData
       
       let effect = Effect<LinkCreation.Action, Error>.task {
         let calendar = Calendar.current
@@ -90,19 +115,19 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       }
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
-      
-      let dismiss: Effect<LinkCreation.Action, Never> = .init(value: .toggleWebView(false))
-      
-      return .merge(dismiss, effect)
+    
+      return effect
       
     case let .successFetchingData(glucosePoints, bloodPressurePoints):
       
+      state.status = .initial
       state.glucosePoints = glucosePoints
       state.bloodPressurePoints = bloodPressurePoints
       
       return .none
       
     case let .failedFetchingData(points):
+      state.status = .initial
       return .none
       
     case let .failedGeneratedLink(error):
@@ -120,7 +145,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(true))
       
     case .generateLink:
-      state.status = .loading
+      state.status = .generatingLink
       state.bloodPressurePoints = []
       state.glucosePoints = []
       
@@ -222,12 +247,22 @@ extension LinkCreation {
             Section(content: {
               EmptyView()
             }, footer: {
-              Button(viewStore.title, action: {
+              VStack {
+                Button(viewStore.generateLinkTitle, action: {
                   viewStore.send(.generateLink)
-              })
-              .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
-              .cornerRadius(5.0)
-              .padding([.bottom], 20)
+                })
+                .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isGeneratingLink))
+                .cornerRadius(5.0)
+                .padding([.bottom], 20)
+                
+                Button(viewStore.fetchDataTitle, action: {
+                  viewStore.send(.fetchData)
+                })
+                .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isFetchingData))
+                .cornerRadius(5.0)
+                .padding([.bottom], 20)
+              }
+              
             })
             .onReceive(viewStore.publisher.showingWebAuthentication, perform: { value in
               isPresenting = value
@@ -241,6 +276,9 @@ extension LinkCreation {
               }
             })
           }
+          .onAppear {
+            viewStore.send(.fetchData)
+          }
           .navigationBarTitle(Text("Link"), displayMode: .large)
         }
       }
@@ -250,6 +288,7 @@ extension LinkCreation {
 
 struct ModalView: View {
   @SwiftUI.Environment(\.presentationMode) var presentation
+  
   let url: URL
   
   var body: some View {
