@@ -277,22 +277,12 @@ extension LinkCreation {
             Section(content: {
               EmptyView()
             }, footer: {
-              VStack {
                 Button(viewStore.generateLinkTitle, action: {
                   viewStore.send(.generateLink)
                 })
                 .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isGeneratingLink))
                 .cornerRadius(5.0)
                 .padding([.bottom], 20)
-                
-                Button(viewStore.fetchDataTitle, action: {
-                  viewStore.send(.fetchData)
-                })
-                .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isFetchingData))
-                .cornerRadius(5.0)
-                .padding([.bottom], 20)
-              } 
-              
             })
             .onReceive(viewStore.publisher.showingWebAuthentication, perform: { value in
               isPresenting = value
