@@ -69,7 +69,7 @@ public class VitalHealthKitClient {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
-    if configuration.backgroundUpdates {
+//    if configuration.backgroundUpdates {
 //      for type in allTypesForBackgroundDelivery() {
 //        self.store.enableBackgroundDelivery(for: type, frequency: .immediate) {[weak self] success, failure in
 //
@@ -81,7 +81,7 @@ public class VitalHealthKitClient {
 //          self?.logger?.info("Succesfully enabled background delivery for \(String(describing: type))")
 //        }
 //      }
-    }
+//    }
   }
 }
 
@@ -129,6 +129,8 @@ extension VitalHealthKitClient {
       
       let startDate: Date = .dateAgo(days: 30)
       let endDate: Date = Date()
+      
+      try await VitalNetworkClient.shared.link.createConnectedSource(for: .appleHealthKit)
       
       for resource in resources {
         do {

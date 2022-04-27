@@ -40,7 +40,6 @@ struct ExampleApp: App {
         }
         .onAppear {
           viewStore.send(.start)
-          VitalHealthKitClient.configure()
         }
         .onOpenURL { url in
           viewStore.send(.callback(url))
