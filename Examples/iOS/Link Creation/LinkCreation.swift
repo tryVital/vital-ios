@@ -24,9 +24,7 @@ extension LinkCreation {
     var glucosePoints: [TimeSeriesDataPoint] = []
     var bloodPressurePoints: [BloodPressureDataPoint] = []
     var showingWebAuthentication: Bool = false
-    
-    var isTimerActive: Bool = false
-    
+        
     var isGeneratingLink: Bool {
       switch status {
         case .generatingLink:
@@ -98,12 +96,6 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .none
       
     case .startTimer:
-      if VitalNetworkClient.isSetup == false {
-        return .none
-      }
-      
-      state.isTimerActive.toggle()
-      
       let effect = Effect.timer(
         id: TimerId(),
         every: 5,
@@ -111,8 +103,9 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         on: DispatchQueue.main
       )
       .map { _ in LinkCreation.Action.fetchData }
+      .cancellable(id: TimerId())
       
-      return state.isTimerActive ? effect : Effect.cancel(id: TimerId())
+      return effect
       
     case let .callback(url):
       /// do something with the URL

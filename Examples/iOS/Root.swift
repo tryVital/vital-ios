@@ -77,16 +77,20 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
 
   Reducer { state, action, environment in
     switch action {
+      
+      case .settings(.setup), .settings(.save):
+        if VitalNetworkClient.isSetup {
+          return Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
+        }
+        
+        return .none
+        
       case let .callback(url):
         return Effect<AppAction, Never>(value: AppAction.linkCreation(.callback(url)))
         
       case .start:
-        
-        let settingsSetup = Effect<AppAction, Never>(value: AppAction.settings(.start))
-        let fetchData = Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
-        
-        return .merge(settingsSetup, fetchData.delay(for: 2, scheduler: DispatchQueue.main).eraseToEffect())
-        
+        return Effect<AppAction, Never>(value: AppAction.settings(.start))
+      
       default:
         return .none
     }
