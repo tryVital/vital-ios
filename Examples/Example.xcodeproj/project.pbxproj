@@ -25,6 +25,7 @@
 		E8A286F027FD85E300F1F1B1 /* Reducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286EF27FD85E300F1F1B1 /* Reducer.swift */; };
 		E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286F127FDA44600F1F1B1 /* Identifiable.swift */; };
 		E8A286F427FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */; };
+		E8D530C52819C8D100E74B83 /* BetterSafariView in Frameworks */ = {isa = PBXBuildFile; productRef = E8D530C42819C8D100E74B83 /* BetterSafariView */; };
 		E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E8D6BF6427E249E6000A9589 /* VitalHealthKit */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +67,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E8A286EB27FC92DF00F1F1B1 /* NukeUI in Frameworks */,
+				E8D530C52819C8D100E74B83 /* BetterSafariView in Frameworks */,
 				E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */,
 				E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */,
 				E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */,
@@ -209,6 +211,7 @@
 				E83CAEEA27F792CD001EDB12 /* VitalDevices */,
 				E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */,
 				E8A286EA27FC92DF00F1F1B1 /* NukeUI */,
+				E8D530C42819C8D100E74B83 /* BetterSafariView */,
 			);
 			productName = "Example (iOS)";
 			productReference = E85A258B27D6AAFA00B2212C /* Example.app */;
@@ -263,6 +266,7 @@
 			packageReferences = (
 				E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
 				E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */,
+				E8D530C32819C8D100E74B83 /* XCRemoteSwiftPackageReference "BetterSafariView" */,
 			);
 			productRefGroup = E85A258C27D6AAFA00B2212C /* Products */;
 			projectDirPath = "";
@@ -607,6 +611,14 @@
 				minimumVersion = 0.8.1;
 			};
 		};
+		E8D530C32819C8D100E74B83 /* XCRemoteSwiftPackageReference "BetterSafariView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stleamist/BetterSafariView.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -623,6 +635,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */;
 			productName = NukeUI;
+		};
+		E8D530C42819C8D100E74B83 /* BetterSafariView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E8D530C32819C8D100E74B83 /* XCRemoteSwiftPackageReference "BetterSafariView" */;
+			productName = BetterSafariView;
 		};
 		E8D6BF6427E249E6000A9589 /* VitalHealthKit */ = {
 			isa = XCSwiftPackageProductDependency;

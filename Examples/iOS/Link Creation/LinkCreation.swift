@@ -3,6 +3,7 @@ import VitalDevices
 import VitalCore
 import ComposableArchitecture
 import Combine
+import BetterSafariView
 
 enum LinkCreation {}
 
@@ -14,7 +15,6 @@ extension LinkCreation {
   struct State: Equatable {
     enum Status {
       case loading
-      case successLink
       case initial
     }
     
@@ -22,6 +22,7 @@ extension LinkCreation {
     var status: Status = .initial
     var glucosePoints: [TimeSeriesDataPoint] = []
     var bloodPressurePoints: [BloodPressureDataPoint] = []
+    var showingWebAuthentication: Bool = false
     
     var isLoading: Bool {
       switch status {
@@ -38,8 +39,6 @@ extension LinkCreation {
           return "Loading..."
         case .initial:
           return "Generate link"
-        case .successLink:
-          return "Open Link"
       }
     }
   }
@@ -52,6 +51,7 @@ extension LinkCreation {
     case callback(URL)
     case successFetchingData([TimeSeriesDataPoint], [BloodPressureDataPoint])
     case failedFetchingData(String)
+    case toggleWebView(Bool)
   }
   
   class Environment {
@@ -62,6 +62,15 @@ extension LinkCreation {
 let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreation.Environment> { state, action, _ in
   
   switch action {
+      
+    case let .toggleWebView(value):
+      state.showingWebAuthentication = value
+      
+      if value == false {
+        state.status = .initial
+      }
+      
+      return .none
       
     case let .callback(url):
         
@@ -82,7 +91,9 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
       
-      return effect
+      let dismiss: Effect<LinkCreation.Action, Never> = .init(value: .toggleWebView(false))
+      
+      return .merge(dismiss, effect)
       
     case let .successFetchingData(glucosePoints, bloodPressurePoints):
       
@@ -102,12 +113,11 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .none
       
     case let .successGeneratedLink(url):
-      state.status = .successLink
       state.bloodPressurePoints = []
       state.glucosePoints = []
       
       state.link = url
-      return .none
+      return .init(value: .toggleWebView(true))
       
     case .generateLink:
       state.status = .loading
@@ -134,6 +144,8 @@ extension LinkCreation {
   struct RootView: View {
     
     let store: Store<State, Action>
+    
+    @SwiftUI.State private var isPresenting = false
     
     var body: some View {
       WithViewStore(self.store) { viewStore in
@@ -211,15 +223,22 @@ extension LinkCreation {
               EmptyView()
             }, footer: {
               Button(viewStore.title, action: {
-                if let url = viewStore.state.link {
-                  UIApplication.shared.open(url, options: [:])
-                } else {
                   viewStore.send(.generateLink)
-                }
               })
               .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
               .cornerRadius(5.0)
               .padding([.bottom], 20)
+            })
+            .onReceive(viewStore.publisher.showingWebAuthentication, perform: { value in
+              isPresenting = value
+            })
+            .fullScreenCover(isPresented: $isPresenting, content: {
+              if let url = viewStore.link {
+                ModalView(url: url)
+                  .onDisappear(perform: {
+                    viewStore.send(.toggleWebView(false))
+                  })
+              }
             })
           }
           .navigationBarTitle(Text("Link"), displayMode: .large)
@@ -229,3 +248,19 @@ extension LinkCreation {
   }
 }
 
+struct ModalView: View {
+  @SwiftUI.Environment(\.presentationMode) var presentation
+  let url: URL
+  
+  var body: some View {
+    SafariView(
+      url: url,
+      configuration: SafariView.Configuration(
+        entersReaderIfAvailable: false,
+        barCollapsingEnabled: true
+      )
+    )
+    .preferredControlAccentColor(.accentColor)
+    .dismissButtonStyle(.done)
+  }
+}
