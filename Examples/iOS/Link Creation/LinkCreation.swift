@@ -25,6 +25,8 @@ extension LinkCreation {
     var bloodPressurePoints: [BloodPressureDataPoint] = []
     var showingWebAuthentication: Bool = false
     
+    var isTimerActive: Bool = false
+    
     var isGeneratingLink: Bool {
       switch status {
         case .generatingLink:
@@ -72,6 +74,8 @@ extension LinkCreation {
     case failedFetchingData(String)
     case toggleWebView(Bool)
     case fetchData
+    
+    case startTimer
   }
   
   class Environment {
@@ -80,7 +84,8 @@ extension LinkCreation {
 }
 
 let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkCreation.Environment> { state, action, _ in
-  
+  struct TimerId: Hashable {}
+
   switch action {
       
     case let .toggleWebView(value):
@@ -92,6 +97,23 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       
       return .none
       
+    case .startTimer:
+      if VitalNetworkClient.isSetup == false {
+        return .none
+      }
+      
+      state.isTimerActive.toggle()
+      
+      let effect = Effect.timer(
+        id: TimerId(),
+        every: 5,
+        tolerance: .zero,
+        on: DispatchQueue.main
+      )
+      .map { _ in LinkCreation.Action.fetchData }
+      
+      return state.isTimerActive ? effect : Effect.cancel(id: TimerId())
+      
     case let .callback(url):
       /// do something with the URL
       state.status = .initial
@@ -100,6 +122,10 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(false))
       
     case .fetchData:
+      if VitalNetworkClient.isSetup == false {
+        return .none
+      }
+      
       state.status = .fetchingData
       
       let effect = Effect<LinkCreation.Action, Error>.task {
@@ -145,6 +171,10 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(true))
       
     case .generateLink:
+      if VitalNetworkClient.isSetup == false {
+        return .none
+      }
+      
       state.status = .generatingLink
       state.bloodPressurePoints = []
       state.glucosePoints = []
@@ -275,9 +305,6 @@ extension LinkCreation {
                   })
               }
             })
-          }
-          .onAppear {
-            viewStore.send(.fetchData)
           }
           .navigationBarTitle(Text("Link"), displayMode: .large)
         }

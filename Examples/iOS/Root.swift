@@ -81,7 +81,11 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
         return Effect<AppAction, Never>(value: AppAction.linkCreation(.callback(url)))
         
       case .start:
-        return Effect<AppAction, Never>(value: AppAction.settings(.start))
+        
+        let settingsSetup = Effect<AppAction, Never>(value: AppAction.settings(.start))
+        let fetchData = Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
+        
+        return .merge(settingsSetup, fetchData.delay(for: 2, scheduler: DispatchQueue.main).eraseToEffect())
         
       default:
         return .none
