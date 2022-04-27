@@ -52,8 +52,6 @@ extension LinkCreation {
     case callback(URL)
     case successFetchingData([TimeSeriesDataPoint], [BloodPressureDataPoint])
     case failedFetchingData(String)
-    
-    case test(URL)
   }
   
   class Environment {
@@ -65,7 +63,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
   
   switch action {
       
-    case let .callback(url), let .test(url):
+    case let .callback(url):
         
       state.status = .initial
       state.link = nil
@@ -74,8 +72,8 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         let calendar = Calendar.current
         let aWeekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: Date())!
         
-        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .appleHealthKit, startDate: aWeekAgo)
-        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(provider: .appleHealthKit, startDate: aWeekAgo)
+        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .iHealth, startDate: aWeekAgo)
+        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(provider: .iHealth, startDate: aWeekAgo)
 
         return .successFetchingData(glucosePoints, bloodPressurePoints)
       }.catch { error in
@@ -141,7 +139,6 @@ extension LinkCreation {
       WithViewStore(self.store) { viewStore in
         NavigationView {
           Form {
-            
             Section("Glucose") {
               if viewStore.state.glucosePoints.isEmpty  {
                 Text("No data")
@@ -217,7 +214,7 @@ extension LinkCreation {
                 if let url = viewStore.state.link {
                   UIApplication.shared.open(url, options: [:])
                 } else {
-                  viewStore.send(.test(URL.init(string: "http://test.io")!))
+                  viewStore.send(.generateLink)
                 }
               })
               .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
