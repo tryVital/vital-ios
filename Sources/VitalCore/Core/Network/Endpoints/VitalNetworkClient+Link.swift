@@ -68,7 +68,7 @@ public extension VitalNetworkClient.Link {
       .append("token", value: response.value.linkToken)
       .append("env", value: self.client.environment.name)
       .append("region", value: self.client.environment.region.name)
-      .append("mobile", value: "true")
+      .append("isMobile", value: "True")
       
     return url
   }
