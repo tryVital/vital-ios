@@ -13,6 +13,8 @@ extension Settings {
     var clientId: String = ""
     var clientSecret: String = ""
     var userId: String = ""
+    
+    var environment: VitalCore.Environment = .sandbox(.us)
   }
   
   struct State: Equatable {
@@ -45,6 +47,7 @@ extension Settings {
     case genetareUserId
     case successfulGenerateUserId(UUID)
     case failedGeneratedUserId
+    case setEnvironment(VitalCore.Environment)
   }
   
   class Environment {
@@ -54,6 +57,11 @@ extension Settings {
 
 let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
   switch action {
+      
+      
+    case let .setEnvironment(environment):
+      state.credentials.environment = environment
+      return .none
       
     case .failedGeneratedUserId:
       return .none
@@ -97,7 +105,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         VitalNetworkClient.configure(
           clientId: state.credentials.clientId,
           clientSecret: state.credentials.clientSecret,
-          environment: .sandbox(.us),
+          environment: state.credentials.environment,
           configuration: .init(logsEnable: true)
         )
       }
@@ -147,7 +155,9 @@ extension Settings {
       WithViewStore(self.store) { viewStore in
         NavigationView {
           Form {
-            Section(content: {
+            
+            Section("Configuration") {
+              
               HStack {
                 Text("Client ID")
                   .fontWeight(.bold)
@@ -171,17 +181,37 @@ extension Settings {
                   .disableAutocorrection(true)
                   .focused($activeKeyboard)
               }
+            }
+            
+            Section(content: {
+              Row(title: "Sandbox - EU", isSelected: viewStore.credentials.environment == .sandbox(.eu))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.sandbox(.eu)))
+                }
+              
+              Row(title: "Sandbox - US", isSelected: viewStore.credentials.environment == .sandbox(.us))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.sandbox(.us)))
+                }
+              
+              Row(title: "Production - EU", isSelected: viewStore.credentials.environment == .production(.eu))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.production(.eu)))
+                }
+              
+              Row(title: "Production - US", isSelected: viewStore.credentials.environment == .production(.us))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.production(.us)))
+                }
             }, footer: {
               VStack(spacing: 5) {
-                Spacer()
                 Button("Generate userId", action: {
                   viewStore.send(.genetareUserId)
                 })
                 .disabled(viewStore.canGenerateUserId == false)
                 .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canGenerateUserId == false))
                 .cornerRadius(5.0)
-                .padding([.bottom], 20)
-                
+                .padding([.bottom], 10)
                 
                 Button("Save", action: {
                   self.activeKeyboard = false
@@ -205,3 +235,24 @@ extension Settings {
 }
 
 
+extension Settings {
+    struct Row: View {
+      
+      let title: String
+      let isSelected: Bool
+      
+      var body: some View {
+        HStack(spacing: 10) {
+          Text(title).font(.callout)
+          Spacer()
+          if isSelected {
+            Image(systemName: "checkmark.circle")
+              .resizable()
+              .frame(width: 15, height: 15)
+          }
+        }
+        .padding([.top, .bottom], 15)
+        .contentShape(Rectangle())
+      }
+    }
+}
