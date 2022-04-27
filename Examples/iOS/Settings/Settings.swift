@@ -75,7 +75,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       let payload = CreateUserRequest(clientUserId: clientUserId)
       
       let effect = Effect<CreateUserResponse, Error>.task {
-        let userResponse = try await VitalNetworkClient.shared.user.create(payload)
+        let userResponse = try await VitalNetworkClient.shared.user.create(clientUserId: clientUserId)
         return userResponse
       }
       
@@ -235,6 +235,7 @@ extension Settings {
             Image(systemName: "checkmark.circle")
               .resizable()
               .frame(width: 15, height: 15)
+              .foregroundColor(.accentColor)
           }
         }
         .padding([.top, .bottom], 15)

@@ -19,7 +19,7 @@ public class VitalHealthKitClient {
   
   public static var shared: VitalHealthKitClient {
     guard let client = Self.client else {
-      fatalError("`VitalHealthKitClient` hasn't been configured.")
+      fatalError("`VitalHealthKitClient` hasn't been configured. Please call `VitalHealthKitClient.configure()`")
     }
     
     return client

@@ -33,5 +33,15 @@ public extension VitalNetworkClient.User {
     
     return value
   }
+  
+  func create(
+    clientUserId: String,
+    setUserIdOnSuccess: Bool = true
+  ) async throws -> CreateUserResponse {
+    return try await create(
+      .init(clientUserId: clientUserId),
+      setUserIdOnSuccess: setUserIdOnSuccess
+    )
+  }
 }
 
