@@ -129,9 +129,7 @@ extension VitalHealthKitClient {
       
       let startDate: Date = .dateAgo(days: 30)
       let endDate: Date = Date()
-      
-      try await VitalNetworkClient.shared.link.createConnectedSource(for: .appleHealthKit)
-      
+          
       for resource in resources {
         do {
           // Signal syncing (so the consumer can convey it to the user)
