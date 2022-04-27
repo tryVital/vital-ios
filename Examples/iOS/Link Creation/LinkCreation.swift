@@ -7,6 +7,7 @@ import Combine
 enum LinkCreation {}
 
 extension TimeSeriesDataPoint: Identifiable {}
+extension BloodPressureDataPoint: Identifiable {}
 
 extension LinkCreation {
   
@@ -19,7 +20,8 @@ extension LinkCreation {
     
     var link: URL?
     var status: Status = .initial
-    var dataPoints: [TimeSeriesDataPoint] = []
+    var glucosePoints: [TimeSeriesDataPoint] = []
+    var bloodPressurePoints: [BloodPressureDataPoint] = []
     
     var isLoading: Bool {
       switch status {
@@ -48,8 +50,10 @@ extension LinkCreation {
     case failedGeneratedLink(String)
     
     case callback(URL)
-    case successFetchingGlucose([TimeSeriesDataPoint])
-    case failedFetchingGlucose(String)
+    case successFetchingData([TimeSeriesDataPoint], [BloodPressureDataPoint])
+    case failedFetchingData(String)
+    
+    case test(URL)
   }
   
   class Environment {
@@ -61,46 +65,56 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
   
   switch action {
       
-    case let .callback(url):
+    case let .callback(url), let .test(url):
+        
       state.status = .initial
       state.link = nil
       
-      let effect = Effect<[TimeSeriesDataPoint], Error>.task {
+      let effect = Effect<LinkCreation.Action, Error>.task {
         let calendar = Calendar.current
         let aWeekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: Date())!
         
-        let timeSeries = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .appleHealthKit, startDate: aWeekAgo)
-        return timeSeries
-        
-      }.map { (points: [TimeSeriesDataPoint]) -> LinkCreation.Action in
-        return .successFetchingGlucose(points)
+        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .appleHealthKit, startDate: aWeekAgo)
+        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(provider: .appleHealthKit, startDate: aWeekAgo)
+
+        return .successFetchingData(glucosePoints, bloodPressurePoints)
       }.catch { error in
-        return Just(LinkCreation.Action.failedFetchingGlucose(error.localizedDescription))
+        return Just(LinkCreation.Action.failedFetchingData(error.localizedDescription))
       }
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
       
       return effect
       
-    case let .successFetchingGlucose(points):
+    case let .successFetchingData(glucosePoints, bloodPressurePoints):
       
-      state.dataPoints = points
+      state.glucosePoints = glucosePoints
+      state.bloodPressurePoints = bloodPressurePoints
+      
       return .none
       
-    case let .failedFetchingGlucose(points):
+    case let .failedFetchingData(points):
       return .none
       
     case let .failedGeneratedLink(error):
       state.status = .initial
+      state.bloodPressurePoints = []
+      state.glucosePoints = []
+      
       return .none
       
     case let .successGeneratedLink(url):
       state.status = .successLink
+      state.bloodPressurePoints = []
+      state.glucosePoints = []
+      
       state.link = url
       return .none
       
     case .generateLink:
       state.status = .loading
+      state.bloodPressurePoints = []
+      state.glucosePoints = []
       
       let effect = Effect<URL, Error>.task {
         let url = try await VitalNetworkClient.shared.link.createProviderLink(redirectURL: "vitalExample://")
@@ -127,12 +141,12 @@ extension LinkCreation {
       WithViewStore(self.store) { viewStore in
         NavigationView {
           Form {
-            Section(content: {
-              
-              if viewStore.dataPoints.isEmpty {
+            
+            Section("Glucose") {
+              if viewStore.state.glucosePoints.isEmpty  {
                 Text("No data")
               } else {
-                ForEach(viewStore.dataPoints) { (point: TimeSeriesDataPoint) in
+                ForEach(viewStore.glucosePoints) { (point: TimeSeriesDataPoint) in
                   HStack {
                     VStack {
                       Text("\(Int(point.value))")
@@ -155,13 +169,55 @@ extension LinkCreation {
                   .padding([.horizontal], 10)
                 }
               }
-              
+            }
+            
+            Section("Blood Pressure") {
+              if viewStore.state.bloodPressurePoints.isEmpty  {
+                Text("No data")
+              } else {
+                ForEach(viewStore.state.bloodPressurePoints) { (point: BloodPressureDataPoint) in
+                  HStack {
+                    VStack(alignment: .leading, spacing: 5) {
+                      HStack {
+                        Text("\(Int(point.systolic))")
+                          .font(.title)
+                          .fontWeight(.medium)
+                        Text("\(point.unit)")
+                          .foregroundColor(.gray)
+                          .font(.footnote)
+                      }
+                      
+                      HStack {
+                        Text("\(Int(point.diastolic))")
+                          .font(.title)
+                          .fontWeight(.medium)
+                        Text("\(point.unit)")
+                          .foregroundColor(.gray)
+                          .font(.footnote)
+                      }
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing) {
+                      Text("\(point.timestamp.getDay())")
+                        .font(.body)
+                      Text("\(point.timestamp.getDate())")
+                        .font(.body)
+                    }
+                  }
+                  .padding([.horizontal], 10)
+                }
+              }
+            }
+            Section(content: {
+              EmptyView()
             }, footer: {
               Button(viewStore.title, action: {
                 if let url = viewStore.state.link {
                   UIApplication.shared.open(url, options: [:])
                 } else {
-                  viewStore.send(.generateLink)
+                  viewStore.send(.test(URL.init(string: "http://test.io")!))
                 }
               })
               .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isLoading))
@@ -169,7 +225,6 @@ extension LinkCreation {
               .padding([.bottom], 20)
             })
           }
-          
           .navigationBarTitle(Text("Link"), displayMode: .large)
         }
       }
