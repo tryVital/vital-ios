@@ -106,8 +106,8 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         let calendar = Calendar.current
         let aWeekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: Date())!
         
-        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, provider: .iHealth, startDate: aWeekAgo)
-        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(provider: .iHealth, startDate: aWeekAgo)
+        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, startDate: aWeekAgo)
+        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(startDate: aWeekAgo)
 
         return .successFetchingData(glucosePoints, bloodPressurePoints)
       }.catch { error in
@@ -261,7 +261,7 @@ extension LinkCreation {
                 .buttonStyle(LoadingButtonStyle(isLoading: viewStore.isFetchingData))
                 .cornerRadius(5.0)
                 .padding([.bottom], 20)
-              }
+              } 
               
             })
             .onReceive(viewStore.publisher.showingWebAuthentication, perform: { value in
