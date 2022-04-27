@@ -3,8 +3,7 @@ import Get
 import os.log
 
 struct Credentials: Equatable, Hashable {
-  let clientId: String
-  let clientSecret: String
+  let apiKey: String
   let environment: Environment
 }
 
@@ -30,17 +29,17 @@ public enum Environment: Equatable, Hashable, Codable {
   var host: String {
     switch self {
       case .dev(.eu):
-        return "api.dev.eu.tryvital.io"
+        return "https://api.dev.eu.tryvital.io"
       case .dev(.us):
-        return "api.dev.tryvital.io"
+        return "https://api.dev.tryvital.io"
       case .sandbox(.eu):
-        return "api.sandbox.eu.tryvital.io"
+        return "https://api.sandbox.eu.tryvital.io"
       case .sandbox(.us):
-        return "api.sandbox.tryvital.io"
+        return "https://api.sandbox.tryvital.io"
       case .production(.eu):
-        return "api.eu.tryvital.io"
+        return "https://api.eu.tryvital.io"
       case .production(.us):
-        return "api.tryvital.io"
+        return "https://api.tryvital.io"
     }
   }
   
@@ -69,20 +68,16 @@ public enum Environment: Equatable, Hashable, Codable {
 
 public class VitalNetworkClient {
   
-  
-  
-  private let keychain: VitalKeychain
   private let configuration: Configuration
   
   var logger: Logger? = nil
   var userId: UUID?
   let apiVersion: String
   let apiClient: APIClient
+  
   let environment: Environment
-  let dateFormatter: ISO8601DateFormatter
-  
-  let refresh: () async throws -> JWT
-  
+  let dateFormatter = ISO8601DateFormatter()
+    
   public static var shared: VitalNetworkClient {
     guard let client = Self.client else {
       fatalError("`VitalNetworkClient` hasn't been configured.")
@@ -94,14 +89,12 @@ public class VitalNetworkClient {
   private static var client: VitalNetworkClient?
   
   public static func configure(
-    clientId: String,
-    clientSecret: String,
+    apiKey: String,
     environment: Environment,
     configuration: Configuration = .init()
   ) {
     let client = VitalNetworkClient(
-      clientId: clientId,
-      clientSecret: clientSecret,
+      apiKey: apiKey,
       environment: environment,
       configuration: configuration
     )
@@ -117,20 +110,14 @@ public class VitalNetworkClient {
     VitalNetworkClient.shared.userId = userId
   }
   
-  public func clean() {
-    keychain.clean()
-  }
-  
   public init(
-    clientId: String,
-    clientSecret: String,
+    apiKey: String,
     environment: Environment,
     configuration: Configuration,
     apiVersion: String = "v2"
   ) {
     self.environment = environment
     self.apiVersion = apiVersion
-    self.keychain = VitalKeychain()
     self.configuration = configuration
     
     if configuration.logsEnable {
@@ -139,28 +126,13 @@ public class VitalNetworkClient {
     
     self.logger?.info("VitalNetworkClient setup for environment \(String(describing: environment))")
     
-    let basicDelegate = VitalNetworkBasicClientDelegate(logger: self.logger)
-    
-    
-    self.dateFormatter = ISO8601DateFormatter()
-    
-    self.refresh = refreshToken(
-      clientId: clientId,
-      clientSecret: clientSecret,
-      environment: environment,
-      delegate: basicDelegate
-    )
-    
     let apiClientDelegate = VitalNetworkClientDelegate(
-      refresh: refresh,
-      keychain: keychain,
-      environment: environment
+      environment: environment,
+      logger: logger,
+      apiKey: apiKey
     )
     
-    let credentials = Credentials(clientId: clientId, clientSecret: clientSecret, environment: environment)
-    keychain.check(credentials)
-    
-    self.apiClient = APIClient(host: environment.host) { configuration in
+    self.apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
       configuration.delegate = apiClientDelegate
       
       let encoder = JSONEncoder()

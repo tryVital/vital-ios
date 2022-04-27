@@ -21,7 +21,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/CreateAPI/Get", from: "0.7.1"),
-        .package(name: "KeychainSwift", url: "https://github.com/evgenyneu/keychain-swift", from: "20.0.0"),
         .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.2.1"),
     ],
     targets: [
@@ -33,7 +32,7 @@ let package = Package(
           dependencies: ["CombineCoreBluetooth", "VitalCore"]),
         .target(
           name: "VitalCore",
-          dependencies: ["Get", "KeychainSwift"]),
+          dependencies: ["Get"]),
         .testTarget(
             name: "VitalHealthKitTests",
             dependencies: ["VitalHealthKit"]),

@@ -10,8 +10,7 @@ enum Settings {}
 
 extension Settings {
   struct Credentials: Equatable, Codable {
-    var clientId: String = ""
-    var clientSecret: String = ""
+    var apiKey: String = ""
     var userId: String = ""
     
     var environment: VitalCore.Environment = .sandbox(.us)
@@ -28,14 +27,12 @@ extension Settings {
     var status: Status = .start
     
     var canSave: Bool {
-      return credentials.clientSecret.isEmpty == false &&
-      credentials.clientId.isEmpty == false &&
+      return credentials.apiKey.isEmpty == false &&
       UUID(uuidString: credentials.userId) != nil
     }
     
     var canGenerateUserId: Bool {
-      return credentials.clientSecret.isEmpty == false &&
-      credentials.clientId.isEmpty == false
+      return credentials.apiKey.isEmpty == false
     }
   }
   
@@ -72,7 +69,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case .genetareUserId:
       let date = Date()
-      let string = DateFormatter().string(from: date)
+      let string = DateFormatter().string(from: date).replacingOccurrences(of: " ", with: "_")
       
       let clientUserId = "user_generated_demo_\(date)"
       let payload = CreateUserRequest(clientUserId: clientUserId)
@@ -99,12 +96,10 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case .setup:
       if
-        state.credentials.clientId.isEmpty == false,
-        state.credentials.clientSecret.isEmpty == false
+        state.credentials.apiKey.isEmpty == false
       {        
         VitalNetworkClient.configure(
-          clientId: state.credentials.clientId,
-          clientSecret: state.credentials.clientSecret,
+          apiKey: state.credentials.apiKey,
           environment: state.credentials.environment,
           configuration: .init(logsEnable: true)
         )
@@ -131,8 +126,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case .save:
       if
-        state.credentials.clientId.isEmpty == false,
-        state.credentials.clientSecret.isEmpty == false,
+        state.credentials.apiKey.isEmpty == false,
         state.credentials.userId.isEmpty == false
       {
         let value = try? JSONEncoder().encode(state.credentials)
@@ -159,21 +153,13 @@ extension Settings {
             Section("Configuration") {
               
               HStack {
-                Text("Client ID")
+                Text("API Key")
                   .fontWeight(.bold)
-                TextField("Client ID", text: viewStore.binding(\.$credentials.clientId))
+                TextField("API Key", text: viewStore.binding(\.$credentials.apiKey))
                   .disableAutocorrection(true)
                   .focused($activeKeyboard)
               }
-              
-              HStack {
-                Text("Client Secret")
-                  .fontWeight(.bold)
-                TextField("Client Secret", text: viewStore.binding(\.$credentials.clientSecret))
-                  .disableAutocorrection(true)
-                  .focused($activeKeyboard)
-              }
-              
+                            
               HStack {
                 Text("User ID (UUID-4)")
                   .fontWeight(.bold)
