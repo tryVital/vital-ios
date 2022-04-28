@@ -14,7 +14,7 @@ func handle(
   vitalStorage: VitalStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (PostResource, [StoredEntity]) {
+) async throws -> (PostResourceData, [StoredEntity]) {
   
   switch resource {
     case .profile:
@@ -22,7 +22,7 @@ func handle(
         healthKitStore: store
       )
       
-      return (.profile(profilePayload), [])
+      return (.summary(.profile(profilePayload)), [])
       
     case .body:
       let payload = try await handleBody(
@@ -33,7 +33,7 @@ func handle(
       )
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
-      return (.body(payload.bodyPatch), entitiesToStore)
+      return (.summary(.body(payload.bodyPatch)), entitiesToStore)
       
     case .sleep:
       let payload = try await handleSleep(
@@ -44,7 +44,7 @@ func handle(
       )
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
-      return (.sleep(payload.sleepPatch), entitiesToStore)
+      return (.summary(.sleep(payload.sleepPatch)), entitiesToStore)
       
     case .activity:
       let payload = try await handleActivity(
@@ -55,7 +55,7 @@ func handle(
       )
       
       let data = payload.lastActivityDate == nil ? [] : [StoredEntity.date(VitalStorage.activityKey, payload.lastActivityDate!)]
-      return (.activity(payload.acitivtyPatch), data)
+      return (.summary(.activity(payload.acitivtyPatch)), data)
       
     case .workout:
       let payload = try await handleWorkouts(
@@ -67,7 +67,7 @@ func handle(
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
-      return (.workout(payload.workoutPatch), entitiesToStore)
+      return (.summary(.workout(payload.workoutPatch)), entitiesToStore)
       
     case .vitals(.glucose):
       let payload = try await handleGlucose(
@@ -79,7 +79,7 @@ func handle(
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
-      return (.vitals(.glucose(payload.glucose)), entitiesToStore)
+      return (.timeSeries(.glucose(payload.glucose)), entitiesToStore)
       
     case .vitals(.bloodPressure):
       let payload = try await handleBloodPressure(
@@ -91,7 +91,7 @@ func handle(
       
       let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
       
-      return (.vitals(.bloodPressure(payload.bloodPressure)), entitiesToStore)
+      return (.timeSeries(.bloodPressure(payload.bloodPressure)), entitiesToStore)
   }
 }
 

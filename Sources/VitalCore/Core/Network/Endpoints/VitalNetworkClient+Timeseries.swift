@@ -1,7 +1,7 @@
 import Foundation
 import Get
 
-public enum TimeSeriesResource {
+public enum SimpleTimeSeriesResource {
   case glucose
 }
 
@@ -21,8 +21,38 @@ public extension VitalNetworkClient {
 }
 
 public extension VitalNetworkClient.TimeSeries {
+  func post(
+    _ timeSeriesData: TimeSeriesData,
+    stage: TaggedPayload.Stage,
+    provider: Provider
+  ) async throws -> Void {
+    guard let userId = self.client.userId else {
+      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+    }
+    
+    let taggedPayload = TaggedPayload(
+      stage: stage,
+      provider: provider,
+      data: AnyEncodable(timeSeriesData.payload)
+    )
+    
+    let fullPath: String
+    
+    switch timeSeriesData {
+      case .glucose:
+        fullPath = makePath(for: "glucose", userId: userId.uuidString)
+      case .bloodPressure:
+        fullPath = makePath(for: "blood_pressure", userId: userId.uuidString)
+    }
+        
+    let request: Request<Void> = .post(fullPath, body: taggedPayload)
+    
+    self.client.logger?.info("Posting TimeSeries data for: \(timeSeriesData.logDescription)")
+    try await self.client.apiClient.send(request)
+  }
+  
   func get(
-    resource: TimeSeriesResource,
+    resource: SimpleTimeSeriesResource,
     provider: Provider? = nil,
     startDate: Date,
     endDate: Date? = nil
@@ -63,16 +93,15 @@ public extension VitalNetworkClient.TimeSeries {
     return response.value
   }
   
-  
   func makePath(
     for resource: String,
     userId: String
   ) -> String {
-    
+
     let prefix: String = "/\(client.apiVersion)"
       .append(self.resource)
       .append(userId)
-    
+
     return prefix.append(resource)
   }
   

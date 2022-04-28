@@ -5,7 +5,7 @@ struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   var requestReadAuthorization: ([VitalResource]) async throws -> Void
   var hasAskedForPermission: (VitalResource) -> Bool
-  var readData: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResource, [StoredEntity])
+  var readData: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
 }
 
 extension VitalHealthKitStore {
@@ -39,20 +39,25 @@ extension VitalHealthKitStore {
     } hasAskedForPermission: { _ in
       true
     } readData: { _,_,_,_  in
-      return (PostResource.vitals(.glucose([])), [])
+      return (PostResourceData.timeSeries(.glucose([])), [])
     }
   }
 }
 
 
 struct VitalNetworkPostData {
-  var post: (PostResource, TaggedPayload.Stage, Provider) async throws -> Void
+  var post: (PostResourceData, TaggedPayload.Stage, Provider) async throws -> Void
 }
 
 extension VitalNetworkPostData {
   static var live: VitalNetworkPostData {
-    .init { resource, stage, provider in
-      try await VitalNetworkClient.shared.summary.post(resource: resource, stage: stage, provider: provider)
+    .init { data, stage, provider in
+      switch data {
+        case let .summary(summaryData):
+          try await VitalNetworkClient.shared.summary.post(summaryData, stage: stage, provider: provider)
+        case let .timeSeries(timeSeriesData):
+          try await VitalNetworkClient.shared.timeSeries.post(timeSeriesData, stage: stage, provider: provider)
+      }
     }
   }
   

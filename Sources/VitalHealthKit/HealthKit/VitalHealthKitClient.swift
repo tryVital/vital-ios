@@ -137,15 +137,15 @@ extension VitalHealthKitClient {
           self.logger?.info("Getting HealthKit data for: \(resource.logDescription)")
           
           // Fetch from HealthKit
-          let (summaryToPost, entitiesToStore) = try await store.readData(
+          let (data, entitiesToStore) = try await store.readData(
             resource,
             startDate,
             endDate,
             vitalStorage
           )
           
-          guard summaryToPost.shouldSkipPost == false else {
-            self.logger?.info("No new data available for: \(summaryToPost.logDescription)")
+          guard data.shouldSkipPost == false else {
+            self.logger?.info("No new data available for: \(data.logDescription)")
             _status.send(.nothingToSync(resource))
             break
           }
@@ -159,7 +159,7 @@ extension VitalHealthKitClient {
                     
           // Post to the network
           try await network.post(
-            summaryToPost,
+            data,
             stage,
             .appleHealthKit
           )

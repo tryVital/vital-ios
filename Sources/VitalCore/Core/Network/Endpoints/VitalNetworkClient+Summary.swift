@@ -18,7 +18,7 @@ public extension VitalNetworkClient {
 
 public extension VitalNetworkClient.Summary {  
   func post(
-    resource: PostResource,
+    _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
@@ -29,32 +29,26 @@ public extension VitalNetworkClient.Summary {
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
-      data: AnyEncodable(resource.payload)
+      data: AnyEncodable(summaryData.payload)
     )
     
     
     let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
-    let fullPath = makePath(for: resource, userId: userId.uuidString, withPrefix: prefix)
+    let fullPath = makePath(for: summaryData, userId: userId.uuidString, withPrefix: prefix)
         
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    self.client.logger?.info("Posting data for: \(resource.logDescription)")
+    self.client.logger?.info("Posting data for: \(summaryData.logDescription)")
     try await self.client.apiClient.send(request)
   }
 }
 
 func makePath(
-  for resource: PostResource,
+  for summaryData: SummaryData,
   userId: String,
   withPrefix prefix: String
 ) -> String {
-  switch resource {
-    case .vitals(.glucose):
-      return prefix + "vitals/\(userId)/glucose"
-      
-    case .vitals(.bloodPressure):
-      return prefix + "vitals/\(userId)/blood_pressure"
-      
+  switch summaryData {
     case .profile:
       return prefix + "profile/\(userId)"
       
