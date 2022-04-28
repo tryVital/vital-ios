@@ -145,7 +145,7 @@ extension VitalHealthKitClient {
           )
           
           guard data.shouldSkipPost == false else {
-            self.logger?.info("No new data available for: \(data.logDescription)")
+            self.logger?.info("No new data available for: \(data.name)")
             _status.send(.nothingToSync(resource))
             break
           }

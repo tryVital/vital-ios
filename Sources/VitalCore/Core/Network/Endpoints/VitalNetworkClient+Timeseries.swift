@@ -36,18 +36,10 @@ public extension VitalNetworkClient.TimeSeries {
       data: AnyEncodable(timeSeriesData.payload)
     )
     
-    let fullPath: String
-    
-    switch timeSeriesData {
-      case .glucose:
-        fullPath = makePath(for: "glucose", userId: userId.uuidString)
-      case .bloodPressure:
-        fullPath = makePath(for: "blood_pressure", userId: userId.uuidString)
-    }
-        
+    let fullPath: String = makePath(for: timeSeriesData.name, userId: userId.uuidString)
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    self.client.logger?.info("Posting TimeSeries data for: \(timeSeriesData.logDescription)")
+    self.client.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name)")
     try await self.client.apiClient.send(request)
   }
   

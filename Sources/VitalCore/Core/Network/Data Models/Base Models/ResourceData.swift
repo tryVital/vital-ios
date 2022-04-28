@@ -20,12 +20,12 @@ public enum PostResourceData {
     }
   }
   
-  public var logDescription: String {
+  public var name: String {
     switch self {
       case let .summary(summaryData):
-        return summaryData.logDescription
+        return summaryData.name
       case let .timeSeries(timeSeriesData):
-        return timeSeriesData.logDescription
+        return timeSeriesData.name
     }
   }
 }
@@ -52,7 +52,7 @@ public enum TimeSeriesData {
     }
   }
   
-  public var logDescription: String {
+  public var name: String {
     switch self {
       case .bloodPressure:
         return "bloodPressure"
@@ -99,7 +99,7 @@ public enum SummaryData {
     }
   }
   
-  public var logDescription: String {
+  public var name: String {
     switch self {
       case .activity:
         return "activity"
@@ -110,7 +110,7 @@ public enum SummaryData {
       case .sleep:
         return "sleep"
       case .workout:
-        return "workout"
+        return "workouts"
     }
   }
 }

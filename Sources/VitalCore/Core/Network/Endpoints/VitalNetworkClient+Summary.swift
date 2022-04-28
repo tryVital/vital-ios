@@ -32,36 +32,12 @@ public extension VitalNetworkClient.Summary {
       data: AnyEncodable(summaryData.payload)
     )
     
-    
     let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
-    let fullPath = makePath(for: summaryData, userId: userId.uuidString, withPrefix: prefix)
+    let fullPath = prefix + "\(summaryData.name)/\(userId)"
         
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    self.client.logger?.info("Posting data for: \(summaryData.logDescription)")
+    self.client.logger?.info("Posting data for: \(summaryData.name)")
     try await self.client.apiClient.send(request)
-  }
-}
-
-func makePath(
-  for summaryData: SummaryData,
-  userId: String,
-  withPrefix prefix: String
-) -> String {
-  switch summaryData {
-    case .profile:
-      return prefix + "profile/\(userId)"
-      
-    case .body:
-      return prefix + "body/\(userId)"
-      
-    case .activity:
-      return prefix + "activity/\(userId)"
-      
-    case .sleep:
-      return prefix + "sleep/\(userId)"
-      
-    case .workout:
-      return prefix + "workouts/\(userId)"
   }
 }
