@@ -124,7 +124,7 @@ extension VitalHealthKitClient {
     syncData(for: resources)
   }
   
-  public func syncData(for resources: [VitalResource]){
+  public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
       
       let startDate: Date = .dateAgo(days: 30)
@@ -147,7 +147,7 @@ extension VitalHealthKitClient {
           guard data.shouldSkipPost == false else {
             self.logger?.info("No new data available for: \(data.name)")
             _status.send(.nothingToSync(resource))
-            break
+            continue
           }
           
           // Calculate if this daily data or historical
