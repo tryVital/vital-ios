@@ -19,17 +19,23 @@ extension DevicesExample {
   public enum Action: Equatable {
     case deviceConnection(DeviceConnection.Action)
     case navigateToDeviceConnection(String?)
+    case startScanning
   }
   
   public struct Environment {
+    let nfc = NFC()
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
   }
 }
 
-private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, DevicesExample.Environment> { state, action, _ in
+private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, DevicesExample.Environment> { state, action, environment in
   switch action {
     case .deviceConnection:
+      return .none
+      
+    case .startScanning:
+      environment.nfc.startSession()
       return .none
       
     case .navigateToDeviceConnection(nil):
@@ -73,6 +79,11 @@ extension DevicesExample {
           .listStyle(PlainListStyle())
           .background(Color.white)
           .navigationBarTitle(Text("Devices"), displayMode: .large)
+          .toolbar {
+            Button("Scan") {
+              viewStore.send(.startScanning)
+            }
+          }
         }
       }
     }
