@@ -1,3 +1,15 @@
+/**
+ MIT License
+ 
+ Copyright (c) 2022 Guido Soranzio
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ 
+ The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ 
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 import Foundation
 
 typealias SensorUid = Data
@@ -308,75 +320,5 @@ class Sensor: ObservableObject {
     let i6 = readBits(fram, 0x150, 0x34, 0xc) << 2
     
     calibrationInfo = CalibrationInfo(i1: i1, i2: i2, i3: negativei3 ? -i3 : i3, i4: i4, i5: i5, i6: i6)
-  }
-  
-#if !os(watchOS)
-  func execute(nfc: NFC, taskRequest: TaskRequest) async throws {
-  }
-#endif
-  
-}
-
-func encodeStatusCode(_ status: UInt64) -> String {
-  let alphabet = Array("0123456789ACDEFGHJKLMNPQRTUVWXYZ")
-  var code = ""
-  for i in 0...9 {
-    code.append(alphabet[Int(status >> (i * 5)) & 0x1F])
-  }
-  return code
-}
-
-func decodeStatusCode(_ code: String) -> UInt64 {
-  let alphabet = Array("0123456789ACDEFGHJKLMNPQRTUVWXYZ")
-  let chars = Array(code)
-  var status: UInt64 = 0
-  for i in 0...9 {
-    status += UInt64(alphabet.firstIndex(of: chars[i])!) << (i * 5)
-  }
-  return status
-}
-
-func checksummedFRAM(_ data: Data) -> Data {
-  var fram = data
-  
-  let headerCRC = crc16(fram[         2 ..<  3 * 8])
-  let bodyCRC =   crc16(fram[ 3 * 8 + 2 ..< 40 * 8])
-  let footerCRC = crc16(fram[40 * 8 + 2 ..< 43 * 8])
-  
-  fram[0 ... 1] = headerCRC.data
-  fram[3 * 8 ... 3 * 8 + 1] = bodyCRC.data
-  fram[40 * 8 ... 40 * 8 + 1] = footerCRC.data
-  
-  if fram.count > 43 * 8 {
-    let commandsCRC = crc16(fram[43 * 8 + 2 ..< (244 - 6) * 8])    // Libre 1 DF: 429e, A2: f9ae
-    fram[43 * 8 ... 43 * 8 + 1] = commandsCRC.data
-  }
-  return fram
-}
-
-
-struct LibreMemoryRegion {
-  let numberOfBytes: Int
-  let startAddress: Int
-}
-
-
-// TODO
-func decodeFailure(error: UInt8) -> String {
-  switch error {
-    case 0x01: return "ADC IRQ overflow"
-    case 0x05: return "MMI interrupt"
-    case 0x09: return "error in patch table"
-    case 0x0A: return "low voltage occurred"
-    case 0x0B: return "low voltage occurred"
-    case 0x0C: return "FRAM header section CRC error"
-    case 0x0D: return "FRAM body section CRC error"
-    case 0x0E: return "FRAM footer section CRC error"
-    case 0x0F: return "FRAM code section CRC error"
-    case 0x10: return "FRAM Lock Table error"
-    case 0x13: return "brownout"
-    case 0x28: return "battery low indication"
-    case 0x34: return "from custom E1 and E2 command"
-    default:   return "no specific info"
   }
 }
