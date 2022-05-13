@@ -12,19 +12,6 @@
 
 import Foundation
 
-enum GlucoseUnit: String, CustomStringConvertible, CaseIterable, Identifiable {
-  case mgdl, mmoll
-  var id: String { rawValue}
-  
-  var description: String {
-    switch self {
-      case .mgdl:  return "mg/dL"
-      case .mmoll: return "mmol/L"
-    }
-  }
-}
-
-
 struct CalibrationInfo: Codable, Equatable {
   var i1: Int = 0
   var i2: Int = 0
@@ -36,7 +23,7 @@ struct CalibrationInfo: Codable, Equatable {
   static var empty = CalibrationInfo()
 }
 
-public struct Glucose: Identifiable, Codable, Hashable {
+struct Glucose: Identifiable, Codable, Hashable {
   
   struct DataQuality: OptionSet, Codable, CustomStringConvertible, Hashable {
     
@@ -88,8 +75,7 @@ public struct Glucose: Identifiable, Codable, Hashable {
     }
   }
   
-  /// id: minutes from sensor start
-  public let id: Int
+  let id: Int
   let date: Date
   let rawValue: Int
   let rawTemperature: Int

@@ -111,7 +111,7 @@ enum TaskRequest {
   case activate
 }
 
-public class NFC: NSObject, NFCTagReaderSessionDelegate {
+class NFC: NSObject, NFCTagReaderSessionDelegate {
   
   var session: NFCTagReaderSession?
   var connectedTag: NFCISO15693Tag?
@@ -135,7 +135,7 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
     return NFCTagReaderSession.readingAvailable
   }
   
-  public init(
+  init(
     readingMessage: String,
     errorMessage: String,
     completionMessage: String,
@@ -154,15 +154,15 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
     print("NFC deinit")
   }
   
-  public func startSession() {
+  func startSession() {
     session = NFCTagReaderSession(pollingOption: [.iso15693], delegate: self, queue: queue)
     session?.alertMessage = readingMessage
     session?.begin()
   }
   
-  public func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {}
+  func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {}
   
-  public func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+  func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
     guard continuation != nil else { return }
 
     if let readerError = error as? NFCReaderError {
@@ -175,10 +175,10 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
     }
   }
   
-  public func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+  func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
     guard let firstTag = tags.first else { return }
     guard case .iso15693(let tag) = firstTag else { return }
-//    guard continuation != nil else { return }
+    guard continuation != nil else { return }
     
     Task {
       do {
