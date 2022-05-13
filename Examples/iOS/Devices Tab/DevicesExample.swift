@@ -27,7 +27,6 @@ extension DevicesExample {
   }
   
   public struct Environment {
-    let nfc = NFC(readingMessage: "Reading", errorMessage: "Failed", completionMessage: "Completed", continuation: nil, queue: DispatchQueue.main)
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
     let libre1: Libre1Reader
