@@ -3,6 +3,8 @@ import VitalHealthKit
 import VitalDevices
 import ComposableArchitecture
 import NukeUI
+import VitalCore
+import Combine
 
 enum DevicesExample {}
 
@@ -20,12 +22,22 @@ extension DevicesExample {
     case deviceConnection(DeviceConnection.Action)
     case navigateToDeviceConnection(String?)
     case startScanning
+    case successScanning([QuantitySample])
+    case failureScanning(String)
   }
   
   public struct Environment {
-    let nfc = NFC()
+    let nfc = NFC(readingMessage: "Reading", errorMessage: "Failed", completionMessage: "Completed", continuation: nil, queue: DispatchQueue.main)
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
+    let libre1: Libre1Reader
+    
+    init(deviceManager: DevicesManager, mainQueue: DispatchQueue) {
+      self.deviceManager = deviceManager
+      self.mainQueue = mainQueue
+      
+      self.libre1 = Libre1Reader(readingMessage: "Ready", errorMessage: "Failed", completionMessage: "Completed", queue: mainQueue)
+    }
   }
 }
 
@@ -34,9 +46,27 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
     case .deviceConnection:
       return .none
       
-    case .startScanning:
-      environment.nfc.startSession()
+    case let .successScanning(samples):
+      print(samples)
       return .none
+      
+    case let .failureScanning(message):
+      print(message)
+      return .none
+      
+    case .startScanning:
+      
+      let effect = Effect<[QuantitySample], Error>.task {
+        
+        let values = try await environment.libre1.read()
+        return values
+        }
+        .map { DevicesExample.Action.successScanning($0) }
+        .catch { error in
+          return Just(DevicesExample.Action.failureScanning(error.localizedDescription))
+        }
+      
+      return effect.receive(on: environment.mainQueue).eraseToEffect()
       
     case .navigateToDeviceConnection(nil):
       state.deviceConnection = nil

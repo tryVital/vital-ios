@@ -48,7 +48,7 @@ extension QuantitySample {
     }
     
     self.init(
-      id: value.uuid,
+      id: value.uuid.uuidString,
       value: value.quantity.doubleValue(for: unit.toHealthKit),
       startDate: value.startDate,
       endDate: value.endDate,

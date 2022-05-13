@@ -139,7 +139,7 @@ extension NFC {
           
         } else {
           if sensor.securityGeneration < 2 || taskRequest == .none {
-            session?.invalidate(errorMessage: "Error while reading multiple blocks: \(error.localizedDescription.localizedLowercase)")
+            session?.invalidate(errorMessage: errorMessage)
           }
           throw NFCError.read
         }

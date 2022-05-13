@@ -1,14 +1,41 @@
 import Foundation
+import VitalCore
 
-class Libre1Reader {
+public class Libre1Reader {
   
-  private let nfc: NFC
+  private let readingMessage: String
+  private let errorMessage: String
+  private let completionMessage: String
+  private let queue: DispatchQueue
   
-  init(
-    title: String,
-    completion: String,
+  public init(
+    readingMessage: String,
+    errorMessage: String,
+    completionMessage: String,
     queue: DispatchQueue
   ) {
-    self.nfc = NFC()
+    self.readingMessage = readingMessage
+    self.errorMessage = errorMessage
+    self.completionMessage = completionMessage
+    self.queue = queue
+  }
+  
+  public func read() async throws -> [QuantitySample] {
+    /// We need to retain the NFC here, otherwise it's released inside `withCheckedThrowingContinuation`
+    var nfc: NFC!
+    
+    let values: [Glucose] = try await withCheckedThrowingContinuation { continuation in
+      nfc = NFC(
+        readingMessage: readingMessage,
+        errorMessage: errorMessage,
+        completionMessage: completionMessage,
+        continuation: continuation,
+        queue: queue
+      )
+      
+      nfc.startSession()
     }
+    
+    return values.map(QuantitySample.init)
+  }
 }

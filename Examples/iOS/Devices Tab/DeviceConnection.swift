@@ -125,18 +125,18 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       let brand = state.device.brand
       state.status = .searching
-
+      
       let createConnectedSource = Effect<Void, Error>.task {
         let provider = DevicesManager.provider(for: brand)
         try await VitalNetworkClient.shared.link.createConnectedSource(for: provider)
       }
-
+      
       let search = env.deviceManager.search(for: state.device)
         .first()
         .map(DeviceConnection.Action.scannedDevice)
         .receive(on: env.mainQueue)
         .eraseToEffect()
-
+      
       return Effect.concatenate(createConnectedSource.fireAndForget(), search)
       
     case let .scannedDevice(device):
@@ -190,14 +190,13 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       if case let .glucose(reading) = dataPoint {
         
         let glucosePoints = dataPoints.compactMap { $0.glucose }
-
+        
         let effect = Effect<Void, Error>.task {
           try await VitalNetworkClient.shared.timeSeries.post(
             .glucose(glucosePoints),
             stage: .daily,
             provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
-          )
-        }
+          )}
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
           .catch { error in
             return Just(DeviceConnection.Action.failedSentToServer(error.localizedDescription))
@@ -285,13 +284,13 @@ extension DeviceConnection {
             LazyImage(source: url(for: viewStore.device), resizingMode: .aspectFit)
               .frame(width: 200, height: 200, alignment: .leading)
             
-              Text("\(viewStore.status.rawValue)")
-                  .font(.system(size: 14))
-                .fontWeight(.medium)
-                .padding(.all, 5)
-                .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
-                .cornerRadius(5.0)
-
+            Text("\(viewStore.status.rawValue)")
+              .font(.system(size: 14))
+              .fontWeight(.medium)
+              .padding(.all, 5)
+              .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
+              .cornerRadius(5.0)
+            
             Spacer(minLength: 15)
             
             List {
@@ -345,7 +344,7 @@ extension DeviceConnection {
                         Text("\(Int(point.value))")
                           .font(.title)
                           .fontWeight(.medium)
-
+                        
                         Text("\(point.unit)")
                           .font(.footnote)
                       }

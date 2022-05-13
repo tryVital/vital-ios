@@ -120,14 +120,12 @@ extension String {
   }
 }
 
-
 extension Double {
   var units: String {
     UserDefaults.standard.bool(forKey: "displayingMillimoles") ?
     String(format: "%.1f", self / 18.0182) : String(format: "%.0f", self)
   }
 }
-
 
 extension Int {
   var hex: String { String(format: "%.2x", self) }

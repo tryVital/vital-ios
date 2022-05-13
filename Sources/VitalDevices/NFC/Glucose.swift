@@ -36,9 +36,9 @@ struct CalibrationInfo: Codable, Equatable {
   static var empty = CalibrationInfo()
 }
 
-struct Glucose: Identifiable, Codable {
+public struct Glucose: Identifiable, Codable, Hashable {
   
-  struct DataQuality: OptionSet, Codable, CustomStringConvertible {
+  struct DataQuality: OptionSet, Codable, CustomStringConvertible, Hashable {
     
     let rawValue: Int
     
@@ -89,7 +89,7 @@ struct Glucose: Identifiable, Codable {
   }
   
   /// id: minutes from sensor start
-  let id: Int
+  public let id: Int
   let date: Date
   let rawValue: Int
   let rawTemperature: Int
@@ -106,15 +106,8 @@ struct Glucose: Identifiable, Codable {
   var valueUnit: Double = 0
   
   var temperature: Double = 0
-  var calibration: Calibration? {
-    willSet(newCalibration) {
-      let slope  = (newCalibration!.slope + newCalibration!.slopeSlope  * Double(rawTemperature) + newCalibration!.offsetSlope) * newCalibration!.extraSlope
-      let offset = newCalibration!.offset + newCalibration!.slopeOffset * Double(rawTemperature) + newCalibration!.offsetOffset + newCalibration!.extraOffset
-      value = Int(round(slope * Double(rawValue) + offset))
-    }
-  }
     
-  init(rawValue: Int, rawTemperature: Int = 0, temperatureAdjustment: Int = 0, id: Int = 0, date: Date = Date(), hasError: Bool = false, dataQuality: DataQuality = .OK, dataQualityFlags: Int = 0, calibration: Calibration? = nil) {
+  init(rawValue: Int, rawTemperature: Int = 0, temperatureAdjustment: Int = 0, id: Int = 0, date: Date = Date(), hasError: Bool = false, dataQuality: DataQuality = .OK, dataQualityFlags: Int = 0) {
     self.id = id
     self.date = date
     self.rawValue = rawValue
@@ -124,14 +117,13 @@ struct Glucose: Identifiable, Codable {
     self.hasError = hasError
     self.dataQuality = dataQuality
     self.dataQualityFlags = dataQualityFlags
-    self.calibration = calibration
   }
   
-  init(bytes: [UInt8], id: Int = 0, date: Date = Date(), calibration: Calibration? = nil) {
+  init(bytes: [UInt8], id: Int = 0, date: Date = Date()) {
     let rawValue = Int(bytes[0]) + Int(bytes[1] & 0x1F) << 8
     let rawTemperature = Int(bytes[3]) + Int(bytes[4] & 0x3F) << 8
     // TODO: temperatureAdjustment
-    self.init(rawValue: rawValue, rawTemperature: rawTemperature, id: id, date: date, calibration: calibration)
+    self.init(rawValue: rawValue, rawTemperature: rawTemperature, id: id, date: date)
   }
   
   init(_ value: Int, temperature: Double = 0, id: Int = 0, date: Date = Date(), dataQuality: Glucose.DataQuality = .OK) {
@@ -143,7 +135,13 @@ struct Glucose: Identifiable, Codable {
 
 func factoryGlucose(rawGlucose: Glucose, calibrationInfo: CalibrationInfo) -> Glucose {
   
-  guard rawGlucose.id >= 0 && rawGlucose.rawValue > 0 && calibrationInfo != .empty else { return rawGlucose }
+  guard
+    rawGlucose.id >= 0 &&
+    rawGlucose.rawValue > 0 &&
+    calibrationInfo != .empty
+  else {
+    return rawGlucose
+  }
   
   let x: Double = 1000 + 71500
   let y: Double = 1000
@@ -157,7 +155,6 @@ func factoryGlucose(rawGlucose: Glucose, calibrationInfo: CalibrationInfo) -> Gl
   let logR = Darwin.log(R)
   let d = pow(logR, 3) * cd + pow(logR, 2) * cc + logR * cb + ca
   let temperature = 1 / d - 273.15
-  
   
   // https://github.com/JohanDegraeve/xdripswift/blob/master/xdrip/BluetoothTransmitter/CGM/Libre/Utilities/LibreMeasurement.swift
   
@@ -430,8 +427,7 @@ func factoryGlucose(rawGlucose: Glucose, calibrationInfo: CalibrationInfo) -> Gl
   return glucose
 }
 
-
-struct Calibration: Codable, Equatable {
+struct Calibration: Codable, Equatable, Hashable {
   var slope: Double = 0.0
   var offset: Double = 0.0
   var slopeSlope: Double = 0.0
@@ -461,4 +457,3 @@ struct Calibration: Codable, Equatable {
   
   static var empty = Calibration()
 }
-

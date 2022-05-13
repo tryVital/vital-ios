@@ -118,7 +118,10 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
   var systemInfo: NFCISO15693SystemInfo!
   var sensor: Sensor!
   
-  private let alertMessage: String
+  let readingMessage: String
+  let errorMessage: String
+  let completionMessage: String
+  private var continuation: CheckedContinuation<[Glucose], Error>?
   private let queue: DispatchQueue
   
   var taskRequest: TaskRequest? {
@@ -133,25 +136,40 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
   }
   
   public init(
-    alertMessage: String,
+    readingMessage: String,
+    errorMessage: String,
+    completionMessage: String,
+    continuation: CheckedContinuation<[Glucose], Error>?,
     queue: DispatchQueue
   ) {
-    self.alertMessage = alertMessage
+    self.readingMessage = readingMessage
+    self.errorMessage = errorMessage
+    self.completionMessage = completionMessage
+    self.continuation = continuation
     self.queue = queue
     super.init()
   }
   
+  deinit {
+    print("NFC deinit")
+  }
+  
   public func startSession() {
     session = NFCTagReaderSession(pollingOption: [.iso15693], delegate: self, queue: queue)
-    session?.alertMessage = alertMessage
+    session?.alertMessage = readingMessage
     session?.begin()
   }
   
   public func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {}
   
   public func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+    guard continuation != nil else { return }
+
     if let readerError = error as? NFCReaderError {
       if readerError.code != .readerSessionInvalidationErrorUserCanceled {
+        continuation?.resume(throwing: DeviceReadingError.failedReading)
+        continuation = nil
+        
         session.invalidate(errorMessage: "Connection failure: \(readerError.localizedDescription)")
       }
     }
@@ -160,15 +178,17 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
   public func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
     guard let firstTag = tags.first else { return }
     guard case .iso15693(let tag) = firstTag else { return }
-    
-    session.alertMessage = "Scan Complete"
+//    guard continuation != nil else { return }
     
     Task {
       do {
         try await session.connect(to: firstTag)
         connectedTag = tag
       } catch {
-        session.invalidate(errorMessage: "Connection failure: \(error.localizedDescription)")
+        continuation?.resume(throwing: DeviceReadingError.failedReading)
+        continuation = nil
+        
+        session.invalidate(errorMessage: errorMessage)
         return
       }
       
@@ -176,6 +196,7 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
       let retries = 5
       var requestedRetry = 0
       var failedToScan = false
+      
       repeat {
         
         failedToScan = false
@@ -184,7 +205,7 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
         }
         
         do {
-          patchInfo = Data(try await tag.customCommand(requestFlags: .highDataRate, customCommandCode: 0xA1, customRequestParameters: Data()))
+          patchInfo = try await tag.customCommand(requestFlags: .highDataRate, customCommandCode: 0xA1, customRequestParameters: Data())
         } catch {
           failedToScan = true
         }
@@ -194,7 +215,10 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
           AudioServicesPlaySystemSound(1520)
         } catch {
           if requestedRetry > retries {
-            session.invalidate(errorMessage: "Error while getting system info: \(error.localizedDescription)")
+            continuation?.resume(throwing: DeviceReadingError.failedReading)
+            continuation = nil
+            
+            session.invalidate(errorMessage: errorMessage)
             return
           }
           failedToScan = true
@@ -216,10 +240,23 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
         
       } while failedToScan && requestedRetry > 0
       
+      guard patchInfo.count != 0 else {
+        continuation?.resume(throwing: DeviceReadingError.failedReading)
+        continuation = nil
+        
+        session.invalidate(errorMessage: errorMessage)
+        return
+      }
+      
       let sensorType = SensorType(patchInfo: patchInfo)
       switch sensorType {
         case .libre3, .libre2, .libreProH:
-          fatalError("not supported")
+          continuation?.resume(throwing: DeviceReadingError.wrongDevice)
+          continuation = nil
+          
+          session.invalidate(errorMessage: errorMessage)
+          return
+
         default:
           sensor = Sensor()
       }
@@ -233,26 +270,13 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
           taskRequest == .prolong ||
           taskRequest == .activate {
         
-        var invalidateMessage = ""
-        
-        do {
-          try await execute(taskRequest!)
-        } catch let error as NFCError {
-          if error == .commandNotSupported {
-            let description = error.localizedDescription
-            invalidateMessage = description.prefix(1).uppercased() + description.dropFirst() + " by \(sensor.type)"
-          }
-        }
-        
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         taskRequest = .none
         
-        if invalidateMessage.isEmpty {
-          session.invalidate()
-        } else {
-          session.invalidate(errorMessage: invalidateMessage)
-        }
-        
+        continuation?.resume(throwing: DeviceReadingError.failedReading)
+        continuation = nil
+
+        session.invalidate(errorMessage: errorMessage)
         return
       }
       
@@ -274,20 +298,25 @@ public class NFC: NSObject, NFCTagReaderSessionDelegate {
         
       } catch {
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
-        session.invalidate(errorMessage: "\(error.localizedDescription)")
+        
+        continuation?.resume(throwing: DeviceReadingError.failedReading)
+        continuation = nil
+        
+        session.invalidate(errorMessage: errorMessage)
+        return
       }
+      
+      session.alertMessage = completionMessage
       
       if taskRequest == .readFRAM {
         taskRequest = .none
       }
       
-      for value in zip(sensor.factoryHistory, sensor.history) {
-        print("Factory history -> \(value.0.valueUnit) | Date: \(value.0.date)")
-        print("History         -> \(value.1.value) | Date: \(value.1.date)")
-        print("====")
-      }
+
+      let uniqueValues = (sensor.factoryTrend + sensor.factoryHistory).unique(by: \.date)
+      let ordered = uniqueValues.sorted { $0.date > $1.date }
       
-      print("____")
+      continuation?.resume(returning: ordered)
     }
   }
 }
