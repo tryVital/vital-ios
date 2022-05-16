@@ -46,19 +46,17 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
       return .none
       
     case let .successScanning(samples):
-      print(samples)
       return .none
       
     case let .failureScanning(message):
-      print(message)
       return .none
       
     case .startScanning:
       
       let effect = Effect<[QuantitySample], Error>.task {
         
-        let values = try await environment.libre1.read()
-        return values
+        let read = try await environment.libre1.read()
+        return read.samples
         }
         .map { DevicesExample.Action.successScanning($0) }
         .catch { error in

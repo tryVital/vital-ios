@@ -30,9 +30,6 @@ struct HealthKitExample: View {
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
-      .onAppear {
-        print("HealthKitExample-onAppear")
-      }
     }
   }
 }

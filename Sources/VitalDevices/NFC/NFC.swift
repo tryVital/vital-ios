@@ -121,7 +121,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
   let readingMessage: String
   let errorMessage: String
   let completionMessage: String
-  private var continuation: CheckedContinuation<[Glucose], Error>?
+  private var continuation: CheckedContinuation<(Sensor, [Glucose]), Error>?
   private let queue: DispatchQueue
   
   var taskRequest: TaskRequest? {
@@ -139,7 +139,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
     readingMessage: String,
     errorMessage: String,
     completionMessage: String,
-    continuation: CheckedContinuation<[Glucose], Error>?,
+    continuation: CheckedContinuation<(Sensor, [Glucose]), Error>?,
     queue: DispatchQueue
   ) {
     self.readingMessage = readingMessage
@@ -148,10 +148,6 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
     self.continuation = continuation
     self.queue = queue
     super.init()
-  }
-  
-  deinit {
-    print("NFC deinit")
   }
   
   func startSession() {
@@ -316,7 +312,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
       let uniqueValues = (sensor.factoryTrend + sensor.factoryHistory).unique(by: \.date)
       let ordered = uniqueValues.sorted { $0.date > $1.date }
       
-      continuation?.resume(returning: ordered)
+      continuation?.resume(returning: (sensor, ordered))
     }
   }
 }

@@ -20,7 +20,6 @@ actor VitalNetworkClientDelegate: APIClientDelegate {
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
     request.setValue(apiKey, forHTTPHeaderField: "x-vital-api-key")
-    print(request.cURLDescription())
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
