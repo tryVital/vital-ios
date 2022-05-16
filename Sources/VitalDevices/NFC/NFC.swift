@@ -160,7 +160,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
   
   func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
     guard continuation != nil else { return }
-
+    
     if let readerError = error as? NFCReaderError {
       if readerError.code != .readerSessionInvalidationErrorUserCanceled {
         continuation?.resume(throwing: DeviceReadingError.failedReading)
@@ -196,9 +196,6 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
       repeat {
         
         failedToScan = false
-        if requestedRetry > 0 {
-          AudioServicesPlaySystemSound(1520)
-        }
         
         do {
           patchInfo = try await tag.customCommand(requestFlags: .highDataRate, customCommandCode: 0xA1, customRequestParameters: Data())
@@ -208,7 +205,6 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
         
         do {
           systemInfo = try await tag.systemInfo(requestFlags: .highDataRate)
-          AudioServicesPlaySystemSound(1520)
         } catch {
           if requestedRetry > retries {
             continuation?.resume(throwing: DeviceReadingError.failedReading)
@@ -252,7 +248,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
           
           session.invalidate(errorMessage: errorMessage)
           return
-
+          
         default:
           sensor = Sensor()
       }
@@ -271,7 +267,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
         
         continuation?.resume(throwing: DeviceReadingError.failedReading)
         continuation = nil
-
+        
         session.invalidate(errorMessage: errorMessage)
         return
       }
@@ -286,8 +282,6 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
         let lastReadingDate = Date()
         
         sensor.lastReadingDate = lastReadingDate
-        
-        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         session.invalidate()
         
         sensor.fram = Data(data)
@@ -308,7 +302,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
         taskRequest = .none
       }
       
-
+      
       let uniqueValues = (sensor.factoryTrend + sensor.factoryHistory).unique(by: \.date)
       let ordered = uniqueValues.sorted { $0.date > $1.date }
       
