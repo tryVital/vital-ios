@@ -43,13 +43,13 @@ public class Libre1Reader {
   }
 }
 
-public struct Libre1Read {
+public struct Libre1Read: Equatable {
   public let samples: [QuantitySample]
   public let device: Libre1Device
 }
 
-public struct Libre1Device {
-  public enum State {
+public struct Libre1Device: Equatable {
+  public enum State: Equatable   {
     case unknown
     case notActivated
     case warmingUp

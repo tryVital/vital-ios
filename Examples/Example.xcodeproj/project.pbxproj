@@ -27,6 +27,7 @@
 		E8A286F427FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */; };
 		E8D530C52819C8D100E74B83 /* BetterSafariView in Frameworks */ = {isa = PBXBuildFile; productRef = E8D530C42819C8D100E74B83 /* BetterSafariView */; };
 		E8D6BF6527E249E6000A9589 /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E8D6BF6427E249E6000A9589 /* VitalHealthKit */; };
+		E8D7A95D283292E90039943E /* Libre1Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D7A95C283292E90039943E /* Libre1Connection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 		E8A286EF27FD85E300F1F1B1 /* Reducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reducer.swift; sourceTree = "<group>"; };
 		E8A286F127FDA44600F1F1B1 /* Identifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identifiable.swift; sourceTree = "<group>"; };
 		E8A286F327FDA47600F1F1B1 /* BloodPressureDataPoint+Identifiable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BloodPressureDataPoint+Identifiable.swift"; sourceTree = "<group>"; };
+		E8D7A95C283292E90039943E /* Libre1Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Libre1Connection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,6 +161,7 @@
 				E8A286E627FC8CC800F1F1B1 /* Models */,
 				E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */,
 				E8A286EC27FC992900F1F1B1 /* DeviceConnection.swift */,
+				E8D7A95C283292E90039943E /* Libre1Connection.swift */,
 			);
 			path = "Devices Tab";
 			sourceTree = "<group>";
@@ -312,6 +315,7 @@
 				E8A286F227FDA44600F1F1B1 /* Identifiable.swift in Sources */,
 				E84BB6602816C2280075327D /* LinkCreation.swift in Sources */,
 				E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */,
+				E8D7A95D283292E90039943E /* Libre1Connection.swift in Sources */,
 				E8913192280464DC0049608B /* Settings.swift in Sources */,
 				E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */,
 			);

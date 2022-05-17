@@ -22,7 +22,8 @@ public class DevicesManager {
           return nil
         }
         
-        let outcome = deviceModel.codes.reduce(false) { partialResult, code in
+        let codes = DevicesManager.codes(for: deviceModel.id)
+        let outcome = codes.reduce(false) { partialResult, code in
           guard partialResult == false else {
             return true
           }

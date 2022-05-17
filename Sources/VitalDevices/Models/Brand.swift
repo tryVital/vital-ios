@@ -3,6 +3,7 @@ public enum Brand: Equatable {
   case accuChek
   case contour
   case beurer
+  case libre
   
   public var name: String {
     switch self {
@@ -12,8 +13,10 @@ public enum Brand: Equatable {
         return "Omron"
       case .accuChek:
         return "Accu-Chek"
-    case .beurer:
+      case .beurer:
         return "Beurer"
+      case .libre:
+        return "FreeStyle Libre"
     }
   }
 }
@@ -22,21 +25,18 @@ public struct DeviceModel: Equatable, Identifiable {
   public let name: String
   public let kind: Kind
   public let brand: Brand
-
+  
   public let id: String
-  let codes: [String]
   
   init(
     id: String,
     name: String,
     brand: Brand,
-    codes: [String],
     kind: Kind
   ) {
     self.id = id
     self.name = name
     self.brand = brand
-    self.codes = codes
     self.kind = kind
   }
 }
