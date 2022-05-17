@@ -4,7 +4,7 @@ import Foundation
 func url(for device: DeviceModel) -> URL {
   
   var image: String
-  
+    
   switch device.name {
     case "Omron Intelli IT M4":
       image = "https://storage.googleapis.com/vital-assets/omron_m4.jpeg"
@@ -26,6 +26,10 @@ func url(for device: DeviceModel) -> URL {
     
     case "Beurer Devices":
       image = "https://storage.googleapis.com/vital-assets/beurer_devices.png"
+      
+    case "Freestyle Libre 1":
+      image = "https://storage.googleapis.com/vital-assets/libre1.png"
+      
     default:
       fatalError("Device not supported")
   }
@@ -40,5 +44,17 @@ func name(for deviceKind: DeviceModel.Kind) -> String {
       return "Glucose Meter"
     case .bloodPressure:
       return "Blood Pressure"
+  }
+}
+
+
+extension DeviceModel{
+  var isLibre: Bool {
+    switch self.brand {
+      case .libre:
+        return true
+      default:
+        return false
+    }
   }
 }

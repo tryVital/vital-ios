@@ -38,7 +38,7 @@ struct ExampleApp: App {
             }
             .tag(3)
         }
-        .onAppear {
+        .onAppear {          
           viewStore.send(.start)
         }
         .onOpenURL { url in
@@ -78,10 +78,10 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
     switch action {
       
       case .settings(.setup), .settings(.save):
-        if VitalNetworkClient.isSetup {
-          return Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
-        }
-        
+//        if VitalNetworkClient.isSetup {
+//          return Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
+//        }
+//
         return .none
         
       case let .callback(url):
