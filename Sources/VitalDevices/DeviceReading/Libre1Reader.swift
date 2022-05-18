@@ -37,18 +37,18 @@ public class Libre1Reader {
     }
     
     let samples = payload.1.map(QuantitySample.init)
-    let device = Libre1Device.init(sensor: payload.0)
+    let sensor = Libre1Sensor.init(sensor: payload.0)
     
-    return Libre1Read(samples: samples, device: device)
+    return Libre1Read(samples: samples, sensor: sensor)
   }
 }
 
 public struct Libre1Read: Equatable {
   public let samples: [QuantitySample]
-  public let device: Libre1Device
+  public let sensor: Libre1Sensor
 }
 
-public struct Libre1Device: Equatable {
+public struct Libre1Sensor: Equatable {
   public enum State: Equatable   {
     case unknown
     case notActivated
