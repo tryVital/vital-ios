@@ -29,7 +29,11 @@ let package = Package(
             dependencies: ["VitalCore"]),
         .target(
           name: "VitalDevices",
-          dependencies: ["CombineCoreBluetooth", "VitalCore"]),
+          dependencies: ["CombineCoreBluetooth", "VitalCore"],
+          exclude: [
+            "./LICENSE"
+          ]
+        ),
         .target(
           name: "VitalCore",
           dependencies: ["Get"]),

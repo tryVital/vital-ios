@@ -78,7 +78,7 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
     switch action {
       
       case .settings(.setup), .settings(.save):
-//        if VitalNetworkClient.isSetup {
+//        if VitalClient.isSetup {
 //          return Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
 //        }
 //
