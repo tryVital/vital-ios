@@ -66,7 +66,7 @@ public enum Environment: Equatable, Hashable, Codable {
   }
 }
 
-public class VitalNetworkClient {
+public class VitalClient {
   
   private let configuration: Configuration
   
@@ -78,22 +78,22 @@ public class VitalNetworkClient {
   let environment: Environment
   let dateFormatter = ISO8601DateFormatter()
     
-  public static var shared: VitalNetworkClient {
+  public static var shared: VitalClient {
     guard let client = Self.client else {
-      fatalError("`VitalNetworkClient` hasn't been configured.")
+      fatalError("`VitalClient` hasn't been configured.")
     }
     
     return client
   }
   
-  private static var client: VitalNetworkClient?
+  private static var client: VitalClient?
   
   public static func configure(
     apiKey: String,
     environment: Environment,
     configuration: Configuration = .init()
   ) {
-    let client = VitalNetworkClient(
+    let client = VitalClient(
       apiKey: apiKey,
       environment: environment,
       configuration: configuration
@@ -107,7 +107,7 @@ public class VitalNetworkClient {
   }
   
   public static func setUserId(_ userId: UUID) {
-    VitalNetworkClient.shared.userId = userId
+    VitalClient.shared.userId = userId
   }
   
   public init(
@@ -124,9 +124,9 @@ public class VitalNetworkClient {
       self.logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
     
-    self.logger?.info("VitalNetworkClient setup for environment \(String(describing: environment))")
+    self.logger?.info("VitalClient setup for environment \(String(describing: environment))")
     
-    let apiClientDelegate = VitalNetworkClientDelegate(
+    let apiClientDelegate = VitalClientDelegate(
       environment: environment,
       logger: logger,
       apiKey: apiKey
@@ -149,7 +149,7 @@ public class VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient {
+public extension VitalClient {
   struct Configuration {
     public let logsEnable: Bool
     

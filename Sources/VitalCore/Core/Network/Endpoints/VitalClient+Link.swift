@@ -1,12 +1,12 @@
 import Get
 import Foundation
 
-public extension VitalNetworkClient {
+public extension VitalClient {
   class Link {
-    let client: VitalNetworkClient
+    let client: VitalClient
     let path = "link"
     
-    init(client: VitalNetworkClient) {
+    init(client: VitalClient) {
       self.client = client
     }
   }
@@ -16,7 +16,7 @@ public extension VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient.Link {
+public extension VitalClient.Link {
   
   func createConnectedSource(
     _ userId: UUID,
@@ -36,7 +36,7 @@ public extension VitalNetworkClient.Link {
   ) async throws -> Void {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalNetworkClient.setUserId`")
+      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
     }
     
     let path = "/\(self.client.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
@@ -53,7 +53,7 @@ public extension VitalNetworkClient.Link {
   ) async throws -> URL {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalNetworkClient.setUserId`")
+      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
     }
     
     let path = "/\(self.client.apiVersion)/\(path)/token"

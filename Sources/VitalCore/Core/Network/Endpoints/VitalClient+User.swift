@@ -1,11 +1,11 @@
 import Get
 
-public extension VitalNetworkClient {
+public extension VitalClient {
   class User {
-    let client: VitalNetworkClient
+    let client: VitalClient
     let path = "user"
     
-    init(client: VitalNetworkClient) {
+    init(client: VitalClient) {
       self.client = client
     }
   }
@@ -15,7 +15,7 @@ public extension VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient.User {
+public extension VitalClient.User {
   func create(
     _ payload: CreateUserRequest,
     setUserIdOnSuccess: Bool = true
@@ -28,7 +28,7 @@ public extension VitalNetworkClient.User {
     let value = try await self.client.apiClient.send(request).value
     
     if setUserIdOnSuccess {
-      VitalNetworkClient.setUserId(value.userId)
+      VitalClient.setUserId(value.userId)
     }
     
     return value

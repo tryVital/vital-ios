@@ -5,12 +5,12 @@ public enum SimpleTimeSeriesResource {
   case glucose
 }
 
-public extension VitalNetworkClient {
+public extension VitalClient {
   class TimeSeries {
-    let client: VitalNetworkClient
+    let client: VitalClient
     let resource = "timeseries"
     
-    init(client: VitalNetworkClient) {
+    init(client: VitalClient) {
       self.client = client
     }
   }
@@ -20,7 +20,7 @@ public extension VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient.TimeSeries {
+public extension VitalClient.TimeSeries {
   func post(
     _ timeSeriesData: TimeSeriesData,
     stage: TaggedPayload.Stage,

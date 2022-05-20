@@ -75,7 +75,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       let payload = CreateUserRequest(clientUserId: clientUserId)
       
       let effect = Effect<CreateUserResponse, Error>.task {
-        let userResponse = try await VitalNetworkClient.shared.user.create(clientUserId: clientUserId)
+        let userResponse = try await VitalClient.shared.user.create(clientUserId: clientUserId)
         return userResponse
       }
       
@@ -98,7 +98,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       if
         state.credentials.apiKey.isEmpty == false
       {        
-        VitalNetworkClient.configure(
+        VitalClient.configure(
           apiKey: state.credentials.apiKey,
           environment: state.credentials.environment,
           configuration: .init(logsEnable: true)
@@ -109,7 +109,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         state.credentials.userId.isEmpty == false,
         let userId = UUID(uuidString: state.credentials.userId)
       {
-        VitalNetworkClient.setUserId(userId)
+        VitalClient.setUserId(userId)
       }
       
       return .none

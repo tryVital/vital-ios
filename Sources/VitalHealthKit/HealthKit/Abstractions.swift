@@ -54,9 +54,9 @@ extension VitalNetworkPostData {
     .init { data, stage, provider in
       switch data {
         case let .summary(summaryData):
-          try await VitalNetworkClient.shared.summary.post(summaryData, stage: stage, provider: provider)
+          try await VitalClient.shared.summary.post(summaryData, stage: stage, provider: provider)
         case let .timeSeries(timeSeriesData):
-          try await VitalNetworkClient.shared.timeSeries.post(timeSeriesData, stage: stage, provider: provider)
+          try await VitalClient.shared.timeSeries.post(timeSeriesData, stage: stage, provider: provider)
       }
     }
   }

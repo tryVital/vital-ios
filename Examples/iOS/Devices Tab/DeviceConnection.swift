@@ -118,7 +118,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return .none
       
     case .startScanning:
-      if VitalNetworkClient.isSetup == false {
+      if VitalClient.isSetup == false {
         state.status = .notSetup
         return .none
       }
@@ -128,7 +128,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       let createConnectedSource = Effect<Void, Error>.task {
         let provider = DevicesManager.provider(for: brand)
-        try await VitalNetworkClient.shared.link.createConnectedSource(for: provider)
+        try await VitalClient.shared.link.createConnectedSource(for: provider)
       }
       
       let search = env.deviceManager.search(for: state.device)
@@ -173,7 +173,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let bloodPressures = dataPoints.compactMap { $0.bloodPressure }
         
         let effect = Effect<Void, Error>.task {
-          try await VitalNetworkClient.shared.timeSeries.post(
+          try await VitalClient.shared.timeSeries.post(
             .bloodPressure(bloodPressures),
             stage: .daily,
             provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
@@ -192,7 +192,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         let glucosePoints = dataPoints.compactMap { $0.glucose }
         
         let effect = Effect<Void, Error>.task {
-          try await VitalNetworkClient.shared.timeSeries.post(
+          try await VitalClient.shared.timeSeries.post(
             .glucose(glucosePoints),
             stage: .daily,
             provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)

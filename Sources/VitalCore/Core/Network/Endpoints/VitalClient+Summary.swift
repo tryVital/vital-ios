@@ -1,12 +1,12 @@
 import Get
 import Foundation
 
-public extension VitalNetworkClient {
+public extension VitalClient {
   class Summary {
-    let client: VitalNetworkClient
+    let client: VitalClient
     let resource = "summary"
     
-    init(client: VitalNetworkClient) {
+    init(client: VitalClient) {
       self.client = client
     }
   }
@@ -16,7 +16,7 @@ public extension VitalNetworkClient {
   }
 }
 
-public extension VitalNetworkClient.Summary {  
+public extension VitalClient.Summary {  
   func post(
     _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,

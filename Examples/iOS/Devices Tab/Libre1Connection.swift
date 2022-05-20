@@ -78,7 +78,7 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
       return .none
       
     case .startReading:
-      if VitalNetworkClient.isSetup == false {
+      if VitalClient.isSetup == false {
         state.status = .notSetup
         return .none
       }
@@ -102,7 +102,7 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
       state.read = read
       
       let effect = Effect<Void, Error>.task {
-        try await VitalNetworkClient.shared.timeSeries.post(
+        try await VitalClient.shared.timeSeries.post(
           .glucose(read.samples),
           stage: .daily,
           provider: DevicesManager.provider(for: .libre)

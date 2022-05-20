@@ -3,7 +3,7 @@ import Foundation
 import os.log
 
 
-actor VitalNetworkClientDelegate: APIClientDelegate {
+actor VitalClientDelegate: APIClientDelegate {
   private let environment: Environment
   private let logger: Logger?
   private let apiKey: String

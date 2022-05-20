@@ -115,7 +115,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(false))
       
     case .fetchData:
-      if VitalNetworkClient.isSetup == false {
+      if VitalClient.isSetup == false {
         return .none
       }
       
@@ -125,8 +125,8 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         let calendar = Calendar.current
         let aWeekAgo = calendar.date(byAdding: .weekOfYear, value: -1, to: Date())!
         
-        let glucosePoints = try await VitalNetworkClient.shared.timeSeries.get(resource: .glucose, startDate: aWeekAgo)
-        let bloodPressurePoints = try await VitalNetworkClient.shared.timeSeries.getBloodPressure(startDate: aWeekAgo)
+        let glucosePoints = try await VitalClient.shared.timeSeries.get(resource: .glucose, startDate: aWeekAgo)
+        let bloodPressurePoints = try await VitalClient.shared.timeSeries.getBloodPressure(startDate: aWeekAgo)
 
         return .successFetchingData(glucosePoints, bloodPressurePoints)
       }.catch { error in
@@ -164,7 +164,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(true))
       
     case .generateLink:
-      if VitalNetworkClient.isSetup == false {
+      if VitalClient.isSetup == false {
         return .none
       }
       
@@ -173,7 +173,7 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       state.glucosePoints = []
       
       let effect = Effect<URL, Error>.task {
-        let url = try await VitalNetworkClient.shared.link.createProviderLink(redirectURL: "vitalExample://")
+        let url = try await VitalClient.shared.link.createProviderLink(redirectURL: "vitalExample://")
         return url
         
       }.map { (url: URL) -> LinkCreation.Action in
