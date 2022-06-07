@@ -7,7 +7,7 @@ jobs:
     runs-on: macos-12
     strategy:
       matrix:
-        scheme: ["VitalHealthKit"]
+        scheme: ["VitalHealthKit", "VitalDevices"]
     steps:
       - name: Xcode Select
         run: sudo xcode-select -s /Applications/Xcode_13.4.app
