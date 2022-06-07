@@ -6,8 +6,7 @@ import PackageDescription
 let package = Package(
     name: "vital-ios",
     platforms: [
-      .iOS(.v14),
-      .macOS(.v11)
+      .iOS(.v14)
     ],
     products: [
         .library(

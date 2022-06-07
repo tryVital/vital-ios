@@ -4,9 +4,17 @@ on: [push]
 
 jobs:
   build:
-    runs-on: macos-latest
-
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        destination: ["platform=iOS Simulator,OS=12.2,name=iPhone X"]
+        scheme: ["VitalHealthKit", "VitalDevices"]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@master
       - name: Build
-        run: swift build
+        run: |
+          xcodebuild clean build -scheme "${scheme}" -destination "${destination}"
+        env:
+          destination: ${{ matrix.destination }}
+          scheme: ${{ matrix.scheme }}
