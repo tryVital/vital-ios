@@ -9,6 +9,9 @@ jobs:
       matrix:
         scheme: ["VitalHealthKit", "VitalDevices"]
     steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - name: Checkout
         uses: actions/checkout@master
       - name: Build
