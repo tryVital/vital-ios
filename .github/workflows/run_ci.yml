@@ -1,0 +1,21 @@
+name: "Run CI"
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        scheme: ["VitalHealthKit"]
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Build
+        run: |
+          xcodebuild clean build -scheme "${scheme}" -destination 'generic/platform=iOS'
+        env:
+          scheme: ${{ matrix.scheme }}
