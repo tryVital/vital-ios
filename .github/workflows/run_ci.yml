@@ -7,14 +7,12 @@ jobs:
     runs-on: macOS-latest
     strategy:
       matrix:
-        destination: ["platform=iOS Simulator,OS=15.2,name=iPhone 8"]
         scheme: ["VitalHealthKit", "VitalDevices"]
     steps:
       - name: Checkout
         uses: actions/checkout@master
       - name: Build
         run: |
-          xcodebuild clean build -scheme "${scheme}" -destination "${destination}"
+          xcodebuild clean build -scheme "${scheme}" -destination 'generic/platform=iOS'
         env:
-          destination: ${{ matrix.destination }}
           scheme: ${{ matrix.scheme }}
