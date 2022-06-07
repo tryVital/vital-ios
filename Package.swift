@@ -7,7 +7,7 @@ let package = Package(
     name: "vital-ios",
     platforms: [
       .iOS(.v14),
-      .macOS(.v10_15)
+      .macOS(.v11)
     ],
     products: [
         .library(
