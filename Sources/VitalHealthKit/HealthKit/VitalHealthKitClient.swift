@@ -15,6 +15,7 @@ public class VitalHealthKitClient {
     case failedSyncing(VitalResource, Error?)
     case successSyncing(VitalResource)
     case nothingToSync(VitalResource)
+    case syncingCompleted
   }
   
   public static var shared: VitalHealthKitClient {
@@ -69,19 +70,8 @@ public class VitalHealthKitClient {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
-//    if configuration.backgroundUpdates {
-//      for type in allTypesForBackgroundDelivery() {
-//        self.store.enableBackgroundDelivery(for: type, frequency: .immediate) {[weak self] success, failure in
-//
-//          guard failure == nil && success else {
-//            self?.logger?.error("Failed to enable background delivery for \(String(describing: type)). This is a developer mistake")
-//            return
-//          }
-//
-//          self?.logger?.info("Succesfully enabled background delivery for \(String(describing: type))")
-//        }
-//      }
-//    }
+    let resources = resourcesAskedForPermission(store: self.store)
+    setupBackgroundUpdates(resources: resources)
   }
 }
 
@@ -93,17 +83,60 @@ public extension VitalHealthKitClient {
     
     public init(
       autoSync: Bool = false,
+      backgroundUpdates: Bool = false,
       logsEnable: Bool = true
     ) {
       self.autoSync = autoSync
       // More testing is required before exposing this feature
-      self.backgroundUpdates = false
+      self.backgroundUpdates = backgroundUpdates
       self.logsEnable = logsEnable
     }
   }
 }
 
 extension VitalHealthKitClient {
+  
+  private func setupBackgroundUpdates(resources: [VitalResource]) {
+    guard self.configuration.backgroundUpdates else { return }
+    guard resources.isEmpty == false else { return }
+    
+    let samplesToObserve = resources.flatMap(observedSamples(resource:))
+    
+    for sample in samplesToObserve {
+      
+      self.store.enableBackgroundDelivery(sample, .immediate) { [weak self] success, failure in
+        
+        guard failure == nil && success else {
+          self?.logger?.error("Failed to enable background delivery for \(String(describing: sample)). Did you enable \"Background Delivery\" in Capabilities?")
+          return
+        }
+        
+        self?.logger?.info("Succesfully enabled background delivery for \(String(describing: sample))")
+      }
+    }
+    
+    for resource in resources {
+      for sample in observedSamples(resource: resource) {
+        let query = HKObserverQuery(sampleType: sample, predicate: nil) {[weak self] query, handler, error in
+          
+          guard let strongSelf = self else { return }
+          
+          guard error == nil else {
+            self?.logger?.error("Failed to background deliver for \(String(describing: sample)).")
+            return
+          }
+          
+          Task(priority: .high) {
+            strongSelf.logger?.info("Syncing HealthKit in background for \(String(describing: sample))")
+            await strongSelf.sync(resource: resource, completion: handler)
+          }
+        }
+        
+        self.store.execute(query)
+      }
+    }
+    
+  }
   
   private func calculateStage(
     resource: VitalResource,
@@ -126,61 +159,80 @@ extension VitalHealthKitClient {
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
-      
-      let startDate: Date = .dateAgo(days: 30)
-      let endDate: Date = Date()
-          
       for resource in resources {
-        do {
-          // Signal syncing (so the consumer can convey it to the user)
-          _status.send(.syncing(resource))
-          self.logger?.info("Getting HealthKit data for: \(resource.logDescription)")
-          
-          // Fetch from HealthKit
-          let (data, entitiesToStore) = try await store.readData(
-            resource,
-            startDate,
-            endDate,
-            vitalStorage
-          )
-          
-          guard data.shouldSkipPost == false else {
-            self.logger?.info("No new data available for: \(data.name)")
-            _status.send(.nothingToSync(resource))
-            continue
-          }
-          
-          // Calculate if this daily data or historical
-          let stage = calculateStage(
-            resource: resource,
-            startDate: startDate,
-            endDate: endDate
-          )
-                    
-          // Post to the network
-          try await network.post(
-            data,
-            stage,
-            .appleHealthKit
-          )
-          
-          vitalStorage.storeFlag(for: resource)
-          
-          // Save the anchor/date on succesfull network call
-          entitiesToStore.forEach(vitalStorage.store(entity:))
-          
-          // Signal success
-          _status.send(.successSyncing(resource))
-          
-        }
-        catch let error {
-          // Signal failure
-          self.logger?.error(
-            "Failed syncing data for: \(resource.logDescription). Error: \(error.localizedDescription)"
-          )
-          _status.send(.failedSyncing(resource, error))
-        }
+        await sync(resource: resource)
       }
+      
+      _status.send(.syncingCompleted)
+    }
+  }
+  
+  private func sync(
+    resource: VitalResource,
+    completion: (() -> Void)? = nil
+  ) async {
+    
+    let startDate: Date = .dateAgo(days: 30)
+    let endDate: Date = Date()
+    
+    if completion == nil {
+      self.logger?.info("Syncing HealthKit data for: \(resource.logDescription)")
+    }
+    
+    do {
+      // Signal syncing (so the consumer can convey it to the user)
+      _status.send(.syncing(resource))
+      
+      // Fetch from HealthKit
+      let (data, entitiesToStore) = try await store.readData(
+        resource,
+        startDate,
+        endDate,
+        vitalStorage
+      )
+      
+      guard data.shouldSkipPost == false else {
+        self.logger?.info("Skipping. No new data available for: \(data.name)")
+        _status.send(.nothingToSync(resource))
+        return
+      }
+      
+      // Calculate if this daily data or historical
+      let stage = calculateStage(
+        resource: resource,
+        startDate: startDate,
+        endDate: endDate
+      )
+      
+      // Post to the network
+      try await network.post(
+        data,
+        stage,
+        .appleHealthKit
+      )
+      
+      vitalStorage.storeFlag(for: resource)
+      
+      // Save the anchor/date on succesfull network call
+      entitiesToStore.forEach(vitalStorage.store(entity:))
+      
+      // Signal success
+      _status.send(.successSyncing(resource))
+      
+      /// For background updates, call the completion handler
+      completion?()
+      
+      if completion != nil {
+        self.logger?.info("Completed syncing in background for \(String(describing: resource))")
+      }
+      
+    }
+    catch let error {
+      // Signal failure
+      self.logger?.error(
+        "Failed syncing data for: \(resource.logDescription). Error: \(error.localizedDescription)"
+      )
+      _status.send(.failedSyncing(resource, error))
     }
   }
   
@@ -194,6 +246,8 @@ extension VitalHealthKitClient {
     
     do {
       try await store.requestReadAuthorization(resources)
+      setupBackgroundUpdates(resources: resources)
+      
       return .success
     }
     catch let error {

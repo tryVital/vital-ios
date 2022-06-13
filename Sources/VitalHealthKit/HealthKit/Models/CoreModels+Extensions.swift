@@ -71,6 +71,7 @@ extension QuantitySample {
     case respiratoryRate
     
     case basalEnergyBurned
+    case activeEnergyBurned
     case steps
     case floorsClimbed
     case distanceWalkingRunning
@@ -99,7 +100,7 @@ extension QuantitySample {
           return "percent"
         case .restingHeartRate:
           return "bpm"
-        case .basalEnergyBurned:
+        case .basalEnergyBurned, .activeEnergyBurned:
           return "kJ"
         case .steps:
           return ""
@@ -137,7 +138,7 @@ extension QuantitySample {
         case .oxygenSaturation:
           return .percent()
           
-        case .basalEnergyBurned:
+        case .basalEnergyBurned, .activeEnergyBurned:
           return .kilocalorie()
         case .steps:
           return .count()
@@ -188,23 +189,6 @@ public extension SleepPatch.Sleep {
       startDate: value.startDate,
       endDate: value.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier
-    )
-  }
-}
-
-extension ActivityPatch.Activity {
-  public init?(activity: HKActivitySummary) {
-    
-    guard let date = activity.dateComponents(for: .current).date else {
-      return nil
-    }
-    
-    self.init(
-      date: date,
-      activeEnergyBurned: activity.activeEnergyBurned.doubleValue(for: .kilocalorie()),
-      exerciseTime: activity.appleExerciseTime.doubleValue(for: .minute()),
-      standingTime: activity.appleStandHours.doubleValue(for: .count()),
-      moveTime: activity.appleMoveTime.doubleValue(for: .minute())
     )
   }
 }

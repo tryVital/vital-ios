@@ -87,7 +87,7 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
       
       let effect = Effect<Libre1Read, Error>.task {
         
-        let read = try await environment.libre1.read()
+         let read = try await environment.libre1.read()
         return read
       }
         .map { Libre1Connection.Action.readingSuccesfully($0) }

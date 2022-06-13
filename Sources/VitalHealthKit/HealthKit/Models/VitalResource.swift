@@ -33,6 +33,8 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.categoryType(forIdentifier: .appleStandHour)!,
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       ]
@@ -57,16 +59,21 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
-
-func allTypesForBackgroundDelivery(
-) -> [HKObjectType] {
-  return VitalResource.all
-    .flatMap(toHealthKitTypes(resource:))
-    .filter {
-      return $0.isKind(of: HKCharacteristicType.self) == false
-          && $0.isKind(of: HKActivitySummaryType.self) == false
-    }
+func observedSamples(resource: VitalResource) -> [HKSampleType] {
+  toHealthKitTypes(resource: resource).compactMap {
+    return $0 as? HKSampleType
+  }
 }
+
+//func allTypesForBackgroundDelivery(
+//) -> [HKObjectType] {
+//  return VitalResource.all
+//    .flatMap(toHealthKitTypes(resource:))
+//    .filter {
+//      return $0.isKind(of: HKCharacteristicType.self) == false
+//          && $0.isKind(of: HKActivitySummaryType.self) == false
+//    }
+//}
 
 public func hasAskedForPermission(
   resource: VitalResource,

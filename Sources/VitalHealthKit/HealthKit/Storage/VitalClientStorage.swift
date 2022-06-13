@@ -3,11 +3,10 @@ import HealthKit
 import VitalCore
 
 class VitalStorage {
-
-  static let activityKey = "activity"
   
   private let prefix = "vital_anchor_"
   private let flag = "vital_anchor_"
+  private let connectedSourceCreated = "vital_health_kit_created"
 
   private let userDefaults: UserDefaults
   
@@ -16,6 +15,18 @@ class VitalStorage {
         
     let defaultValue: [String: String] = [:]
     userDefaults.register(defaults: defaultValue)
+  }
+  
+  func storeConnectedSourceCreated() {
+    userDefaults.set(true, forKey: connectedSourceCreated)
+  }
+  
+  func isConnectedSourceCreated() -> Bool {
+    userDefaults.bool(forKey: connectedSourceCreated)
+  }
+  
+  func removeConnectedSourceCreated() {
+    userDefaults.removeObject(forKey: connectedSourceCreated)
   }
   
   func storeFlag(for resource: VitalResource) {

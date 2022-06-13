@@ -27,6 +27,7 @@ public enum VitalResource: Equatable {
     .activity,
     .sleep,
     .vitals(.glucose),
+    .vitals(.bloodPressure)
   ]
   
   public var logDescription: String {

@@ -6,6 +6,8 @@ struct VitalHealthKitStore {
   var requestReadAuthorization: ([VitalResource]) async throws -> Void
   var hasAskedForPermission: (VitalResource) -> Bool
   var readData: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
+  var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
+  var execute: (HKObserverQuery) -> Void
 }
 
 extension VitalHealthKitStore {
@@ -28,6 +30,10 @@ extension VitalHealthKitStore {
           startDate: startDate,
           endDate: endDate
         )
+      } enableBackgroundDelivery: { (type, frequency, completion) in
+        store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
+      } execute: { query in
+        store.execute(query)
       }
   }
   
@@ -40,6 +46,10 @@ extension VitalHealthKitStore {
       true
     } readData: { _,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
+    } enableBackgroundDelivery: { _, _, _ in
+      return
+    } execute: { _ in
+      return
     }
   }
 }

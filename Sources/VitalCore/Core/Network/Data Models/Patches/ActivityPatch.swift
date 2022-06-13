@@ -3,11 +3,12 @@ import Foundation
 public struct ActivityPatch: Encodable {
   public struct Activity: Encodable {
     public let date: Date
-    public let activeEnergyBurned: Double
-    public let exerciseTime: Double
-    public let standingTime: Double
-    public let moveTime: Double
+//    public let activeEnergyBurned: Double
+//    public let exerciseTime: Double
+//    public let standingTime: Double
+//    public let moveTime: Double
     
+    public var activeEnergyBurned: [QuantitySample] = []
     public var basalEnergyBurned: [QuantitySample] = []
     public var steps: [QuantitySample] = []
     public var floorsClimbed: [QuantitySample] = []
@@ -16,10 +17,11 @@ public struct ActivityPatch: Encodable {
     
     public init(
       date: Date,
-      activeEnergyBurned: Double,
-      exerciseTime: Double,
-      standingTime: Double,
-      moveTime: Double,
+//      activeEnergyBurned: Double,
+//      exerciseTime: Double,
+//      standingTime: Double,
+//      moveTime: Double,
+      activeEnergyBurned: [QuantitySample] = [],
       basalEnergyBurned: [QuantitySample] = [],
       steps: [QuantitySample] = [],
       floorsClimbed: [QuantitySample] = [],
@@ -28,9 +30,9 @@ public struct ActivityPatch: Encodable {
     ) {
       self.date = date
       self.activeEnergyBurned = activeEnergyBurned
-      self.exerciseTime = exerciseTime
-      self.standingTime = standingTime
-      self.moveTime = moveTime
+//      self.exerciseTime = exerciseTime
+//      self.standingTime = standingTime
+//      self.moveTime = moveTime
       self.basalEnergyBurned = basalEnergyBurned
       self.steps = steps
       self.floorsClimbed = floorsClimbed

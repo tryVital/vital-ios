@@ -54,8 +54,8 @@ func handle(
         endDate: endDate
       )
       
-      let data = payload.lastActivityDate == nil ? [] : [StoredEntity.date(VitalStorage.activityKey, payload.lastActivityDate!)]
-      return (.summary(.activity(payload.acitivtyPatch)), data)
+      let entitiesToStore = payload.anchors.map { StoredEntity.anchor($0.key, $0.value) }
+      return (.summary(.activity(payload.activityPatch)), entitiesToStore)
       
     case .workout:
       let payload = try await handleWorkouts(
@@ -187,6 +187,7 @@ func handleSleep(
   endDate: Date
 ) async throws -> (sleepPatch: SleepPatch, anchors: [String: HKQueryAnchor]) {
   
+    
   var anchors: [String: HKQueryAnchor] = [:]
   let sleepType = HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!
   
@@ -263,72 +264,101 @@ func handleActivity(
   vitalStorage: VitalStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (acitivtyPatch: ActivityPatch, lastActivityDate: Date?) {
+) async throws -> (activityPatch: ActivityPatch, anchors: [String: HKQueryAnchor]) {
   
-  let startDate = vitalStorage.read(key: VitalStorage.activityKey)?.date ?? startDate
-  
-  let activities = try await activityQuery(
-    healthKitStore: healthKitStore,
-    startDate: startDate,
-    endDate: endDate
-  ).compactMap(ActivityPatch.Activity.init)
-  
-  
-  var copies: [ActivityPatch.Activity] = []
-  
-  for activity in activities {
+  func queryQuantities(
+    type: HKSampleType,
+    unit: QuantitySample.Unit
+  ) async throws -> (quantities: [QuantitySample], (key: String, anchor: HKQueryAnchor? )) {
     
-    let dayStart = activity.date.dayStart
-    let dayEnd = activity.date.dayEnd
-    
-    let basalEnergyBurned: [QuantitySample] = try await querySample(
+    let payload = try await query(
       healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .basalEnergyBurned)!,
-      startDate: dayStart,
-      endDate: dayEnd
-    ).compactMap { .init($0, unit: .basalEnergyBurned) }
+      vitalStorage: vitalStorage,
+      type: type,
+      startDate: startDate,
+      endDate: endDate
+    )
     
-    let steps: [QuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .stepCount)!,
-      startDate: dayStart,
-      endDate: dayEnd
-    ).compactMap { .init($0, unit: .steps) }
+    let quantities: [QuantitySample] = payload.sample.compactMap {
+      .init($0, unit: unit)
+    }
     
-    let floorsClimbed: [QuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .flightsClimbed)!,
-      startDate: dayStart,
-      endDate: dayEnd
-    ).compactMap { .init($0, unit: .floorsClimbed) }
-    
-    let distanceWalkingRunning: [QuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
-      startDate: dayStart,
-      endDate: dayEnd
-    ).compactMap { .init($0, unit: .distanceWalkingRunning) }
-    
-    let vo2Max: [QuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .vo2Max)!,
-      startDate: dayStart,
-      endDate: dayEnd
-    ).compactMap { .init($0, unit: .vo2Max) }
-    
-    var copy = activity
-    
-    copy.basalEnergyBurned = basalEnergyBurned
-    copy.steps = steps
-    copy.floorsClimbed = floorsClimbed
-    copy.distanceWalkingRunning = distanceWalkingRunning
-    copy.vo2Max = vo2Max
-    
-    copies.append(copy)
+    return (quantities, (String(describing: type), payload.anchor))
   }
   
-  let lastActivityDate = copies.sorted { $0.date > $1.date }.first?.date
-  return (.init(activities: copies), lastActivityDate)
+  var anchors: [String: HKQueryAnchor] = [:]
+  
+  
+  let (activeEnergyBurned, activeEnergyBurnedAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .activeEnergyBurned)!,
+    unit: .activeEnergyBurned
+  )
+  
+  let (basalEnergyBurned, basalEnergyBurnedAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .basalEnergyBurned)!,
+    unit: .activeEnergyBurned
+  )
+  
+  let (steps, stepsAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .stepCount)!,
+    unit: .steps
+  )
+  
+  let (floorsClimbed, floorsClimbedAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .flightsClimbed)!,
+    unit: .floorsClimbed
+  )
+  
+  let (distanceWalkingRunning, distanceWalkingRunningAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
+    unit: .distanceWalkingRunning
+  )
+  
+  let (vo2Max, vo2MaxAnchor) = try await queryQuantities(
+    type: .quantityType(forIdentifier: .vo2Max)!,
+    unit: .vo2Max
+  )
+  
+  anchors.setSafely(activeEnergyBurnedAnchor.anchor, key: activeEnergyBurnedAnchor.key)
+  anchors.setSafely(basalEnergyBurnedAnchor.anchor, key: basalEnergyBurnedAnchor.key)
+  anchors.setSafely(stepsAnchor.anchor, key: stepsAnchor.key)
+  anchors.setSafely(floorsClimbedAnchor.anchor, key: floorsClimbedAnchor.key)
+  anchors.setSafely(distanceWalkingRunningAnchor.anchor, key: distanceWalkingRunningAnchor.key)
+  anchors.setSafely(vo2MaxAnchor.anchor, key: vo2MaxAnchor.key)
+
+  
+  let allSamples = Array(
+    [
+      activeEnergyBurned,
+      basalEnergyBurned,
+      steps,
+      floorsClimbed,
+      distanceWalkingRunning,
+      vo2Max
+    ].joined()
+  )
+  
+  let allDates: Set<Date> = Set(allSamples.reduce([]) { acc, next in
+    acc + [next.startDate.dayStart]
+  })
+    
+  let activities: [ActivityPatch.Activity] = allDates.map { date in
+    func filter(_ samples: [QuantitySample]) -> [QuantitySample] {
+      samples.filter { $0.startDate.dayStart == date }
+    }
+   
+    return ActivityPatch.Activity(
+      date: date,
+      activeEnergyBurned: filter(activeEnergyBurned),
+      basalEnergyBurned: filter(basalEnergyBurned),
+      steps: filter(steps),
+      floorsClimbed: filter(floorsClimbed),
+      distanceWalkingRunning: filter(distanceWalkingRunning),
+      vo2Max: filter(vo2Max)
+    )
+  }
+
+  return (.init(activities: activities), anchors: anchors)
 }
 
 func handleWorkouts(
@@ -496,7 +526,7 @@ private func querySample(
     let sort = [
       NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
     ]
-    
+        
     let query = HKSampleQuery(
       sampleType: type,
       predicate: predicate,
@@ -508,6 +538,7 @@ private func querySample(
     healthKitStore.execute(query)
   }
 }
+
 private func querySeries(
   healthKitStore: HKHealthStore,
   type: HKQuantityType,
@@ -561,6 +592,7 @@ private func activityQuery(
     
     let handler: ActivityQueryHandler = { (query, activities, error) in
       healthKitStore.stop(query)
+      
       if let error = error {
         continuation.resume(with: .failure(error))
         return
@@ -592,7 +624,6 @@ private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSam
     return false
   }
 }
-
 
 private func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
   func _mergeSleeps(sleeps: [SleepPatch.Sleep], sleep: SleepPatch.Sleep) -> [SleepPatch.Sleep] {
