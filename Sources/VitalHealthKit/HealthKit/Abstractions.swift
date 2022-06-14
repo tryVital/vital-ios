@@ -5,7 +5,10 @@ struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   var requestReadAuthorization: ([VitalResource]) async throws -> Void
   var hasAskedForPermission: (VitalResource) -> Bool
-  var readData: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
+  
+  var readResource: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
+  var readSample: (HKSampleType, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
+
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void
 }
@@ -22,9 +25,17 @@ extension VitalHealthKitStore {
         return toHealthKitTypes(resource: resource)
           .map { store.authorizationStatus(for: $0) != .notDetermined }
           .reduce(true, { $0 && $1})
-      } readData: { (resource, startDate, endDate, storage) in
-        try await handle(
+      } readResource: { (resource, startDate, endDate, storage) in
+        try await read(
           resource: resource,
+          store: store,
+          vitalStorage: storage,
+          startDate: startDate,
+          endDate: endDate
+        )
+      } readSample: { (type, startDate, endDate, storage) in
+        try await read(
+          type: type,
           store: store,
           vitalStorage: storage,
           startDate: startDate,
@@ -44,7 +55,9 @@ extension VitalHealthKitStore {
       return
     } hasAskedForPermission: { _ in
       true
-    } readData: { _,_,_,_  in
+    } readResource: { _,_,_,_  in
+      return (PostResourceData.timeSeries(.glucose([])), [])
+    } readSample: { _,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return

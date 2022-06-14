@@ -1,6 +1,49 @@
 import HealthKit
 import VitalCore
 
+extension HKSampleType {
+  
+  var toVitalResource: VitalResource {
+    
+    switch self {
+      case
+        HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
+        HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
+        
+        return .body
+        
+      case HKQuantityType.quantityType(forIdentifier: .height)!:
+        return .profile
+        
+      case HKSampleType.workoutType():
+        return .workout
+        
+      case HKSampleType.categoryType(forIdentifier: .sleepAnalysis):
+        return .sleep
+        
+      case
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .stepCount)!,
+        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+        HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+        return .activity
+        
+      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
+        return .vitals(.glucose)
+        
+      case
+        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
+        return .vitals(.bloodPressure)
+        
+      default:
+        fatalError("\(String(describing: self)) type not supported)")
+    }
+  }
+}
+
 extension BloodPressureSample {
   init?(
     _ sample: HKSample
@@ -24,8 +67,8 @@ extension BloodPressureSample {
       correlation.objects.count == 2,
       let diastolic = correlation.objects.first(where: testType(.bloodPressureDiastolic)),
       let systolic = correlation.objects.first(where: testType(.bloodPressureSystolic)),
-      let diastolicSample = QuantitySample(diastolic, unit: .bloodPressure),
-      let systolicSample = QuantitySample(systolic, unit: .bloodPressure)
+      let diastolicSample = QuantitySample(diastolic),
+      let systolicSample = QuantitySample(systolic)
     else {
       return nil
     }
@@ -40,8 +83,7 @@ extension BloodPressureSample {
 
 extension QuantitySample {
   init?(
-    _ sample: HKSample,
-    unit: Unit
+    _ sample: HKSample
   ) {
     guard let value = sample as? HKQuantitySample else {
       return nil
@@ -49,114 +91,114 @@ extension QuantitySample {
     
     self.init(
       id: value.uuid.uuidString,
-      value: value.quantity.doubleValue(for: unit.toHealthKit),
+      value: value.quantity.doubleValue(for: sample.sampleType.toHealthKitUnits),
       startDate: value.startDate,
       endDate: value.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       type: "manual",
-      unit: unit.toStringRepresentation
+      unit: sample.sampleType.toUnitStringRepresentation
     )
   }
 }
 
-extension QuantitySample {
-  enum Unit {
-    case height
-    case bodyMass
-    case bodyFatPercentage
-    case heartRate
-    case heartRateVariability
-    case restingHeartRate
-    case oxygenSaturation
-    case respiratoryRate
-    
-    case basalEnergyBurned
-    case activeEnergyBurned
-    case steps
-    case floorsClimbed
-    case distanceWalkingRunning
-    case vo2Max
-    
-    case glucose
-    
-    case bloodPressure
-    
-    var toStringRepresentation: String {
-      switch self {
-        case .bodyMass:
-          return "kg"
-        case .bodyFatPercentage:
-          return "percent"
-        case .height:
-          return "cm"
-        case .heartRate:
-          return "bpm"
-        case .respiratoryRate:
-          //  "breaths per minute"
-          return "bpm"
-        case .heartRateVariability:
-          return "rmssd"
-        case .oxygenSaturation:
-          return "percent"
-        case .restingHeartRate:
-          return "bpm"
-        case .basalEnergyBurned, .activeEnergyBurned:
-          return "kJ"
-        case .steps:
-          return ""
-        case .floorsClimbed:
-          return ""
-        case .distanceWalkingRunning:
-          return "m"
-        case .vo2Max:
-          return "mL/kg/min)"
-        case .glucose:
-          return "mmol/L"
-          
-        case .bloodPressure:
-          return "mmHg"
-      }
+extension HKSampleType {
+  var toUnitStringRepresentation: String {
+    switch self {
+      case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
+        return "kg"
+      case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
+        return "percent"
+        
+      case HKQuantityType.quantityType(forIdentifier: .height)!:
+        return "cm"
+        
+      case HKSampleType.quantityType(forIdentifier: .heartRate)!:
+        return "bpm"
+      case HKSampleType.quantityType(forIdentifier: .respiratoryRate)!:
+        //  "breaths per minute"
+        return "bpm"
+        
+      case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
+        return "rmssd"
+      case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
+        return "percent"
+      case HKSampleType.quantityType(forIdentifier: .restingHeartRate)!:
+        return "bpm"
+      
+      case
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
+        return "kJ"
+        
+      case HKSampleType.quantityType(forIdentifier: .stepCount)!:
+        return ""
+      case HKSampleType.quantityType(forIdentifier: .flightsClimbed)!:
+        return ""
+      case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
+        return "m"
+      case  HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+        return "mL/kg/min"
+        
+      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
+        return "mmol/L"
+        
+      case
+        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
+        return "mmHg"
+        
+      default:
+        fatalError("\(String(describing: self)) type not supported)")
     }
-    
-    var toHealthKit: HKUnit {
-      switch self {
-        case .heartRate:
-          return .count().unitDivided(by: .minute())
-        case .bodyMass:
-          return .gramUnit(with: .kilo)
-        case .bodyFatPercentage:
-          return .percent()
-        case .height:
-          return .meterUnit(with: .centi)
-          
-        case .heartRateVariability:
-          return .secondUnit(with: .milli)
-        case .restingHeartRate:
-          return .count().unitDivided(by: .minute())
-        case .respiratoryRate:
-          return .count().unitDivided(by: .minute())
-        case .oxygenSaturation:
-          return .percent()
-          
-        case .basalEnergyBurned, .activeEnergyBurned:
-          return .kilocalorie()
-        case .steps:
-          return .count()
-        case .floorsClimbed:
-          return .count()
-        case .distanceWalkingRunning:
-          return .meter()
-        case .vo2Max:
-          // ml/(kg*min)
-          return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
-          
-        case .glucose:
-          //  mmol/L
-          return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
-          
-        case .bloodPressure:
-          return .millimeterOfMercury()
-      }
+  }
+  
+  var toHealthKitUnits: HKUnit {
+    switch self {
+      case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
+        return .gramUnit(with: .kilo)
+      case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
+        return .percent()
+        
+      case HKQuantityType.quantityType(forIdentifier: .height)!:
+        return .meterUnit(with: .centi)
+        
+      case HKSampleType.quantityType(forIdentifier: .heartRate)!:
+        return .count().unitDivided(by: .minute())
+      case HKSampleType.quantityType(forIdentifier: .respiratoryRate)!:
+        //  "breaths per minute"
+        return .count().unitDivided(by: .minute())
+        
+      case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
+        return .secondUnit(with: .milli)
+      case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
+        return .percent()
+      case HKSampleType.quantityType(forIdentifier: .restingHeartRate)!:
+        return .count().unitDivided(by: .minute())
+        
+      case
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
+        return .kilocalorie()
+        
+      case HKSampleType.quantityType(forIdentifier: .stepCount)!:
+        return .count()
+      case HKSampleType.quantityType(forIdentifier: .flightsClimbed)!:
+        return .count()
+      case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
+        return .meter()
+      case  HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+        return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
+        
+      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
+        return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
+        
+      case
+        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
+        return .millimeterOfMercury()
+        
+      default:
+        fatalError("\(String(describing: self)) type not supported)")
     }
   }
 }

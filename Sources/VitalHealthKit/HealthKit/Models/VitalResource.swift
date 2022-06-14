@@ -28,13 +28,10 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       
     case .activity:
       return [
-        HKSampleType.activitySummaryType(),
         HKSampleType.quantityType(forIdentifier: .stepCount)!,
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKSampleType.categoryType(forIdentifier: .appleStandHour)!,
-        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       ]
@@ -59,21 +56,53 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
-func observedSamples(resource: VitalResource) -> [HKSampleType] {
-  toHealthKitTypes(resource: resource).compactMap {
-    return $0 as? HKSampleType
+func resource(forType type: HKSampleType) -> VitalResource {
+
+  for resource in VitalResource.all {
+    let types = toHealthKitTypes(resource: resource)
+    
+    if types.contains(type) {
+      return resource
+    }
   }
+  
+  fatalError("Type \(String.init(describing: type)), wasn't found. This seems like a developer error)")
 }
 
-//func allTypesForBackgroundDelivery(
-//) -> [HKObjectType] {
-//  return VitalResource.all
-//    .flatMap(toHealthKitTypes(resource:))
-//    .filter {
-//      return $0.isKind(of: HKCharacteristicType.self) == false
-//          && $0.isKind(of: HKActivitySummaryType.self) == false
-//    }
-//}
+func observedSampleTypes() -> [HKSampleType] {
+  return [
+    /// Profile
+    HKQuantityType.quantityType(forIdentifier: .height)!,
+    
+    
+    /// Body
+    HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
+    HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
+
+    /// Sleep
+    HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
+
+    /// Activity
+    HKSampleType.quantityType(forIdentifier: .stepCount)!,
+    HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+    HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+    HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+    HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+    HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+    
+    /// Workout
+    HKSampleType.workoutType(),
+
+    /// Vitals Glucose
+    HKSampleType.quantityType(forIdentifier: .bloodGlucose)!,
+
+    /// Vitals BloodPressure
+    /// We only need to observe one, we know the other will be present. If we observe both,
+    /// we are triggering the observer twice.
+    //  HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+    HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
+  ]
+}
 
 public func hasAskedForPermission(
   resource: VitalResource,
