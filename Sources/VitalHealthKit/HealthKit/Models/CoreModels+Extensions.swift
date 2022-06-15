@@ -1,10 +1,71 @@
 import HealthKit
 import VitalCore
 
+extension ActivityPatch.Activity {
+  init(sampleType: HKSampleType, date: Date, samples: [QuantitySample]) {
+    switch sampleType {
+      case .quantityType(forIdentifier: .activeEnergyBurned)!:
+        self.init(date: date, activeEnergyBurned: samples)
+        
+      case .quantityType(forIdentifier: .basalEnergyBurned)!:
+        self.init(date: date, basalEnergyBurned: samples)
+        
+      case .quantityType(forIdentifier: .stepCount)!:
+        self.init(date: date, steps: samples)
+        
+      case .quantityType(forIdentifier: .flightsClimbed)!:
+        self.init(date: date, floorsClimbed: samples)
+        
+      case .quantityType(forIdentifier: .distanceWalkingRunning)!:
+        self.init(date: date, distanceWalkingRunning: samples)
+        
+      case .quantityType(forIdentifier: .vo2Max)!:
+        self.init(date: date, vo2Max: samples)
+        
+      default:
+        fatalError("\(String(describing: sampleType)) cannot be used when constructing an ActivityPatch.Activity")
+    }
+  }
+}
+
+extension ActivityPatch {
+  init(sampleType: HKSampleType, samples: [QuantitySample]) {
+    
+    let allDates: Set<Date> = Set(samples.reduce([]) { acc, next in
+      acc + [next.startDate.dayStart]
+    })
+    
+    let activities = allDates.map { date -> ActivityPatch.Activity in
+      func filter(_ samples: [QuantitySample]) -> [QuantitySample] {
+        samples.filter { $0.startDate.dayStart == date }
+      }
+      
+      let filteredSamples = filter(samples)
+      return ActivityPatch.Activity(sampleType: sampleType, date: date, samples: filteredSamples)
+    }
+    
+    self.init(activities: activities)
+  }
+}
+
+extension BodyPatch {
+  init(sampleType: HKSampleType, samples: [QuantitySample]) {
+    switch sampleType {
+      case .quantityType(forIdentifier: .bodyMass)!:
+        self.init(bodyMass: samples)
+        
+      case .quantityType(forIdentifier: .bodyFatPercentage)!:
+        self.init(bodyFatPercentage: samples)
+        
+      default:
+        fatalError("\(String(describing: sampleType)) cannot be used when constructing an BodyPatch")
+    }
+  }
+}
+
 extension HKSampleType {
   
   var toVitalResource: VitalResource {
-    
     switch self {
       case
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
@@ -39,7 +100,7 @@ extension HKSampleType {
         return .vitals(.bloodPressure)
         
       default:
-        fatalError("\(String(describing: self)) type not supported)")
+        fatalError("\(String(describing: self)) is not supported. This seems like a developer error")
     }
   }
 }

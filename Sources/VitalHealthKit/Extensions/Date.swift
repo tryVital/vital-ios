@@ -10,12 +10,16 @@ extension Date {
     let units: Set<Calendar.Component> = [.day, .month, .year, .era]
     var dateComponents = Calendar.current.dateComponents(units, from: self)
     dateComponents.calendar = Calendar.current
-    
+
     return dateComponents
   }
   
   var dayStart: Date {
-    return Calendar.current.startOfDay(for: self)
+    var calendar = Calendar.current
+    calendar.timeZone = TimeZone(abbreviation: "UTC")!
+    
+    let date = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: self)!
+    return date
   }
   
   var dayEnd: Date {

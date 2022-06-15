@@ -27,7 +27,7 @@ public extension VitalClient.TimeSeries {
     provider: Provider
   ) async throws -> Void {
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+      fatalError("VitalClient's `userId` hasn't been set. Please call `setUserId`")
     }
     
     let taggedPayload = TaggedPayload(
@@ -51,7 +51,7 @@ public extension VitalClient.TimeSeries {
   ) async throws -> [TimeSeriesDataPoint] {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+      fatalError("VitalClient's `userId` hasn't been set. Please call `setUserId`")
     }
     
     let query = makeQuery(startDate: startDate, endDate: endDate)
@@ -73,7 +73,7 @@ public extension VitalClient.TimeSeries {
   ) async throws -> [BloodPressureDataPoint] {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
+      fatalError("VitalClient's `userId` hasn't been set. Please call `setUserId`")
     }
     
     let path = makePath(for: "blood_pressure", userId: userId.uuidString)

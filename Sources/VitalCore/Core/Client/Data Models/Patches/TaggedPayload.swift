@@ -33,6 +33,15 @@ public extension TaggedPayload {
   enum Stage {
     case daily
     case historical(start: Date, end: Date)
+    
+    public var isDaily: Bool {
+      switch self {
+        case .daily:
+          return true
+        case .historical:
+          return false
+      }
+    }
   }
   
   enum Data: Encodable {

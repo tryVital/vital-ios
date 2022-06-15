@@ -36,7 +36,7 @@ public extension VitalClient.Link {
   ) async throws -> Void {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
+      fatalError("VitalClient's `userId` hasn't been set. Please call `VitalClient.setUserId`")
     }
     
     let path = "/\(self.client.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
@@ -53,7 +53,7 @@ public extension VitalClient.Link {
   ) async throws -> URL {
     
     guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
+      fatalError("VitalClient's `userId` hasn't been set. Please call `VitalClient.setUserId`")
     }
     
     let path = "/\(self.client.apiVersion)/\(path)/token"

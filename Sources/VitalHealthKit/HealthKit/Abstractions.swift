@@ -6,8 +6,8 @@ struct VitalHealthKitStore {
   var requestReadAuthorization: ([VitalResource]) async throws -> Void
   var hasAskedForPermission: (VitalResource) -> Bool
   
-  var readResource: (VitalResource, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
-  var readSample: (HKSampleType, Date, Date, VitalStorage) async throws -> (PostResourceData, [StoredEntity])
+  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
+  var readSample: (HKSampleType, TaggedPayload.Stage, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void
@@ -28,15 +28,16 @@ extension VitalHealthKitStore {
       } readResource: { (resource, startDate, endDate, storage) in
         try await read(
           resource: resource,
-          store: store,
+          healthKitStore: store,
           vitalStorage: storage,
           startDate: startDate,
           endDate: endDate
         )
-      } readSample: { (type, startDate, endDate, storage) in
+      } readSample: { (type, stage, startDate, endDate, storage) in
         try await read(
           type: type,
-          store: store,
+          stage: stage,
+          healthKitStore: store,
           vitalStorage: storage,
           startDate: startDate,
           endDate: endDate
@@ -57,7 +58,7 @@ extension VitalHealthKitStore {
       true
     } readResource: { _,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
-    } readSample: { _,_,_,_  in
+    } readSample: { _,_,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return
@@ -68,12 +69,13 @@ extension VitalHealthKitStore {
 }
 
 
-struct VitalNetworkPostData {
+struct VitalClientProtocol {
   var post: (PostResourceData, TaggedPayload.Stage, Provider) async throws -> Void
+  var checkConnectedSource: (Provider) async throws -> Void
 }
 
-extension VitalNetworkPostData {
-  static var live: VitalNetworkPostData {
+extension VitalClientProtocol {
+  static var live: VitalClientProtocol {
     .init { data, stage, provider in
       switch data {
         case let .summary(summaryData):
@@ -81,12 +83,16 @@ extension VitalNetworkPostData {
         case let .timeSeries(timeSeriesData):
           try await VitalClient.shared.timeSeries.post(timeSeriesData, stage: stage, provider: provider)
       }
+    } checkConnectedSource: { provider in
+      try await VitalClient.shared.checkConnectedSource(for: provider)
     }
   }
   
-  static var debug: VitalNetworkPostData {
+  static var debug: VitalClientProtocol {
     .init { _,_,_ in
       return ()
+    } checkConnectedSource: { _ in
+      return
     }
   }
 }

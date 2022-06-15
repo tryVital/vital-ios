@@ -69,6 +69,7 @@ public enum Environment: Equatable, Hashable, Codable {
 public class VitalClient {
   
   private let configuration: Configuration
+  private let storage: VitalCoreStorage
   
   var logger: Logger? = nil
   var userId: UUID?
@@ -102,24 +103,18 @@ public class VitalClient {
     Self.client = client
   }
   
-  public static var isSetup: Bool {
-    Self.client != nil && Self.client?.userId != nil
-  }
-  
-  public static func setUserId(_ userId: UUID) {
-    VitalClient.shared.userId = userId
-  }
-  
-  public init(
+  init(
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
+    storage: VitalCoreStorage = .init(),
     apiVersion: String = "v2"
   ) {
     self.environment = environment
-    self.apiVersion = apiVersion
     self.configuration = configuration
-    
+    self.storage = storage
+    self.apiVersion = apiVersion
+
     if configuration.logsEnable {
       self.logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
@@ -146,6 +141,31 @@ public class VitalClient {
       configuration.encoder = encoder
       configuration.decoder = decoder
     }
+  }
+  
+  public static var isSetup: Bool {
+    Self.client != nil && Self.client?.userId != nil
+  }
+  
+  public static func setUserId(_ userId: UUID) {
+    VitalClient.shared.userId = userId
+  }
+  
+  public func checkConnectedSource(for provider: Provider) async throws {
+    guard let userId = self.userId else {
+      fatalError("VitalClient's userId hasn't been set. Please call `setUserId:`")
+    }
+    
+    guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
+      return
+    }
+    
+    try await self.link.createConnectedSource(userId, provider: provider)
+    storage.storeConnectedSource(for: userId, with: provider)
+  }
+  
+  public func cleanUp() {
+    /// TBD
   }
 }
 

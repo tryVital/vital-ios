@@ -33,16 +33,12 @@ public class VitalHealthKitClient {
   ) {
     let client = VitalHealthKitClient(configuration: configuration)
     Self.client = client
-    
-//    if configuration.autoSync {
-//      client.syncData()
-//    }
   }
   
   private let store: VitalHealthKitStore
   private let configuration: Configuration
-  private let vitalStorage: VitalStorage
-  private let network: VitalNetworkPostData
+  private let storage: VitalHealthKitStorage
+  private let vitaClient: VitalClientProtocol
   
   private let _status: PassthroughSubject<Status, Never>
   
@@ -51,18 +47,17 @@ public class VitalHealthKitClient {
   }
   
   private var logger: Logger? = nil
-
   
   init(
     configuration: Configuration,
     store: VitalHealthKitStore = .live,
-    storage: VitalStorage = .init(),
-    network: VitalNetworkPostData = .live
+    storage: VitalHealthKitStorage = .init(),
+    vitaClient: VitalClientProtocol = .live
   ) {
     self.store = store
-    self.vitalStorage = storage
     self.configuration = configuration
-    self.network = network
+    self.storage = storage
+    self.vitaClient = vitaClient
     
     self._status = PassthroughSubject<Status, Never>()
     
@@ -95,52 +90,47 @@ public extension VitalHealthKitClient {
 }
 
 extension VitalHealthKitClient {
-  
   private func setupBackgroundUpdates(resources: [VitalResource]) {
-    guard self.configuration.backgroundUpdates else { return }
-    guard resources.isEmpty == false else { return }
-        
-    for sampleType in observedSampleTypes() {
+      guard self.configuration.backgroundUpdates else { return }
+      guard resources.isEmpty == false else { return }
       
       
-      self.store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
+      let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
+      let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
+      let toSampleTypes = common.compactMap { $0 as? HKSampleType }
+      
+      self.logger?.info("Syncing data for \n\(toSampleTypes)\n")
+    
+      for sampleType in toSampleTypes {
         
-        guard failure == nil && success else {
-          self?.logger?.error("Failed to enable background delivery for \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
-          return
+        self.store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
+          
+          guard failure == nil && success else {
+            self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
+            return
+          }
+          
+          self?.logger?.info("Successfully enabled background delivery for type: \(String(describing: sampleType))")
         }
         
-        self?.logger?.info("Succesfully enabled background delivery for \(String(describing: sampleType))")
-      }
-      
-      
-      let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
-        
-        guard let strongSelf = self else { return }
-        
-        guard error == nil else {
-          self?.logger?.error("Failed to background deliver for \(String(describing: sampleType)).")
-          return
+        let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
+          
+          guard let strongSelf = self else { return }
+          
+          guard error == nil else {
+            self?.logger?.error("Failed to background deliver for \(String(describing: sampleType)).")
+            return
+          }
+          
+          Task(priority: .high) {
+            print("->>>>>>>\(String(describing: sampleType))")
+            try await strongSelf.vitaClient.checkConnectedSource(.appleHealthKit)
+            await strongSelf.sync(type: sampleType, completion: handler)
+          }
         }
         
-        Task(priority: .high) {
-          await strongSelf.sync(type: sampleType, completion: handler)
-        }
-      }
-      
-      self.store.execute(query)
+        self.store.execute(query)
     }
-  }
-  
-  private func calculateStage(
-    type: HKSampleType,
-    startDate: Date,
-    endDate: Date
-  ) -> TaggedPayload.Stage  {
-    
-    let value = vitalStorage.read(key: String(describing: type))
-    
-    return value != nil ? .daily : .historical(start: startDate, end: endDate)
   }
   
   private func calculateStage(
@@ -154,7 +144,7 @@ extension VitalHealthKitClient {
       return .daily
     }
     
-    return vitalStorage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
+    return storage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
   }
   
   public func syncData() {
@@ -164,6 +154,8 @@ extension VitalHealthKitClient {
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
+      try await vitaClient.checkConnectedSource(.appleHealthKit)
+
       for resource in resources {
         await sync(resource: resource)
       }
@@ -179,40 +171,42 @@ extension VitalHealthKitClient {
     let startDate: Date = .dateAgo(days: 30)
     let endDate: Date = Date()
     
-    self.logger?.info("Syncing HealthKit in background for \(String(describing: type))")
+    self.logger?.info("Syncing HealthKit in background for type: \(String(describing: type))")
     
     do {
+      
+      let stage = calculateStage(resource: type.toVitalResource, startDate: startDate, endDate: endDate)
+      
+      self.logger?.info("Reading data in background for: \(String(describing: type))")
+      
       let (data, entitiesToStore) = try await store.readSample(
         type,
+        stage,
         startDate,
         endDate,
-        vitalStorage
+        storage
       )
       
       guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping. No new data available for: \(data.name)")
+        self.logger?.info("Skipping background delivery. No new data available for type: \(String(describing: type))")
         return
       }
       
-      // Calculate if this daily data or historical
-      let stage = calculateStage(
-        type: type,
-        startDate: startDate,
-        endDate: endDate
-      )
-      
       // Post to the network
-      try await network.post(
+      self.logger?.info("Posting data in background for: \(String(describing: type))")
+
+      try await vitaClient.post(
         data,
         stage,
         .appleHealthKit
       )
       
-      let resource = resource(forType: type)
-      vitalStorage.storeFlag(for: resource)
+      storage.storeFlag(for: type.toVitalResource)
       
       // Save the anchor/date on succesfull network call
-      entitiesToStore.forEach(vitalStorage.store(entity:))
+      entitiesToStore.forEach(storage.store(entity:))
+      
+      self.logger?.info("Completed background syncing for type: \(String(describing: type))")
       
       /// Call completion
       completion()
@@ -220,7 +214,7 @@ extension VitalHealthKitClient {
     catch let error {
       // Signal failure
       self.logger?.error(
-        "Failed syncing background data for: \(String(describing: type)). Error: \(error.localizedDescription)"
+        "Failed background syncing for type: \(String(describing: type)). Error: \(error.localizedDescription)"
       )
     }
   }
@@ -243,11 +237,11 @@ extension VitalHealthKitClient {
         resource,
         startDate,
         endDate,
-        vitalStorage
+        storage
       )
       
       guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping. No new data available for: \(data.name)")
+        self.logger?.info("Skipping. No new data available for: \(resource.logDescription)")
         _status.send(.nothingToSync(resource))
         return
       }
@@ -260,18 +254,20 @@ extension VitalHealthKitClient {
       )
       
       // Post to the network
-      try await network.post(
+      self.logger?.info("Posting data for: \(resource.logDescription)")
+      
+      try await vitaClient.post(
         data,
         stage,
         .appleHealthKit
       )
       
-      vitalStorage.storeFlag(for: resource)
+      storage.storeFlag(for: resource)
       
       // Save the anchor/date on succesfull network call
-      entitiesToStore.forEach(vitalStorage.store(entity:))
+      entitiesToStore.forEach(storage.store(entity:))
       
-      self.logger?.info("Completed syncing \(String(describing: resource))")
+      self.logger?.info("Completed syncing for: \(resource.logDescription)")
       
       // Signal success
       _status.send(.successSyncing(resource, data))

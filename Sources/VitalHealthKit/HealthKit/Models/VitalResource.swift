@@ -56,19 +56,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
-func resource(forType type: HKSampleType) -> VitalResource {
-
-  for resource in VitalResource.all {
-    let types = toHealthKitTypes(resource: resource)
-    
-    if types.contains(type) {
-      return resource
-    }
-  }
-  
-  fatalError("Type \(String.init(describing: type)), wasn't found. This seems like a developer error)")
-}
-
 func observedSampleTypes() -> [HKSampleType] {
   return [
     /// Profile
