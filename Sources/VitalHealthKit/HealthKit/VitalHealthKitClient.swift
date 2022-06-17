@@ -41,6 +41,7 @@ public class VitalHealthKitClient {
   private let vitaClient: VitalClientProtocol
   
   private let _status: PassthroughSubject<Status, Never>
+  private var backgroundDeliveryTask: Task<Void, Error>? = nil
   
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
@@ -66,7 +67,7 @@ public class VitalHealthKitClient {
     }
     
     let resources = resourcesAskedForPermission(store: self.store)
-    setupBackgroundUpdates(resources: resources)
+    checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundUpdates, resources: resources)
   }
 }
 
@@ -90,46 +91,78 @@ public extension VitalHealthKitClient {
 }
 
 extension VitalHealthKitClient {
-  private func setupBackgroundUpdates(resources: [VitalResource]) {
-      guard self.configuration.backgroundUpdates else { return }
-      guard resources.isEmpty == false else { return }
-      
+  
+  private func checkBackgroundUpdates(isBackgroundEnabled: Bool, resources: [VitalResource]) {
+    guard isBackgroundEnabled else { return }
+    guard resources.isEmpty == false else { return }
+    
+    /// If it's already running, cancel it
+    self.backgroundDeliveryTask?.cancel()
+
+    self.backgroundDeliveryTask = Task(priority: .high) {
+      /// Make sure the user has a connected source set up
+      try await vitaClient.checkConnectedSource(.appleHealthKit)
       
       let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
       let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
-      let toSampleTypes = common.compactMap { $0 as? HKSampleType }
+      let sampleTypes = common.compactMap { $0 as? HKSampleType }
       
-      self.logger?.info("Syncing data for \n\(toSampleTypes)\n")
-    
-      for sampleType in toSampleTypes {
+      /// Enable background deliveries
+      enableBackgroundDelivery(for: sampleTypes)
+      
+      for await payload in backgroundObservers(for: sampleTypes) {
+        /// Sync a sample one-by-one
+        await sync(type: payload.sampleType, completion: payload.completion)
+      }
+    }
+  }
+  
+  private func enableBackgroundDelivery(for sampleTypes: [HKSampleType]) {
+    for sampleType in sampleTypes {
+      self.store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
         
-        self.store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
-          
-          guard failure == nil && success else {
-            self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
-            return
-          }
-          
-          self?.logger?.info("Successfully enabled background delivery for type: \(String(describing: sampleType))")
+        guard failure == nil && success else {
+          self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
+          return
         }
         
+        self?.logger?.info("Successfully enabled background delivery for type: \(String(describing: sampleType))")
+      }
+    }
+  }
+  
+  private func backgroundObservers(
+    for sampleTypes: [HKSampleType]
+  ) -> AsyncStream<BackgroundDeliveryPayload> {
+    
+    return AsyncStream<BackgroundDeliveryPayload> { continuation in
+      
+      var queries: [HKObserverQuery] = []
+      
+      for sampleType in sampleTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
-          
-          guard let strongSelf = self else { return }
-          
+                    
           guard error == nil else {
             self?.logger?.error("Failed to background deliver for \(String(describing: sampleType)).")
+            
+            ///  We need a better way to handle if a failure happens here.
             return
           }
           
-          Task(priority: .high) {
-            print("->>>>>>>\(String(describing: sampleType))")
-            try await strongSelf.vitaClient.checkConnectedSource(.appleHealthKit)
-            await strongSelf.sync(type: sampleType, completion: handler)
-          }
+          let payload = BackgroundDeliveryPayload(sampleType: sampleType, completion: handler)
+          continuation.yield(payload)
         }
         
+        queries.append(query)
         self.store.execute(query)
+      }
+      
+      /// If the task is cancelled, make sure we clean up the existing queries
+      continuation.onTermination = {[queries] _ in
+        queries.forEach { query in
+          self.store.stop(query)
+        }
+      }
     }
   }
   
@@ -174,10 +207,9 @@ extension VitalHealthKitClient {
     self.logger?.info("Syncing HealthKit in background for type: \(String(describing: type))")
     
     do {
-      
       let stage = calculateStage(resource: type.toVitalResource, startDate: startDate, endDate: endDate)
       
-      self.logger?.info("Reading data in background for: \(String(describing: type))")
+      self.logger?.info("Reading data in background for: \(String(describing: type)) for stage: \(String(describing: stage))")
       
       let (data, entitiesToStore) = try await store.readSample(
         type,
@@ -291,7 +323,7 @@ extension VitalHealthKitClient {
     
     do {
       try await store.requestReadAuthorization(resources)
-      setupBackgroundUpdates(resources: resources)
+      checkBackgroundUpdates(isBackgroundEnabled: self.configuration.backgroundUpdates, resources: resources)
       
       return .success
     }

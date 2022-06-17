@@ -9,7 +9,7 @@ class VitalHealthKitStorage {
 
   private let userDefaults: UserDefaults
   
-  init(userDefaults: UserDefaults = .standard) {
+  init(userDefaults: UserDefaults = .init(suiteName: "tryVital")!) {
     self.userDefaults = userDefaults
         
     let defaultValue: [String: String] = [:]

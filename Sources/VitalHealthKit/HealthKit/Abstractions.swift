@@ -11,6 +11,7 @@ struct VitalHealthKitStore {
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void
+  var stop: (HKObserverQuery) -> Void
 }
 
 extension VitalHealthKitStore {
@@ -46,6 +47,8 @@ extension VitalHealthKitStore {
         store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
       } execute: { query in
         store.execute(query)
+      } stop: { query in
+        store.stop(query)
       }
   }
   
@@ -63,6 +66,8 @@ extension VitalHealthKitStore {
     } enableBackgroundDelivery: { _, _, _ in
       return
     } execute: { _ in
+      return
+    } stop: { _ in
       return
     }
   }

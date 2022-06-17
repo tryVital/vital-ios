@@ -78,7 +78,7 @@ public class VitalClient {
   
   let environment: Environment
   let dateFormatter = ISO8601DateFormatter()
-    
+  
   public static var shared: VitalClient {
     guard let client = Self.client else {
       fatalError("`VitalClient` hasn't been configured.")
@@ -114,7 +114,7 @@ public class VitalClient {
     self.configuration = configuration
     self.storage = storage
     self.apiVersion = apiVersion
-
+    
     if configuration.logsEnable {
       self.logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
@@ -157,7 +157,7 @@ public class VitalClient {
     }
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
-        return
+      return
     }
     
     let connectedSources = try await self.user.userConnectedSources()
