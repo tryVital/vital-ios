@@ -68,6 +68,11 @@ public class VitalHealthKitClient {
     
     let resources = resourcesAskedForPermission(store: self.store)
     checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundUpdates, resources: resources)
+    
+    /// Only start auto-sync if `backgroundUpdates` is off, otherwise we kick both at the same time
+    if configuration.autoSync && configuration.backgroundUpdates == false {
+      syncData(for: resources)
+    }
   }
 }
 
@@ -83,7 +88,6 @@ public extension VitalHealthKitClient {
       logsEnable: Bool = true
     ) {
       self.autoSync = autoSync
-      // More testing is required before exposing this feature
       self.backgroundUpdates = backgroundUpdates
       self.logsEnable = logsEnable
     }

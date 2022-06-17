@@ -170,7 +170,12 @@ public class VitalClient {
   }
   
   public func cleanUp() {
-    /// TBD
+    /// Here we remove the following:
+    /// 1) Anchor values we are storing for each `HKSampleType`.
+    /// 2) Stage for each `HKSampleType`.
+    ///
+    /// We might be able to derive 2) from 1)?
+    UserDefaults.standard.removePersistentDomain(forName: "tryVital")
   }
 }
 
