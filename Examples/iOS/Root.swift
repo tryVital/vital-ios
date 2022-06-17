@@ -38,7 +38,7 @@ struct ExampleApp: App {
             }
             .tag(3)
         }
-        .onAppear {          
+        .onAppear {
           viewStore.send(.start)
         }
         .onOpenURL { url in

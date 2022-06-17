@@ -157,10 +157,15 @@ public class VitalClient {
     }
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
-      return
+        return
     }
     
-    try await self.link.createConnectedSource(userId, provider: provider)
+    let connectedSources = try await self.user.userConnectedSources()
+    if connectedSources.contains(provider) == false {
+      try await self.link.createConnectedSource(userId, provider: provider)
+    }
+    
+    
     storage.storeConnectedSource(for: userId, with: provider)
   }
   
