@@ -102,19 +102,21 @@ extension VitalHealthKitClient {
     
     /// If it's already running, cancel it
     self.backgroundDeliveryTask?.cancel()
-
+    
+    let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
+    let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
+    let sampleTypes = common.compactMap { $0 as? HKSampleType }
+    
+    /// Enable background deliveries
+    enableBackgroundDelivery(for: sampleTypes)
+    
+    let stream = backgroundObservers(for: sampleTypes)
     self.backgroundDeliveryTask = Task(priority: .high) {
-      /// Make sure the user has a connected source set up
-      try await vitaClient.checkConnectedSource(.appleHealthKit)
-      
-      let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
-      let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
-      let sampleTypes = common.compactMap { $0 as? HKSampleType }
-      
-      /// Enable background deliveries
-      enableBackgroundDelivery(for: sampleTypes)
-      
-      for await payload in backgroundObservers(for: sampleTypes) {
+      for await payload in stream {
+        
+        /// Make sure the user has a connected source set up
+        try await vitaClient.checkConnectedSource(.appleHealthKit)
+        
         /// Sync a sample one-by-one
         await sync(type: payload.sampleType, completion: payload.completion)
       }
@@ -200,7 +202,7 @@ extension VitalHealthKitClient {
       _status.send(.syncingCompleted)
     }
   }
-  
+    
   private func sync(
     type: HKSampleType,
     completion: () -> Void
