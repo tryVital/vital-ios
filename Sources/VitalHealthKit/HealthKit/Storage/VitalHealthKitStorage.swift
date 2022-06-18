@@ -27,20 +27,19 @@ class VitalHealthKitStorage {
   func store(entity: StoredAnchor) {
     let prefixedKey = prefix + entity.key
     
-    guard let data = try? NSKeyedArchiver.archivedData(withRootObject: entity.anchor, requiringSecureCoding: true) else {
+    guard
+      let data = try? NSKeyedArchiver.archivedData(withRootObject: entity.anchor, requiringSecureCoding: true)
+    else {
       return
     }
     
-    let encoded = data.base64EncodedString()
-    userDefaults.set(encoded, forKey: prefixedKey)
+    userDefaults.set(data, forKey: prefixedKey)
   }
   
   func read(key: String) -> StoredAnchor? {
     let prefixedKey = prefix + key
     
-    if let storedString = userDefaults.string(forKey: prefixedKey),
-       let data = Data(base64Encoded: storedString) {
-      
+    if let data = userDefaults.data(forKey: prefixedKey) {
       let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
       return StoredAnchor(key: key, anchor: anchor)
     }

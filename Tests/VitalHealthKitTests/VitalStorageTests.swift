@@ -15,9 +15,8 @@ class VitalStorageTests: XCTestCase {
     let anchor = HKQueryAnchor(fromValue: 1)
     
     XCTAssertNil(storage.read(key: key))
-    
-    storage.store(entity: .anchor(key, anchor))
-    
+    storage.store(entity: .init(key: key, anchor: anchor))
+        
     let storedAnchor = storage.read(key: key)?.anchor
     XCTAssertNotNil(storedAnchor)
   }
@@ -28,7 +27,7 @@ class VitalStorageTests: XCTestCase {
     let key = "key"
     let anchor = HKQueryAnchor(fromValue: 1)
     
-    storage.store(entity: .anchor(key, anchor))
+    storage.store(entity: .init(key: key, anchor: anchor))
 
     let newStorage = VitalHealthKitStorage()
     _ = newStorage.read(key: key)
