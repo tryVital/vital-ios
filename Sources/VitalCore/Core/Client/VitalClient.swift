@@ -72,7 +72,7 @@ public class VitalClient {
   private let storage: VitalCoreStorage
   
   var logger: Logger? = nil
-  var userId: UUID?
+  var userIdBox: UserIdBox = .init()
   let apiVersion: String
   let apiClient: APIClient
   
@@ -144,17 +144,17 @@ public class VitalClient {
   }
   
   public static var isSetup: Bool {
-    Self.client != nil && Self.client?.userId != nil
+    Self.client != nil
   }
   
   public static func setUserId(_ userId: UUID) {
-    VitalClient.shared.userId = userId
+    Task.detached(priority: .high) {
+      await VitalClient.shared.userIdBox.set(userId: userId)
+    }
   }
   
   public func checkConnectedSource(for provider: Provider) async throws {
-    guard let userId = self.userId else {
-      fatalError("VitalClient's userId hasn't been set. Please call `setUserId:`")
-    }
+    let userId = await userIdBox.getUserId()
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
       return
@@ -165,17 +165,20 @@ public class VitalClient {
       try await self.link.createConnectedSource(userId, provider: provider)
     }
     
-    
     storage.storeConnectedSource(for: userId, with: provider)
   }
   
   public func cleanUp() {
-    /// Here we remove the following:
-    /// 1) Anchor values we are storing for each `HKSampleType`.
-    /// 2) Stage for each `HKSampleType`.
-    ///
-    /// We might be able to derive 2) from 1)?
-    UserDefaults.standard.removePersistentDomain(forName: "tryVital")
+    Task.detached(priority: .high) {
+      /// Here we remove the following:
+      /// 1) Anchor values we are storing for each `HKSampleType`.
+      /// 2) Stage for each `HKSampleType`.
+      ///
+      /// We might be able to derive 2) from 1)?
+      UserDefaults.standard.removePersistentDomain(forName: "tryVital")
+      
+      await self.userIdBox.clean()
+    }
   }
 }
 

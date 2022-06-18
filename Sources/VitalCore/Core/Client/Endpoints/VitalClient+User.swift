@@ -18,9 +18,7 @@ public extension VitalClient {
 public extension VitalClient.User {
   
   func userConnectedSources() async throws -> [Provider] {
-    guard let userId = self.client.userId else {
-      fatalError("VitalClient's `userId` hasn't been set. Please call `VitalClient.setUserId`")
-    }
+    let userId = await self.client.userIdBox.getUserId() 
     
     let path = "/\(self.client.apiVersion)/\(path)/providers/\(userId)"
     

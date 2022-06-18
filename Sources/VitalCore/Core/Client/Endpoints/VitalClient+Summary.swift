@@ -22,9 +22,7 @@ public extension VitalClient.Summary {
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
-    guard let userId = self.client.userId else {
-      fatalError("VitalClient's `userId` hasn't been set. Please call `setUserId`")
-    }
+    let userId = await self.client.userIdBox.getUserId()
     
     let taggedPayload = TaggedPayload(
       stage: stage,
