@@ -111,7 +111,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       {
         VitalClient.setUserId(userId)
         
-        VitalHealthKitClient.configure(.init(autoSync: true, backgroundUpdates: true, logsEnable: true))
+        VitalHealthKitClient.configure(.init(autoSyncEnabled: true, backgroundDeliveryEnabled: true, logsEnabled: true))
       }
             
       return .none

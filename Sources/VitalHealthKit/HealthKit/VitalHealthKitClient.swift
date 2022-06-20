@@ -62,15 +62,15 @@ public class VitalHealthKitClient {
     
     self._status = PassthroughSubject<Status, Never>()
     
-    if configuration.logsEnable {
+    if configuration.logsEnabled {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
     let resources = resourcesAskedForPermission(store: self.store)
-    checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundUpdates, resources: resources)
+    checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
     
     /// Only start auto-sync if `backgroundUpdates` is off, otherwise we kick both at the same time
-    if configuration.autoSync && configuration.backgroundUpdates == false {
+    if configuration.autoSyncEnabled && configuration.backgroundDeliveryEnabled == false {
       syncData(for: resources)
     }
   }
@@ -78,18 +78,18 @@ public class VitalHealthKitClient {
 
 public extension VitalHealthKitClient {
   struct Configuration {
-    public let autoSync: Bool
-    public let backgroundUpdates: Bool
-    public let logsEnable: Bool
+    public let autoSyncEnabled: Bool
+    public let backgroundDeliveryEnabled: Bool
+    public let logsEnabled: Bool
     
     public init(
-      autoSync: Bool = false,
-      backgroundUpdates: Bool = false,
-      logsEnable: Bool = true
+      autoSyncEnabled: Bool = false,
+      backgroundDeliveryEnabled: Bool = false,
+      logsEnabled: Bool = true
     ) {
-      self.autoSync = autoSync
-      self.backgroundUpdates = backgroundUpdates
-      self.logsEnable = logsEnable
+      self.autoSyncEnabled = autoSyncEnabled
+      self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
+      self.logsEnabled = logsEnabled
     }
   }
 }
@@ -329,7 +329,7 @@ extension VitalHealthKitClient {
     
     do {
       try await store.requestReadAuthorization(resources)
-      checkBackgroundUpdates(isBackgroundEnabled: self.configuration.backgroundUpdates, resources: resources)
+      checkBackgroundUpdates(isBackgroundEnabled: self.configuration.backgroundDeliveryEnabled, resources: resources)
       
       return .success
     }
