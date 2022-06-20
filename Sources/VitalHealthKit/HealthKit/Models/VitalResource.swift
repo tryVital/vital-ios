@@ -28,7 +28,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       
     case .activity:
       return [
-        HKSampleType.activitySummaryType(),
         HKSampleType.quantityType(forIdentifier: .stepCount)!,
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
@@ -57,15 +56,39 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
+func observedSampleTypes() -> [HKSampleType] {
+  return [
+    /// Profile
+    HKQuantityType.quantityType(forIdentifier: .height)!,
+    
+    
+    /// Body
+    HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
+    HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
 
-func allTypesForBackgroundDelivery(
-) -> [HKObjectType] {
-  return VitalResource.all
-    .flatMap(toHealthKitTypes(resource:))
-    .filter {
-      return $0.isKind(of: HKCharacteristicType.self) == false
-          && $0.isKind(of: HKActivitySummaryType.self) == false
-    }
+    /// Sleep
+    HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
+
+    /// Activity
+    HKSampleType.quantityType(forIdentifier: .stepCount)!,
+    HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+    HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+    HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+    HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+    HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+    
+    /// Workout
+    HKSampleType.workoutType(),
+
+    /// Vitals Glucose
+    HKSampleType.quantityType(forIdentifier: .bloodGlucose)!,
+
+    /// Vitals BloodPressure
+    /// We only need to observe one, we know the other will be present. If we observe both,
+    /// we are triggering the observer twice.
+    //  HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
+    HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
+  ]
 }
 
 public func hasAskedForPermission(

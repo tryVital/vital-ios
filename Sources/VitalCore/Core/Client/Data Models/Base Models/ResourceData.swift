@@ -55,7 +55,7 @@ public enum TimeSeriesData {
   public var name: String {
     switch self {
       case .bloodPressure:
-        return "bloodPressure"
+        return "blood_pressure"
       case .glucose:
         return "glucose"
     }

@@ -110,8 +110,10 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         let userId = UUID(uuidString: state.credentials.userId)
       {
         VitalClient.setUserId(userId)
+        
+        VitalHealthKitClient.configure(.init(autoSync: true, backgroundUpdates: true, logsEnable: true))
       }
-      
+            
       return .none
       
     case .start:

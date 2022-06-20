@@ -69,15 +69,16 @@ public enum Environment: Equatable, Hashable, Codable {
 public class VitalClient {
   
   private let configuration: Configuration
+  private let storage: VitalCoreStorage
   
   var logger: Logger? = nil
-  var userId: UUID?
+  var userIdBox: UserIdBox = .init()
   let apiVersion: String
   let apiClient: APIClient
   
   let environment: Environment
   let dateFormatter = ISO8601DateFormatter()
-    
+  
   public static var shared: VitalClient {
     guard let client = Self.client else {
       fatalError("`VitalClient` hasn't been configured.")
@@ -102,23 +103,17 @@ public class VitalClient {
     Self.client = client
   }
   
-  public static var isSetup: Bool {
-    Self.client != nil && Self.client?.userId != nil
-  }
-  
-  public static func setUserId(_ userId: UUID) {
-    VitalClient.shared.userId = userId
-  }
-  
-  public init(
+  init(
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
+    storage: VitalCoreStorage = .init(),
     apiVersion: String = "v2"
   ) {
     self.environment = environment
-    self.apiVersion = apiVersion
     self.configuration = configuration
+    self.storage = storage
+    self.apiVersion = apiVersion
     
     if configuration.logsEnable {
       self.logger = Logger(subsystem: "vital", category: "vital-network-client")
@@ -145,6 +140,44 @@ public class VitalClient {
       
       configuration.encoder = encoder
       configuration.decoder = decoder
+    }
+  }
+  
+  public static var isSetup: Bool {
+    Self.client != nil
+  }
+  
+  public static func setUserId(_ userId: UUID) {
+    Task.detached(priority: .high) {
+      await VitalClient.shared.userIdBox.set(userId: userId)
+    }
+  }
+  
+  public func checkConnectedSource(for provider: Provider) async throws {
+    let userId = await userIdBox.getUserId()
+    
+    guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
+      return
+    }
+    
+    let connectedSources = try await self.user.userConnectedSources()
+    if connectedSources.contains(provider) == false {
+      try await self.link.createConnectedSource(userId, provider: provider)
+    }
+    
+    storage.storeConnectedSource(for: userId, with: provider)
+  }
+  
+  public func cleanUp() {
+    Task.detached(priority: .high) {
+      /// Here we remove the following:
+      /// 1) Anchor values we are storing for each `HKSampleType`.
+      /// 2) Stage for each `HKSampleType`.
+      ///
+      /// We might be able to derive 2) from 1)?
+      UserDefaults.standard.removePersistentDomain(forName: "tryVital")
+      
+      await self.userIdBox.clean()
     }
   }
 }

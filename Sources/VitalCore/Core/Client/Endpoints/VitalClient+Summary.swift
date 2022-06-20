@@ -10,7 +10,7 @@ public extension VitalClient {
       self.client = client
     }
   }
-
+  
   var summary: Summary {
     .init(client: self)
   }
@@ -22,10 +22,8 @@ public extension VitalClient.Summary {
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
-    guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `setUserId`")
-    }
-        
+    let userId = await self.client.userIdBox.getUserId()
+    
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
@@ -34,10 +32,9 @@ public extension VitalClient.Summary {
     
     let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "\(summaryData.name)/\(userId)"
-        
+    
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    self.client.logger?.info("Posting data for: \(summaryData.name)")
     try await self.client.apiClient.send(request)
   }
 }

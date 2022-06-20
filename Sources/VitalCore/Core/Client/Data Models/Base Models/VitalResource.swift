@@ -27,6 +27,7 @@ public enum VitalResource: Equatable {
     .activity,
     .sleep,
     .vitals(.glucose),
+    .vitals(.bloodPressure)
   ]
   
   public var logDescription: String {
@@ -42,7 +43,7 @@ public enum VitalResource: Equatable {
       case .sleep:
         return "sleep"
       case .vitals(let vitals):
-        return vitals.logDescription
+        return "vitals - \(vitals.logDescription)"
     }
   }
 }

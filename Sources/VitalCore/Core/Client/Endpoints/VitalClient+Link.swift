@@ -34,17 +34,8 @@ public extension VitalClient.Link {
   func createConnectedSource(
     for provider: Provider
   ) async throws -> Void {
-    
-    guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
-    }
-    
-    let path = "/\(self.client.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
-    
-    let payload = CreateConnectionSourceRequest(userId: userId)
-    let request = Request<Void>.post(path, body: payload)
-    
-    try await self.client.apiClient.send(request)
+    let userId = await self.client.userIdBox.getUserId()
+    try await createConnectedSource(userId, provider: provider)
   }
   
   func createProviderLink(
@@ -52,10 +43,7 @@ public extension VitalClient.Link {
     redirectURL: String
   ) async throws -> URL {
     
-    guard let userId = self.client.userId else {
-      fatalError("VitalNetwork's `userId` hasn't been set. Please call `VitalClient.setUserId`")
-    }
-    
+    let userId = await self.client.userIdBox.getUserId()
     let path = "/\(self.client.apiVersion)/\(path)/token"
         
     

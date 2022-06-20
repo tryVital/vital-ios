@@ -16,6 +16,19 @@ public extension VitalClient {
 }
 
 public extension VitalClient.User {
+  
+  func userConnectedSources() async throws -> [Provider] {
+    let userId = await self.client.userIdBox.getUserId() 
+    
+    let path = "/\(self.client.apiVersion)/\(path)/providers/\(userId)"
+    
+    let request: Request<ProviderResponse> = .get(path, query: nil, headers: [:])
+    let response = try await self.client.apiClient.send(request)
+    let providers = response.value.providers.compactMap { Provider(rawValue: $0.slug) }
+    
+    return providers
+  }
+  
   func create(
     _ payload: CreateUserRequest,
     setUserIdOnSuccess: Bool = true

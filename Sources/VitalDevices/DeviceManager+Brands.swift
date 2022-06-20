@@ -106,11 +106,11 @@ public extension DevicesManager {
   static func provider(for brand: Brand) -> Provider {
     switch brand {
       case .omron:
-        return .omron
+        return .omronBLE
       case .accuChek:
-        return .accuchek
+        return .accuchekBLE
       case .contour:
-        return .contour
+        return .contourBLE
       case .beurer:
         return .beurer
       case .libre:
