@@ -33,12 +33,16 @@ public enum PostResourceData {
 public enum TimeSeriesData {
   case glucose([QuantitySample])
   case bloodPressure([BloodPressureSample])
+  case heartRate([QuantitySample])
+
   
   public var payload: Encodable {
     switch self {
       case let .glucose(dataPoints):
         return dataPoints
       case let .bloodPressure(dataPoints):
+        return dataPoints
+      case let .heartRate(dataPoints):
         return dataPoints
     }
   }
@@ -49,6 +53,8 @@ public enum TimeSeriesData {
         return samples.isEmpty
       case let .bloodPressure(samples):
         return samples.isEmpty
+      case let .heartRate(samples):
+        return samples.isEmpty
     }
   }
   
@@ -58,6 +64,8 @@ public enum TimeSeriesData {
         return "blood_pressure"
       case .glucose:
         return "glucose"
+      case .heartRate:
+        return "heartrate"
     }
   }
 }

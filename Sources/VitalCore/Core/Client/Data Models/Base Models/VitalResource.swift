@@ -2,6 +2,7 @@ public enum VitalResource: Equatable {
   public enum Vitals: Equatable {
     case glucose
     case bloodPressure
+    case hearthRate
     
     public var logDescription: String {
       switch self {
@@ -9,6 +10,8 @@ public enum VitalResource: Equatable {
           return "glucose"
         case .bloodPressure:
           return "bloodPressure"
+        case .hearthRate:
+          return "hearthRate"
       }
     }
   }
@@ -27,7 +30,8 @@ public enum VitalResource: Equatable {
     .activity,
     .sleep,
     .vitals(.glucose),
-    .vitals(.bloodPressure)
+    .vitals(.bloodPressure),
+    .vitals(.hearthRate)
   ]
   
   public var logDescription: String {

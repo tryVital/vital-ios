@@ -53,6 +53,11 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
       ]
+      
+    case .vitals(.hearthRate):
+      return [
+        HKSampleType.quantityType(forIdentifier: .heartRate)!
+      ]
   }
 }
 
@@ -87,7 +92,10 @@ func observedSampleTypes() -> [HKSampleType] {
     /// We only need to observe one, we know the other will be present. If we observe both,
     /// we are triggering the observer twice.
     //  HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-    HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
+    HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!,
+    
+    /// Vitals Heartrate
+    HKSampleType.quantityType(forIdentifier: .heartRate)!,
   ]
 }
 

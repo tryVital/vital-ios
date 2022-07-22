@@ -99,6 +99,10 @@ extension HKSampleType {
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
         return .vitals(.bloodPressure)
         
+      case
+        HKSampleType.quantityType(forIdentifier: .heartRate)!:
+        return .vitals(.hearthRate)
+        
       default:
         fatalError("\(String(describing: self)) is not supported. This seems like a developer error")
     }

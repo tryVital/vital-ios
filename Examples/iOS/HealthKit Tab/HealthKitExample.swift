@@ -23,6 +23,9 @@ struct HealthKitExample: View {
             makePermissionRow("Glucose", resources: [.vitals(.glucose)])
             
             makePermissionRow("BloodPressure", resources: [.vitals(.bloodPressure)])
+            
+            makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)])
+
 
           }
           .buttonStyle(PlainButtonStyle())
