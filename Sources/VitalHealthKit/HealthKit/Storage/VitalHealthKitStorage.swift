@@ -1,4 +1,3 @@
-import SwiftUI
 import HealthKit
 import VitalCore
 
