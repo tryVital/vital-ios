@@ -1,7 +1,5 @@
-import Get
 import Foundation
 import os.log
-
 
 actor VitalClientDelegate: APIClientDelegate {
   private let environment: Environment

@@ -1,4 +1,3 @@
-import Get
 import Foundation
 
 public extension VitalClient {

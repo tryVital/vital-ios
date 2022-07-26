@@ -1,4 +1,3 @@
-import Get
 import Foundation
 
 public extension VitalClient {
@@ -27,7 +26,7 @@ public extension VitalClient.Summary {
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
-      data: AnyEncodable(summaryData.payload)
+      data: VitalAnyEncodable(summaryData.payload)
     )
     
     let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"

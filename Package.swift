@@ -20,7 +20,6 @@ let package = Package(
           targets: ["VitalCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/CreateAPI/Get", from: "0.7.1"),
         .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.2.1"),
     ],
     targets: [
@@ -31,12 +30,16 @@ let package = Package(
           name: "VitalDevices",
           dependencies: ["CombineCoreBluetooth", "VitalCore"],
           exclude: [
-            "./LICENSE"
+            "./LICENSE",
           ]
         ),
         .target(
           name: "VitalCore",
-          dependencies: ["Get"]),
+          exclude: [
+            "./Get/LICENSE",
+            "./Get/README.md"
+          ]
+        ),
         .testTarget(
             name: "VitalHealthKitTests",
             dependencies: ["VitalHealthKit"]),

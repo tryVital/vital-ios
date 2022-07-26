@@ -1,5 +1,3 @@
-import Get
-
 public extension VitalClient {
   class User {
     let client: VitalClient

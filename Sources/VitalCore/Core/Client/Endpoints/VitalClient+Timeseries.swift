@@ -1,5 +1,4 @@
 import Foundation
-import Get
 
 public enum SimpleTimeSeriesResource {
   case glucose
@@ -31,7 +30,7 @@ public extension VitalClient.TimeSeries {
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
-      data: AnyEncodable(timeSeriesData.payload)
+      data: VitalAnyEncodable(timeSeriesData.payload)
     )
     
     let fullPath: String = makePath(for: timeSeriesData.name, userId: userId.uuidString)

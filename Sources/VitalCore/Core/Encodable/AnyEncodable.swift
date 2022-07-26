@@ -1,4 +1,4 @@
-public struct AnyEncodable: Encodable {
+public struct VitalAnyEncodable: Encodable {
   private let encode: (Encoder) throws -> Void
   
   public init(_ encodable: Encodable) {
@@ -13,7 +13,7 @@ public struct AnyEncodable: Encodable {
 }
 
 public extension Encodable {
-  func eraseToAnyEncodable() -> AnyEncodable {
+  func eraseToAnyEncodable() -> VitalAnyEncodable {
     return .init(self)
   }
 }

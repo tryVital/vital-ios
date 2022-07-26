@@ -1,5 +1,4 @@
 import Foundation
-import Get
 import os.log
 
 struct Credentials: Equatable, Hashable {

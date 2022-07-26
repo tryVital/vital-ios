@@ -10,7 +10,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
   public var type: String?
   public var unit: String
   
-  private var metadata: AnyEncodable?
+  private var metadata: VitalAnyEncodable?
   
   public init(
     id: String? = nil,
@@ -20,7 +20,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     sourceBundle: String? = nil,
     type: String? = nil,
     unit: String,
-    metadata: AnyEncodable? = nil
+    metadata: VitalAnyEncodable? = nil
   ) {
     self.id = id
     self.value = value
@@ -39,7 +39,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     sourceBundle: String? = nil,
     type: String? = nil,
     unit: String,
-    metadata: AnyEncodable? = nil
+    metadata: VitalAnyEncodable? = nil
   ) {
     self.init(
       id: id,
