@@ -20,7 +20,7 @@ let package = Package(
           targets: ["VitalCore"]),
     ],
     dependencies: [
-        .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.2.1"),
+        .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.3.1"),
     ],
     targets: [
         .target(

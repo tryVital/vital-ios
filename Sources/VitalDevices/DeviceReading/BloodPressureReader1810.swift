@@ -51,15 +51,15 @@ class BloodPressureReader1810: BloodPressureReadable {
             return .empty
           }
           
-          return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, $0) }.eraseToAnyPublisher()
+          return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, characteristics[0]) }.eraseToAnyPublisher()
         }
     }
     .eraseToAnyPublisher()
   }
 }
   
-private func toBloodPressureReading(characteristic: CBCharacteristic) -> BloodPressureSample? {
-  guard let data = characteristic.value else {
+private func toBloodPressureReading(data: Data?) -> BloodPressureSample? {
+  guard let data = data else {
     return nil
   }
   
