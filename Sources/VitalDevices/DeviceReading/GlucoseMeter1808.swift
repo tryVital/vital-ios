@@ -77,7 +77,8 @@ private func toGlucoseReading(data: Data?) -> QuantitySample? {
   }
   
   let byteArrayFromData: [UInt8] = [UInt8](data)
-  let record: UInt16 = [byteArrayFromData[1], byteArrayFromData[2]].withUnsafeBytes { $0.load(as: UInt16.self) }
+//  let record: UInt16 = [byteArrayFromData[1], byteArrayFromData[2]].withUnsafeBytes { $0.load(as: UInt16.self) }
+  
   let year: UInt16 = [byteArrayFromData[3], byteArrayFromData[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
   let month = byteArrayFromData[5]
   let day = byteArrayFromData[6]
