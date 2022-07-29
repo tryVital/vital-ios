@@ -8,7 +8,7 @@ We currently support SPM.
 
 ## Documentation
 
-Please refer to the [official Vital](https://docs.tryvital.io/sdks/iOS) docs provide a full reference on using this library.
+Please refer to the [official Vital](https://docs.tryvital.io/wearables/sdks/iOS) docs provide a full reference on using this library.
 
 ## License
 
