@@ -53,7 +53,7 @@ extension Libre1Connection {
     case failedSentToServer(String)
   }
   
-  public struct Environment {
+  public struct Environment : Sendable{
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
     let libre1: Libre1Reader
@@ -78,11 +78,6 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
       return .none
       
     case .startReading:
-      if VitalClient.isSetup == false {
-        state.status = .notSetup
-        return .none
-      }
-      
       state.status = .reading
       
       let effect = Effect<Libre1Read, Error>.task {
