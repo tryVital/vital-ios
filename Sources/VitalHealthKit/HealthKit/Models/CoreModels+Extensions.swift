@@ -160,7 +160,7 @@ extension QuantitySample {
       startDate: value.startDate,
       endDate: value.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
-      type: "manual",
+      type: "automatic",
       unit: sample.sampleType.toUnitStringRepresentation
     )
   }
