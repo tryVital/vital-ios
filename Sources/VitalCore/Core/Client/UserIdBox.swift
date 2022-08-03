@@ -1,7 +1,7 @@
 import Foundation
 
 actor UserIdBox {
-  private var continuations: [ CheckedContinuation<UUID, Never>] = []
+  private var continuations: [CheckedContinuation<UUID, Never>] = []
   private var userId: UUID?
   
   deinit {

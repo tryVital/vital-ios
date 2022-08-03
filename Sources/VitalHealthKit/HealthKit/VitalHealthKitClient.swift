@@ -164,7 +164,7 @@ extension VitalHealthKitClient {
       }
       
       /// If the task is cancelled, make sure we clean up the existing queries
-      continuation.onTermination = {[queries] _ in
+      continuation.onTermination = { @Sendable [queries] _ in
         queries.forEach { query in
           self.store.stop(query)
         }
