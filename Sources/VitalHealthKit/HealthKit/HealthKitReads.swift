@@ -67,14 +67,14 @@ func read(
       /// Body
       HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
       HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-            
+      
       let (values, anchor) = try await queryQuantities(type: type)
       let patch = BodyPatch(sampleType: type, samples: values)
       
       anchors.appendOptional(anchor)
       
       return (PostResourceData.summary(.body(patch)), anchors)
-
+      
     default:
       return try await read(
         resource: type.toVitalResource,
@@ -119,7 +119,7 @@ func read(
         startDate: startDate,
         endDate: endDate
       )
-            
+      
       return (.summary(.sleep(payload.sleepPatch)), payload.anchors)
       
     case .activity:
@@ -139,7 +139,7 @@ func read(
         startDate: startDate,
         endDate: endDate
       )
-            
+      
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
       
     case .vitals(.glucose):
@@ -149,7 +149,7 @@ func read(
         startDate: startDate,
         endDate: endDate
       )
-            
+      
       return (.timeSeries(.glucose(payload.glucose)), payload.anchors)
       
     case .vitals(.hearthRate):
@@ -169,7 +169,7 @@ func read(
         startDate: startDate,
         endDate: endDate
       )
-            
+      
       return (.timeSeries(.bloodPressure(payload.bloodPressure)), payload.anchors)
   }
 }
@@ -244,7 +244,7 @@ func handleBody(
   
   anchors.appendOptional(bodyMassAnchor)
   anchors.appendOptional(bodyFatPercentageAnchor)
-    
+  
   return (
     .init(
       bodyMass: bodyMass,
@@ -272,9 +272,7 @@ func handleSleep(
     endDate: endDate
   )
   
-  let filteredSamples = filter(samples: payload.sample, by: [.appleHealthKit])
-  
-  let sleeps = filteredSamples.compactMap(SleepPatch.Sleep.init)
+  let sleeps = payload.sample.compactMap(SleepPatch.Sleep.init)
   let stitchedData = stichedSleeps(sleeps: sleeps)
   let mergedData = mergeSleeps(sleeps: stitchedData)
   
@@ -289,35 +287,45 @@ func handleSleep(
       type: .quantityType(forIdentifier: .heartRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: sleep.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     let hearRateVariability: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: sleep.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     let oxygenSaturation: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .oxygenSaturation)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: sleep.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     let restingHeartRate: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .restingHeartRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: sleep.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     let respiratoryRate: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
       startDate: sleep.startDate,
       endDate: sleep.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: sleep.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     var copy = sleep
     copy.heartRate = heartRate
@@ -350,7 +358,7 @@ func handleActivity(
       startDate: startDate,
       endDate: endDate
     )
-
+    
     let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
     return (quantities, payload.anchor)
   }
@@ -431,7 +439,7 @@ func handleWorkouts(
 ) async throws -> (workoutPatch: WorkoutPatch, anchors: [StoredAnchor]) {
   
   var anchors: [StoredAnchor] = []
-
+  
   let payload = try await query(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
@@ -451,14 +459,18 @@ func handleWorkouts(
       type: .quantityType(forIdentifier: .heartRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: workout.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     let respiratoryRate: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
-    ).compactMap(QuantitySample.init)
+    )
+      .filter(by: workout.sourceBundle)
+      .compactMap(QuantitySample.init)
     
     var copy = workout
     copy.heartRate = heartRate
@@ -694,20 +706,6 @@ private func activityQuery(
     let query = HKActivitySummaryQuery(predicate: predicate, resultsHandler: handler)
     
     healthKitStore.execute(query)
-  }
-}
-
-private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSample] {
-  return samples.filter { sample in
-    let identifier = sample.sourceRevision.source.bundleIdentifier
-    
-    for dataSource in dataSources {
-      if identifier.contains(dataSource.rawValue) {
-        return true
-      }
-    }
-    
-    return false
   }
 }
 
