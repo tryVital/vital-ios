@@ -25,19 +25,20 @@ public extension VitalClient.TimeSeries {
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
-    let userId = await self.client.userIdBox.getUserId()
-    
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
       data: VitalAnyEncodable(timeSeriesData.payload)
     )
     
-    let fullPath: String = makePath(for: timeSeriesData.name, userId: userId.uuidString)
+    let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId.uuidString)
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    self.client.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name)")
-    try await self.client.apiClient.send(request)
+    configuration.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name)")
+    try await configuration.apiClient.send(request)
   }
   
   func get(
@@ -47,15 +48,17 @@ public extension VitalClient.TimeSeries {
     endDate: Date? = nil
   ) async throws -> [TimeSeriesDataPoint] {
     
-    let userId = await self.client.userIdBox.getUserId()
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+
     let query = makeQuery(startDate: startDate, endDate: endDate)
     
     switch resource {
       case .glucose:
-        let path = makePath(for: "glucose", userId: userId.uuidString)
+        let path = await makePath(for: "glucose", userId: userId.uuidString)
 
         let request: Request<[TimeSeriesDataPoint]> = .get(path, query: query, headers: [:])
-        let response = try await self.client.apiClient.send(request)
+        let response = try await configuration.apiClient.send(request)
         return response.value
     }
   }
@@ -66,13 +69,14 @@ public extension VitalClient.TimeSeries {
     endDate: Date? = nil
   ) async throws -> [BloodPressureDataPoint] {
     
-    let userId = await self.client.userIdBox.getUserId()
-    
-    let path = makePath(for: "blood_pressure", userId: userId.uuidString)
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+
+    let path = await makePath(for: "blood_pressure", userId: userId.uuidString)
     let query = makeQuery(startDate: startDate, endDate: endDate)
     
     let request: Request<[BloodPressureDataPoint]> = .get(path, query: query, headers: [:])
-    let response = try await self.client.apiClient.send(request)
+    let response = try await configuration.apiClient.send(request)
     
     return response.value
   }
@@ -80,9 +84,11 @@ public extension VitalClient.TimeSeries {
   func makePath(
     for resource: String,
     userId: String
-  ) -> String {
+  ) async -> String {
 
-    let prefix: String = "/\(client.apiVersion)"
+    let configuration = await client.configuration.get()
+
+    let prefix: String = "/\(configuration.apiVersion)"
       .append(self.resource)
       .append(userId)
 
