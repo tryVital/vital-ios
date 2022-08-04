@@ -92,21 +92,20 @@ public class VitalClient {
     configuration: Configuration = .init()
   ) {
     Task.detached(priority: .high) {
-      let client = await VitalClient(
+      await self.client.setConfiguration(
         apiKey: apiKey,
         environment: environment,
         configuration: configuration
       )
-      
-      Self.client = client
     }
   }
   
   init() {
-    /// Empty initialisation, before VitalClient is actually setup
+    /// Empty initialisation, before VitalClient.configure is called
+    /// This gives the consumer the flexibility to call `configure` and `setUserId` when they wish
   }
   
-  init(
+  func setConfiguration(
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
