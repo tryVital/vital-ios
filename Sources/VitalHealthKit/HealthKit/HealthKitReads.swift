@@ -299,8 +299,6 @@ func handleSleep(
     )
     
     let filteredHR = originalHR.filter(by: sleep.sourceBundle)
-    
-    let unfilteredHeartRate = originalHR.compactMap(QuantitySample.init)
     let heartRate = filteredHR.compactMap(QuantitySample.init)
     
     let hearRateVariability: [QuantitySample] = try await querySample(
