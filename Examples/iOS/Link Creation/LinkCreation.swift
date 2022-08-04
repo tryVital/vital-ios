@@ -115,10 +115,6 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(false))
       
     case .fetchData:
-      if VitalClient.isSetup == false {
-        return .none
-      }
-      
       state.status = .fetchingData
       
       let effect = Effect<LinkCreation.Action, Error>.task {
@@ -164,10 +160,6 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
       return .init(value: .toggleWebView(true))
       
     case .generateLink:
-      if VitalClient.isSetup == false {
-        return .none
-      }
-      
       state.status = .generatingLink
       state.bloodPressurePoints = []
       state.glucosePoints = []

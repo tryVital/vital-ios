@@ -6,6 +6,13 @@ struct Credentials: Equatable, Hashable {
   let environment: Environment
 }
 
+struct VitalCoreConfiguration {
+  var logger: Logger? = nil
+  let apiVersion: String
+  let apiClient: APIClient
+  let environment: Environment
+}
+
 public enum Environment: Equatable, Hashable, Codable {
   public enum Region: Equatable, Hashable, Codable {
     case eu
@@ -67,58 +74,51 @@ public enum Environment: Equatable, Hashable, Codable {
 
 public class VitalClient {
   
-  private let configuration: Configuration
-  private let storage: VitalCoreStorage
-  
-  var logger: Logger? = nil
-  var userIdBox: UserIdBox = .init()
-  let apiVersion: String
-  let apiClient: APIClient
-  
-  let environment: Environment
+  private let storage: VitalCoreStorage = .init()
   let dateFormatter = ISO8601DateFormatter()
   
+  var configuration: ProtectedBox<VitalCoreConfiguration> = .init()
+  var userId: ProtectedBox<UUID> = .init()
+  
   public static var shared: VitalClient {
-    guard let client = Self.client else {
-      fatalError("`VitalClient` hasn't been configured.")
-    }
-    
     return client
   }
   
-  private static var client: VitalClient?
+  private static var client: VitalClient = .init()
   
   public static func configure(
     apiKey: String,
     environment: Environment,
     configuration: Configuration = .init()
   ) {
-    let client = VitalClient(
-      apiKey: apiKey,
-      environment: environment,
-      configuration: configuration
-    )
-    
-    Self.client = client
+    Task.detached(priority: .high) {
+      await self.client.setConfiguration(
+        apiKey: apiKey,
+        environment: environment,
+        configuration: configuration
+      )
+    }
   }
   
-  init(
+  init() {
+    /// Empty initialisation, before VitalClient.configure is called
+    /// This gives the consumer the flexibility to call `configure` and `setUserId` when they wish
+  }
+  
+  func setConfiguration(
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
     storage: VitalCoreStorage = .init(),
     apiVersion: String = "v2"
-  ) {
-    self.environment = environment
-    self.configuration = configuration
-    self.storage = storage
-    self.apiVersion = apiVersion
+  ) async {
+    var logger: Logger?
     
     if configuration.logsEnable {
-      self.logger = Logger(subsystem: "vital", category: "vital-network-client")
+      logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
     
-    self.logger?.info("VitalClient setup for environment \(String(describing: environment))")
+    logger?.info("VitalClient setup for environment \(String(describing: environment))")
     
     let apiClientDelegate = VitalClientDelegate(
       environment: environment,
@@ -126,7 +126,7 @@ public class VitalClient {
       apiKey: apiKey
     )
     
-    self.apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
+    let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
       configuration.delegate = apiClientDelegate
       
       let encoder = JSONEncoder()
@@ -140,20 +140,25 @@ public class VitalClient {
       configuration.encoder = encoder
       configuration.decoder = decoder
     }
-  }
-  
-  public static var isSetup: Bool {
-    Self.client != nil
+    
+    let configuration = VitalCoreConfiguration(
+      logger: logger,
+      apiVersion: apiVersion,
+      apiClient: apiClient,
+      environment: environment
+    )
+    
+    await self.configuration.set(value: configuration)
   }
   
   public static func setUserId(_ userId: UUID) {
     Task.detached(priority: .high) {
-      await VitalClient.shared.userIdBox.set(userId: userId)
+      await VitalClient.shared.userId.set(value: userId)
     }
   }
   
   public func checkConnectedSource(for provider: Provider) async throws {
-    let userId = await userIdBox.getUserId()
+    let userId = await userId.get()
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
       return
@@ -176,7 +181,7 @@ public class VitalClient {
       /// We might be able to derive 2) from 1)?
       UserDefaults.standard.removePersistentDomain(forName: "tryVital")
       
-      await self.userIdBox.clean()
+      await self.userId.clean()
     }
   }
 }

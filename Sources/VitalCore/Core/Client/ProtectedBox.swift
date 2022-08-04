@@ -1,15 +1,15 @@
 import Foundation
 
-actor UserIdBox {
-  private var continuations: [CheckedContinuation<UUID, Never>] = []
-  private var userId: UUID?
+actor ProtectedBox<T> {
+  private var continuations: [CheckedContinuation<T, Never>] = []
+  private var value: T?
   
   deinit {
     continuations = []
   }
   
-  func getUserId() async -> UUID {
-    if let value = userId {
+  func get() async -> T {
+    if let value = value {
       return value
     } else {
       return await withCheckedContinuation { continuation in
@@ -18,17 +18,17 @@ actor UserIdBox {
     }
   }
   
-  func set(userId: UUID) {
-    self.userId = userId
+  func set(value: T) {
+    self.value = value
     
     continuations.forEach { continuation in
-      continuation.resume(with: .success(userId))
+      continuation.resume(with: .success(value))
     }
     
     continuations = []
   }
   
   func clean() {
-    self.userId = nil
+    self.value = nil
   }
 }

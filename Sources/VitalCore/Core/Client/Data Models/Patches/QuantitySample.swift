@@ -7,6 +7,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
   public var startDate: Date
   public var endDate: Date
   public var sourceBundle: String?
+  public var productType: String?
   public var type: String?
   public var unit: String
   
@@ -18,6 +19,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     startDate: Date,
     endDate: Date,
     sourceBundle: String? = nil,
+    productType: String? = nil,
     type: String? = nil,
     unit: String,
     metadata: VitalAnyEncodable? = nil
@@ -27,6 +29,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     self.startDate = startDate
     self.endDate = endDate
     self.sourceBundle = sourceBundle
+    self.productType = productType
     self.type = type
     self.unit = unit
     self.metadata = metadata
@@ -37,6 +40,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     value: Double,
     date: Date,
     sourceBundle: String? = nil,
+    productType: String? = nil,
     type: String? = nil,
     unit: String,
     metadata: VitalAnyEncodable? = nil
@@ -47,6 +51,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
       startDate: date,
       endDate: date,
       sourceBundle: sourceBundle,
+      productType: productType,
       type: type,
       unit: unit,
       metadata: metadata
@@ -59,6 +64,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     lhs.startDate == rhs.startDate &&
     lhs.endDate == rhs.endDate &&
     lhs.sourceBundle == rhs.sourceBundle &&
+    lhs.productType == rhs.productType &&
     lhs.type == rhs.type &&
     lhs.unit == rhs.unit
   }
@@ -69,6 +75,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     hasher.combine(startDate)
     hasher.combine(endDate)
     hasher.combine(sourceBundle)
+    hasher.combine(productType)
     hasher.combine(type)
     hasher.combine(unit)
   }

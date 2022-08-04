@@ -118,11 +118,6 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return .none
       
     case .startScanning:
-      if VitalClient.isSetup == false {
-        state.status = .notSetup
-        return .none
-      }
-      
       let brand = state.device.brand
       state.status = .searching
       

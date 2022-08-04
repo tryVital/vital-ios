@@ -81,15 +81,18 @@ public extension VitalHealthKitClient {
     public let autoSyncEnabled: Bool
     public let backgroundDeliveryEnabled: Bool
     public let logsEnabled: Bool
+    public let daysFetched: Int
     
     public init(
       autoSyncEnabled: Bool = false,
       backgroundDeliveryEnabled: Bool = false,
-      logsEnabled: Bool = true
+      logsEnabled: Bool = true,
+      daysFetched: Int = 90
     ) {
       self.autoSyncEnabled = autoSyncEnabled
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.logsEnabled = logsEnabled
+      self.daysFetched = daysFetched
     }
   }
 }
@@ -207,7 +210,7 @@ extension VitalHealthKitClient {
     type: HKSampleType,
     completion: () -> Void
   ) async {
-    let startDate: Date = .dateAgo(days: 30)
+    let startDate: Date = .dateAgo(days: configuration.daysFetched)
     let endDate: Date = Date()
     
     self.logger?.info("Syncing HealthKit in background for type: \(String(describing: type))")
@@ -261,7 +264,7 @@ extension VitalHealthKitClient {
     resource: VitalResource
   ) async {
     
-    let startDate: Date = .dateAgo(days: 30)
+    let startDate: Date = .dateAgo(days: configuration.daysFetched)
     let endDate: Date = Date()
     
     self.logger?.info("Syncing HealthKit data for: \(resource.logDescription)")

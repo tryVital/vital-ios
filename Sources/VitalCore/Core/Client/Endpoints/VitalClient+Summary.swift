@@ -21,19 +21,20 @@ public extension VitalClient.Summary {
     stage: TaggedPayload.Stage,
     provider: Provider
   ) async throws -> Void {
-    let userId = await self.client.userIdBox.getUserId()
-    
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+
     let taggedPayload = TaggedPayload(
       stage: stage,
       provider: provider,
       data: VitalAnyEncodable(summaryData.payload)
     )
     
-    let prefix: String = "/\(self.client.apiVersion)/\(self.resource)/"
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "\(summaryData.name)/\(userId)"
     
     let request: Request<Void> = .post(fullPath, body: taggedPayload)
     
-    try await self.client.apiClient.send(request)
+    try await configuration.apiClient.send(request)
   }
 }

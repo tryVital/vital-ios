@@ -6,6 +6,7 @@ public struct WorkoutPatch: Encodable {
     public let startDate: Date
     public let endDate: Date
     public let sourceBundle: String
+    public let productType: String?
     public let sport: String
     public let calories: Double
     public let distance: Double
@@ -18,6 +19,7 @@ public struct WorkoutPatch: Encodable {
       startDate: Date,
       endDate: Date,
       sourceBundle: String,
+      productType: String?,
       sport: String,
       calories: Double,
       distance: Double,
@@ -28,6 +30,7 @@ public struct WorkoutPatch: Encodable {
       self.startDate = startDate
       self.endDate = endDate
       self.sourceBundle = sourceBundle
+      self.productType = productType
       self.sport = sport
       self.calories = calories
       self.distance = distance
