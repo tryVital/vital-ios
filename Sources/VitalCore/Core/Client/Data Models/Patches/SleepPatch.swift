@@ -6,6 +6,7 @@ public struct SleepPatch: Encodable {
     public var startDate: Date
     public var endDate: Date
     public var sourceBundle: String
+    public var productType: String
     
     public var heartRate: [QuantitySample] = []
     public var restingHeartRate: [QuantitySample] = []
@@ -18,6 +19,7 @@ public struct SleepPatch: Encodable {
       startDate: Date,
       endDate: Date,
       sourceBundle: String,
+      productType: String,
       heartRate: [QuantitySample] = [],
       restingHeartRate: [QuantitySample] = [],
       heartRateVariability: [QuantitySample] = [],
@@ -28,6 +30,7 @@ public struct SleepPatch: Encodable {
       self.startDate = startDate
       self.endDate = endDate
       self.sourceBundle = sourceBundle
+      self.productType = productType
       self.heartRate = heartRate
       self.restingHeartRate = restingHeartRate
       self.heartRateVariability = heartRateVariability

@@ -160,6 +160,7 @@ extension QuantitySample {
       startDate: value.startDate,
       endDate: value.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
+      productType: value.sourceRevision.productType,
       type: "automatic",
       unit: sample.sampleType.toUnitStringRepresentation
     )
@@ -287,15 +288,19 @@ extension ProfilePatch.BiologicalSex {
 
 public extension SleepPatch.Sleep {
   init?(sample: HKSample) {
-    guard let value = sample as? HKCategorySample else {
+    guard
+      let value = sample as? HKCategorySample,
+      let productType = value.sourceRevision.productType
+    else {
       return nil
     }
-    
+
     self.init(
       id: value.uuid,
       startDate: value.startDate,
       endDate: value.endDate,
-      sourceBundle: value.sourceRevision.source.bundleIdentifier
+      sourceBundle: value.sourceRevision.source.bundleIdentifier,
+      productType: productType
     )
   }
 }
@@ -311,6 +316,7 @@ extension WorkoutPatch.Workout {
       startDate: workout.startDate,
       endDate: workout.endDate,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
+      productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,
       calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
       distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0
