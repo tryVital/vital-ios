@@ -3,6 +3,39 @@ import VitalCore
 
 func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   switch resource {
+    case .individual(.steps):
+      return [
+        HKSampleType.quantityType(forIdentifier: .stepCount)!,
+      ]
+    case .individual(.activeEnergyBurned):
+      return [
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+      ]
+    case .individual(.basalEnergyBurned):
+      return [
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+      ]
+    case .individual(.floorsClimbed):
+      return [
+        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+      ]
+    case .individual(.distanceWalkingRunning):
+      return [
+        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+      ]
+    case .individual(.vo2Max):
+      return [
+        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+      ]
+    case .individual(.weight):
+      return [
+        HKSampleType.quantityType(forIdentifier: .bodyMass)!,
+      ]
+    case .individual(.bodyFat):
+      return [
+        HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
+      ]
+    
     case .profile:
       return [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
@@ -11,10 +44,9 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       ]
       
     case .body:
-      return [
-        HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-        HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
-      ]
+      
+      return toHealthKitTypes(resource: .individual(.bodyFat)) +
+      toHealthKitTypes(resource: .individual(.weight))
       
     case .sleep:
       return [
@@ -27,14 +59,13 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       ]
       
     case .activity:
-      return [
-        HKSampleType.quantityType(forIdentifier: .stepCount)!,
-        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-      ]
+      
+      return toHealthKitTypes(resource: .individual(.steps)) +
+      toHealthKitTypes(resource: .individual(.floorsClimbed)) +
+      toHealthKitTypes(resource: .individual(.basalEnergyBurned)) +
+      toHealthKitTypes(resource: .individual(.activeEnergyBurned)) +
+      toHealthKitTypes(resource: .individual(.distanceWalkingRunning)) +
+      toHealthKitTypes(resource: .individual(.vo2Max))
       
     case .workout:
       return [
@@ -103,7 +134,6 @@ public func hasAskedForPermission(
   resource: VitalResource,
   store: HKHealthStore
 ) -> Bool {
-  
   return toHealthKitTypes(resource: resource)
     .map { store.authorizationStatus(for: $0) != .notDetermined }
     .reduce(true, { $0 && $1})

@@ -7,7 +7,7 @@ struct VitalHealthKitStore {
   var hasAskedForPermission: (VitalResource) -> Bool
   
   var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
-  var readSample: (HKSampleType, TaggedPayload.Stage, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
+  var readSample: (HKSampleType, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void
@@ -34,10 +34,9 @@ extension VitalHealthKitStore {
           startDate: startDate,
           endDate: endDate
         )
-      } readSample: { (type, stage, startDate, endDate, storage) in
+      } readSample: { (type, startDate, endDate, storage) in
         try await read(
           type: type,
-          stage: stage,
           healthKitStore: store,
           vitalStorage: storage,
           startDate: startDate,
@@ -61,7 +60,7 @@ extension VitalHealthKitStore {
       true
     } readResource: { _,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
-    } readSample: { _,_,_,_,_  in
+    } readSample: { _,_,_,_  in
       return (PostResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return

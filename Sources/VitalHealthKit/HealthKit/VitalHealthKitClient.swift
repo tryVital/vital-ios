@@ -222,7 +222,6 @@ extension VitalHealthKitClient {
       
       let (data, entitiesToStore) = try await store.readSample(
         type,
-        stage,
         startDate,
         endDate,
         storage
@@ -332,7 +331,10 @@ extension VitalHealthKitClient {
     
     do {
       try await store.requestReadAuthorization(resources)
-      checkBackgroundUpdates(isBackgroundEnabled: self.configuration.backgroundDeliveryEnabled, resources: resources)
+      checkBackgroundUpdates(
+        isBackgroundEnabled: self.configuration.backgroundDeliveryEnabled,
+        resources: resources
+      )
       
       return .success
     }

@@ -18,6 +18,8 @@ struct HealthKitExample: View {
             
             makePermissionRow("Activity", resources: [.activity])
             
+            makePermissionRow("Steps", resources: [.individual(.steps)])
+            
             makePermissionRow("Workout", resources: [.workout])
 
             makePermissionRow("Glucose", resources: [.vitals(.glucose)])

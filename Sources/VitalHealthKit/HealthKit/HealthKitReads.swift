@@ -10,7 +10,6 @@ typealias SeriesSampleHandler = (HKQuantitySeriesSampleQuery, HKQuantity?, DateI
 
 func read(
   type: HKSampleType,
-  stage: TaggedPayload.Stage,
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
@@ -30,18 +29,6 @@ func read(
     
     let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
     return (quantities, payload.anchor)
-  }
-  
-  /// If it's an historical read (aka the first read)
-  /// We will try to get all the data first, rather than individual samples
-  guard stage.isDaily else {
-    return try await read(
-      resource: type.toVitalResource,
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      startDate: startDate,
-      endDate: endDate
-    )
   }
   
   var anchors: [StoredAnchor] = []
@@ -95,6 +82,26 @@ func read(
 ) async throws -> (PostResourceData, [StoredAnchor]) {
   
   switch resource {
+    
+    case .individual:
+      
+      let types = toHealthKitTypes(resource: resource)
+      guard types.count == 1 else {
+        fatalError("Individual types should made up of a single type. \(resource) isn't. This is a developer error")
+      }
+      
+      guard let sampleType = types.first as? HKSampleType else {
+        fatalError("\(types) is not an HKSampleType")
+      }
+      
+      return try await read(
+        type: sampleType,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+      
     case .profile:
       let profilePayload = try await handleProfile(
         healthKitStore: healthKitStore
