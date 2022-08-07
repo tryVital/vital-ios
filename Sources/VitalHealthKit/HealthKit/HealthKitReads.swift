@@ -752,8 +752,11 @@ func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
     return sleeps + [sleep]
   }
   
+  let sanityCheck = sleeps.filter {
+    $0.endDate >= $0.startDate
+  }
   
-  return sleeps.reduce([]) { acc, sleep in
+  return sanityCheck.reduce([]) { acc, sleep in
     return compareSleep(sleeps: acc, sleep: sleep)
   }
 }

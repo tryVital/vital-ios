@@ -22,16 +22,23 @@ class VitalHealthKitReadsTests: XCTestCase {
     XCTAssertEqual(mergeSleeps(sleeps: [sleep]), [sleep])
     XCTAssertEqual(mergeSleeps(sleeps: [sleep, sleep1]), [sleep])
     
-    /// Same startDate + endDate
+    /// Same startDate & endDate
     sleep.startDate = .distantFuture
     
     XCTAssertEqual(mergeSleeps(sleeps: [sleep]), [sleep])
     
-    /// Flipped startDate + endDate
+    /// Flipped startDate & endDate
     sleep.startDate = .distantFuture
     sleep.endDate = .distantPast
 
-    XCTAssertEqual(mergeSleeps(sleeps: [sleep]), [sleep])
+    XCTAssertEqual(mergeSleeps(sleeps: [sleep]), [])
+    
+    
+    var sleep2 = sleep
+    sleep2.startDate = Date()
+    sleep2.endDate = Date().addingTimeInterval(60)
+
+    mergeSleeps(sleeps: [sleep, sleep2]) == [sleep, sleep2]
   }
 }
 

@@ -21,7 +21,6 @@ class VitalStorageTests: XCTestCase {
     XCTAssertNotNil(storedAnchor)
   }
   
-  
   func testStorageRecreation() throws {
     let storage = VitalHealthKitStorage()
     let key = "key"
