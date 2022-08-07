@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ProfilePatch: Encodable {
+public struct ProfilePatch: Equatable, Encodable {
   public enum BiologicalSex: String, Encodable {
     case male
     case female

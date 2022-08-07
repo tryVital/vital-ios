@@ -726,20 +726,25 @@ private func activityQuery(
   }
 }
 
-private func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
-  func _mergeSleeps(sleeps: [SleepPatch.Sleep], sleep: SleepPatch.Sleep) -> [SleepPatch.Sleep] {
+func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
+  func compareSleep(
+    sleeps: [SleepPatch.Sleep],
+    sleep: SleepPatch.Sleep
+  ) -> [SleepPatch.Sleep] {
   
     for value in sleeps {
-      if (value.startDate ... value.endDate).overlaps(sleep.startDate ... sleep.endDate) && value.sourceBundle == sleep.sourceBundle {
+      if (value.startDate ... value.endDate).overlaps(sleep.startDate ... sleep.endDate) &&
+          value.sourceBundle == sleep.sourceBundle {
         
         let diffExisting = value.endDate.timeIntervalSinceReferenceDate - value.startDate.timeIntervalSinceReferenceDate
+        
         let diffNew = sleep.endDate.timeIntervalSinceReferenceDate - sleep.startDate.timeIntervalSinceReferenceDate
         
         if diffExisting > diffNew {
           return sleeps
         } else {
           let newAcc = Array(sleeps.dropLast())
-          return _mergeSleeps(sleeps: newAcc, sleep: sleep)
+          return compareSleep(sleeps: newAcc, sleep: sleep)
         }
       }
     }
@@ -749,7 +754,7 @@ private func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
   
   
   return sleeps.reduce([]) { acc, sleep in
-    return _mergeSleeps(sleeps: acc, sleep: sleep)
+    return compareSleep(sleeps: acc, sleep: sleep)
   }
 }
 

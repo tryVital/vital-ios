@@ -1,7 +1,7 @@
 import Foundation
 
-public struct ActivityPatch: Encodable {
-  public struct Activity: Encodable {
+public struct ActivityPatch: Equatable, Encodable {
+  public struct Activity: Equatable, Encodable {
     public let date: Date
     
     public var activeEnergyBurned: [QuantitySample] = []

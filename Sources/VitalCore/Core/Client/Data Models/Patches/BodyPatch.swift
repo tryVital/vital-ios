@@ -1,4 +1,4 @@
-public struct BodyPatch: Encodable {
+public struct BodyPatch: Equatable, Encodable {
   public let bodyMass: [QuantitySample]
   public let bodyFatPercentage: [QuantitySample]
   

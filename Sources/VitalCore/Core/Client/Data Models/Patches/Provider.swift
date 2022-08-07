@@ -1,5 +1,5 @@
-struct ProviderResponse: Decodable {
-  struct Provider: Decodable {
+struct ProviderResponse: Equatable, Decodable {
+  struct Provider: Equatable, Decodable {
     let name: String
     let slug: String
     let logo: String

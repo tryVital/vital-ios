@@ -1,7 +1,7 @@
 import Foundation
 
-public struct SleepPatch: Encodable {
-  public struct Sleep: Encodable {
+public struct SleepPatch: Equatable, Encodable {
+  public struct Sleep: Equatable, Encodable {
     public var id: UUID?
     public var startDate: Date
     public var endDate: Date
