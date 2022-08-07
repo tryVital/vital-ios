@@ -154,11 +154,13 @@ extension QuantitySample {
       return nil
     }
     
+    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
+    
     self.init(
       id: value.uuid.uuidString,
       value: value.quantity.doubleValue(for: sample.sampleType.toHealthKitUnits),
-      startDate: value.startDate,
-      endDate: value.endDate,
+      startDate: startDate,
+      endDate: endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       productType: value.sourceRevision.productType,
       type: "automatic",
@@ -294,11 +296,13 @@ public extension SleepPatch.Sleep {
     else {
       return nil
     }
+    
+    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
 
     self.init(
       id: value.uuid,
-      startDate: value.startDate,
-      endDate: value.endDate,
+      startDate: startDate,
+      endDate: endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       productType: productType
     )
@@ -311,10 +315,12 @@ extension WorkoutPatch.Workout {
       return nil
     }
     
+    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
+    
     self.init(
       id: workout.uuid,
-      startDate: workout.startDate,
-      endDate: workout.endDate,
+      startDate: startDate,
+      endDate: endDate,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,
@@ -322,4 +328,18 @@ extension WorkoutPatch.Workout {
       distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0
     )
   }
+}
+
+
+private func applyTimeZoneInfo(sample: HKSample) -> (Date, Date) {
+  var timeZone = TimeZone.current
+  
+  if let timeZoneString = sample.metadata?[HKMetadataKeyTimeZone] as? String {
+    timeZone = TimeZone(identifier: timeZoneString) ?? TimeZone.current
+  }
+  
+  let startDate = sample.startDate.toUTC(from: timeZone)
+  let endDate = sample.endDate.toUTC(from: timeZone)
+  
+  return (startDate, endDate)
 }

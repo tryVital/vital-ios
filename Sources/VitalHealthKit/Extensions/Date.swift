@@ -32,3 +32,11 @@ extension Date {
     return vitalCalendar.date(byAdding: components, to: dayStart) ?? self
   }
 }
+
+extension Date {
+  func toUTC(from timeZone: TimeZone) -> Date {
+    let seconds = -TimeInterval(timeZone.secondsFromGMT(for: self))
+    return Date(timeInterval: seconds, since: self)
+  }
+}
+
