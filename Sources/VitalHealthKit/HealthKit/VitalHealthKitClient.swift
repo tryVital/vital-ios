@@ -121,7 +121,7 @@ extension VitalHealthKitClient {
         try await vitaClient.checkConnectedSource(.appleHealthKit)
         
         /// Sync a sample one-by-one
-        await sync(type: payload.sampleType, completion: payload.completion)
+        await sync(payload: .type(payload.sampleType), completion: payload.completion)
       }
     }
   }
@@ -199,102 +199,96 @@ extension VitalHealthKitClient {
       try await vitaClient.checkConnectedSource(.appleHealthKit)
 
       for resource in resources {
-        await sync(resource: resource)
+        await sync(payload: .resource(resource), completion: {})
       }
       
       _status.send(.syncingCompleted)
     }
   }
+  
+  
+  
+  public enum SyncPayloadd {
+    case type(HKSampleType)
+    case resource(VitalResource)
     
-  private func sync(
-    type: HKSampleType,
-    completion: () -> Void
-  ) async {
-    let startDate: Date = .dateAgo(days: configuration.daysFetched)
-    let endDate: Date = Date()
-    
-    self.logger?.info("Syncing HealthKit in background for type: \(String(describing: type))")
-    
-    do {
-      let stage = calculateStage(resource: type.toVitalResource, startDate: startDate, endDate: endDate)
-      
-      self.logger?.info("Reading data in background for: \(String(describing: type)) for stage: \(String(describing: stage))")
-      
-      let (data, entitiesToStore) = try await store.readSample(
-        type,
-        startDate,
-        endDate,
-        storage
-      )
-      
-      guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping background delivery. No new data available for type: \(String(describing: type))")
-        return
+    var isResource: Bool {
+      switch self {
+        case .resource:
+          return true
+        case .type:
+          return false
       }
-      
-      // Post to the network
-      self.logger?.info("Posting data in background for: \(String(describing: type))")
-
-      try await vitaClient.post(
-        data,
-        stage,
-        .appleHealthKit
-      )
-      
-      storage.storeFlag(for: type.toVitalResource)
-      
-      // Save the anchor/date on succesfull network call
-      entitiesToStore.forEach(storage.store(entity:))
-      
-      self.logger?.info("Completed background syncing for type: \(String(describing: type))")
-      
-      /// Call completion
-      completion()
     }
-    catch let error {
-      // Signal failure
-      self.logger?.error(
-        "Failed background syncing for type: \(String(describing: type)). Error: \(error.localizedDescription)"
-      )
+    
+    var infix: String {
+      if isResource {
+        return ""
+      } else {
+        return "(via background delivery mechanism)"
+      }
+    }
+    
+    var description: String {
+      switch self {
+        case let .resource(resource):
+          return resource.logDescription
+          
+        case let .type(type):
+          /// We know that if we are dealing with
+          return type.toVitalResource.logDescription
+      }
+    }
+    
+    var resource: VitalResource {
+      switch self {
+        case let .resource(resource):
+          return resource
+          
+        case let .type(type):
+          return type.toVitalResource
+      }
     }
   }
   
   private func sync(
-    resource: VitalResource
+    payload: SyncPayloadd,
+    completion: () -> Void
   ) async {
     
     let startDate: Date = .dateAgo(days: configuration.daysFetched)
     let endDate: Date = Date()
     
-    self.logger?.info("Syncing HealthKit data for: \(resource.logDescription)")
+    self.logger?.info("Syncing HealthKit \(payload.infix): \(payload.description)")
     
     do {
       // Signal syncing (so the consumer can convey it to the user)
-      _status.send(.syncing(resource))
+      _status.send(.syncing(payload.resource))
       
       // Fetch from HealthKit
-      let (data, entitiesToStore) = try await store.readResource(
-        resource,
+      let (data, entitiesToStore): (PostResourceData, [StoredAnchor])
+      
+      (data, entitiesToStore) = try await store.readResource(
+        payload.resource,
         startDate,
         endDate,
         storage
       )
       
       guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping. No new data available for: \(resource.logDescription)")
-        _status.send(.nothingToSync(resource))
+        self.logger?.info("Skipping. No new data available \(payload.infix): \(payload.description)")
+        _status.send(.nothingToSync(payload.resource))
         return
       }
       
-      // Calculate if this daily data or historical
       let stage = calculateStage(
-        resource: resource,
+        resource: payload.resource,
         startDate: startDate,
         endDate: endDate
       )
       
       // Post to the network
-      self.logger?.info("Posting data for: \(resource.logDescription)")
+      self.logger?.info("Posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)")
       
       try await vitaClient.post(
         data,
@@ -302,24 +296,30 @@ extension VitalHealthKitClient {
         .appleHealthKit
       )
       
-      storage.storeFlag(for: resource)
+      // This is used for calculating the stage (daily vs historic)
+      storage.storeFlag(for: payload.resource)
       
-      // Save the anchor/date on succesfull network call
+      // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      self.logger?.info("Completed syncing for: \(resource.logDescription)")
+      self.logger?.info("Completed syncing \(payload.infix): \(payload.description)")
       
       // Signal success
-      _status.send(.successSyncing(resource, data))
+      _status.send(.successSyncing(payload.resource, data))
+      
+      /// Call completion
+      completion()
+      
     }
     catch let error {
       // Signal failure
       self.logger?.error(
-        "Failed syncing data for: \(resource.logDescription). Error: \(error.localizedDescription)"
+        "Failed syncing data \(payload.infix): \(payload.description). Error: \(error.localizedDescription)"
       )
-      _status.send(.failedSyncing(resource, error))
+      _status.send(.failedSyncing(payload.resource, error))
     }
   }
+  
   
   public func ask(
     for resources: [VitalResource]

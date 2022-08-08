@@ -65,13 +65,51 @@ extension BodyPatch {
 
 extension HKSampleType {
   
+  var toIndividualResource: VitalResource {
+    switch self {
+      case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
+        return .individual(.weight)
+      
+      case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
+        return .individual(.bodyFat)
+      
+      case HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!:
+        return .individual(.activeEnergyBurned)
+        
+      case HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
+        return .individual(.basalEnergyBurned)
+        
+      case HKSampleType.quantityType(forIdentifier: .stepCount)!:
+        return .individual(.steps)
+        
+      case HKSampleType.quantityType(forIdentifier: .flightsClimbed)!:
+        return .individual(.floorsClimbed)
+        
+      case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
+        return .individual(.distanceWalkingRunning)
+        
+      case HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+        return .individual(.vo2Max)
+        
+      default:
+        fatalError("\(String(describing: self)) is not supported. This is a developer error")
+    }
+  }
+  
   var toVitalResource: VitalResource {
     switch self {
       case
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
         HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
         
-        return .body
+        /// If the user has explicitly asked for Body permissions, then it's the resource is Body
+        if hasAskedForPermission(resource: .body, store: HKHealthStore()) {
+          return .body
+        } else {
+          /// If the user has given permissions to a single permission in the past (e.g. weight) we should
+          /// treat it as such
+          return self.toIndividualResource
+        }
         
       case HKQuantityType.quantityType(forIdentifier: .height)!:
         return .profile
@@ -89,8 +127,13 @@ extension HKSampleType {
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!:
-        return .activity
         
+        if hasAskedForPermission(resource: .activity, store: HKHealthStore()) {
+          return .activity
+        } else {
+          return self.toIndividualResource
+        }
+                
       case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
         return .vitals(.glucose)
         
@@ -104,7 +147,7 @@ extension HKSampleType {
         return .vitals(.hearthRate)
         
       default:
-        fatalError("\(String(describing: self)) is not supported. This seems like a developer error")
+        fatalError("\(String(describing: self)) is not supported. This is a developer error")
     }
   }
 }
@@ -153,14 +196,12 @@ extension QuantitySample {
     guard let value = sample as? HKQuantitySample else {
       return nil
     }
-    
-    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
-    
+        
     self.init(
       id: value.uuid.uuidString,
       value: value.quantity.doubleValue(for: sample.sampleType.toHealthKitUnits),
-      startDate: startDate,
-      endDate: endDate,
+      startDate: sample.startDate,
+      endDate: sample.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       productType: value.sourceRevision.productType,
       type: "automatic",
@@ -297,12 +338,10 @@ public extension SleepPatch.Sleep {
       return nil
     }
     
-    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
-
     self.init(
       id: value.uuid,
-      startDate: startDate,
-      endDate: endDate,
+      startDate: sample.startDate,
+      endDate: sample.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       productType: productType
     )
@@ -314,13 +353,11 @@ extension WorkoutPatch.Workout {
     guard let workout = sample as? HKWorkout else {
       return nil
     }
-    
-    let (startDate, endDate) = applyTimeZoneInfo(sample: sample)
-    
+        
     self.init(
       id: workout.uuid,
-      startDate: startDate,
-      endDate: endDate,
+      startDate: sample.startDate,
+      endDate: sample.endDate,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,
@@ -330,16 +367,3 @@ extension WorkoutPatch.Workout {
   }
 }
 
-
-private func applyTimeZoneInfo(sample: HKSample) -> (Date, Date) {
-  var timeZone = TimeZone.current
-  
-  if let timeZoneString = sample.metadata?[HKMetadataKeyTimeZone] as? String {
-    timeZone = TimeZone(identifier: timeZoneString) ?? TimeZone.current
-  }
-  
-  let startDate = sample.startDate.toUTC(from: timeZone)
-  let endDate = sample.endDate.toUTC(from: timeZone)
-  
-  return (startDate, endDate)
-}

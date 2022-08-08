@@ -8,7 +8,7 @@ typealias ActivityQueryHandler = (HKActivitySummaryQuery, [HKActivitySummary]?, 
 typealias SeriesSampleHandler = (HKQuantitySeriesSampleQuery, HKQuantity?, DateInterval?, HKQuantitySample?, Bool, Error?) -> Void
 
 
-func read(
+private func read(
   type: HKSampleType,
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
@@ -727,59 +727,101 @@ private func activityQuery(
 }
 
 func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
+  
   func compareSleep(
     sleeps: [SleepPatch.Sleep],
     sleep: SleepPatch.Sleep
   ) -> [SleepPatch.Sleep] {
-  
-    for value in sleeps {
-      if (value.startDate ... value.endDate).overlaps(sleep.startDate ... sleep.endDate) &&
-          value.sourceBundle == sleep.sourceBundle {
+
+    for (index, value) in sleeps.enumerated() {
+      
+      if
+        (value.startDate ... value.endDate).overlaps(sleep.startDate ... sleep.endDate) &&
+        value.sourceBundle == sleep.sourceBundle
+      {
         
-        let diffExisting = value.endDate.timeIntervalSinceReferenceDate - value.startDate.timeIntervalSinceReferenceDate
+        var copySleep = sleep
+        copySleep.startDate = min(value.startDate, copySleep.startDate)
+        copySleep.endDate = max(value.endDate, copySleep.endDate)
         
-        let diffNew = sleep.endDate.timeIntervalSinceReferenceDate - sleep.startDate.timeIntervalSinceReferenceDate
+        var copySleeps = sleeps
+        copySleeps.remove(at: index)
         
-        if diffExisting > diffNew {
-          return sleeps
-        } else {
-          let newAcc = Array(sleeps.dropLast())
-          return compareSleep(sleeps: newAcc, sleep: sleep)
-        }
+        return compareSleep(sleeps: copySleeps, sleep: copySleep)
       }
     }
-    
+
     return sleeps + [sleep]
   }
-  
+
   let sanityCheck = sleeps.filter {
     $0.endDate >= $0.startDate
   }
-  
+
   return sanityCheck.reduce([]) { acc, sleep in
     return compareSleep(sleeps: acc, sleep: sleep)
   }
 }
 
-private func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
-  return sleeps.reduce([]) { acc, sleep in
+func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
+  return sleeps.reduce([]) { acc, newSleep in
     
     guard var lastValue = acc.last else {
-      return [sleep]
+      return [newSleep]
     }
     
-    let diff = sleep.startDate.timeIntervalSinceReferenceDate - lastValue.endDate.timeIntervalSinceReferenceDate
-    let longerThanThirtyMinutes = diff > 60 * 30
+    guard lastValue.sourceBundle == newSleep.sourceBundle else {
+      return acc + [newSleep]
+    }
     
-    if longerThanThirtyMinutes == false && lastValue.sourceBundle == sleep.sourceBundle {
+    /// A) `newSleep` happens after `lastValue`
+    ///
+    /// |____________|   <->  |____________|
+    ///    lastValue     30m     newSleep
+    if newSleep.startDate > lastValue.endDate  {
       
+      /// It happens in less than 30 minutes
+      if isLongerThan30Minutes(firstDate: lastValue.endDate, secondDate: newSleep.startDate) == false {
+        let newAcc = acc.dropLast()
+        lastValue.endDate = newSleep.endDate
+        return newAcc + [lastValue]
+      }
+    }
+    
+    /// B) `lastValue` happens after `newSleep`
+    ///
+    /// |____________|  <->  |____________|
+    ///    newSleep     30m     lastValue
+    if lastValue.startDate > newSleep.endDate  {
+      let longerThanThirtyMinutes = isLongerThan30Minutes(firstDate: newSleep.endDate, secondDate: lastValue.startDate)
+      
+      /// It happens in less than 30 minutes
+      if longerThanThirtyMinutes == false {
+        let newAcc = acc.dropLast()
+        lastValue.startDate = newSleep.startDate
+        return newAcc + [lastValue]
+      }
+    }
+    
+    /// C) `lastValue` overlaps `newSleep` (and vice-versa)
+    ///
+    /// |____________|
+    ///    newSleep
+    ///       |____________|
+    ///         lastValue
+    
+    if (lastValue.startDate ... lastValue.endDate).overlaps(newSleep.startDate ... newSleep.endDate) {
       let newAcc = acc.dropLast()
-      lastValue.endDate = sleep.endDate
+      
+      lastValue.startDate = min(lastValue.startDate, newSleep.startDate)
+      lastValue.endDate = max(lastValue.endDate, newSleep.endDate)
       
       return newAcc + [lastValue]
     }
     
-    return acc + [sleep]
+    /// There's no overlap, or the difference is more than 30 minutes.
+    /// It's likely a completely new entry
+    return acc + [newSleep]
   }
 }
 
@@ -817,4 +859,10 @@ private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSam
     
     return false
   }
+}
+
+private func isLongerThan30Minutes(firstDate: Date, secondDate: Date) -> Bool {
+  let diff = abs(firstDate.timeIntervalSinceReferenceDate - secondDate.timeIntervalSinceReferenceDate)
+  let longerThanThirtyMinutes = diff > 60 * 30
+  return longerThanThirtyMinutes
 }
