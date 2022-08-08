@@ -34,11 +34,15 @@ class VitalHealthKitReadsTests: XCTestCase {
     XCTAssertEqual(mergeSleeps(sleeps: [sleep]), [])
     
     
+    /// The longer sleep, should take precedence
+    sleep.startDate = .distantPast
+    sleep.endDate = .distantFuture
+
     var sleep2 = sleep
     sleep2.startDate = Date()
     sleep2.endDate = Date().addingTimeInterval(60)
 
-    mergeSleeps(sleeps: [sleep, sleep2]) == [sleep, sleep2]
+    XCTAssertEqual(mergeSleeps(sleeps: [sleep, sleep2]), [sleep])
   }
 }
 
