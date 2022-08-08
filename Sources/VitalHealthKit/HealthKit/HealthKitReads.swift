@@ -757,21 +757,23 @@ func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
   let sanityCheck = sleeps.filter {
     $0.endDate >= $0.startDate
   }
-
-  return sanityCheck.reduce([]) { acc, sleep in
-    return compareSleep(sleeps: acc, sleep: sleep)
+  
+  return sanityCheck.reduce(into: []) { acc, sleep in
+    acc = compareSleep(sleeps: acc, sleep: sleep)
   }
 }
 
 func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
-  return sleeps.reduce([]) { acc, newSleep in
+  return sleeps.reduce(into: []) { acc, newSleep in
     
     guard var lastValue = acc.last else {
-      return [newSleep]
+      acc = [newSleep]
+      return
     }
     
     guard lastValue.sourceBundle == newSleep.sourceBundle else {
-      return acc + [newSleep]
+      acc = acc + [newSleep]
+      return
     }
     
     /// A) `newSleep` happens after `lastValue`
@@ -784,7 +786,8 @@ func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
       if isLongerThan30Minutes(firstDate: lastValue.endDate, secondDate: newSleep.startDate) == false {
         let newAcc = acc.dropLast()
         lastValue.endDate = newSleep.endDate
-        return newAcc + [lastValue]
+        acc = newAcc + [lastValue]
+        return
       }
     }
     
@@ -799,7 +802,8 @@ func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
       if longerThanThirtyMinutes == false {
         let newAcc = acc.dropLast()
         lastValue.startDate = newSleep.startDate
-        return newAcc + [lastValue]
+        acc = newAcc + [lastValue]
+        return
       }
     }
     
@@ -816,12 +820,13 @@ func stichedSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {
       lastValue.startDate = min(lastValue.startDate, newSleep.startDate)
       lastValue.endDate = max(lastValue.endDate, newSleep.endDate)
       
-      return newAcc + [lastValue]
+      acc = newAcc + [lastValue]
+      return
     }
     
     /// There's no overlap, or the difference is more than 30 minutes.
     /// It's likely a completely new entry
-    return acc + [newSleep]
+    acc = acc + [newSleep]
   }
 }
 
