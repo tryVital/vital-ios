@@ -29,7 +29,19 @@ public extension VitalClient.Link {
     let payload = CreateConnectionSourceRequest(userId: userId)
     let request = Request<Void>.post(path, body: payload)
     
-    try await configuration.apiClient.send(request)
+    do {
+      try await configuration.apiClient.send(request)
+    } catch {
+      guard
+        let error = error as? APIError,
+        let .unacceptableStatusCode(status) = error,
+        status == 409
+      else {
+        throw error
+      }
+      
+      // A 409 means that there's a already a connected source, so we don't do anything.
+      return 
   }
   
   func createConnectedSource(
