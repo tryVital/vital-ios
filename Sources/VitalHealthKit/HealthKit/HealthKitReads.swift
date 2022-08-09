@@ -289,7 +289,14 @@ func handleSleep(
   let filteredSamples = filter(samples: sampleWithoutPhone, by: DataSource.allCases)
 
   let sleeps = filteredSamples.compactMap(SleepPatch.Sleep.init)
+  
+  /// Sleep samples can be sliced up. For example you can have a slice going from `2022-09-08 22:00` to `2022-09-08 22:15`
+  /// And several others until the last one is `2022-09-09 07:00`. The goal of of `stichedSleeps` is to put all these slices together
+  /// Into a single `SleepPatch.Sleep` going from  `2022-09-08 22:00` to `2022-09-08 07:00`
   let stitchedData = stichedSleeps(sleeps: sleeps)
+  
+  /// `stichedSleeps` doesn't deal with non-consecutive samples. So it's possible to have a sequence of samples that belong to different
+  /// providers (e.g. Apple Watch, Oura, Pillow). The goal of `mergeSleeps` is to find overlapping sleeps that belong to the same provider and merge them
   let mergedData = mergeSleeps(sleeps: stitchedData)
   
   anchors.appendOptional(payload.anchor)
