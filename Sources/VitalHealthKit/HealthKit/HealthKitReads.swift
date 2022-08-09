@@ -12,6 +12,7 @@ private func read(
   type: HKSampleType,
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
+  typeToResource: ((HKSampleType) -> VitalResource),
   startDate: Date,
   endDate: Date
 ) async throws -> (PostResourceData, [StoredAnchor]) {
@@ -64,8 +65,9 @@ private func read(
       
     default:
       return try await read(
-        resource: type.toVitalResource,
+        resource: typeToResource(type),
         healthKitStore: healthKitStore,
+        typeToResource: typeToResource,
         vitalStorage: vitalStorage,
         startDate: startDate,
         endDate: endDate
@@ -76,6 +78,7 @@ private func read(
 func read(
   resource: VitalResource,
   healthKitStore: HKHealthStore,
+  typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
@@ -98,6 +101,7 @@ func read(
         type: sampleType,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
+        typeToResource: typeToResource,
         startDate: startDate,
         endDate: endDate
       )
@@ -292,7 +296,7 @@ func handleSleep(
   
   /// Sleep samples can be sliced up. For example you can have a slice going from `2022-09-08 22:00` to `2022-09-08 22:15`
   /// And several others until the last one is `2022-09-09 07:00`. The goal of of `stichedSleeps` is to put all these slices together
-  /// Into a single `SleepPatch.Sleep` going from  `2022-09-08 22:00` to `2022-09-08 07:00`
+  /// Into a single `SleepPatch.Sleep` going from  `2022-09-08 22:00` to `2022-09-08 22:15`
   let stitchedData = stichedSleeps(sleeps: sleeps)
   
   /// `stichedSleeps` doesn't deal with non-consecutive samples. So it's possible to have a sequence of samples that belong to different

@@ -30,7 +30,7 @@ public struct TaggedPayload: Encodable {
 }
 
 public extension TaggedPayload {
-  enum Stage {
+  enum Stage: CustomStringConvertible {
     case daily
     case historical(start: Date, end: Date)
     
@@ -40,6 +40,15 @@ public extension TaggedPayload {
           return true
         case .historical:
           return false
+      }
+    }
+    
+    public var description: String {
+      switch self {
+        case .daily:
+          return "daily"
+        case let .historical(start: startDate, end: endDate):
+          return "historical: \(startDate) - \(endDate)"
       }
     }
   }

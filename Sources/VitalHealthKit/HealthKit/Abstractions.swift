@@ -83,6 +83,10 @@ extension VitalHealthKitStore {
         .reduce(true, { $0 && $1})
     }
     
+    let toVitalResource: (HKSampleType) -> VitalResource = { type in
+      return sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
+    }
+    
     return .init {
         HKHealthStore.isHealthDataAvailable()
       } requestReadAuthorization: { resources in
@@ -91,11 +95,12 @@ extension VitalHealthKitStore {
       } hasAskedForPermission: { resource in
         return hasAskedForPermission(resource)
       } toVitalResource: { type in
-        return sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
+        return toVitalResource(type)
       } readResource: { (resource, startDate, endDate, storage) in
         try await read(
           resource: resource,
           healthKitStore: store,
+          typeToResource: toVitalResource,
           vitalStorage: storage,
           startDate: startDate,
           endDate: endDate

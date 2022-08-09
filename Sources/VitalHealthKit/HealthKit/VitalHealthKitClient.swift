@@ -213,7 +213,7 @@ extension VitalHealthKitClient {
     }
   }
     
-  public enum SyncPayloadd {
+  public enum SyncPayload {
     case type(HKSampleType)
     case resource(VitalResource)
     
@@ -245,57 +245,60 @@ extension VitalHealthKitClient {
       }
     }
     
-    var resource: VitalResource {
+    func resource(store: VitalHealthKitStore) -> VitalResource {
       switch self {
         case let .resource(resource):
           return resource
           
         case let .type(type):
-          return type.toVitalResource
+          return store.toVitalResource(type)
       }
     }
   }
   
   private func sync(
-    payload: SyncPayloadd,
+    payload: SyncPayload,
     completion: () -> Void
   ) async {
     
     let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
     let endDate: Date = Date()
     
-    self.logger?.info("Syncing HealthKit \(payload.infix): \(payload.description)")
+    let infix = payload.infix
+    let description = payload.description(store: self.store)
+    let resource = payload.resource(store: self.store)
+    
+    self.logger?.info("Syncing HealthKit \(infix): \(description)")
     
     do {
       // Signal syncing (so the consumer can convey it to the user)
-      _status.send(.syncing(payload.resource))
+      _status.send(.syncing(resource))
       
       // Fetch from HealthKit
       let (data, entitiesToStore): (PostResourceData, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
-        payload.resource,
+        resource,
         startDate,
         endDate,
         storage
       )
       
       guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping. No new data available \(payload.infix): \(payload.description)")
-        _status.send(.nothingToSync(payload.resource))
+        self.logger?.info("Skipping. No new data available \(infix): \(description)")
+        _status.send(.nothingToSync(resource))
         return
       }
       
       let stage = calculateStage(
-        resource: payload.resource,
+        resource: payload.resource(store: self.store),
         startDate: startDate,
         endDate: endDate
       )
       
-      
       if configuration.mode.isAutomatic {
         self.logger?.info(
-          "Automatic Mode. Posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)"
+          "Automatic Mode. Posting data for stage \(stage) \(infix): \(description)"
         )
         
         /// Make sure the user has a connected source set up
@@ -309,20 +312,20 @@ extension VitalHealthKitClient {
         )
       } else {
         self.logger?.info(
-          "Manual Mode. Skipping posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)"
+          "Manual Mode. Skipping posting data for stage \(stage) \(infix): \(description)"
         )
       }
       
       // This is used for calculating the stage (daily vs historic)
-      storage.storeFlag(for: payload.resource)
+      storage.storeFlag(for: resource)
       
       // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      self.logger?.info("Completed syncing \(payload.infix): \(payload.description)")
+      self.logger?.info("Completed syncing \(infix): \(description)")
       
       // Signal success
-      _status.send(.successSyncing(payload.resource, data))
+      _status.send(.successSyncing(resource, data))
       
       /// Call completion
       completion()
@@ -331,9 +334,9 @@ extension VitalHealthKitClient {
     catch let error {
       // Signal failure
       self.logger?.error(
-        "Failed syncing data \(payload.infix): \(payload.description). Error: \(error.localizedDescription)"
+        "Failed syncing data \(infix): \(description). Error: \(error.localizedDescription)"
       )
-      _status.send(.failedSyncing(payload.resource, error))
+      _status.send(.failedSyncing(resource, error))
     }
   }
   
