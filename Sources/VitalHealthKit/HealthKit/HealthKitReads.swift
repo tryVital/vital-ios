@@ -85,7 +85,6 @@ func read(
 ) async throws -> (PostResourceData, [StoredAnchor]) {
   
   switch resource {
-    
     case .individual:
       
       let types = toHealthKitTypes(resource: resource)
