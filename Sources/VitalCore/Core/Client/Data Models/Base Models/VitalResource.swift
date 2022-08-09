@@ -63,10 +63,19 @@ public enum VitalResource: Equatable {
     .workout,
     .activity,
     .sleep,
+    
     .vitals(.glucose),
     .vitals(.bloodPressure),
     .vitals(.hearthRate),
-    .individual(.steps)
+    
+    .individual(.steps),
+    .individual(.floorsClimbed),
+    .individual(.distanceWalkingRunning),
+    .individual(.vo2Max),
+    .individual(.activeEnergyBurned),
+    .individual(.basalEnergyBurned),
+    .individual(.weight),
+    .individual(.bodyFat),
   ]
   
   public var logDescription: String {
