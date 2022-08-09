@@ -68,31 +68,44 @@ public class VitalHealthKitClient {
     
     let resources = resourcesAskedForPermission(store: self.store)
     checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
-    
-    /// Only start auto-sync if `backgroundUpdates` is off, otherwise we kick both at the same time
-    if configuration.autoSyncEnabled && configuration.backgroundDeliveryEnabled == false {
-      syncData(for: resources)
-    }
   }
 }
 
 public extension VitalHealthKitClient {
   struct Configuration {
-    public let autoSyncEnabled: Bool
+    public enum DataPushMode {
+      case manual
+      case automatic
+      
+      var isManual: Bool {
+        switch self {
+          case .manual:
+            return true
+          case .automatic:
+            return false
+        }
+      }
+      
+      var isAutomatic: Bool {
+        return isManual == false
+      }
+    }
+    
     public let backgroundDeliveryEnabled: Bool
     public let logsEnabled: Bool
-    public let daysFetched: Int
+    public let numberOfDaysToBackFill: Int
+    public let mode: DataPushMode
     
     public init(
-      autoSyncEnabled: Bool = false,
       backgroundDeliveryEnabled: Bool = false,
       logsEnabled: Bool = true,
-      daysFetched: Int = 90
+      numberOfDaysToBackFill: Int = 90,
+      mode: DataPushMode = .automatic
     ) {
-      self.autoSyncEnabled = autoSyncEnabled
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.logsEnabled = logsEnabled
-      self.daysFetched = daysFetched
+      self.numberOfDaysToBackFill = numberOfDaysToBackFill
+      self.mode = mode
     }
   }
 }
@@ -116,10 +129,6 @@ extension VitalHealthKitClient {
     let stream = backgroundObservers(for: sampleTypes)
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
-        
-        /// Make sure the user has a connected source set up
-        try await vitaClient.checkConnectedSource(.appleHealthKit)
-        
         /// Sync a sample one-by-one
         await sync(payload: .type(payload.sampleType), completion: payload.completion)
       }
@@ -196,8 +205,6 @@ extension VitalHealthKitClient {
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
-      try await vitaClient.checkConnectedSource(.appleHealthKit)
-
       for resource in resources {
         await sync(payload: .resource(resource), completion: {})
       }
@@ -205,9 +212,7 @@ extension VitalHealthKitClient {
       _status.send(.syncingCompleted)
     }
   }
-  
-  
-  
+    
   public enum SyncPayloadd {
     case type(HKSampleType)
     case resource(VitalResource)
@@ -229,14 +234,14 @@ extension VitalHealthKitClient {
       }
     }
     
-    var description: String {
+    func description(store: VitalHealthKitStore) -> String {
       switch self {
         case let .resource(resource):
           return resource.logDescription
           
         case let .type(type):
           /// We know that if we are dealing with
-          return type.toVitalResource.logDescription
+          return store.toVitalResource(type).logDescription
       }
     }
     
@@ -256,7 +261,7 @@ extension VitalHealthKitClient {
     completion: () -> Void
   ) async {
     
-    let startDate: Date = .dateAgo(days: configuration.daysFetched)
+    let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
     let endDate: Date = Date()
     
     self.logger?.info("Syncing HealthKit \(payload.infix): \(payload.description)")
@@ -287,14 +292,26 @@ extension VitalHealthKitClient {
         endDate: endDate
       )
       
-      // Post to the network
-      self.logger?.info("Posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)")
       
-      try await vitaClient.post(
-        data,
-        stage,
-        .appleHealthKit
-      )
+      if configuration.mode.isAutomatic {
+        self.logger?.info(
+          "Automatic Mode. Posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)"
+        )
+        
+        /// Make sure the user has a connected source set up
+        try await vitaClient.checkConnectedSource(.appleHealthKit)
+        
+        // Post data
+        try await vitaClient.post(
+          data,
+          stage,
+          .appleHealthKit
+        )
+      } else {
+        self.logger?.info(
+          "Manual Mode. Skipping posting data for stage \(String(describing: stage)) \(payload.infix): \(payload.description)"
+        )
+      }
       
       // This is used for calculating the stage (daily vs historic)
       storage.storeFlag(for: payload.resource)
@@ -320,7 +337,6 @@ extension VitalHealthKitClient {
     }
   }
   
-  
   public func ask(
     for resources: [VitalResource]
   ) async -> PermissionOutcome {
@@ -343,4 +359,3 @@ extension VitalHealthKitClient {
     }
   }
 }
-

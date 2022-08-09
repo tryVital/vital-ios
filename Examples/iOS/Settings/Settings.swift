@@ -55,7 +55,6 @@ extension Settings {
 let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
   switch action {
       
-      
     case let .setEnvironment(environment):
       state.credentials.environment = environment
       return .none
@@ -110,8 +109,6 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         let userId = UUID(uuidString: state.credentials.userId)
       {
         VitalClient.setUserId(userId)
-        
-        VitalHealthKitClient.configure(.init(autoSyncEnabled: true, backgroundDeliveryEnabled: true, logsEnabled: true))
       }
             
       return .none

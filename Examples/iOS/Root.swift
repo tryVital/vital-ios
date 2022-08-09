@@ -39,6 +39,14 @@ struct ExampleApp: App {
             .tag(3)
         }
         .onAppear {
+          VitalHealthKitClient.configure(
+            .init(
+              backgroundDeliveryEnabled: true,
+              logsEnabled: true,
+              numberOfDaysToBackFill: 5
+            )
+          )
+          
           viewStore.send(.start)
         }
         .onOpenURL { url in

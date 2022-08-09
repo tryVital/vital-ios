@@ -95,61 +95,6 @@ extension HKSampleType {
         fatalError("\(String(describing: self)) is not supported. This is a developer error")
     }
   }
-  
-  var toVitalResource: VitalResource {
-    switch self {
-      case
-        HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-        HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-        
-        /// If the user has explicitly asked for Body permissions, then it's the resource is Body
-        if hasAskedForPermission(resource: .body, store: HKHealthStore()) {
-          return .body
-        } else {
-          /// If the user has given permissions to a single permission in the past (e.g. weight) we should
-          /// treat it as such
-          return self.toIndividualResource
-        }
-        
-      case HKQuantityType.quantityType(forIdentifier: .height)!:
-        return .profile
-        
-      case HKSampleType.workoutType():
-        return .workout
-        
-      case HKSampleType.categoryType(forIdentifier: .sleepAnalysis):
-        return .sleep
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .stepCount)!,
-        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-        HKSampleType.quantityType(forIdentifier: .vo2Max)!:
-        
-        if hasAskedForPermission(resource: .activity, store: HKHealthStore()) {
-          return .activity
-        } else {
-          return self.toIndividualResource
-        }
-                
-      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
-        return .vitals(.glucose)
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
-        return .vitals(.bloodPressure)
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .heartRate)!:
-        return .vitals(.hearthRate)
-        
-      default:
-        fatalError("\(String(describing: self)) is not supported. This is a developer error")
-    }
-  }
 }
 
 extension BloodPressureSample {

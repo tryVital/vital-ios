@@ -130,15 +130,6 @@ func observedSampleTypes() -> [HKSampleType] {
   ]
 }
 
-public func hasAskedForPermission(
-  resource: VitalResource,
-  store: HKHealthStore
-) -> Bool {
-  return toHealthKitTypes(resource: resource)
-    .map { store.authorizationStatus(for: $0) != .notDetermined }
-    .reduce(true, { $0 && $1})
-}
-
 func resourcesAskedForPermission(
   store: VitalHealthKitStore
 ) -> [VitalResource] {
