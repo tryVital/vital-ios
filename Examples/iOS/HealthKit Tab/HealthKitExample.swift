@@ -28,6 +28,7 @@ struct HealthKitExample: View {
             
             makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)])
 
+            makePermissionRow("Weight", resources: [.individual(.weight)])
 
           }
           .buttonStyle(PlainButtonStyle())
@@ -44,7 +45,7 @@ struct HealthKitExample: View {
     Text(text)
     Spacer()
     
-    if hasAskedForPermission(resource: resources[0], store: HKHealthStore()) {
+    if VitalHealthKitClient.shared.hasAskedForPermission(resource: resources[0]) {
       Button("Permission requested") {}
         .disabled(true)
         .buttonStyle(PermissionStyle())
