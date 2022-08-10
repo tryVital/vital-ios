@@ -137,7 +137,7 @@ extension VitalHealthKitClient {
   
   private func enableBackgroundDelivery(for sampleTypes: [HKSampleType]) {
     for sampleType in sampleTypes {
-      self.store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
+      store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
         
         guard failure == nil && success else {
           self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
@@ -172,7 +172,7 @@ extension VitalHealthKitClient {
         }
         
         queries.append(query)
-        self.store.execute(query)
+        store.execute(query)
       }
       
       /// If the task is cancelled, make sure we clean up the existing queries
@@ -265,10 +265,10 @@ extension VitalHealthKitClient {
     let endDate: Date = Date()
     
     let infix = payload.infix
-    let description = payload.description(store: self.store)
-    let resource = payload.resource(store: self.store)
+    let description = payload.description(store: store)
+    let resource = payload.resource(store: store)
     
-    self.logger?.info("Syncing HealthKit \(infix): \(description)")
+    logger?.info("Syncing HealthKit \(infix): \(description)")
     
     do {
       // Signal syncing (so the consumer can convey it to the user)
@@ -285,13 +285,13 @@ extension VitalHealthKitClient {
       )
       
       guard data.shouldSkipPost == false else {
-        self.logger?.info("Skipping. No new data available \(infix): \(description)")
+        logger?.info("Skipping. No new data available \(infix): \(description)")
         _status.send(.nothingToSync(resource))
         return
       }
       
       let stage = calculateStage(
-        resource: payload.resource(store: self.store),
+        resource: payload.resource(store: store),
         startDate: startDate,
         endDate: endDate
       )
@@ -322,7 +322,7 @@ extension VitalHealthKitClient {
       // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      self.logger?.info("Completed syncing \(infix): \(description)")
+      logger?.info("Completed syncing \(infix): \(description)")
       
       // Signal success
       _status.send(.successSyncing(resource, data))
@@ -333,7 +333,7 @@ extension VitalHealthKitClient {
     }
     catch let error {
       // Signal failure
-      self.logger?.error(
+      logger?.error(
         "Failed syncing data \(infix): \(description). Error: \(error.localizedDescription)"
       )
       _status.send(.failedSyncing(resource, error))
@@ -351,7 +351,7 @@ extension VitalHealthKitClient {
     do {
       try await store.requestReadAuthorization(resources)
       checkBackgroundUpdates(
-        isBackgroundEnabled: self.configuration.backgroundDeliveryEnabled,
+        isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
         resources: resources
       )
       
@@ -360,5 +360,9 @@ extension VitalHealthKitClient {
     catch let error {
       return .failure(error.localizedDescription)
     }
+  }
+  
+  public func hasAskedForPermission(resource: VitalResource) -> Bool {
+    store.hasAskedForPermission(resource)
   }
 }
