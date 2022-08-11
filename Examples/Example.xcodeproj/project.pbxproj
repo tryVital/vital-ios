@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E800316C28A5297400BFF99E /* VitalCore in Frameworks */ = {isa = PBXBuildFile; productRef = E800316B28A5297400BFF99E /* VitalCore */; };
+		E800316E28A5297400BFF99E /* VitalDevices in Frameworks */ = {isa = PBXBuildFile; productRef = E800316D28A5297400BFF99E /* VitalDevices */; };
+		E800317028A5297400BFF99E /* VitalHealthKit in Frameworks */ = {isa = PBXBuildFile; productRef = E800316F28A5297400BFF99E /* VitalHealthKit */; };
 		E83CAEED27F79BCF001EDB12 /* DevicesExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */; };
 		E84BB6602816C2280075327D /* LinkCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E84BB65F2816C2280075327D /* LinkCreation.swift */; };
 		E85A25AC27D6AAFA00B2212C /* Root.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85A258427D6AAF900B2212C /* Root.swift */; };
@@ -65,9 +68,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				E8A286EB27FC92DF00F1F1B1 /* NukeUI in Frameworks */,
+				E800316C28A5297400BFF99E /* VitalCore in Frameworks */,
+				E800317028A5297400BFF99E /* VitalHealthKit in Frameworks */,
 				E8D530C52819C8D100E74B83 /* BetterSafariView in Frameworks */,
 				E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */,
 				E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */,
+				E800316E28A5297400BFF99E /* VitalDevices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +212,9 @@
 				E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */,
 				E8A286EA27FC92DF00F1F1B1 /* NukeUI */,
 				E8D530C42819C8D100E74B83 /* BetterSafariView */,
+				E800316B28A5297400BFF99E /* VitalCore */,
+				E800316D28A5297400BFF99E /* VitalDevices */,
+				E800316F28A5297400BFF99E /* VitalHealthKit */,
 			);
 			productName = "Example (iOS)";
 			productReference = E85A258B27D6AAFA00B2212C /* Example.app */;
@@ -261,6 +270,7 @@
 				E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
 				E8A286E927FC92DE00F1F1B1 /* XCRemoteSwiftPackageReference "NukeUI" */,
 				E8D530C32819C8D100E74B83 /* XCRemoteSwiftPackageReference "BetterSafariView" */,
+				E800316A28A5297400BFF99E /* XCRemoteSwiftPackageReference "vital-ios" */,
 			);
 			productRefGroup = E85A258C27D6AAFA00B2212C /* Products */;
 			projectDirPath = "";
@@ -589,6 +599,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E800316A28A5297400BFF99E /* XCRemoteSwiftPackageReference "vital-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/adeptlabs/vital-ios";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture.git";
@@ -616,6 +634,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E800316B28A5297400BFF99E /* VitalCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E800316A28A5297400BFF99E /* XCRemoteSwiftPackageReference "vital-ios" */;
+			productName = VitalCore;
+		};
+		E800316D28A5297400BFF99E /* VitalDevices */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E800316A28A5297400BFF99E /* XCRemoteSwiftPackageReference "vital-ios" */;
+			productName = VitalDevices;
+		};
+		E800316F28A5297400BFF99E /* VitalHealthKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E800316A28A5297400BFF99E /* XCRemoteSwiftPackageReference "vital-ios" */;
+			productName = VitalHealthKit;
+		};
 		E8A286E027FC7BB400F1F1B1 /* ComposableArchitecture */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E8A286DF27FC7BB400F1F1B1 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
