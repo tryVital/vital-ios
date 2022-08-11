@@ -73,7 +73,7 @@ public class VitalHealthKitClient {
 
 public extension VitalHealthKitClient {
   struct Configuration {
-    public enum DataPushMode {
+    public enum DataPushMode: String {
       case manual
       case automatic
       

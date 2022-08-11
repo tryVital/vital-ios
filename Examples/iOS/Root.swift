@@ -5,6 +5,16 @@ import VitalHealthKit
 
 @main
 struct ExampleApp: App {
+  
+  init() {
+    VitalHealthKitClient.configure(
+      .init(
+        backgroundDeliveryEnabled: true,
+        logsEnabled: true,
+        numberOfDaysToBackFill: 5
+      )
+    )
+  }
   var body: some Scene {
     WindowGroup {
       WithViewStore(appStore) { viewStore in
@@ -39,14 +49,6 @@ struct ExampleApp: App {
             .tag(3)
         }
         .onAppear {
-          VitalHealthKitClient.configure(
-            .init(
-              backgroundDeliveryEnabled: true,
-              logsEnabled: true,
-              numberOfDaysToBackFill: 5
-            )
-          )
-          
           viewStore.send(.start)
         }
         .onOpenURL { url in
