@@ -26,4 +26,5 @@ class VitalCoreStorage {
     let key = "\(userId.uuidString)-\(provider.rawValue)"
     userDefaults.removeObject(forKey: key)
   }
+  
 }

@@ -11,6 +11,14 @@ struct VitalCoreConfiguration {
   let apiVersion: String
   let apiClient: APIClient
   let environment: Environment
+  let automaticConfiguration: Bool
+}
+
+struct VitalCoreSecurePayload: Codable {
+  let configuration: VitalClient.Configuration
+  let apiVersion: String
+  let apiKey: String
+  let environment: Environment
 }
 
 public enum Environment: Equatable, Hashable, Codable {
@@ -72,9 +80,16 @@ public enum Environment: Equatable, Hashable, Codable {
   }
 }
 
+private let core_secureStorageKey: String = "core_secureStorageKey"
+private let user_secureStorageKey: String = "user_secureStorageKey"
+
+public let health_secureStorageKey: String = "health_secureStorageKey"
+
 public class VitalClient {
   
   private let storage: VitalCoreStorage = .init()
+  private let secureStorage: VitalSecureStorage = .init()
+  
   let dateFormatter = ISO8601DateFormatter()
   
   var configuration: ProtectedBox<VitalCoreConfiguration> = .init()
@@ -100,6 +115,28 @@ public class VitalClient {
     }
   }
   
+  public static func automaticConfiguration() {
+    Task.detached(priority: .high) {
+      do {
+        let secureStorage = VitalSecureStorage()
+        if let payload: VitalCoreSecurePayload = try secureStorage.get(key: core_secureStorageKey) {
+          configure(
+            apiKey: payload.apiKey,
+            environment: payload.environment,
+            configuration: payload.configuration
+          )
+        }
+        
+        if let userId: UUID = try secureStorage.get(key: user_secureStorageKey) {
+          setUserId(userId)
+        }
+      }
+      catch {
+        /// Bailout, there's nothing else to do here.
+      }
+    }
+  }
+  
   init() {
     /// Empty initialisation, before VitalClient.configure is called
     /// This gives the consumer the flexibility to call `configure` and `setUserId` when they wish
@@ -116,6 +153,22 @@ public class VitalClient {
     
     if configuration.logsEnable {
       logger = Logger(subsystem: "vital", category: "vital-network-client")
+    }
+    
+    if configuration.automaticConfiguration {
+      let securePayload = VitalCoreSecurePayload(
+        configuration: configuration,
+        apiVersion: apiVersion,
+        apiKey: apiKey,
+        environment: environment
+      )
+      
+      do {
+        try secureStorage.set(value: securePayload, key: core_secureStorageKey)
+      }
+      catch {
+        logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error)")
+      }
     }
     
     logger?.info("VitalClient setup for environment \(String(describing: environment))")
@@ -141,19 +194,31 @@ public class VitalClient {
       configuration.decoder = decoder
     }
     
-    let configuration = VitalCoreConfiguration(
+    let coreConfiguration = VitalCoreConfiguration(
       logger: logger,
       apiVersion: apiVersion,
       apiClient: apiClient,
-      environment: environment
+      environment: environment,
+      automaticConfiguration: configuration.automaticConfiguration
     )
-    
-    await self.configuration.set(value: configuration)
+        
+    await self.configuration.set(value: coreConfiguration)
   }
   
   public static func setUserId(_ userId: UUID) {
     Task.detached(priority: .high) {
       await VitalClient.shared.userId.set(value: userId)
+      
+      let configuration = await VitalClient.shared.configuration.get()
+      if configuration.automaticConfiguration {
+        let secureStorage = VitalSecureStorage()
+        do {
+          try secureStorage.set(value: userId, key: user_secureStorageKey)
+        }
+        catch {
+          configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error)")
+        }
+      }
     }
   }
   
@@ -181,19 +246,26 @@ public class VitalClient {
       /// We might be able to derive 2) from 1)?
       UserDefaults.standard.removePersistentDomain(forName: "tryVital")
       
+      try self.secureStorage.clean(key: core_secureStorageKey)
+      try self.secureStorage.clean(key: health_secureStorageKey)
+      try self.secureStorage.clean(key: user_secureStorageKey)
+
       await self.userId.clean()
     }
   }
 }
 
 public extension VitalClient {
-  struct Configuration {
+  struct Configuration: Codable {
     public let logsEnable: Bool
-    
+    public let automaticConfiguration: Bool
+
     public init(
-      logsEnable: Bool = true
+      logsEnable: Bool = false,
+      automaticConfiguration: Bool = false
     ) {
       self.logsEnable = logsEnable
+      self.automaticConfiguration = automaticConfiguration
     }
   }
 }

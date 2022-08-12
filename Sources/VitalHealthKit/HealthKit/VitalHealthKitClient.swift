@@ -28,16 +28,10 @@ public class VitalHealthKitClient {
   
   private static var client: VitalHealthKitClient?
   
-  public static func configure(
-    _ configuration: Configuration = .init()
-  ) {
-    let client = VitalHealthKitClient(configuration: configuration)
-    Self.client = client
-  }
-  
   private let store: VitalHealthKitStore
   private let configuration: Configuration
   private let storage: VitalHealthKitStorage
+  private let secureStorage: VitalSecureStorage
   private let vitaClient: VitalClientProtocol
   
   private let _status: PassthroughSubject<Status, Never>
@@ -53,11 +47,13 @@ public class VitalHealthKitClient {
     configuration: Configuration,
     store: VitalHealthKitStore = .live,
     storage: VitalHealthKitStorage = .init(),
+    secureStorage: VitalSecureStorage = .init(),
     vitaClient: VitalClientProtocol = .live
   ) {
     self.store = store
     self.configuration = configuration
     self.storage = storage
+    self.secureStorage = secureStorage
     self.vitaClient = vitaClient
     
     self._status = PassthroughSubject<Status, Never>()
@@ -66,14 +62,45 @@ public class VitalHealthKitClient {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
+    if configuration.automaticConfiguration {
+      do {
+        try secureStorage.set(value: configuration, key: health_secureStorageKey)
+      }
+      catch {
+        logger?.info("We weren't able to securely store Configuration: \(error)")
+      }
+    }
+    
     let resources = resourcesAskedForPermission(store: self.store)
     checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
+  }
+  
+  public static func configure(
+    _ configuration: Configuration = .init()
+  ) {
+    let client = VitalHealthKitClient(configuration: configuration)
+    Self.client = client
+  }
+  
+  public static func automaticConfiguration() {
+    do {
+      let secureStorage = VitalSecureStorage()
+      guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
+        return
+      }
+      
+      configure(payload)
+      VitalClient.automaticConfiguration()
+    }
+    catch {
+      /// Bailout, there's nothing else to do here.
+    }
   }
 }
 
 public extension VitalHealthKitClient {
-  struct Configuration {
-    public enum DataPushMode: String {
+  struct Configuration: Codable {
+    public enum DataPushMode: String, Codable {
       case manual
       case automatic
       
@@ -95,17 +122,20 @@ public extension VitalHealthKitClient {
     public let logsEnabled: Bool
     public let numberOfDaysToBackFill: Int
     public let mode: DataPushMode
+    public let automaticConfiguration: Bool
     
     public init(
       backgroundDeliveryEnabled: Bool = false,
       logsEnabled: Bool = true,
       numberOfDaysToBackFill: Int = 90,
-      mode: DataPushMode = .automatic
+      mode: DataPushMode = .automatic,
+      automaticConfiguration: Bool = false
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.logsEnabled = logsEnabled
       self.numberOfDaysToBackFill = numberOfDaysToBackFill
       self.mode = mode
+      self.automaticConfiguration = automaticConfiguration
     }
   }
 }
