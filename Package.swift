@@ -37,7 +37,8 @@ let package = Package(
           name: "VitalCore",
           exclude: [
             "./Get/LICENSE",
-            "./Get/README.md"
+            "./Get/README.md",
+            "./Keychain/LICENSE"
           ]
         ),
         .testTarget(
