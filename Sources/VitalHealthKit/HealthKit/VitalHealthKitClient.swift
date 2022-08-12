@@ -67,7 +67,7 @@ public class VitalHealthKitClient {
         try secureStorage.set(value: configuration, key: health_secureStorageKey)
       }
       catch {
-        logger?.info("We weren't able to securely store Configuration: \(error)")
+        logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
       }
     }
     

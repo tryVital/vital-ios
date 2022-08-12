@@ -167,7 +167,7 @@ public class VitalClient {
         try secureStorage.set(value: securePayload, key: core_secureStorageKey)
       }
       catch {
-        logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error)")
+        logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
       }
     }
     
@@ -216,7 +216,7 @@ public class VitalClient {
           try secureStorage.set(value: userId, key: user_secureStorageKey)
         }
         catch {
-          configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error)")
+          configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
         }
       }
     }
