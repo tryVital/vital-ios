@@ -11,7 +11,6 @@ struct VitalCoreConfiguration {
   let apiVersion: String
   let apiClient: APIClient
   let environment: Environment
-  let automaticConfiguration: Bool
 }
 
 struct VitalCoreSecurePayload: Codable {
@@ -155,20 +154,18 @@ public class VitalClient {
       logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
     
-    if configuration.automaticConfiguration {
-      let securePayload = VitalCoreSecurePayload(
-        configuration: configuration,
-        apiVersion: apiVersion,
-        apiKey: apiKey,
-        environment: environment
-      )
-      
-      do {
-        try secureStorage.set(value: securePayload, key: core_secureStorageKey)
-      }
-      catch {
-        logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
-      }
+    let securePayload = VitalCoreSecurePayload(
+      configuration: configuration,
+      apiVersion: apiVersion,
+      apiKey: apiKey,
+      environment: environment
+    )
+    
+    do {
+      try secureStorage.set(value: securePayload, key: core_secureStorageKey)
+    }
+    catch {
+      logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
     }
     
     logger?.info("VitalClient setup for environment \(String(describing: environment))")
@@ -198,10 +195,9 @@ public class VitalClient {
       logger: logger,
       apiVersion: apiVersion,
       apiClient: apiClient,
-      environment: environment,
-      automaticConfiguration: configuration.automaticConfiguration
+      environment: environment
     )
-        
+    
     await self.configuration.set(value: coreConfiguration)
   }
   
@@ -210,14 +206,12 @@ public class VitalClient {
       await VitalClient.shared.userId.set(value: userId)
       
       let configuration = await VitalClient.shared.configuration.get()
-      if configuration.automaticConfiguration {
-        let secureStorage = VitalSecureStorage()
-        do {
-          try secureStorage.set(value: userId, key: user_secureStorageKey)
-        }
-        catch {
-          configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
-        }
+      let secureStorage = VitalSecureStorage()
+      do {
+        try secureStorage.set(value: userId, key: user_secureStorageKey)
+      }
+      catch {
+        configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
       }
     }
   }
@@ -249,7 +243,7 @@ public class VitalClient {
       try self.secureStorage.clean(key: core_secureStorageKey)
       try self.secureStorage.clean(key: health_secureStorageKey)
       try self.secureStorage.clean(key: user_secureStorageKey)
-
+      
       await self.userId.clean()
     }
   }
@@ -258,14 +252,11 @@ public class VitalClient {
 public extension VitalClient {
   struct Configuration: Codable {
     public let logsEnable: Bool
-    public let automaticConfiguration: Bool
-
+    
     public init(
-      logsEnable: Bool = false,
-      automaticConfiguration: Bool = false
+      logsEnable: Bool = false
     ) {
       self.logsEnable = logsEnable
-      self.automaticConfiguration = automaticConfiguration
     }
   }
 }

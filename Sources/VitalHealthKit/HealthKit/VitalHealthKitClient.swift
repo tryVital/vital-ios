@@ -62,13 +62,11 @@ public class VitalHealthKitClient {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
     
-    if configuration.automaticConfiguration {
-      do {
-        try secureStorage.set(value: configuration, key: health_secureStorageKey)
-      }
-      catch {
-        logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
-      }
+    do {
+      try secureStorage.set(value: configuration, key: health_secureStorageKey)
+    }
+    catch {
+      logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
     }
     
     let resources = resourcesAskedForPermission(store: self.store)
@@ -122,20 +120,17 @@ public extension VitalHealthKitClient {
     public let logsEnabled: Bool
     public let numberOfDaysToBackFill: Int
     public let mode: DataPushMode
-    public let automaticConfiguration: Bool
     
     public init(
       backgroundDeliveryEnabled: Bool = false,
       logsEnabled: Bool = true,
       numberOfDaysToBackFill: Int = 90,
-      mode: DataPushMode = .automatic,
-      automaticConfiguration: Bool = false
+      mode: DataPushMode = .automatic
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.logsEnabled = logsEnabled
       self.numberOfDaysToBackFill = numberOfDaysToBackFill
       self.mode = mode
-      self.automaticConfiguration = automaticConfiguration
     }
   }
 }
