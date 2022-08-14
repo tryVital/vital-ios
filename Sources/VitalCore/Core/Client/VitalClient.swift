@@ -96,7 +96,6 @@ public class VitalClient {
   public static var shared: VitalClient {
     guard let value = client else {
       let newClient = VitalClient()
-      Self.client = newClient
       return newClient
     }
     
@@ -146,6 +145,8 @@ public class VitalClient {
     self.secureStorage = secureStorage
     self.configuration = configuration
     self.userId = userId
+    
+    VitalClient.client = self
   }
   
   func setConfiguration(

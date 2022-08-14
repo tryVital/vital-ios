@@ -44,5 +44,8 @@ let package = Package(
         .testTarget(
             name: "VitalHealthKitTests",
             dependencies: ["VitalHealthKit"]),
+        .testTarget(
+          name: "VitalCoreTests",
+          dependencies: ["VitalCore"]),
     ]
 )
