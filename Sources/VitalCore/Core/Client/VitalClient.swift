@@ -11,6 +11,7 @@ struct VitalCoreConfiguration {
   let apiVersion: String
   let apiClient: APIClient
   let environment: Environment
+  let storage: VitalCoreStorage
 }
 
 struct VitalCoreSecurePayload: Codable {
@@ -86,19 +87,21 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
 
 public class VitalClient {
   
-  private let storage: VitalCoreStorage = .init()
-  private let secureStorage: VitalSecureStorage = .init()
+  private let secureStorage: VitalSecureStorage
+  let configuration: ProtectedBox<VitalCoreConfiguration>
+  let userId: ProtectedBox<UUID>
   
-  let dateFormatter = ISO8601DateFormatter()
-  
-  var configuration: ProtectedBox<VitalCoreConfiguration> = .init()
-  var userId: ProtectedBox<UUID> = .init()
-  
+  private static var client: VitalClient?
+
   public static var shared: VitalClient {
-    return client
+    guard let value = client else {
+      let newClient = VitalClient()
+      Self.client = newClient
+      return newClient
+    }
+    
+    return value
   }
-  
-  private static var client: VitalClient = .init()
   
   public static func configure(
     apiKey: String,
@@ -106,7 +109,7 @@ public class VitalClient {
     configuration: Configuration = .init()
   ) {
     Task.detached(priority: .high) {
-      await self.client.setConfiguration(
+      await self.shared.setConfiguration(
         apiKey: apiKey,
         environment: environment,
         configuration: configuration
@@ -117,8 +120,7 @@ public class VitalClient {
   public static func automaticConfiguration() {
     Task.detached(priority: .high) {
       do {
-        let secureStorage = VitalSecureStorage()
-        if let payload: VitalCoreSecurePayload = try secureStorage.get(key: core_secureStorageKey) {
+        if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
           configure(
             apiKey: payload.apiKey,
             environment: payload.environment,
@@ -126,7 +128,7 @@ public class VitalClient {
           )
         }
         
-        if let userId: UUID = try secureStorage.get(key: user_secureStorageKey) {
+        if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
           setUserId(userId)
         }
       }
@@ -136,16 +138,21 @@ public class VitalClient {
     }
   }
   
-  init() {
-    /// Empty initialisation, before VitalClient.configure is called
-    /// This gives the consumer the flexibility to call `configure` and `setUserId` when they wish
+  init(
+    secureStorage: VitalSecureStorage = .init(keychain: .live),
+    configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
+    userId: ProtectedBox<UUID> = .init()
+  ) {
+    self.secureStorage = secureStorage
+    self.configuration = configuration
+    self.userId = userId
   }
   
   func setConfiguration(
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
-    storage: VitalCoreStorage = .init(),
+    storage: VitalCoreStorage = .init(storage: .live),
     apiVersion: String = "v2"
   ) async {
     var logger: Logger?
@@ -195,7 +202,8 @@ public class VitalClient {
       logger: logger,
       apiVersion: apiVersion,
       apiClient: apiClient,
-      environment: environment
+      environment: environment,
+      storage: storage
     )
     
     await self.configuration.set(value: coreConfiguration)
@@ -206,9 +214,9 @@ public class VitalClient {
       await VitalClient.shared.userId.set(value: userId)
       
       let configuration = await VitalClient.shared.configuration.get()
-      let secureStorage = VitalSecureStorage()
+      
       do {
-        try secureStorage.set(value: userId, key: user_secureStorageKey)
+        try shared.secureStorage.set(value: userId, key: user_secureStorageKey)
       }
       catch {
         configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
@@ -218,6 +226,7 @@ public class VitalClient {
   
   public func checkConnectedSource(for provider: Provider) async throws {
     let userId = await userId.get()
+    let storage = await configuration.get().storage
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
       return
@@ -240,9 +249,9 @@ public class VitalClient {
       /// We might be able to derive 2) from 1)?
       UserDefaults.standard.removePersistentDomain(forName: "tryVital")
       
-      try self.secureStorage.clean(key: core_secureStorageKey)
-      try self.secureStorage.clean(key: health_secureStorageKey)
-      try self.secureStorage.clean(key: user_secureStorageKey)
+      self.secureStorage.clean(key: core_secureStorageKey)
+      self.secureStorage.clean(key: health_secureStorageKey)
+      self.secureStorage.clean(key: user_secureStorageKey)
       
       await self.userId.clean()
     }
