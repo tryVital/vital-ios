@@ -100,12 +100,13 @@ public extension VitalClient.TimeSeries {
     endDate: Date?
   ) -> [(String, String?)] {
     
-    let startDateString = self.client.dateFormatter.string(from: startDate)
+    let formatter = ISO8601DateFormatter()
+    let startDateString = formatter.string(from: startDate)
     
     var query: [(String, String?)] = [("start_date", startDateString)]
     
     if let endDate = endDate {
-      let endDateString = self.client.dateFormatter.string(from: endDate)
+      let endDateString = formatter.string(from: endDate)
       query.append(("end_date", endDateString))
     }
     

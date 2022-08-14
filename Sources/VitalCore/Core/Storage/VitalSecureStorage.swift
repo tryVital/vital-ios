@@ -1,32 +1,63 @@
 import SwiftUI
 
+public struct Keychain {
+  
+  var set: (Data, String) -> Void
+  var get: (String) -> Data?
+  var clean: (String) -> Void
+
+  public static var live: Keychain {
+    let keychain: KeychainSwift = .init(keyPrefix: "vital_secure_storage_")
+    
+    return .init { data, key in
+      keychain.set(data, forKey: key, withAccess: .accessibleAfterFirstUnlock)
+    } get: { key in
+      keychain.getData(key)
+    } clean: { key in
+      keychain.delete(key)
+    }
+  }
+  
+  static var debug: Keychain {
+    var storage: [String: Data] = [:]
+    
+    return .init { data, key in
+      storage[key] = data
+    } get: { key in
+      storage[key]
+    } clean: { key in
+      storage.removeValue(forKey: key)
+    }
+  }
+}
+
 public class VitalSecureStorage {
   
-  private let keychain: KeychainSwift
+  private let keychain: Keychain
   private let encoder: JSONEncoder
   private let decoder: JSONDecoder
   
-  public init() {
-    self.keychain = .init(keyPrefix: "vital_secure_storage_")
+  public init(keychain: Keychain = .live) {
+    self.keychain = keychain
     self.encoder = .init()
     self.decoder = .init()
   }
 
   public func set<T: Encodable>(value: T, key: String) throws {
     let data = try encoder.encode(value)
-    keychain.set(data, forKey: key, withAccess: .accessibleAfterFirstUnlock)
+    keychain.set(data, key)
   }
   
   public func get<T: Decodable>(key: String) throws -> T? {
-    guard let value: Data = keychain.getData(key) else {
+    guard let value: Data = keychain.get(key) else {
       return nil
     }
     
     return try decoder.decode(T.self, from: value)
   }
   
-  public func clean(key: String) throws {
-    keychain.delete(key)
+  public func clean(key: String) {
+    keychain.clean(key)
   }
 }
 
