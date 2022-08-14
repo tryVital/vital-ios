@@ -247,7 +247,7 @@ public class VitalClient {
       /// 2) Stage for each `HKSampleType`.
       ///
       /// We might be able to derive 2) from 1)?
-      UserDefaults.standard.removePersistentDomain(forName: "tryVital")
+      await self.configuration.get().storage.clean()
       
       self.secureStorage.clean(key: core_secureStorageKey)
       self.secureStorage.clean(key: health_secureStorageKey)

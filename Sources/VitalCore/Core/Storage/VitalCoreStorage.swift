@@ -4,6 +4,7 @@ import HealthKit
 struct Storage {
   var isConnectedSourceStored: (UUID, Provider) -> Bool
   var storeConnectedSource: (UUID, Provider) -> Void
+  var clean: () -> Void
   
   static var live: Storage {
     
@@ -22,6 +23,8 @@ struct Storage {
     } storeConnectedSource: { userId, provider in
       let key = generateKey(userId, provider)
       userDefaults.set(true, forKey: key)
+    } clean: {
+      userDefaults.removePersistentDomain(forName: "tryVital")
     }
   }
   
@@ -39,6 +42,8 @@ struct Storage {
     } storeConnectedSource: { userId, provider in
       let key = generateKey(userId, provider)
       storage[key] = true
+    } clean: {
+      storage = [:]
     }
   }
 
@@ -57,5 +62,9 @@ class VitalCoreStorage {
   
   func isConnectedSourceStored(for userId: UUID, with provider: Provider) -> Bool {
     return self.storage.isConnectedSourceStored(userId, provider)
+  }
+  
+  func clean() -> Void {
+    return self.storage.clean()
   }
 }
