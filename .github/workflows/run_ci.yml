@@ -3,7 +3,7 @@ name: "Run CI"
 on: [push]
 
 jobs:
-  build:
+  build-sdks:
     runs-on: macos-12
     strategy:
       matrix:
@@ -19,7 +19,7 @@ jobs:
         env:
           scheme: ${{ matrix.scheme }}
 
-  build:
+  test-sdks:
     runs-on: macos-12
     strategy:
       matrix:
