@@ -80,8 +80,8 @@ public enum Environment: Equatable, Hashable, Codable {
   }
 }
 
-private let core_secureStorageKey: String = "core_secureStorageKey"
-private let user_secureStorageKey: String = "user_secureStorageKey"
+let core_secureStorageKey: String = "core_secureStorageKey"
+let user_secureStorageKey: String = "user_secureStorageKey"
 
 public let health_secureStorageKey: String = "health_secureStorageKey"
 
@@ -108,10 +108,41 @@ public class VitalClient {
     configuration: Configuration = .init()
   ) {
     Task.detached(priority: .high) {
+      var logger: Logger?
+      
+      if configuration.logsEnable {
+        logger = Logger(subsystem: "vital", category: "vital-network-client")
+      }
+      
+      let apiClientDelegate = VitalClientDelegate(
+        environment: environment,
+        logger: logger,
+        apiKey: apiKey
+      )
+      
+      let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
+        configuration.delegate = apiClientDelegate
+        
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        
+        configuration.encoder = encoder
+        configuration.decoder = decoder
+      }
+      
       await self.shared.setConfiguration(
         apiKey: apiKey,
         environment: environment,
-        configuration: configuration
+        configuration: configuration,
+        storage: .init(storage: .live),
+        apiClient: apiClient,
+        logger: logger,
+        apiVersion: "v2"
       )
     }
   }
@@ -153,15 +184,12 @@ public class VitalClient {
     apiKey: String,
     environment: Environment,
     configuration: Configuration,
-    storage: VitalCoreStorage = .init(storage: .live),
-    apiVersion: String = "v2"
+    storage: VitalCoreStorage,
+    apiClient: APIClient,
+    logger: Logger?,
+    apiVersion: String
   ) async {
-    var logger: Logger?
-    
-    if configuration.logsEnable {
-      logger = Logger(subsystem: "vital", category: "vital-network-client")
-    }
-    
+
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,
       apiVersion: apiVersion,
@@ -175,30 +203,7 @@ public class VitalClient {
     catch {
       logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
     }
-    
-    logger?.info("VitalClient setup for environment \(String(describing: environment))")
-    
-    let apiClientDelegate = VitalClientDelegate(
-      environment: environment,
-      logger: logger,
-      apiKey: apiKey
-    )
-    
-    let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
-      configuration.delegate = apiClientDelegate
-      
-      let encoder = JSONEncoder()
-      encoder.dateEncodingStrategy = .iso8601
-      encoder.keyEncodingStrategy = .convertToSnakeCase
-      
-      let decoder = JSONDecoder()
-      decoder.keyDecodingStrategy = .convertFromSnakeCase
-      decoder.dateDecodingStrategy = .iso8601
-      
-      configuration.encoder = encoder
-      configuration.decoder = decoder
-    }
-    
+        
     let coreConfiguration = VitalCoreConfiguration(
       logger: logger,
       apiVersion: apiVersion,
@@ -206,6 +211,8 @@ public class VitalClient {
       environment: environment,
       storage: storage
     )
+    
+    logger?.info("VitalClient setup for environment \(String(describing: environment))")
     
     await self.configuration.set(value: coreConfiguration)
   }
@@ -241,21 +248,20 @@ public class VitalClient {
     storage.storeConnectedSource(for: userId, with: provider)
   }
   
-  public func cleanUp() {
-    Task.detached(priority: .high) {
-      /// Here we remove the following:
-      /// 1) Anchor values we are storing for each `HKSampleType`.
-      /// 2) Stage for each `HKSampleType`.
-      ///
-      /// We might be able to derive 2) from 1)?
-      await self.configuration.get().storage.clean()
-      
-      self.secureStorage.clean(key: core_secureStorageKey)
-      self.secureStorage.clean(key: health_secureStorageKey)
-      self.secureStorage.clean(key: user_secureStorageKey)
-      
-      await self.userId.clean()
-    }
+  public func cleanUp() async {
+    /// Here we remove the following:
+    /// 1) Anchor values we are storing for each `HKSampleType`.
+    /// 2) Stage for each `HKSampleType`.
+    ///
+    /// We might be able to derive 2) from 1)?
+    await self.configuration.get().storage.clean()
+    
+    self.secureStorage.clean(key: core_secureStorageKey)
+    self.secureStorage.clean(key: health_secureStorageKey)
+    self.secureStorage.clean(key: user_secureStorageKey)
+    
+    await self.userId.clean()
+    await self.configuration.clean()
   }
 }
 

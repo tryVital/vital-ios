@@ -46,7 +46,6 @@ struct Storage {
       storage = [:]
     }
   }
-
 }
 
 class VitalCoreStorage {
