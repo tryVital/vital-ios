@@ -3,11 +3,11 @@ name: "Run CI"
 on: [push]
 
 jobs:
-  build:
+  build-sdks:
     runs-on: macos-12
     strategy:
       matrix:
-        scheme: ["VitalHealthKit", "VitalDevices"]
+        scheme: ["VitalDevices"]
     steps:
       - name: Xcode Select
         run: sudo xcode-select -s /Applications/Xcode_13.4.app
@@ -16,5 +16,21 @@ jobs:
       - name: Build
         run: |
           xcodebuild clean build -scheme "${scheme}" -destination 'generic/platform=iOS'
+        env:
+          scheme: ${{ matrix.scheme }}
+
+  test-sdks:
+    runs-on: macos-12
+    strategy:
+      matrix:
+        scheme: ["VitalHealthKit", "VitalCore"]
+    steps:
+      - name: Xcode Select
+        run: sudo xcode-select -s /Applications/Xcode_13.4.app
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Test
+        run: |
+          xcodebuild clean test -scheme "${scheme}" -destination platform=iOS\ Simulator,OS=15.5,name=iPhone\ 13
         env:
           scheme: ${{ matrix.scheme }}

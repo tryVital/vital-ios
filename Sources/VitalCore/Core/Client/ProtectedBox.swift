@@ -4,8 +4,16 @@ actor ProtectedBox<T> {
   private var continuations: [CheckedContinuation<T, Never>] = []
   private var value: T?
   
+  init(value: T? = nil) {
+    self.value = value
+  }
+  
   deinit {
     continuations = []
+  }
+  
+  func isNil() async -> Bool {
+    return value == nil
   }
   
   func get() async -> T {
