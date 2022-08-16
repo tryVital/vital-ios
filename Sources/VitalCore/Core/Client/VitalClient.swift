@@ -108,40 +108,11 @@ public class VitalClient {
     configuration: Configuration = .init()
   ) {
     Task.detached(priority: .high) {
-      var logger: Logger?
-      
-      if configuration.logsEnable {
-        logger = Logger(subsystem: "vital", category: "vital-network-client")
-      }
-      
-      let apiClientDelegate = VitalClientDelegate(
-        environment: environment,
-        logger: logger,
-        apiKey: apiKey
-      )
-      
-      let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
-        configuration.delegate = apiClientDelegate
-        
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
-        
-        configuration.encoder = encoder
-        configuration.decoder = decoder
-      }
-      
       await self.shared.setConfiguration(
         apiKey: apiKey,
         environment: environment,
         configuration: configuration,
         storage: .init(storage: .live),
-        apiClient: apiClient,
-        logger: logger,
         apiVersion: "v2"
       )
     }
@@ -150,6 +121,7 @@ public class VitalClient {
   public static func automaticConfiguration() {
     Task.detached(priority: .high) {
       do {
+        /// Order is important here. `configure` should happen before `setUserId`, because the latter depends on the former
         if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
           configure(
             apiKey: payload.apiKey,
@@ -185,10 +157,38 @@ public class VitalClient {
     environment: Environment,
     configuration: Configuration,
     storage: VitalCoreStorage,
-    apiClient: APIClient,
-    logger: Logger?,
-    apiVersion: String
+    apiVersion: String,
+    updateApiClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) async {
+    
+    var logger: Logger?
+    
+    if configuration.logsEnable {
+      logger = Logger(subsystem: "vital", category: "vital-network-client")
+    }
+    
+    let apiClientDelegate = VitalClientDelegate(
+      environment: environment,
+      logger: logger,
+      apiKey: apiKey
+    )
+    
+    let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
+      configuration.delegate = apiClientDelegate
+      
+      updateApiClientConfiguration(&configuration)
+      
+      let encoder = JSONEncoder()
+      encoder.dateEncodingStrategy = .iso8601
+      encoder.keyEncodingStrategy = .convertToSnakeCase
+      
+      let decoder = JSONDecoder()
+      decoder.keyDecodingStrategy = .convertFromSnakeCase
+      decoder.dateDecodingStrategy = .iso8601
+      
+      configuration.encoder = encoder
+      configuration.decoder = decoder
+    }
 
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,
