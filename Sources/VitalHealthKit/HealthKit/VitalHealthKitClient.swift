@@ -46,8 +46,8 @@ public class VitalHealthKitClient {
   init(
     configuration: Configuration,
     store: VitalHealthKitStore = .live,
-    storage: VitalHealthKitStorage = .init(),
-    secureStorage: VitalSecureStorage = .init(),
+    storage: VitalHealthKitStorage = .init(storage: .live),
+    secureStorage: VitalSecureStorage = .init(keychain: .live),
     vitaClient: VitalClientProtocol = .live
   ) {
     self.store = store
@@ -82,7 +82,7 @@ public class VitalHealthKitClient {
   
   public static func automaticConfiguration() {
     do {
-      let secureStorage = VitalSecureStorage()
+      let secureStorage = VitalSecureStorage(keychain: .live)
       guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
         return
       }
@@ -309,17 +309,19 @@ extension VitalHealthKitClient {
         storage
       )
       
-      guard data.shouldSkipPost == false else {
-        logger?.info("Skipping. No new data available \(infix): \(description)")
-        _status.send(.nothingToSync(resource))
-        return
-      }
-      
       let stage = calculateStage(
         resource: payload.resource(store: store),
         startDate: startDate,
         endDate: endDate
       )
+      
+      /// If it's historical, even if there's no data, we still push
+      /// If there's no data and it's daily, then we bailout.
+      guard data.shouldSkipPost == false || stage.isDaily == false else {
+        logger?.info("Skipping. No new data available \(infix): \(description)")
+        _status.send(.nothingToSync(resource))
+        return
+      }
       
       if configuration.mode.isAutomatic {
         self.logger?.info(

@@ -2,15 +2,16 @@ import XCTest
 import HealthKit
 
 @testable import VitalHealthKit
+@testable import VitalCore
 
-class VitalStorageTests: XCTestCase {
+class VitalHealthKitStorageTests: XCTestCase {
   
   override func tearDown() {
-    VitalHealthKitStorage().remove(key: "key")
+    VitalHealthKitStorage(storage: .debug).remove(key: "key")
   }
   
   func testAnchorStorage() throws {
-    let storage = VitalHealthKitStorage()
+    let storage = VitalHealthKitStorage(storage: .debug)
     let key = "key"
     let anchor = HKQueryAnchor(fromValue: 1)
     
@@ -22,13 +23,13 @@ class VitalStorageTests: XCTestCase {
   }
   
   func testStorageRecreation() throws {
-    let storage = VitalHealthKitStorage()
+    let storage = VitalHealthKitStorage(storage: .debug)
     let key = "key"
     let anchor = HKQueryAnchor(fromValue: 1)
     
     storage.store(entity: .init(key: key, anchor: anchor))
 
-    let newStorage = VitalHealthKitStorage()
+    let newStorage = VitalHealthKitStorage(storage: .debug)
     _ = newStorage.read(key: key)
     
     let storedAnchor = storage.read(key: key)?.anchor
@@ -37,7 +38,7 @@ class VitalStorageTests: XCTestCase {
   }
     
   func testNilDateStorage() throws {
-    let storage = VitalHealthKitStorage()
+    let storage = VitalHealthKitStorage(storage: .debug)
     let key = "key"
     
     let storedDate = storage.read(key: key)

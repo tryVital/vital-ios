@@ -6,21 +6,18 @@ class VitalHealthKitStorage {
   private let prefix = "vital_anchor_"
   private let flag = "vital_anchor_"
 
-  private let userDefaults: UserDefaults
+  private let storage: VitalBackStorage
   
-  init(userDefaults: UserDefaults = .init(suiteName: "tryVital")!) {
-    self.userDefaults = userDefaults
-        
-    let defaultValue: [String: String] = [:]
-    userDefaults.register(defaults: defaultValue)
+  init(storage: VitalBackStorage) {
+    self.storage = storage
   }
   
   func storeFlag(for resource: VitalResource) {
-    userDefaults.set(true, forKey: String(describing: resource))
+    storage.flagResource(resource)
   }
   
   func readFlag(for resource: VitalResource) -> Bool {
-    return userDefaults.bool(forKey: String(describing: resource))
+    return storage.isResourceFlagged(resource)
   }
   
   func store(entity: StoredAnchor) {
@@ -32,13 +29,13 @@ class VitalHealthKitStorage {
       return
     }
     
-    userDefaults.set(data, forKey: prefixedKey)
+    storage.store(data, prefixedKey)
   }
   
   func read(key: String) -> StoredAnchor? {
     let prefixedKey = prefix + key
     
-    if let data = userDefaults.data(forKey: prefixedKey) {
+    if let data = storage.read(prefixedKey) {
       let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
       return StoredAnchor(key: key, anchor: anchor)
     }
@@ -47,7 +44,7 @@ class VitalHealthKitStorage {
   }
 
   func remove(key: String) {
-    userDefaults.removeObject(forKey: prefix + key)
+    storage.remove(key)
   }
 }
 

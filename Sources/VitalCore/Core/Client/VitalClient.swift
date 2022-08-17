@@ -167,6 +167,8 @@ public class VitalClient {
       logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
     
+    logger?.info("VitalClient setup for environment \(String(describing: environment))")
+    
     let apiClientDelegate = VitalClientDelegate(
       environment: environment,
       logger: logger,
@@ -211,17 +213,28 @@ public class VitalClient {
       environment: environment,
       storage: storage
     )
-    
-    logger?.info("VitalClient setup for environment \(String(describing: environment))")
-    
+        
     await self.configuration.set(value: coreConfiguration)
   }
   
   public static func setUserId(_ userId: UUID) {
+    
     Task.detached(priority: .high) {
+      let configuration = await VitalClient.shared.configuration.get()
+
+      do {
+        if
+          let existingValue: UUID = try shared.secureStorage.get(key: user_secureStorageKey),
+          existingValue != userId {
+          configuration.storage.clean()
+        }
+      }
+      catch {
+        configuration.logger?.info("We weren't able to get the stored userId: \(error.localizedDescription)")
+      }
+        
       await VitalClient.shared.userId.set(value: userId)
       
-      let configuration = await VitalClient.shared.configuration.get()
       
       do {
         try shared.secureStorage.set(value: userId, key: user_secureStorageKey)

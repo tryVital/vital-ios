@@ -17,10 +17,8 @@ class VitalClientTests: XCTestCase {
   }
   
   func testStorageAndCleanUp() async throws {
-    let environment = Environment.sandbox(.us)
-    
     let storage = VitalCoreStorage(storage: .debug)
-    storage.storeConnectedSource(for: userId, with: .strava)
+    storage.storeConnectedSource(for: userId, with: provider)
     
     let secureStorage = VitalSecureStorage(keychain: .debug)
     
@@ -107,5 +105,36 @@ class VitalClientTests: XCTestCase {
     
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
+  }
+  
+  
+  func testStorageIsCleanedUpOnUserIdChange() async {
+    let storage = VitalCoreStorage(storage: .debug)
+    storage.storeConnectedSource(for: userId, with: provider)
+    
+    let secureStorage = VitalSecureStorage(keychain: .debug)
+    
+    let client = VitalClient(
+      secureStorage: secureStorage
+    )
+    
+    VitalClient.setUserId(userId)
+    
+    await client.setConfiguration(
+      apiKey: apiKey,
+      environment: environment,
+      configuration: .init(logsEnable: false),
+      storage: storage,
+      apiVersion: apiVersion,
+      updateApiClientConfiguration: makeMockApiClient(configuration:)
+    )
+
+    VitalClient.setUserId(UUID())
+    
+    try! await Task.sleep(nanoseconds: 5 * 1_000_000)
+
+    let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
+    
+    XCTAssertFalse(isConnected)
   }
 }

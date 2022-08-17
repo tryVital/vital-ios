@@ -37,7 +37,7 @@ public class VitalSecureStorage {
   private let encoder: JSONEncoder
   private let decoder: JSONDecoder
   
-  public init(keychain: Keychain = .live) {
+  public init(keychain: Keychain) {
     self.keychain = keychain
     self.encoder = .init()
     self.decoder = .init()
