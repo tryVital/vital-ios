@@ -230,7 +230,7 @@ public class VitalClient {
         }
       }
       catch {
-        configuration.logger?.info("We weren't able to get the stored userId: \(error.localizedDescription)")
+        configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error.localizedDescription)")
       }
         
       await VitalClient.shared.userId.set(value: userId)

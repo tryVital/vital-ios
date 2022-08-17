@@ -18,6 +18,14 @@ actor VitalClientDelegate: APIClientDelegate {
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
     request.setValue(apiKey, forHTTPHeaderField: "x-vital-api-key")
+    
+    let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary"]))
+    
+    /// For summary and timeseries, we want to gzip its contents
+    if components.isEmpty == false && request.httpMethod == "POST"  {
+      request.httpBody = request.httpBody?.gzip()
+      request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
+    }
   }
   
   func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
