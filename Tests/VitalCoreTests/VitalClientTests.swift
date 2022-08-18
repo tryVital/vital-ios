@@ -76,7 +76,7 @@ class VitalClientTests: XCTestCase {
   func testAutoUserIdConfiguration() async {
     VitalClient.automaticConfiguration()
     
-    try! await Task.sleep(nanoseconds: 5 * 1_000_000)
+    try! await Task.sleep(nanoseconds: 1_000_000_000)
 
     let nilUserId = await VitalClient.shared.userId.isNil()
     let nilConfiguration = await VitalClient.shared.configuration.isNil()
@@ -131,7 +131,7 @@ class VitalClientTests: XCTestCase {
 
     VitalClient.setUserId(UUID())
     
-    try! await Task.sleep(nanoseconds: 5 * 1_000_000)
+    try! await Task.sleep(nanoseconds: 1_000_000_000)
 
     let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
     
