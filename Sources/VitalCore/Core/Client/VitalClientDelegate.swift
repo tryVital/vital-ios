@@ -23,7 +23,7 @@ class VitalClientDelegate: APIClientDelegate {
     
     /// For summary and timeseries, we want to gzip its contents
     if components.isEmpty == false && request.httpMethod == "POST"  {
-      request.httpBody = request.httpBody?.gzip()
+      request.httpBody = try request.httpBody?.gzipped()
       request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
     }
   }
@@ -49,6 +49,8 @@ class VitalClientDelegate: APIClientDelegate {
       statusCode: response.statusCode,
       payload: data
     )
+    
+    print(String(data: data, encoding: .utf8))
     
     self.logger?.error("Failed request with error: \(networkError.localizedDescription)")
         
