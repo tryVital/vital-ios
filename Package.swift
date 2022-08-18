@@ -39,7 +39,7 @@ let package = Package(
       name: "VitalCore",
       exclude: [
         "./Get/LICENSE",
-        "./Get/README.md",
+        "./DataCompression/LICENSE",
         "./Keychain/LICENSE"
       ]
     ),

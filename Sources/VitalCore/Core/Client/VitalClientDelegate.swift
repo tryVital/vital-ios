@@ -49,11 +49,8 @@ class VitalClientDelegate: APIClientDelegate {
       statusCode: response.statusCode,
       payload: data
     )
-    
-    print(String(data: data, encoding: .utf8))
-    
-    self.logger?.error("Failed request with error: \(networkError.localizedDescription)")
         
+    self.logger?.error("Failed request with error: \(networkError.localizedDescription)")
     throw networkError
   }
 }
