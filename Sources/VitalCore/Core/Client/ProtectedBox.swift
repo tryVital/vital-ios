@@ -1,10 +1,10 @@
 import Foundation
 
-actor ProtectedBox<T> {
+public actor ProtectedBox<T> {
   private var continuations: [CheckedContinuation<T, Never>] = []
   private var value: T?
   
-  init(value: T? = nil) {
+  public init(value: T? = nil) {
     self.value = value
   }
   
@@ -12,11 +12,11 @@ actor ProtectedBox<T> {
     continuations = []
   }
   
-  func isNil() async -> Bool {
+  public func isNil() async -> Bool {
     return value == nil
   }
   
-  func get() async -> T {
+  public func get() async -> T {
     if let value = value {
       return value
     } else {
@@ -26,7 +26,7 @@ actor ProtectedBox<T> {
     }
   }
   
-  func set(value: T) {
+  public func set(value: T) {
     self.value = value
     
     continuations.forEach { continuation in
@@ -36,7 +36,7 @@ actor ProtectedBox<T> {
     continuations = []
   }
   
-  func clean() {
+  public func clean() {
     self.value = nil
   }
 }

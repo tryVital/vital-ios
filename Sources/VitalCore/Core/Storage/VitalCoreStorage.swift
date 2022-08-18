@@ -1,12 +1,20 @@
 import SwiftUI
 import HealthKit
 
-struct Storage {
-  var isConnectedSourceStored: (UUID, Provider) -> Bool
-  var storeConnectedSource: (UUID, Provider) -> Void
-  var clean: () -> Void
+public struct VitalBackStorage {
+  public var isConnectedSourceStored: (UUID, Provider) -> Bool
+  public var storeConnectedSource: (UUID, Provider) -> Void
   
-  static var live: Storage {
+  public var flagResource: (VitalResource) -> Void
+  public var isResourceFlagged: (VitalResource) -> Bool
+  
+  public var store: (Data, String) -> Void
+  public var read: (String) -> Data?
+  public var remove: (String) -> Void
+  
+  public var clean: () -> Void
+  
+  public static var live: VitalBackStorage {
     
     let userDefaults = UserDefaults(suiteName: "tryVital")!
     
@@ -23,15 +31,26 @@ struct Storage {
     } storeConnectedSource: { userId, provider in
       let key = generateKey(userId, provider)
       userDefaults.set(true, forKey: key)
+    } flagResource: { resource in
+      userDefaults.set(true, forKey: String(describing: resource))
+    } isResourceFlagged: { resource in
+      return userDefaults.bool(forKey: String(describing: resource))
+    } store: { data, key in
+      userDefaults.set(data, forKey: key)
+    } read: { key in
+      userDefaults.data(forKey: key)
+    } remove: { key in
+      userDefaults.removeObject(forKey: key)
     } clean: {
       userDefaults.removePersistentDomain(forName: "tryVital")
     }
   }
   
-  static var debug: Storage {
+  static var debug: VitalBackStorage {
     
     var storage: [String: Bool] = [:]
-    
+    var dataStorage: [String: Data] = [:]
+
     let generateKey: (UUID, Provider) -> String = { userId, provider in
       return "\(userId.uuidString)-\(provider.rawValue)"
     }
@@ -42,28 +61,39 @@ struct Storage {
     } storeConnectedSource: { userId, provider in
       let key = generateKey(userId, provider)
       storage[key] = true
+    } flagResource: { resource in
+      storage[String(describing: resource)] = true
+    } isResourceFlagged: { resource in
+      return storage[String(describing: resource)] != nil
+    } store: { data, key in
+      dataStorage[key] = data
+    } read: { key in
+      return dataStorage[key]
+    } remove: { key in
+      dataStorage.removeValue(forKey: key)
     } clean: {
       storage = [:]
+      dataStorage = [:]
     }
   }
 }
 
 class VitalCoreStorage {
-  private let storage: Storage
+  private let storage: VitalBackStorage
   
-  init(storage: Storage = .live) {
+  init(storage: VitalBackStorage) {
     self.storage = storage
   }
   
   func storeConnectedSource(for userId: UUID, with provider: Provider) {
-    self.storage.storeConnectedSource(userId, provider)
+    storage.storeConnectedSource(userId, provider)
   }
   
   func isConnectedSourceStored(for userId: UUID, with provider: Provider) -> Bool {
-    return self.storage.isConnectedSourceStored(userId, provider)
+    return storage.isConnectedSourceStored(userId, provider)
   }
   
   func clean() -> Void {
-    return self.storage.clean()
+    return storage.clean()
   }
 }

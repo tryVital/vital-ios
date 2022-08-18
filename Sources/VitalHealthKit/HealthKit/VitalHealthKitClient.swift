@@ -19,24 +19,27 @@ public class VitalHealthKitClient {
   }
   
   public static var shared: VitalHealthKitClient {
-    guard let client = Self.client else {
-      fatalError("`VitalHealthKitClient` hasn't been configured. Please call `VitalHealthKitClient.configure()`")
+    guard let value = client else {
+      let newClient = VitalHealthKitClient()
+      return newClient
     }
     
-    return client
+    return value
   }
   
   private static var client: VitalHealthKitClient?
   
   private let store: VitalHealthKitStore
-  private let configuration: Configuration
   private let storage: VitalHealthKitStorage
   private let secureStorage: VitalSecureStorage
-  private let vitaClient: VitalClientProtocol
+  private let vitalClient: VitalClientProtocol
   
   private let _status: PassthroughSubject<Status, Never>
   private var backgroundDeliveryTask: Task<Void, Error>? = nil
   
+  private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
+  let configuration: ProtectedBox<Configuration>
+
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
   }
@@ -44,20 +47,49 @@ public class VitalHealthKitClient {
   private var logger: Logger? = nil
   
   init(
-    configuration: Configuration,
+    configuration: ProtectedBox<Configuration> = .init(),
     store: VitalHealthKitStore = .live,
-    storage: VitalHealthKitStorage = .init(),
-    secureStorage: VitalSecureStorage = .init(),
-    vitaClient: VitalClientProtocol = .live
+    storage: VitalHealthKitStorage = .init(storage: .live),
+    secureStorage: VitalSecureStorage = .init(keychain: .live),
+    vitalClient: VitalClientProtocol = .live
   ) {
     self.store = store
-    self.configuration = configuration
     self.storage = storage
     self.secureStorage = secureStorage
-    self.vitaClient = vitaClient
+    self.vitalClient = vitalClient
+    self.configuration = configuration
     
     self._status = PassthroughSubject<Status, Never>()
     
+    VitalHealthKitClient.client = self
+  }
+  
+  public static func configure(
+    _ configuration: Configuration = .init()
+  ) {
+    Task.detached(priority: .high) {
+      await self.shared.setConfiguration(configuration: configuration)
+    }
+  }
+  
+  public static func automaticConfiguration() {
+    do {
+      let secureStorage = self.shared.secureStorage
+      guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
+        return
+      }
+      
+      configure(payload)
+      VitalClient.automaticConfiguration()
+    }
+    catch {
+      /// Bailout, there's nothing else to do here.
+    }
+  }
+  
+  func setConfiguration(
+    configuration: Configuration
+  ) async {
     if configuration.logsEnabled {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
@@ -69,29 +101,13 @@ public class VitalHealthKitClient {
       logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
     }
     
-    let resources = resourcesAskedForPermission(store: self.store)
-    checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
-  }
-  
-  public static func configure(
-    _ configuration: Configuration = .init()
-  ) {
-    let client = VitalHealthKitClient(configuration: configuration)
-    Self.client = client
-  }
-  
-  public static func automaticConfiguration() {
-    do {
-      let secureStorage = VitalSecureStorage()
-      guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
-        return
-      }
+    await self.configuration.set(value: configuration)
+    
+    if await backgroundDeliveryEnabled.get() == false {
+      await backgroundDeliveryEnabled.set(value: true)
       
-      configure(payload)
-      VitalClient.automaticConfiguration()
-    }
-    catch {
-      /// Bailout, there's nothing else to do here.
+      let resources = resourcesAskedForPermission(store: self.store)
+      checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
     }
   }
 }
@@ -286,6 +302,7 @@ extension VitalHealthKitClient {
     completion: () -> Void
   ) async {
     
+    let configuration = await configuration.get()
     let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
     let endDate: Date = Date()
     
@@ -309,17 +326,19 @@ extension VitalHealthKitClient {
         storage
       )
       
-      guard data.shouldSkipPost == false else {
-        logger?.info("Skipping. No new data available \(infix): \(description)")
-        _status.send(.nothingToSync(resource))
-        return
-      }
-      
       let stage = calculateStage(
         resource: payload.resource(store: store),
         startDate: startDate,
         endDate: endDate
       )
+      
+      /// If it's historical, even if there's no data, we still push
+      /// If there's no data and it's daily, then we bailout.
+      guard data.shouldSkipPost == false || stage.isDaily == false else {
+        logger?.info("Skipping. No new data available \(infix): \(description)")
+        _status.send(.nothingToSync(resource))
+        return
+      }
       
       if configuration.mode.isAutomatic {
         self.logger?.info(
@@ -327,10 +346,10 @@ extension VitalHealthKitClient {
         )
         
         /// Make sure the user has a connected source set up
-        try await vitaClient.checkConnectedSource(.appleHealthKit)
+        try await vitalClient.checkConnectedSource(.appleHealthKit)
         
         // Post data
-        try await vitaClient.post(
+        try await vitalClient.post(
           data,
           stage,
           .appleHealthKit
@@ -374,6 +393,7 @@ extension VitalHealthKitClient {
     }
     
     do {
+      let configuration = await configuration.get()
       try await store.requestReadAuthorization(resources)
       checkBackgroundUpdates(
         isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
