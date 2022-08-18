@@ -102,6 +102,14 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
           environment: state.credentials.environment,
           configuration: .init(logsEnable: true)
         )
+        
+        VitalHealthKitClient.configure(
+          .init(
+            backgroundDeliveryEnabled: true,
+            logsEnabled: true,
+            numberOfDaysToBackFill: 120
+          )
+        )
       }
       
       if

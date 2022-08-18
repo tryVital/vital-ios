@@ -7,13 +7,7 @@ import VitalHealthKit
 struct ExampleApp: App {
   
   init() {
-    VitalHealthKitClient.configure(
-      .init(
-        backgroundDeliveryEnabled: true,
-        logsEnabled: true,
-        numberOfDaysToBackFill: 5
-      )
-    )
+    VitalHealthKitClient.automaticConfiguration()
   }
   var body: some Scene {
     WindowGroup {
