@@ -98,7 +98,7 @@ class VitalClientTests: XCTestCase {
     let _ = VitalClient(secureStorage: secureStorage)
     VitalClient.automaticConfiguration()
 
-    try! await Task.sleep(nanoseconds: 5 * 1_000_000)
+    try! await Task.sleep(nanoseconds: 1_000_000_000)
 
     let nonNilUserId = await VitalClient.shared.userId.isNil()
     let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
