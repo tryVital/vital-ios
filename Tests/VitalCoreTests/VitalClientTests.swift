@@ -134,7 +134,31 @@ class VitalClientTests: XCTestCase {
     try! await Task.sleep(nanoseconds: 1_000_000_000)
 
     let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
-    
     XCTAssertFalse(isConnected)
+  }
+  
+  func testProviderIsStored() async {
+    let storage = VitalCoreStorage(storage: .debug)
+    storage.storeConnectedSource(for: userId, with: provider)
+    
+    let secureStorage = VitalSecureStorage(keychain: .debug)
+    
+    let client = VitalClient(
+      secureStorage: secureStorage
+    )
+    
+    VitalClient.setUserId(userId)
+    
+    await client.setConfiguration(
+      apiKey: apiKey,
+      environment: environment,
+      configuration: .init(logsEnable: false),
+      storage: storage,
+      apiVersion: apiVersion,
+      updateApiClientConfiguration: makeMockApiClient(configuration:)
+    )
+    
+    let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)
+    XCTAssertTrue(isConnected)
   }
 }
