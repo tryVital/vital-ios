@@ -235,7 +235,6 @@ public class VitalClient {
         
       await VitalClient.shared.userId.set(value: userId)
       
-      
       do {
         try shared.secureStorage.set(value: userId, key: user_secureStorageKey)
       }
@@ -245,16 +244,23 @@ public class VitalClient {
     }
   }
   
-  public func checkConnectedSource(for provider: Provider) async throws {
+  public func isUserConnected(to provider: Provider) async throws -> Bool {
     let userId = await userId.get()
     let storage = await configuration.get().storage
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
-      return
+      return true
     }
     
     let connectedSources = try await self.user.userConnectedSources()
-    if connectedSources.contains(provider) == false {
+    return connectedSources.contains(provider)
+  }
+  
+  public func checkConnectedSource(for provider: Provider) async throws {
+    let userId = await userId.get()
+    let storage = await configuration.get().storage
+
+    if try await isUserConnected(to: provider) == false {
       try await self.link.createConnectedSource(userId, provider: provider)
     }
     

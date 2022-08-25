@@ -31,4 +31,5 @@ public enum Provider: String, Codable {
   case eightSleep = "eight_sleep"
   case withings = "withings"
   case googleFit = "google_fit"
+  case hammerhead = "hammerhead"
 }
