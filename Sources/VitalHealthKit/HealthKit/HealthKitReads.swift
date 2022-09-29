@@ -445,7 +445,6 @@ func handleActivity(
     }
     
     return ActivityPatch.Activity(
-      date: date,
       activeEnergyBurned: filter(activeEnergyBurned),
       basalEnergyBurned: filter(basalEnergyBurned),
       steps: filter(steps),
