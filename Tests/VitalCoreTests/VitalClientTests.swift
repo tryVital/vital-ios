@@ -38,7 +38,7 @@ class VitalClientTests: XCTestCase {
       configuration: .init(logsEnable: false),
       storage: storage,
       apiVersion: apiVersion,
-      updateApiClientConfiguration: makeMockApiClient(configuration:)
+      updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
 
     let securePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
@@ -126,7 +126,7 @@ class VitalClientTests: XCTestCase {
       configuration: .init(logsEnable: false),
       storage: storage,
       apiVersion: apiVersion,
-      updateApiClientConfiguration: makeMockApiClient(configuration:)
+      updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
 
     VitalClient.setUserId(UUID())
@@ -155,7 +155,7 @@ class VitalClientTests: XCTestCase {
       configuration: .init(logsEnable: false),
       storage: storage,
       apiVersion: apiVersion,
-      updateApiClientConfiguration: makeMockApiClient(configuration:)
+      updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
     let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)

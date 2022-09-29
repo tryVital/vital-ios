@@ -121,7 +121,8 @@ public class VitalClient {
   public static func automaticConfiguration() {
     Task.detached(priority: .high) {
       do {
-        /// Order is important here. `configure` should happen before `setUserId`, because the latter depends on the former
+        /// Order is important. `configure` should happen before `setUserId`,
+        /// because the latter depends on the former
         if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
           configure(
             apiKey: payload.apiKey,
@@ -158,7 +159,7 @@ public class VitalClient {
     configuration: Configuration,
     storage: VitalCoreStorage,
     apiVersion: String,
-    updateApiClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
+    updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) async {
     
     var logger: Logger?
@@ -178,7 +179,7 @@ public class VitalClient {
     let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
       configuration.delegate = apiClientDelegate
       
-      updateApiClientConfiguration(&configuration)
+      updateAPIClientConfiguration(&configuration)
       
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .iso8601
