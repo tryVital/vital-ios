@@ -225,8 +225,7 @@ public class VitalClient {
 
       do {
         if
-          let existingValue: UUID = try shared.secureStorage.get(key: user_secureStorageKey),
-          existingValue != userId {
+          let existingValue: UUID = try shared.secureStorage.get(key: user_secureStorageKey), existingValue != userId {
           configuration.storage.clean()
         }
       }

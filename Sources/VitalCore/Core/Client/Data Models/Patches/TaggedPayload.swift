@@ -4,16 +4,19 @@ public struct TaggedPayload: Encodable {
   public let stage: String
   public let startDate: Date?
   public let endDate: Date?
+  public let timeZone: String
   public let provider: Provider
   public let data: VitalAnyEncodable
   
   public init(
     stage: Stage = .daily,
+    timeZone: TimeZone,
     provider: Provider = .manual,
     data: VitalAnyEncodable
   ) {
     self.provider = provider
     self.data = data
+    self.timeZone = timeZone.identifier
     
     switch stage {
       case .daily:

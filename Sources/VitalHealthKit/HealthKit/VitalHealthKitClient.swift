@@ -352,7 +352,8 @@ extension VitalHealthKitClient {
         try await vitalClient.post(
           data,
           stage,
-          .appleHealthKit
+          .appleHealthKit,
+          TimeZone.autoupdatingCurrent
         )
       } else {
         self.logger?.info(
