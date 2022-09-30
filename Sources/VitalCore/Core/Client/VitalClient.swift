@@ -92,7 +92,7 @@ public class VitalClient {
   let userId: ProtectedBox<UUID>
   
   private static var client: VitalClient?
-
+  
   public static var shared: VitalClient {
     guard let value = client else {
       let newClient = VitalClient()
@@ -106,38 +106,37 @@ public class VitalClient {
     apiKey: String,
     environment: Environment,
     configuration: Configuration = .init()
-  ) {
-    Task.detached(priority: .high) {
-      await self.shared.setConfiguration(
-        apiKey: apiKey,
-        environment: environment,
-        configuration: configuration,
-        storage: .init(storage: .live),
-        apiVersion: "v2"
-      )
-    }
+  ) async {
+    await self.shared.setConfiguration(
+      apiKey: apiKey,
+      environment: environment,
+      configuration: configuration,
+      storage: .init(storage: .live),
+      apiVersion: "v2"
+    )
   }
   
-  public static func automaticConfiguration() {
-    Task.detached(priority: .high) {
-      do {
-        /// Order is important. `configure` should happen before `setUserId`,
-        /// because the latter depends on the former
-        if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
-          configure(
-            apiKey: payload.apiKey,
-            environment: payload.environment,
-            configuration: payload.configuration
-          )
-        }
+  public static func automaticConfiguration() async {
+    do {
+      /// Order is important. `configure` should happen before `setUserId`,
+      /// because the latter depends on the former. If we don't do this, the app crash.
+      if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
         
-        if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-          setUserId(userId)
-        }
+        /// 1) Set the configuration
+        await configure(
+          apiKey: payload.apiKey,
+          environment: payload.environment,
+          configuration: payload.configuration
+        )
       }
-      catch {
-        /// Bailout, there's nothing else to do here.
+      
+      if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+        /// 2) If and only if there's a `userId`, we set it.
+        await setUserId(userId)
       }
+    }
+    catch {
+      /// Bailout, there's nothing else to do here.
     }
   }
   
@@ -192,7 +191,7 @@ public class VitalClient {
       configuration.encoder = encoder
       configuration.decoder = decoder
     }
-
+    
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,
       apiVersion: apiVersion,
@@ -206,7 +205,7 @@ public class VitalClient {
     catch {
       logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
     }
-        
+    
     let coreConfiguration = VitalCoreConfiguration(
       logger: logger,
       apiVersion: apiVersion,
@@ -214,34 +213,40 @@ public class VitalClient {
       environment: environment,
       storage: storage
     )
-        
+    
     await self.configuration.set(value: coreConfiguration)
   }
   
-  public static func setUserId(_ userId: UUID) {
+  private func _setUserId(_ newUserId: UUID) async {
+    if await configuration.isNil() {
+      /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
+      fatalError("You need to call `VitalClient.configuration` before setting the `userId`")
+    }
     
-    Task.detached(priority: .high) {
-      let configuration = await VitalClient.shared.configuration.get()
-
-      do {
-        if
-          let existingValue: UUID = try shared.secureStorage.get(key: user_secureStorageKey), existingValue != userId {
-          configuration.storage.clean()
-        }
-      }
-      catch {
-        configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error.localizedDescription)")
-      }
-        
-      await VitalClient.shared.userId.set(value: userId)
-      
-      do {
-        try shared.secureStorage.set(value: userId, key: user_secureStorageKey)
-      }
-      catch {
-        configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
+    let configuration = await configuration.get()
+    
+    do {
+      if
+        let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
+        configuration.storage.clean()
       }
     }
+    catch {
+      configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error.localizedDescription)")
+    }
+    
+    await self.userId.set(value: newUserId)
+    
+    do {
+      try secureStorage.set(value: newUserId, key: user_secureStorageKey)
+    }
+    catch {
+      configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
+    }
+  }
+  
+  public static func setUserId(_ newUserId: UUID) async {
+    await shared._setUserId(newUserId)
   }
   
   public func isUserConnected(to provider: Provider) async throws -> Bool {
@@ -259,7 +264,7 @@ public class VitalClient {
   public func checkConnectedSource(for provider: Provider) async throws {
     let userId = await userId.get()
     let storage = await configuration.get().storage
-
+    
     if try await isUserConnected(to: provider) == false {
       try await self.link.createConnectedSource(userId, provider: provider)
     }
@@ -273,7 +278,11 @@ public class VitalClient {
     /// 2) Stage for each `HKSampleType`.
     ///
     /// We might be able to derive 2) from 1)?
-    await self.configuration.get().storage.clean()
+    ///
+    /// We need to check this first, otherwise it will suspend until a configuration is set
+    if await self.configuration.isNil() == false {
+      await self.configuration.get().storage.clean()
+    }
     
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: health_secureStorageKey)

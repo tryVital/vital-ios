@@ -11,6 +11,10 @@ let provider = Provider.strava
 
 class VitalClientTests: XCTestCase {
   
+  override func setUp() async throws {
+    await VitalClient.shared.cleanUp()
+  }
+  
   func testInitSetsSharedInstance() throws {
     let client = VitalClient()
     XCTAssertTrue(client === VitalClient.shared)
@@ -26,8 +30,6 @@ class VitalClientTests: XCTestCase {
       secureStorage: secureStorage
     )
     
-    VitalClient.setUserId(userId)
-    
     /// Ideally we would call `VitalClient.configure(...)`
     /// The issue is that we have no way to inject mocks, therefore we have to rely on `setConfiguration`.
     /// I don't feel particularly happy with this approach. The only reason I know that I should
@@ -40,7 +42,9 @@ class VitalClientTests: XCTestCase {
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
-
+    
+    await VitalClient.setUserId(userId)
+    
     let securePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
     let storedUserId: UUID? = try? secureStorage.get(key: user_secureStorageKey)
     
@@ -48,7 +52,7 @@ class VitalClientTests: XCTestCase {
     XCTAssertEqual(securePayload?.apiVersion, apiVersion)
     XCTAssertEqual(securePayload?.apiKey, apiKey)
     XCTAssertEqual(securePayload?.environment, environment)
-
+    
     XCTAssertEqual(storedUserId, userId)
     XCTAssertTrue(
       storage.isConnectedSourceStored(for: userId, with: provider)
@@ -61,10 +65,10 @@ class VitalClientTests: XCTestCase {
     
     XCTAssertTrue(inMemoryStoredUser)
     XCTAssertTrue(inMemoryStoredConfiguration)
-
+    
     let nilSecurePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
     let nilStoredUserId: UUID? = try? secureStorage.get(key: user_secureStorageKey)
-
+    
     XCTAssertNil(nilSecurePayload)
     XCTAssertNil(nilStoredUserId)
     
@@ -74,10 +78,8 @@ class VitalClientTests: XCTestCase {
   }
   
   func testAutoUserIdConfiguration() async {
-    VitalClient.automaticConfiguration()
+    await VitalClient.automaticConfiguration()
     
-    try! await Task.sleep(nanoseconds: 1_000_000_000)
-
     let nilUserId = await VitalClient.shared.userId.isNil()
     let nilConfiguration = await VitalClient.shared.configuration.isNil()
     
@@ -96,17 +98,14 @@ class VitalClientTests: XCTestCase {
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
     
     let _ = VitalClient(secureStorage: secureStorage)
-    VitalClient.automaticConfiguration()
-
-    try! await Task.sleep(nanoseconds: 1_000_000_000)
-
+    await VitalClient.automaticConfiguration()
+    
     let nonNilUserId = await VitalClient.shared.userId.isNil()
     let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
     
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
   }
-  
   
   func testStorageIsCleanedUpOnUserIdChange() async {
     let storage = VitalCoreStorage(storage: .debug)
@@ -118,8 +117,6 @@ class VitalClientTests: XCTestCase {
       secureStorage: secureStorage
     )
     
-    VitalClient.setUserId(userId)
-    
     await client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
@@ -129,12 +126,10 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    try! await Task.sleep(nanoseconds: 1_000_000_000)
-
-    VitalClient.setUserId(UUID())
+    await VitalClient.setUserId(userId)
     
-    try! await Task.sleep(nanoseconds: 1_000_000_000)
-
+    await VitalClient.setUserId(UUID())
+    
     let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
     XCTAssertFalse(isConnected)
   }
@@ -149,8 +144,6 @@ class VitalClientTests: XCTestCase {
       secureStorage: secureStorage
     )
     
-    VitalClient.setUserId(userId)
-    
     await client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
@@ -159,6 +152,8 @@ class VitalClientTests: XCTestCase {
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
+    
+    await VitalClient.setUserId(userId)
     
     let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)
     XCTAssertTrue(isConnected)

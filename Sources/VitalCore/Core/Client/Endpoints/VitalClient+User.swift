@@ -18,7 +18,7 @@ public extension VitalClient.User {
   func userConnectedSources() async throws -> [Provider] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
-
+    
     let path = "/\(configuration.apiVersion)/\(path)/providers/\(userId)"
     
     let request: Request<ProviderResponse> = .get(path, query: nil, headers: [:])
@@ -34,7 +34,7 @@ public extension VitalClient.User {
   ) async throws -> CreateUserResponse {
     
     let configuration = await self.client.configuration.get()
-
+    
     let path = "/\(configuration.apiVersion)/\(path)/"
     let request = Request<CreateUserResponse>.post(path, body: payload)
     
@@ -42,7 +42,7 @@ public extension VitalClient.User {
     let value = try await configuration.apiClient.send(request).value
     
     if setUserIdOnSuccess {
-      VitalClient.setUserId(value.userId)
+      await VitalClient.setUserId(value.userId)
     }
     
     return value
