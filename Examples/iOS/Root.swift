@@ -7,8 +7,11 @@ import VitalHealthKit
 struct ExampleApp: App {
   
   init() {
-    VitalHealthKitClient.automaticConfiguration()
+    Task {
+      await VitalHealthKitClient.automaticConfiguration()
+    }
   }
+  
   var body: some Scene {
     WindowGroup {
       WithViewStore(appStore) { viewStore in

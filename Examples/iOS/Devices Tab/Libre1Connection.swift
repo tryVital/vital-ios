@@ -53,14 +53,16 @@ extension Libre1Connection {
     case failedSentToServer(String)
   }
   
-  public struct Environment : Sendable{
+  public struct Environment: Sendable{
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
     let libre1: Libre1Reader
+    let timeZone: TimeZone
     
-    init(deviceManager: DevicesManager, mainQueue: DispatchQueue) {
+    init(deviceManager: DevicesManager, mainQueue: DispatchQueue, timeZone: TimeZone) {
       self.deviceManager = deviceManager
       self.mainQueue = mainQueue
+      self.timeZone = timeZone
       
       self.libre1 = Libre1Reader(readingMessage: "Ready to read", errorMessage: "Failed", completionMessage: "Completed", queue: mainQueue)
     }
@@ -100,7 +102,8 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
         try await VitalClient.shared.timeSeries.post(
           .glucose(read.samples),
           stage: .daily,
-          provider: DevicesManager.provider(for: .libre)
+          provider: DevicesManager.provider(for: .libre),
+          timeZone: environment.timeZone
         )}
         .map { _ in Libre1Connection.Action.readingSentToServer(read) }
         .catch { error in

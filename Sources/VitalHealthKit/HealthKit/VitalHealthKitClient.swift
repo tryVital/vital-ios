@@ -66,10 +66,8 @@ public class VitalHealthKitClient {
   
   public static func configure(
     _ configuration: Configuration = .init()
-  ) {
-    Task.detached(priority: .high) {
+  ) async {
       await self.shared.setConfiguration(configuration: configuration)
-    }
   }
   
   public static func automaticConfiguration() async {
@@ -79,7 +77,7 @@ public class VitalHealthKitClient {
         return
       }
       
-      configure(payload)
+      await configure(payload)
       await VitalClient.automaticConfiguration()
     }
     catch {

@@ -105,6 +105,7 @@ extension DeviceConnection {
   public struct Environment {
     let deviceManager: DevicesManager
     let mainQueue: DispatchQueue
+    let timeZone: TimeZone
   }
 }
 
@@ -171,7 +172,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
           try await VitalClient.shared.timeSeries.post(
             .bloodPressure(bloodPressures),
             stage: .daily,
-            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
+            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand),
+            timeZone: env.timeZone
           )
         }
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
@@ -190,7 +192,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
           try await VitalClient.shared.timeSeries.post(
             .glucose(glucosePoints),
             stage: .daily,
-            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand)
+            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand),
+            timeZone: env.timeZone
           )}
           .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
           .catch { error in

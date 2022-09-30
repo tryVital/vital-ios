@@ -613,7 +613,7 @@
 			repositoryURL = "https://github.com/kean/NukeUI";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.8.1;
+				minimumVersion = 0.8.3;
 			};
 		};
 		E8D530C32819C8D100E74B83 /* XCRemoteSwiftPackageReference "BetterSafariView" */ = {

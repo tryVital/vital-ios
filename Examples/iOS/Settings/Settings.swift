@@ -45,6 +45,7 @@ extension Settings {
     case successfulGenerateUserId(UUID)
     case failedGeneratedUserId
     case setEnvironment(VitalCore.Environment)
+    case nop
   }
   
   class Environment {
@@ -54,6 +55,9 @@ extension Settings {
 
 let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
   switch action {
+      
+    case .nop:
+      return .none
       
     case let .setEnvironment(environment):
       state.credentials.environment = environment
@@ -94,32 +98,36 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       return .none
       
     case .setup:
-      if
-        state.credentials.apiKey.isEmpty == false
-      {        
-        VitalClient.configure(
-          apiKey: state.credentials.apiKey,
-          environment: state.credentials.environment,
-          configuration: .init(logsEnable: true)
-        )
-        
-        VitalHealthKitClient.configure(
-          .init(
-            backgroundDeliveryEnabled: true,
-            logsEnabled: true,
-            numberOfDaysToBackFill: 120
+      let effect = Effect<Settings.Action, Never>.task {[state] in
+        if
+          state.credentials.apiKey.isEmpty == false
+        {
+          await VitalClient.configure(
+            apiKey: state.credentials.apiKey,
+            environment: state.credentials.environment,
+            configuration: .init(logsEnable: true)
           )
-        )
-      }
-      
-      if
-        state.credentials.userId.isEmpty == false,
-        let userId = UUID(uuidString: state.credentials.userId)
-      {
-        VitalClient.setUserId(userId)
+          
+          await VitalHealthKitClient.configure(
+            .init(
+              backgroundDeliveryEnabled: true,
+              logsEnabled: true,
+              numberOfDaysToBackFill: 120
+            )
+          )
+        }
+        
+        if
+          state.credentials.userId.isEmpty == false,
+          let userId = UUID(uuidString: state.credentials.userId)
+        {
+          await VitalClient.setUserId(userId)
+        }
+        
+        return .nop
       }
             
-      return .none
+      return effect.eraseToEffect()
       
     case .start:
       if

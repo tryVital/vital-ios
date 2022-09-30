@@ -100,10 +100,10 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
   }
 }
   .presents(libre1ConnectionReducer, cancelEffectsOnDismiss: true, state: \.libre1Connection, action: /DevicesExample.Action.libre1Connection) { env in
-    Libre1Connection.Environment(deviceManager: env.deviceManager, mainQueue: env.mainQueue)
+    Libre1Connection.Environment(deviceManager: env.deviceManager, mainQueue: env.mainQueue, timeZone: .autoupdatingCurrent)
   }
   .presents(deviceConnectionReducer, cancelEffectsOnDismiss: true, state: \.deviceConnection, action: /DevicesExample.Action.deviceConnection) { env in
-    DeviceConnection.Environment(deviceManager: env.deviceManager, mainQueue: env.mainQueue)
+    DeviceConnection.Environment(deviceManager: env.deviceManager, mainQueue: env.mainQueue, timeZone: .autoupdatingCurrent)
   }
 
 
@@ -114,7 +114,7 @@ let devicesStore = Store(
 )
 
 extension DevicesExample {
-  struct RootView: View {
+  @MainActor struct RootView: View {
     
     let store: Store<State, Action>
     
