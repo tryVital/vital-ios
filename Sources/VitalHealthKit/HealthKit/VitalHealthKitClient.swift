@@ -72,7 +72,7 @@ public class VitalHealthKitClient {
     }
   }
   
-  public static func automaticConfiguration() {
+  public static func automaticConfiguration() async {
     do {
       let secureStorage = self.shared.secureStorage
       guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
@@ -80,7 +80,7 @@ public class VitalHealthKitClient {
       }
       
       configure(payload)
-      VitalClient.automaticConfiguration()
+      await VitalClient.automaticConfiguration()
     }
     catch {
       /// Bailout, there's nothing else to do here.
