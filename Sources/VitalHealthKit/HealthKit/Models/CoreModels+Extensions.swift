@@ -5,22 +5,22 @@ extension ActivityPatch.Activity {
   init(sampleType: HKSampleType, date: Date, samples: [QuantitySample]) {
     switch sampleType {
       case .quantityType(forIdentifier: .activeEnergyBurned)!:
-        self.init(date: date, activeEnergyBurned: samples)
+        self.init(activeEnergyBurned: samples)
         
       case .quantityType(forIdentifier: .basalEnergyBurned)!:
-        self.init(date: date, basalEnergyBurned: samples)
+        self.init(basalEnergyBurned: samples)
         
       case .quantityType(forIdentifier: .stepCount)!:
-        self.init(date: date, steps: samples)
+        self.init(steps: samples)
         
       case .quantityType(forIdentifier: .flightsClimbed)!:
-        self.init(date: date, floorsClimbed: samples)
+        self.init(floorsClimbed: samples)
         
       case .quantityType(forIdentifier: .distanceWalkingRunning)!:
-        self.init(date: date, distanceWalkingRunning: samples)
+        self.init(distanceWalkingRunning: samples)
         
       case .quantityType(forIdentifier: .vo2Max)!:
-        self.init(date: date, vo2Max: samples)
+        self.init(vo2Max: samples)
         
       default:
         fatalError("\(String(describing: sampleType)) cannot be used when constructing an ActivityPatch.Activity")

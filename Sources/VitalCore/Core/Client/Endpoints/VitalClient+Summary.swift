@@ -19,13 +19,15 @@ public extension VitalClient.Summary {
   func post(
     _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,
-    provider: Provider
+    provider: Provider,
+    timeZone: TimeZone
   ) async throws -> Void {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
 
     let taggedPayload = TaggedPayload(
       stage: stage,
+      timeZone: timeZone,
       provider: provider,
       data: VitalAnyEncodable(summaryData.payload)
     )

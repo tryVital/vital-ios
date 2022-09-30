@@ -128,6 +128,8 @@ class VitalClientTests: XCTestCase {
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
+    
+    try! await Task.sleep(nanoseconds: 1_000_000_000)
 
     VitalClient.setUserId(UUID())
     

@@ -178,7 +178,7 @@ extension VitalHealthKitClient {
   
   private func enableBackgroundDelivery(for sampleTypes: [HKSampleType]) {
     for sampleType in sampleTypes {
-      store.enableBackgroundDelivery(sampleType, .immediate) { [weak self] success, failure in
+      store.enableBackgroundDelivery(sampleType, .hourly) { [weak self] success, failure in
         
         guard failure == nil && success else {
           self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
@@ -352,7 +352,8 @@ extension VitalHealthKitClient {
         try await vitalClient.post(
           data,
           stage,
-          .appleHealthKit
+          .appleHealthKit,
+          TimeZone.autoupdatingCurrent
         )
       } else {
         self.logger?.info(

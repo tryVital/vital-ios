@@ -136,18 +136,28 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
-  var post: (PostResourceData, TaggedPayload.Stage, Provider) async throws -> Void
+  var post: (PostResourceData, TaggedPayload.Stage, Provider, TimeZone) async throws -> Void
   var checkConnectedSource: (Provider) async throws -> Void
 }
 
 extension VitalClientProtocol {
   static var live: VitalClientProtocol {
-    .init { data, stage, provider in
+    .init { data, stage, provider, timeZone in
       switch data {
         case let .summary(summaryData):
-          try await VitalClient.shared.summary.post(summaryData, stage: stage, provider: provider)
+          try await VitalClient.shared.summary.post(
+            summaryData,
+            stage: stage,
+            provider: provider,
+            timeZone: timeZone
+          )
         case let .timeSeries(timeSeriesData):
-          try await VitalClient.shared.timeSeries.post(timeSeriesData, stage: stage, provider: provider)
+          try await VitalClient.shared.timeSeries.post(
+            timeSeriesData,
+            stage: stage,
+            provider: provider,
+            timeZone: timeZone
+          )
       }
     } checkConnectedSource: { provider in
       try await VitalClient.shared.checkConnectedSource(for: provider)
@@ -155,7 +165,7 @@ extension VitalClientProtocol {
   }
   
   static var debug: VitalClientProtocol {
-    .init { _,_,_ in
+    .init { _,_,_,_ in
       return ()
     } checkConnectedSource: { _ in
       return
