@@ -86,25 +86,25 @@ class VitalClientTests: XCTestCase {
     XCTAssertTrue(nilUserId)
     XCTAssertTrue(nilConfiguration)
     
-    let securePayload = VitalCoreSecurePayload(
-      configuration: .init(),
-      apiVersion: apiVersion,
-      apiKey: apiKey,
-      environment: environment
-    )
-    
-    let secureStorage = VitalSecureStorage(keychain: .debug)
-    try! secureStorage.set(value: userId, key: user_secureStorageKey)
-    try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
-    
-    let _ = VitalClient(secureStorage: secureStorage)
-    await VitalClient.automaticConfiguration()
-    
-    let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
-    let nonNilUserId = await VitalClient.shared.userId.isNil()
-    
-    XCTAssertFalse(nonNilUserId)
-    XCTAssertFalse(nonNilConfiguration)
+//    let securePayload = VitalCoreSecurePayload(
+//      configuration: .init(),
+//      apiVersion: apiVersion,
+//      apiKey: apiKey,
+//      environment: environment
+//    )
+//    
+//    let secureStorage = VitalSecureStorage(keychain: .debug)
+//    try! secureStorage.set(value: userId, key: user_secureStorageKey)
+//    try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
+//    
+//    let _ = VitalClient(secureStorage: secureStorage)
+//    await VitalClient.automaticConfiguration()
+//    
+//    let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
+//    let nonNilUserId = await VitalClient.shared.userId.isNil()
+//    
+//    XCTAssertFalse(nonNilUserId)
+//    XCTAssertFalse(nonNilConfiguration)
   }
   
   func testStorageIsCleanedUpOnUserIdChange() async {
