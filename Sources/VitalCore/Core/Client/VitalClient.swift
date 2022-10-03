@@ -165,6 +165,7 @@ public class VitalClient {
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) async {
     
+    print("setUserId")
     var logger: Logger?
     
     if configuration.logsEnable {
@@ -179,6 +180,7 @@ public class VitalClient {
       apiKey: apiKey
     )
     
+    print("setUserId-1")
     let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
       configuration.delegate = apiClientDelegate
       
@@ -196,6 +198,7 @@ public class VitalClient {
       configuration.decoder = decoder
     }
     
+    print("setUserId-2")
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,
       apiVersion: apiVersion,
@@ -210,6 +213,8 @@ public class VitalClient {
       logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
     }
     
+    print("setUserId-3")
+    
     let coreConfiguration = VitalCoreConfiguration(
       logger: logger,
       apiVersion: apiVersion,
@@ -218,7 +223,9 @@ public class VitalClient {
       storage: storage
     )
     
+    print("setUserId-4")
     await self.configuration.set(value: coreConfiguration)
+    print("setUserId-5")
   }
   
   private func _setUserId(_ newUserId: UUID) async {
