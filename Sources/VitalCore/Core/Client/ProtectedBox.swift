@@ -26,7 +26,7 @@ public actor ProtectedBox<T> {
     }
   }
   
-  public func set(value: T) {
+  public func set(value: T) async {
     self.value = value
     
     continuations.forEach { continuation in
