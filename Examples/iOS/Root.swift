@@ -7,9 +7,9 @@ import VitalHealthKit
 struct ExampleApp: App {
   
   init() {
-    Task {
-      await VitalHealthKitClient.automaticConfiguration()
-    }
+//    Task {
+//      await VitalHealthKitClient.automaticConfiguration()
+//    }
   }
   
   var body: some Scene {

@@ -127,7 +127,9 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         return .nop
       }
             
-      return effect.eraseToEffect()
+      return effect
+        .receive(on: DispatchQueue.main)
+        .eraseToEffect()
       
     case .start:
       if
