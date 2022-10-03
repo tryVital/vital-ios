@@ -121,22 +121,17 @@ public class VitalClient {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
       if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
-        print("automaticConfiguration")
         /// 1) Set the configuration
         await configure(
           apiKey: payload.apiKey,
           environment: payload.environment,
           configuration: payload.configuration
         )
-        print("automaticConfiguration-1")
-
       }
       
       if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-        print("setUserId")
         /// 2) If and only if there's a `userId`, we set it.
         await setUserId(userId)
-        print("setUserId-1")
       }
     }
     catch {
@@ -165,7 +160,6 @@ public class VitalClient {
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) async {
     
-    print("setUserId")
     var logger: Logger?
     
     if configuration.logsEnable {
@@ -180,7 +174,6 @@ public class VitalClient {
       apiKey: apiKey
     )
     
-    print("setUserId-1")
     let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
       configuration.delegate = apiClientDelegate
       
@@ -198,7 +191,6 @@ public class VitalClient {
       configuration.decoder = decoder
     }
     
-    print("setUserId-2")
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,
       apiVersion: apiVersion,
@@ -213,8 +205,6 @@ public class VitalClient {
       logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
     }
     
-    print("setUserId-3")
-    
     let coreConfiguration = VitalCoreConfiguration(
       logger: logger,
       apiVersion: apiVersion,
@@ -223,9 +213,7 @@ public class VitalClient {
       storage: storage
     )
     
-    print("setUserId-4")
     await self.configuration.set(value: coreConfiguration)
-    print("setUserId-4")
   }
   
   private func _setUserId(_ newUserId: UUID) async {
