@@ -93,11 +93,23 @@ class VitalClientTests: XCTestCase {
       environment: environment
     )
 
+    let storage = VitalCoreStorage(storage: .debug)
+    storage.storeConnectedSource(for: userId, with: provider)
+
     let secureStorage = VitalSecureStorage(keychain: .debug)
     try! secureStorage.set(value: userId, key: user_secureStorageKey)
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
 
-    let _ = VitalClient(secureStorage: secureStorage)
+    let client = VitalClient(secureStorage: secureStorage)
+    await client.setConfiguration(
+      apiKey: apiKey,
+      environment: environment,
+      configuration: .init(logsEnable: false),
+      storage: storage,
+      apiVersion: apiVersion,
+      updateAPIClientConfiguration: makeMockApiClient(configuration:)
+    )
+    
     await VitalClient.automaticConfiguration()
     
     
