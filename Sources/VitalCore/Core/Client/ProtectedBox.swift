@@ -27,16 +27,13 @@ public actor ProtectedBox<T> {
   }
   
   public func set(value: T) async {
-    print("set-1")
     self.value = value
     
     continuations.forEach { continuation in
       continuation.resume(with: .success(value))
     }
-    print("set-2")
     
     continuations = []
-    print("set-3")
   }
   
   public func clean() {

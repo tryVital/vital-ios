@@ -131,7 +131,6 @@ class VitalClientTests: XCTestCase {
     )
     
     await VitalClient.setUserId(userId)
-    
     await VitalClient.setUserId(UUID())
     
     let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
