@@ -92,33 +92,23 @@ class VitalClientTests: XCTestCase {
       apiKey: apiKey,
       environment: environment
     )
-
+    
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
-
+    
     let secureStorage = VitalSecureStorage(keychain: .debug)
     try! secureStorage.set(value: userId, key: user_secureStorageKey)
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
-
-    let client = VitalClient(secureStorage: secureStorage)
-    await client.setConfiguration(
-      apiKey: apiKey,
-      environment: environment,
-      configuration: .init(logsEnable: false),
-      storage: storage,
-      apiVersion: apiVersion,
-      updateAPIClientConfiguration: makeMockApiClient(configuration:)
-    )
+    
+    _ = VitalClient(secureStorage: secureStorage)
     
     await VitalClient.automaticConfiguration()
     
+    let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
+    let nonNilUserId = await VitalClient.shared.userId.isNil()
     
-//
-//    let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
-//    let nonNilUserId = await VitalClient.shared.userId.isNil()
-//
-//    XCTAssertFalse(nonNilUserId)
-//    XCTAssertFalse(nonNilConfiguration)
+    XCTAssertFalse(nonNilUserId)
+    XCTAssertFalse(nonNilConfiguration)
   }
   
   func testStorageIsCleanedUpOnUserIdChange() async {

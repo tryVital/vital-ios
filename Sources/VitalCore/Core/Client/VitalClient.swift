@@ -121,18 +121,22 @@ public class VitalClient {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
       if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
-        
+        print("automaticConfiguration")
         /// 1) Set the configuration
         await configure(
           apiKey: payload.apiKey,
           environment: payload.environment,
           configuration: payload.configuration
         )
+        print("automaticConfiguration-1")
+
       }
       
       if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+        print("setUserId")
         /// 2) If and only if there's a `userId`, we set it.
         await setUserId(userId)
+        print("setUserId-1")
       }
     }
     catch {
