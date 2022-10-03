@@ -80,8 +80,8 @@ class VitalClientTests: XCTestCase {
   func testAutoUserIdConfiguration() async {
     await VitalClient.automaticConfiguration()
     
-    let nilUserId = await VitalClient.shared.userId.isNil()
     let nilConfiguration = await VitalClient.shared.configuration.isNil()
+    let nilUserId = await VitalClient.shared.userId.isNil()
     
     XCTAssertTrue(nilUserId)
     XCTAssertTrue(nilConfiguration)
@@ -100,8 +100,8 @@ class VitalClientTests: XCTestCase {
     let _ = VitalClient(secureStorage: secureStorage)
     await VitalClient.automaticConfiguration()
     
-    let nonNilUserId = await VitalClient.shared.userId.isNil()
     let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
+    let nonNilUserId = await VitalClient.shared.userId.isNil()
     
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
