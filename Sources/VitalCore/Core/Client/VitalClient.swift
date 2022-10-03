@@ -225,7 +225,7 @@ public class VitalClient {
     
     print("setUserId-4")
     await self.configuration.set(value: coreConfiguration)
-    print("setUserId-5")
+    print("setUserId-4")
   }
   
   private func _setUserId(_ newUserId: UUID) async {
