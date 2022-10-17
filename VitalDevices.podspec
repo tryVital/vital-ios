@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
     s.source_files = 'Sources/VitalDevices/**/*.swift'
     s.frameworks = ['CoreNFC', 'AVFoundation', 'CoreBluetooth', 'Combine', 'CryptoKit']
     
-    s.dependency 'VitalCore', '~> 0.6.1'
+    s.dependency 'VitalCore', '~> 0.6.2'
     s.dependency 'CombineCoreBluetooth', '~> 0.3.1'
     
     s.social_media_url = 'https://twitter.com/tryVital'

@@ -13,6 +13,6 @@ Pod::Spec.new do |s|
     s.source_files = 'Sources/VitalHealthKit/**/*.swift'
     s.social_media_url = 'https://twitter.com/tryVital'
 
-    s.dependency 'VitalCore', '~> 0.6.1'
+    s.dependency 'VitalCore', '~> 0.6.2'
 end
 
