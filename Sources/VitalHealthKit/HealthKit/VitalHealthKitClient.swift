@@ -467,7 +467,12 @@ func transform(data: PostResourceData, calendar: Calendar) -> PostResourceData {
       return .summary(.sleep(SleepPatch(sleep: sleep)))
     case .summary(.body), .summary(.profile):
       return data
-    case .timeSeries:
+      
+    case let .timeSeries(.heartRate(samples)):
+      let newSamples = average(samples, calendar: calendar)
+      return .timeSeries(.heartRate(newSamples))
+      
+    case .timeSeries(.bloodPressure), .timeSeries(.glucose):
       return data
   }
 }
