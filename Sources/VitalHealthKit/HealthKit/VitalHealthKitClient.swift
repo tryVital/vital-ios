@@ -39,7 +39,7 @@ public class VitalHealthKitClient {
   
   private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
   let configuration: ProtectedBox<Configuration>
-
+  
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
   }
@@ -67,7 +67,7 @@ public class VitalHealthKitClient {
   public static func configure(
     _ configuration: Configuration = .init()
   ) async {
-      await self.shared.setConfiguration(configuration: configuration)
+    await self.shared.setConfiguration(configuration: configuration)
   }
   
   public static func automaticConfiguration() async {
@@ -198,7 +198,7 @@ extension VitalHealthKitClient {
       
       for sampleType in sampleTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
-                    
+          
           guard error == nil else {
             self?.logger?.error("Failed to background deliver for \(String(describing: sampleType)).")
             
@@ -251,7 +251,7 @@ extension VitalHealthKitClient {
       _status.send(.syncingCompleted)
     }
   }
-    
+  
   public enum SyncPayload {
     case type(HKSampleType)
     case resource(VitalResource)
@@ -346,9 +346,11 @@ extension VitalHealthKitClient {
         /// Make sure the user has a connected source set up
         try await vitalClient.checkConnectedSource(.appleHealthKit)
         
+        let transformedData = transform(data: data, calendar: Calendar.autoupdatingCurrent)
+        
         // Post data
         try await vitalClient.post(
-          data,
+          transformedData,
           stage,
           .appleHealthKit,
           TimeZone.autoupdatingCurrent
@@ -408,5 +410,64 @@ extension VitalHealthKitClient {
   
   public func hasAskedForPermission(resource: VitalResource) -> Bool {
     store.hasAskedForPermission(resource)
+  }
+}
+
+
+func transform(data: PostResourceData, calendar: Calendar) -> PostResourceData {
+  switch data {
+    case let .summary(.activity(patch)):
+      let activities = patch.activities.map { activity in
+        ActivityPatch.Activity(
+          activeEnergyBurned: accumulate(activity.activeEnergyBurned, calendar: calendar),
+          basalEnergyBurned: accumulate(activity.basalEnergyBurned, calendar: calendar),
+          steps: accumulate(activity.steps, calendar: calendar),
+          floorsClimbed: accumulate(activity.floorsClimbed, calendar: calendar),
+          distanceWalkingRunning: accumulate(activity.distanceWalkingRunning, calendar: calendar),
+          vo2Max: accumulate(activity.vo2Max, calendar: calendar)
+        )
+      }
+      
+      return .summary(.activity(ActivityPatch(activities: activities)))
+      
+    case let .summary(.workout(patch)):
+      let workouts = patch.workouts.map { workout in
+        WorkoutPatch.Workout(
+          id: workout.id,
+          startDate: workout.startDate,
+          endDate: workout.endDate,
+          sourceBundle: workout.sourceBundle,
+          productType: workout.productType,
+          sport: workout.sport,
+          calories: workout.calories,
+          distance: workout.distance,
+          heartRate: average(workout.heartRate, calendar: calendar),
+          respiratoryRate: average(workout.respiratoryRate, calendar: calendar)
+        )
+      }
+      
+      return .summary(.workout(WorkoutPatch(workouts: workouts)))
+
+    case let.summary(.sleep(patch)):
+      let sleep = patch.sleep.map { sleep in
+        SleepPatch.Sleep.init(
+          id: sleep.id,
+          startDate: sleep.startDate,
+          endDate: sleep.endDate,
+          sourceBundle: sleep.sourceBundle,
+          productType: sleep.productType,
+          heartRate: average(sleep.heartRate, calendar: calendar),
+          restingHeartRate: average(sleep.restingHeartRate, calendar: calendar),
+          heartRateVariability: average(sleep.heartRateVariability, calendar: calendar),
+          oxygenSaturation: average(sleep.oxygenSaturation, calendar: calendar),
+          respiratoryRate: average(sleep.respiratoryRate, calendar: calendar)
+        )
+      }
+      
+      return .summary(.sleep(SleepPatch(sleep: sleep)))
+    case .summary(.body), .summary(.profile):
+      return data
+    case .timeSeries:
+      return data
   }
 }

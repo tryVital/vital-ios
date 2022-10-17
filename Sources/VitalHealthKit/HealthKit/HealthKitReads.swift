@@ -880,3 +880,173 @@ private func isLongerThan30Minutes(firstDate: Date, secondDate: Date) -> Bool {
   let longerThanThirtyMinutes = diff > 60 * 30
   return longerThanThirtyMinutes
 }
+
+private func orderByDate(_ values: [QuantitySample]) -> [QuantitySample] {
+  return values.sorted { $0.startDate < $1.startDate }
+}
+
+func splitPerBundle(_ values: [QuantitySample]) -> [[QuantitySample]] {
+  var temp: [String: [QuantitySample]] = ["na": []]
+  
+  for value in values {
+    if let bundle = value.sourceBundle {
+      if temp[bundle] != nil {
+        var copy = temp[bundle]!
+        copy.append(value)
+        temp[bundle] = copy
+      } else {
+        temp[bundle] = [value]
+      }
+    } else {
+      var copy = temp["na"]!
+      copy.append(value)
+      temp["na"] = copy
+    }
+  }
+  
+  var outcome: [[QuantitySample]] = [[]]
+  
+  for key in temp.keys {
+    let samples = temp[key]!
+    outcome.append(samples)
+  }
+  
+  return outcome
+}
+
+private func _accumulate(_ values: [QuantitySample], interval: Int, calendar: Calendar) -> [QuantitySample] {
+  let ordered = orderByDate(values)
+  
+  return ordered.reduce(into: []) { newValues, newValue in
+    if let lastValue = newValues.last {
+      
+      let lastValueHour = calendar.component(.hour, from: lastValue.startDate)
+      let newValueHour = calendar.component(.hour, from: newValue.startDate)
+      
+      guard lastValueHour == newValueHour else {
+        newValues.append(newValue)
+        return
+      }
+      
+      let lastValueBucket = Int(calendar.component(.minute, from: lastValue.startDate) / interval)
+      let newValueBucket = Int(calendar.component(.minute, from: newValue.startDate) / interval)
+      
+      guard lastValueBucket == newValueBucket else {
+        newValues.append(newValue)
+        return
+      }
+      
+      var lastValue = newValues.removeLast()
+      lastValue.value = lastValue.value + newValue.value
+      lastValue.endDate = newValue.endDate
+      
+      newValues.append(lastValue)
+      
+    } else {
+      newValues.append(newValue)
+    }
+  }
+}
+
+func accumulate(_ values: [QuantitySample], interval: Int = 15, calendar: Calendar) -> [QuantitySample] {
+  let split = splitPerBundle(values)
+  let outcome = split.flatMap {
+    _accumulate($0, interval: interval, calendar: calendar)
+  }
+  
+  return orderByDate(outcome)
+}
+
+
+private func _average(_ values: [QuantitySample], calendar: Calendar) -> [QuantitySample] {
+  let ordered = orderByDate(values)
+  
+  guard ordered.count > 2 else {
+    return values
+  }
+  
+  /// We want to preserve these values, instead of averaging them.
+  var min: QuantitySample? = nil
+  var max: QuantitySample? = nil
+  //  var copy = ordered
+  
+  for value in values {
+    if let minValue = min {
+      if value.value <= minValue.value {
+        min = value
+      }
+    } else {
+      min = value
+    }
+    
+    if let maxValue = max {
+      if value.value >= maxValue.value {
+        max = value
+      }
+    } else {
+      max = value
+    }
+  }
+  
+  class Payload {
+    var samples: [QuantitySample] = []
+    var total: Double = 0
+    var totalGrouped: Double = 0
+    var count = 0
+  }
+  
+  var outcome: [QuantitySample] = ordered.reduce(into: Payload()) { payload, newValue in
+    payload.count = payload.count + 1
+    
+    if let lastValue = payload.samples.last {
+      
+      let time = calendar.date(byAdding: .second, value: 5, to: lastValue.startDate)!
+      if time >= newValue.startDate {
+        var lastValue = payload.samples.removeLast()
+        
+        payload.total = payload.total + newValue.value
+        payload.totalGrouped = payload.totalGrouped + 1
+        lastValue.endDate = newValue.endDate
+        
+        if payload.count == ordered.count {
+          lastValue.value = payload.total / payload.totalGrouped
+        }
+        
+        payload.samples.append(lastValue)
+      } else {
+        var lastValue = payload.samples.removeLast()
+        lastValue.value = payload.total / payload.totalGrouped
+        payload.samples.append(lastValue)
+        
+        payload.total = newValue.value
+        payload.totalGrouped = 1
+        
+        payload.samples.append(newValue)
+      }
+      
+    } else {
+      payload.total = newValue.value
+      payload.totalGrouped = payload.totalGrouped + 1
+      payload.samples.append(newValue)
+    }
+  }.samples
+  
+  if let max = max {
+    outcome.append(max)
+  }
+  
+  if let min = min {
+    outcome.append(min)
+  }
+  
+  return outcome
+}
+
+func average(_ values: [QuantitySample], calendar: Calendar) -> [QuantitySample] {
+  let split = splitPerBundle(values)
+  let outcome = split.flatMap {
+    _average($0, calendar: calendar)
+  }
+  
+  return orderByDate(outcome)
+}
