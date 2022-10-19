@@ -143,7 +143,7 @@ public extension VitalHealthKitClient {
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.logsEnabled = logsEnabled
-      self.numberOfDaysToBackFill = numberOfDaysToBackFill
+      self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 90)
       self.mode = mode
     }
   }

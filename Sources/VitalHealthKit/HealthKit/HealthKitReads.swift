@@ -600,7 +600,12 @@ private func query(
         return
       }
       
-      let storedAnchor = StoredAnchor.init(key: String(describing: type), anchor: newAnchor)
+      let storedAnchor = StoredAnchor(
+        key: String(describing: type),
+        anchor: newAnchor,
+        date: Date()
+      )
+      
       continuation.resume(with: .success((samples ?? [], storedAnchor)))
     }
     
@@ -920,10 +925,9 @@ private func _accumulate(_ values: [QuantitySample], interval: Int, calendar: Ca
   return ordered.reduce(into: []) { newValues, newValue in
     if let lastValue = newValues.last {
       
-      let lastValueHour = calendar.component(.hour, from: lastValue.startDate)
-      let newValueHour = calendar.component(.hour, from: newValue.startDate)
+      let sameHour = calendar.isDate(newValue.startDate, equalTo: lastValue.startDate, toGranularity: .hour)
       
-      guard lastValueHour == newValueHour else {
+      guard sameHour else {
         newValues.append(newValue)
         return
       }
@@ -968,7 +972,6 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
   /// We want to preserve these values, instead of averaging them.
   var min: QuantitySample? = nil
   var max: QuantitySample? = nil
-  //  var copy = ordered
   
   for value in values {
     if let minValue = min {

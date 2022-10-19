@@ -10,6 +10,10 @@ public struct VitalBackStorage {
   
   public var store: (Data, String) -> Void
   public var read: (String) -> Data?
+  
+  public var storeDate: (Date, String) -> Void
+  public var readDate: (String) -> Date?
+  
   public var remove: (String) -> Void
   
   public var clean: () -> Void
@@ -39,6 +43,11 @@ public struct VitalBackStorage {
       userDefaults.set(data, forKey: key)
     } read: { key in
       userDefaults.data(forKey: key)
+    } storeDate: { date, key in
+      userDefaults.set(date.timeIntervalSince1970, forKey: key)
+    } readDate: { key in
+      let value: Double? = userDefaults.double(forKey: key)
+      return value.map(Date.init(timeIntervalSince1970:))
     } remove: { key in
       userDefaults.removeObject(forKey: key)
     } clean: {
@@ -50,6 +59,8 @@ public struct VitalBackStorage {
     
     var storage: [String: Bool] = [:]
     var dataStorage: [String: Data] = [:]
+
+    var dateStorage: [String: Double] = [:]
 
     let generateKey: (UUID, Provider) -> String = { userId, provider in
       return "\(userId.uuidString)-\(provider.rawValue)"
@@ -69,6 +80,11 @@ public struct VitalBackStorage {
       dataStorage[key] = data
     } read: { key in
       return dataStorage[key]
+    } storeDate: { date, key in
+      dateStorage[key] = date.timeIntervalSince1970
+    } readDate: { key in
+      let value = dateStorage[key]
+      return value.map(Date.init(timeIntervalSince1970:))
     } remove: { key in
       dataStorage.removeValue(forKey: key)
     } clean: {
