@@ -8,7 +8,7 @@ struct VitalHealthKitStore {
   
   var toVitalResource: (HKSampleType) -> VitalResource
   
-  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (PostResourceData, [StoredAnchor])
+  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage?) async throws -> (ProcessedResourceData, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void
@@ -124,7 +124,7 @@ extension VitalHealthKitStore {
     } toVitalResource: { sampleType in
       return .sleep
     } readResource: { _,_,_,_  in
-      return (PostResourceData.timeSeries(.glucose([])), [])
+      return (ProcessedResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return
     } execute: { _ in
@@ -136,7 +136,7 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
-  var post: (PostResourceData, TaggedPayload.Stage, Provider, TimeZone) async throws -> Void
+  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider, TimeZone) async throws -> Void
   var checkConnectedSource: (Provider) async throws -> Void
 }
 

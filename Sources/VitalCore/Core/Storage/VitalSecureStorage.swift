@@ -1,7 +1,6 @@
 import SwiftUI
 
 public struct Keychain {
-  
   var set: (Data, String) -> Void
   var get: (String) -> Data?
   var clean: (String) -> Void

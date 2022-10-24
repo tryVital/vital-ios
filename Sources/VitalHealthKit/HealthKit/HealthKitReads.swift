@@ -11,11 +11,11 @@ typealias SeriesSampleHandler = (HKQuantitySeriesSampleQuery, HKQuantity?, DateI
 private func read(
   type: HKSampleType,
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   typeToResource: ((HKSampleType) -> VitalResource),
   startDate: Date,
   endDate: Date
-) async throws -> (PostResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData, [StoredAnchor]) {
   func queryQuantities(
     type: HKSampleType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
@@ -49,7 +49,7 @@ private func read(
       
       anchors.appendOptional(anchor)
       
-      return (PostResourceData.summary(.activity(patch)), anchors)
+      return (ProcessedResourceData.summary(.activity(patch)), anchors)
       
     case
       /// Body
@@ -61,7 +61,7 @@ private func read(
       
       anchors.appendOptional(anchor)
       
-      return (PostResourceData.summary(.body(patch)), anchors)
+      return (ProcessedResourceData.summary(.body(patch)), anchors)
       
     default:
       return try await read(
@@ -79,10 +79,10 @@ func read(
   resource: VitalResource,
   healthKitStore: HKHealthStore,
   typeToResource: ((HKSampleType) -> VitalResource),
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
-) async throws -> (PostResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData, [StoredAnchor]) {
   
   switch resource {
     case .individual:
@@ -214,7 +214,7 @@ func handleProfile(
 
 func handleBody(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (bodyPatch: BodyPatch, anchors: [StoredAnchor]) {
@@ -266,7 +266,7 @@ func handleBody(
 
 func handleSleep(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (sleepPatch: SleepPatch, anchors: [StoredAnchor]) {
@@ -369,7 +369,7 @@ func handleSleep(
 
 func handleActivity(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (activityPatch: ActivityPatch, anchors: [StoredAnchor]) {
@@ -459,7 +459,7 @@ func handleActivity(
 
 func handleWorkouts(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (workoutPatch: WorkoutPatch, anchors: [StoredAnchor]) {
@@ -510,7 +510,7 @@ func handleWorkouts(
 
 func handleGlucose(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (glucose: [QuantitySample], anchors: [StoredAnchor]) {
@@ -534,7 +534,7 @@ func handleGlucose(
 
 func handleBloodPressure(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (bloodPressure: [BloodPressureSample], anchors: [StoredAnchor]) {
@@ -559,7 +559,7 @@ func handleBloodPressure(
 
 func handleHeartRate(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: VitalHealthKitStorage?,
   startDate: Date,
   endDate: Date
 ) async throws -> (heartrate: [QuantitySample], anchors: [StoredAnchor]) {
@@ -858,7 +858,7 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
         return false
       }
       
-    } else {
+   1 } else {
       /// This sample was made by something else besides com.apple.healthkit
       /// So we allow it
       return true

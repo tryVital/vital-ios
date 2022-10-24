@@ -12,7 +12,7 @@ public enum PermissionOutcome {
 public class VitalHealthKitClient {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
-    case successSyncing(VitalResource, PostResourceData)
+    case successSyncing(VitalResource, ProcessedResourceData)
     case nothingToSync(VitalResource)
     case syncing(VitalResource)
     case syncingCompleted
@@ -252,6 +252,17 @@ extension VitalHealthKitClient {
     }
   }
   
+  public func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData {
+    let (data, _): (ProcessedResourceData, [StoredAnchor]) = try await store.readResource(
+      resource,
+      startDate,
+      endDate,
+      nil
+    )
+    
+    return transform(data: data, calendar: Calendar.autoupdatingCurrent)
+  }
+  
   public enum SyncPayload {
     case type(HKSampleType)
     case resource(VitalResource)
@@ -315,7 +326,7 @@ extension VitalHealthKitClient {
       _status.send(.syncing(resource))
       
       // Fetch from HealthKit
-      let (data, entitiesToStore): (PostResourceData, [StoredAnchor])
+      let (data, entitiesToStore): (ProcessedResourceData, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
         resource,
@@ -414,7 +425,7 @@ extension VitalHealthKitClient {
 }
 
 
-func transform(data: PostResourceData, calendar: Calendar) -> PostResourceData {
+func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedResourceData {
   switch data {
     case let .summary(.activity(patch)):
       let activities = patch.activities.map { activity in

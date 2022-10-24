@@ -1,4 +1,4 @@
-public enum PostResourceData {
+public enum ProcessedResourceData {
   case summary(SummaryData)
   case timeSeries(TimeSeriesData)
   

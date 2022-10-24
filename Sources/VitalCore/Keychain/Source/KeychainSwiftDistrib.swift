@@ -21,12 +21,12 @@ import Foundation
  A collection of helper functions for saving text and data in the keychain.
  
  */
-open class KeychainSwift {
+class KeychainSwift {
   
   var lastQueryParameters: [String: Any]? // Used by the unit tests
   
   /// Contains result code from the last operation. Value is noErr (0) for a successful result.
-  open var lastResultCode: OSStatus = noErr
+  var lastResultCode: OSStatus = noErr
   
   var keyPrefix = "" // Can be useful in test.
   
@@ -35,7 +35,7 @@ open class KeychainSwift {
    Specify an access group that will be used to access keychain items. Access groups can be used to share keychain items between applications. When access group value is nil all application access groups are being accessed. Access group name is used by all functions: set, get, delete and clear.
    
    */
-  open var accessGroup: String?
+  var accessGroup: String?
   
   
   /**
@@ -46,20 +46,20 @@ open class KeychainSwift {
    Does not work on macOS.
    
    */
-  open var synchronizable: Bool = false
+  var synchronizable: Bool = false
   
   private let lock = NSLock()
   
   
   /// Instantiate a KeychainSwift object
-  public init() { }
+  init() { }
   
   /**
    
    - parameter keyPrefix: a prefix that is added before the key in get/set methods. Note that `clear` method still clears everything from the Keychain.
    
    */
-  public init(keyPrefix: String) {
+  init(keyPrefix: String) {
     self.keyPrefix = keyPrefix
   }
   
@@ -75,7 +75,7 @@ open class KeychainSwift {
    
    */
   @discardableResult
-  open func set(_ value: String, forKey key: String,
+  func set(_ value: String, forKey key: String,
                 withAccess access: KeychainSwiftAccessOptions? = nil) -> Bool {
     
     if let value = value.data(using: String.Encoding.utf8) {
@@ -97,7 +97,7 @@ open class KeychainSwift {
    
    */
   @discardableResult
-  open func set(_ value: Data, forKey key: String,
+  func set(_ value: Data, forKey key: String,
                 withAccess access: KeychainSwiftAccessOptions? = nil) -> Bool {
     
     // The lock prevents the code to be run simultaneously
@@ -139,7 +139,7 @@ open class KeychainSwift {
    
    */
   @discardableResult
-  open func set(_ value: Bool, forKey key: String,
+  func set(_ value: Bool, forKey key: String,
                 withAccess access: KeychainSwiftAccessOptions? = nil) -> Bool {
     
     let bytes: [UInt8] = value ? [1] : [0]
@@ -156,7 +156,7 @@ open class KeychainSwift {
    - returns: The text value from the keychain. Returns nil if unable to read the item.
    
    */
-  open func get(_ key: String) -> String? {
+  func get(_ key: String) -> String? {
     if let data = getData(key) {
       
       if let currentString = String(data: data, encoding: .utf8) {
@@ -178,7 +178,7 @@ open class KeychainSwift {
    - returns: The text value from the keychain. Returns nil if unable to read the item.
    
    */
-  open func getData(_ key: String, asReference: Bool = false) -> Data? {
+  func getData(_ key: String, asReference: Bool = false) -> Data? {
     // The lock prevents the code to be run simultaneously
     // from multiple threads which may result in crashing
     lock.lock()
@@ -223,7 +223,7 @@ open class KeychainSwift {
    - returns: The boolean value from the keychain. Returns nil if unable to read the item.
    
    */
-  open func getBool(_ key: String) -> Bool? {
+  func getBool(_ key: String) -> Bool? {
     guard let data = getData(key) else { return nil }
     guard let firstBit = data.first else { return nil }
     return firstBit == 1
@@ -238,7 +238,7 @@ open class KeychainSwift {
    
    */
   @discardableResult
-  open func delete(_ key: String) -> Bool {
+  func delete(_ key: String) -> Bool {
     // The lock prevents the code to be run simultaneously
     // from multiple threads which may result in crashing
     lock.lock()
@@ -253,7 +253,7 @@ open class KeychainSwift {
    - returns: An string array with all keys from the keychain.
    
    */
-  public var allKeys: [String] {
+  var allKeys: [String] {
     var query: [String: Any] = [
       KeychainSwiftConstants.klass : kSecClassGenericPassword,
       KeychainSwiftConstants.returnData : true,
@@ -313,7 +313,7 @@ open class KeychainSwift {
    
    */
   @discardableResult
-  open func clear() -> Bool {
+  func clear() -> Bool {
     // The lock prevents the code to be run simultaneously
     // from multiple threads which may result in crashing
     lock.lock()
@@ -371,43 +371,43 @@ import Foundation
 import Security
 
 /// Constants used by the library
-public struct KeychainSwiftConstants {
+struct KeychainSwiftConstants {
   /// Specifies a Keychain access group. Used for sharing Keychain items between apps.
-  public static var accessGroup: String { return toString(kSecAttrAccessGroup) }
+  static var accessGroup: String { return toString(kSecAttrAccessGroup) }
   
   /**
    
    A value that indicates when your app needs access to the data in a keychain item. The default value is AccessibleWhenUnlocked. For a list of possible values, see KeychainSwiftAccessOptions.
    
    */
-  public static var accessible: String { return toString(kSecAttrAccessible) }
+  static var accessible: String { return toString(kSecAttrAccessible) }
   
   /// Used for specifying a String key when setting/getting a Keychain value.
-  public static var attrAccount: String { return toString(kSecAttrAccount) }
+  static var attrAccount: String { return toString(kSecAttrAccount) }
   
   /// Used for specifying synchronization of keychain items between devices.
-  public static var attrSynchronizable: String { return toString(kSecAttrSynchronizable) }
+  static var attrSynchronizable: String { return toString(kSecAttrSynchronizable) }
   
   /// An item class key used to construct a Keychain search dictionary.
-  public static var klass: String { return toString(kSecClass) }
+  static var klass: String { return toString(kSecClass) }
   
   /// Specifies the number of values returned from the keychain. The library only supports single values.
-  public static var matchLimit: String { return toString(kSecMatchLimit) }
+  static var matchLimit: String { return toString(kSecMatchLimit) }
   
   /// A return data type used to get the data from the Keychain.
-  public static var returnData: String { return toString(kSecReturnData) }
+  static var returnData: String { return toString(kSecReturnData) }
   
   /// Used for specifying a value when setting a Keychain value.
-  public static var valueData: String { return toString(kSecValueData) }
+  static var valueData: String { return toString(kSecValueData) }
   
   /// Used for returning a reference to the data from the keychain
-  public static var returnReference: String { return toString(kSecReturnPersistentRef) }
+  static var returnReference: String { return toString(kSecReturnPersistentRef) }
   
   /// A key whose value is a Boolean indicating whether or not to return item attributes
-  public static var returnAttributes : String { return toString(kSecReturnAttributes) }
+  static var returnAttributes : String { return toString(kSecReturnAttributes) }
   
   /// A value that corresponds to matching an unlimited number of items
-  public static var secMatchLimitAll : String { return toString(kSecMatchLimitAll) }
+  static var secMatchLimitAll : String { return toString(kSecMatchLimitAll) }
   
   static func toString(_ value: CFString) -> String {
     return value as String
@@ -428,7 +428,7 @@ import Security
  These options are used to determine when a keychain item should be readable. The default value is AccessibleWhenUnlocked.
  
  */
-public enum KeychainSwiftAccessOptions {
+enum KeychainSwiftAccessOptions {
   
   /**
    
