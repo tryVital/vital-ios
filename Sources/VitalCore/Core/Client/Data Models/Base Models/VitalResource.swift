@@ -1,5 +1,5 @@
-public enum VitalResource: Equatable {
-  public enum Vitals: Equatable {
+public enum VitalResource: Equatable, Hashable {
+  public enum Vitals: Equatable, Hashable {
     case glucose
     case bloodPressure
     case hearthRate
@@ -16,7 +16,7 @@ public enum VitalResource: Equatable {
     }
   }
   
-  public enum Individual: Equatable {
+  public enum Individual: Equatable, Hashable {
     case steps
     case activeEnergyBurned
     case basalEnergyBurned
