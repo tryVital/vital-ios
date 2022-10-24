@@ -1,7 +1,7 @@
 import Foundation
 
-public struct WorkoutPatch: Encodable {
-  public struct Workout: Encodable {
+public struct WorkoutPatch: Equatable, Encodable {
+  public struct Workout: Equatable, Encodable {
     public let id: UUID?
     public let startDate: Date
     public let endDate: Date
