@@ -1,4 +1,4 @@
-public enum ProcessedResourceData {
+public enum ProcessedResourceData: Equatable {
   case summary(SummaryData)
   case timeSeries(TimeSeriesData)
   
@@ -30,7 +30,7 @@ public enum ProcessedResourceData {
   }
 }
 
-public enum TimeSeriesData {
+public enum TimeSeriesData: Equatable {
   case glucose([QuantitySample])
   case bloodPressure([BloodPressureSample])
   case heartRate([QuantitySample])
@@ -70,7 +70,7 @@ public enum TimeSeriesData {
   }
 }
 
-public enum SummaryData {
+public enum SummaryData: Equatable {
   case profile(ProfilePatch)
   case body(BodyPatch)
   case activity(ActivityPatch)
