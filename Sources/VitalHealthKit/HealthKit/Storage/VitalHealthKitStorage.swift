@@ -32,19 +32,29 @@ class VitalHealthKitStorage {
       return
     }
     
-    storage.storeDate(entity.date, datePrefix)
+    if let date = entity.date {
+      storage.storeDate(date, datePrefix)
+    }
+    
     storage.store(data, anchorPrefix)
   }
   
   func read(key: String) -> StoredAnchor? {
     let anchorPrefix = anchorPrefix + key
+    let datePrefix = datePrefix + key
+
     
+    var storeAnchor: StoredAnchor? = nil
     if let data = storage.read(anchorPrefix) {
       let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
-      return StoredAnchor(key: key, anchor: anchor, date: Date())
+      storeAnchor = StoredAnchor(key: key, anchor: anchor, date: nil)
     }
     
-    return nil
+    if let date = storage.readDate(datePrefix) {
+      storeAnchor?.date = date
+    }
+    
+    return storeAnchor
   }
 
   func remove(key: String) {
@@ -53,11 +63,11 @@ class VitalHealthKitStorage {
 }
 
 struct StoredAnchor {
-  let key: String
-  let anchor: HKQueryAnchor
-  let date : Date
+  var key: String
+  var anchor: HKQueryAnchor
+  var date : Date?
   
-  init?(key: String, anchor: HKQueryAnchor?, date: Date) {
+  init?(key: String, anchor: HKQueryAnchor?, date: Date?) {
     guard let anchor = anchor else {
       return nil
     }
@@ -65,7 +75,7 @@ struct StoredAnchor {
     self.init(key: key, anchor: anchor, date: date)
   }
   
-  init(key: String, anchor: HKQueryAnchor, date: Date) {
+  init(key: String, anchor: HKQueryAnchor, date: Date?) {
     self.key = key
     self.anchor = anchor
     self.date = date

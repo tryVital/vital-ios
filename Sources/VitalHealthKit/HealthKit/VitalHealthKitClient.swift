@@ -407,6 +407,7 @@ extension VitalHealthKitClient {
     do {
       let configuration = await configuration.get()
       try await store.requestReadAuthorization(resources)
+      
       checkBackgroundUpdates(
         isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
         resources: resources
@@ -421,6 +422,22 @@ extension VitalHealthKitClient {
   
   public func hasAskedForPermission(resource: VitalResource) -> Bool {
     store.hasAskedForPermission(resource)
+  }
+  
+  public func dateOfLastSync(for resource: VitalResource) -> Date? {
+    guard hasAskedForPermission(resource: resource) else {
+      return nil
+    }
+    
+    let dates: [Date] = toHealthKitTypes(resource: resource).map {
+      String(describing: $0.self)
+    }.compactMap { key in
+      storage.read(key: key)?.date
+    }
+    
+    /// This is not technically correct, because a resource (e.g. activity) can be made up of many types.
+    /// In this case, we pick up the most recent one.
+    return dates.sorted { $0.compare($1) == .orderedDescending }.first
   }
 }
 
