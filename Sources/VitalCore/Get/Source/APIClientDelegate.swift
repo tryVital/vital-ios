@@ -8,7 +8,7 @@ import FoundationNetworking
 #endif
 
 /// Allows you to modify ``APIClient`` behavior.
-public protocol APIClientDelegate {
+protocol APIClientDelegate {
     /// Allows you to modify the request right before it is sent.
     ///
     /// Gets called right before sending the request. If the retries are enabled,
@@ -67,7 +67,7 @@ public protocol APIClientDelegate {
     func shouldClientRetry(_ client: APIClient, for request: URLRequest, withError error: Error) async throws -> Bool
 }
 
-public extension APIClientDelegate {
+extension APIClientDelegate {
     func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
         // Do nothing
     }

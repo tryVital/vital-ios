@@ -8,11 +8,11 @@ import FoundationNetworking
 #endif
 
 /// Performs network requests constructed using ``Request``.
-public actor APIClient {
+actor APIClient {
     /// The configuration with which the client was initialized with.
-    public nonisolated let configuration: Configuration
+    nonisolated let configuration: Configuration
     /// The underlying `URLSession` instance.
-    public nonisolated let session: URLSession
+    nonisolated let session: URLSession
 
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
@@ -20,24 +20,24 @@ public actor APIClient {
     private let dataLoader = DataLoader()
 
     /// The configuration for ``APIClient``.
-    public struct Configuration: @unchecked Sendable {
+    struct Configuration: @unchecked Sendable {
         /// A base URL. For example, `"https://api.github.com"`.
-        public var baseURL: URL?
+        var baseURL: URL?
         /// The client delegate. The client holds a strong reference to it.
-        public var delegate: APIClientDelegate?
+        var delegate: APIClientDelegate?
         /// By default, `URLSessionConfiguration.default`.
-        public var sessionConfiguration: URLSessionConfiguration = .default
+        var sessionConfiguration: URLSessionConfiguration = .default
         /// The (optional) URLSession delegate that allows you to monitor the underlying URLSession.
-        public var sessionDelegate: URLSessionDelegate?
+        var sessionDelegate: URLSessionDelegate?
         /// Overrides the default delegate queue.
-        public var sessionDelegateQueue: OperationQueue?
+        var sessionDelegateQueue: OperationQueue?
         /// By default, uses `.iso8601` date decoding strategy.
-        public var decoder: JSONDecoder
+        var decoder: JSONDecoder
         /// By default, uses `.iso8601` date encoding strategy.
-        public var encoder: JSONEncoder
+        var encoder: JSONEncoder
 
         /// Initializes the configuration.
-        public init(
+        init(
             baseURL: URL?,
             sessionConfiguration: URLSessionConfiguration = .default,
             delegate: APIClientDelegate? = nil
@@ -58,14 +58,14 @@ public actor APIClient {
     ///
     /// - parameter baseURL: A base URL. For example, `"https://api.github.com"`.
     /// - parameter configure: Updates the client configuration.
-    public convenience init(baseURL: URL?, _ configure: (inout APIClient.Configuration) -> Void = { _ in }) {
+    convenience init(baseURL: URL?, _ configure: (inout APIClient.Configuration) -> Void = { _ in }) {
         var configuration = Configuration(baseURL: baseURL)
         configure(&configuration)
         self.init(configuration: configuration)
     }
 
     /// Initializes the client with the given configuration.
-    public init(configuration: Configuration) {
+    init(configuration: Configuration) {
         self.configuration = configuration
         let delegateQueue = configuration.sessionDelegateQueue ?? .serial()
         self.session = URLSession(configuration: configuration.sessionConfiguration, delegate: dataLoader, delegateQueue: delegateQueue)
@@ -85,7 +85,7 @@ public actor APIClient {
     ///   - configure: Modifies the underlying `URLRequest` before sending it.
     ///
     /// - returns: A response with a decoded body.
-    public func send<T: Decodable>(
+    func send<T: Decodable>(
         _ request: Request<T>,
         delegate: URLSessionDataDelegate? = nil,
         configure: ((inout URLRequest) throws -> Void)? = nil
@@ -104,7 +104,7 @@ public actor APIClient {
     ///
     /// - returns: A response with an empty value.
     @discardableResult
-    public func send(
+    func send(
         _ request: Request<Void>,
         delegate: URLSessionDataDelegate? = nil,
         configure: ((inout URLRequest) throws -> Void)? = nil
@@ -122,7 +122,7 @@ public actor APIClient {
     ///   - configure: Modifies the underlying `URLRequest` before sending it.
     ///
     /// - returns: A response with a raw response data.
-    public func data<T>(
+    func data<T>(
         for request: Request<T>,
         delegate: URLSessionDataDelegate? = nil,
         configure: ((inout URLRequest) throws -> Void)? = nil
@@ -156,7 +156,7 @@ public actor APIClient {
     /// - returns: A response with the location of the downloaded file. The file
     /// will not be removed automatically until the app restarts. Make sure to
     /// move the file to a known location in your app.
-    public func download<T>(
+    func download<T>(
         for request: Request<T>,
         delegate: URLSessionDownloadDelegate? = nil,
         configure: ((inout URLRequest) throws -> Void)? = nil
@@ -171,7 +171,7 @@ public actor APIClient {
     ///
     /// - parameters:
     ///   - delegate: A task-specific delegate.
-    public func download(
+    func download(
         resumeFrom resumeData: Data,
         delegate: URLSessionDownloadDelegate? = nil
     ) async throws -> Response<URL> {
@@ -201,7 +201,7 @@ public actor APIClient {
     ///   - configure: Modifies the underlying `URLRequest` before sending it.
     ///
     /// Returns decoded response.
-    public func upload<T: Decodable>(
+    func upload<T: Decodable>(
         for request: Request<T>,
         fromFile fileURL: URL,
         delegate: URLSessionTaskDelegate? = nil,
@@ -221,7 +221,7 @@ public actor APIClient {
     ///   - configure: Modifies the underlying `URLRequest` before sending it.
     ///
     /// Returns decoded response.
-    public func upload(
+    func upload(
         for request: Request<Void>,
         fromFile fileURL: URL,
         delegate: URLSessionTaskDelegate? = nil,
@@ -254,7 +254,7 @@ public actor APIClient {
     // MARK: Making Requests
 
     /// Creates `URLRequest` for the given request.
-    public func makeURLRequest<T>(for request: Request<T>) async throws -> URLRequest {
+    func makeURLRequest<T>(for request: Request<T>) async throws -> URLRequest {
         try await makeURLRequest(for: request, { _ in })
     }
 
@@ -334,11 +334,11 @@ public actor APIClient {
 }
 
 /// Represents an error encountered by the client.
-public enum APIError: Error, LocalizedError {
+enum APIError: Error, LocalizedError {
     case unacceptableStatusCode(Int)
 
     /// Returns the debug description.
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .unacceptableStatusCode(let statusCode):
             return "Response status code was unacceptable: \(statusCode)."

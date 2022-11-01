@@ -8,7 +8,7 @@ import FoundationNetworking
 #endif
 
 // A simple URLSession wrapper adding async/await APIs compatible with older platforms.
-final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, @unchecked Sendable {
+class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, @unchecked Sendable {
     private var handlers = [URLSessionTask: TaskHandler]()
 
     var userSessionDelegate: URLSessionDelegate? {
@@ -284,7 +284,7 @@ private class TaskHandler {
     }
 }
 
-private final class DataTaskHandler: TaskHandler {
+private class DataTaskHandler: TaskHandler {
     typealias Completion = (Result<Response<Data>, Error>) -> Void
 
     let dataDelegate: URLSessionDataDelegate?
@@ -297,7 +297,7 @@ private final class DataTaskHandler: TaskHandler {
     }
 }
 
-private final class DownloadTaskHandler: TaskHandler {
+private class DownloadTaskHandler: TaskHandler {
     typealias Completion = (Result<Response<URL>, Error>) -> Void
 
     let downloadDelegate: URLSessionDownloadDelegate?
