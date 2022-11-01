@@ -22,7 +22,7 @@ struct VitalCoreSecurePayload: Codable {
 }
 
 public enum Environment: Equatable, Hashable, Codable {
-  public enum Region: Equatable, Hashable, Codable {
+  public enum Region: String, Equatable, Hashable, Codable {
     case eu
     case us
     

@@ -17,6 +17,22 @@ public extension VitalClient {
 
 public extension VitalClient.Link {
   
+  struct ExchangedCredentials: Decodable {
+    public let userID: UUID
+    public let apiKey: String
+    public let region: String
+    public let environment: String
+  }
+  
+  static func exchangeCode(code: String, region: Environment.Region) async throws -> ExchangedCredentials {
+    let environment: Environment = .production(region)
+    let client = makeClient(environment: environment)
+    
+    let request = Request<ExchangedCredentials>(method: "POST", url: "/v2/link/token/exchange", query: [("code", code)])
+    
+    return try await client.send(request).value
+  }
+  
   func createConnectedSource(
     _ userId: UUID,
     provider: Provider
