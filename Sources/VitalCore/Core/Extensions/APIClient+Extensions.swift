@@ -3,7 +3,7 @@ import Foundation
 
 func makeClient(
   environment: Environment,
-  delegate: APIClientDelegate? = nil,
+  delegate: APIClientDelegate = VitalBaseClientDelegate(),
   updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
 ) -> APIClient {
   
