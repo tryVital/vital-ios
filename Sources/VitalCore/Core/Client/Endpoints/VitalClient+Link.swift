@@ -23,7 +23,7 @@ public extension VitalClient.Link {
       let logoUrl: URL?
     }
     
-    public let userID: UUID
+    public let userId: UUID
     public let apiKey: String
     public let region: String
     public let environment: String
