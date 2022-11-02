@@ -30,10 +30,8 @@ public extension VitalClient.Link {
     public let team: Team
   }
   
-  static func exchangeCode(code: String, region: Environment.Region) async throws -> ExchangedCredentials {
-    let environment: Environment = .production(region)
+  static func exchangeCode(code: String, environment: Environment) async throws -> ExchangedCredentials {
     let client = makeClient(environment: environment)
-    
     let request = Request<ExchangedCredentials>(method: "POST", url: "/v2/link/token/exchange", query: [("code", code)])
     
     return try await client.send(request).value
