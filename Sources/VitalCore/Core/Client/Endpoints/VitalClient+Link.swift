@@ -19,8 +19,8 @@ public extension VitalClient.Link {
   
   struct ExchangedCredentials: Decodable {
     public struct Team: Decodable {
-      let name: String
-      let logoUrl: URL?
+      public let name: String
+      public let logoUrl: URL?
     }
     
     public let userId: UUID
