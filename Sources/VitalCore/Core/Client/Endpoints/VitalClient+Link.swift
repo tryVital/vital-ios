@@ -18,10 +18,16 @@ public extension VitalClient {
 public extension VitalClient.Link {
   
   struct ExchangedCredentials: Decodable {
+    public struct Team: Decodable {
+      let name: String
+      let logoUrl: URL?
+    }
+    
     public let userID: UUID
     public let apiKey: String
     public let region: String
     public let environment: String
+    public let team: Team
   }
   
   static func exchangeCode(code: String, region: Environment.Region) async throws -> ExchangedCredentials {
