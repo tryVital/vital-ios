@@ -55,7 +55,6 @@ class VitalClientDelegate: APIClientDelegate {
   }
 }
 
-
 class VitalBaseClientDelegate: APIClientDelegate {  
   func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) async throws {
     if (200..<300).contains(response.statusCode) {
