@@ -10,4 +10,3 @@ public struct BloodPressureDataPoint: Equatable, Decodable, Hashable {
   public let type: String?
   public let unit: String
 }
-
