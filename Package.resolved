@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "CombineCoreBluetooth",
+        "repositoryURL": "https://github.com/StarryInternet/CombineCoreBluetooth.git",
+        "state": {
+          "branch": null,
+          "revision": "52ecaa2e7a94f9aff9c823532993cd266fd74c6a",
+          "version": "0.3.1"
+        }
+      },
+      {
+        "package": "Mocker",
+        "repositoryURL": "https://github.com/WeTransfer/Mocker.git",
+        "state": {
+          "branch": null,
+          "revision": "e7165fb0378193c6784f1d46a9ab2b6184c384fa",
+          "version": "2.7.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
