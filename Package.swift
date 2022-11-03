@@ -21,7 +21,7 @@ let package = Package(
   ],
   dependencies: [
     .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.3.1"),
-    .package(url: "https://github.com/WeTransfer/Mocker.git", .upToNextMajor(from: "2.7.0")),
+    .package(url: "https://github.com/WeTransfer/Mocker.git", .upToNextMajor(from: "2.6.0")),
   ],
   targets: [
     .target(
