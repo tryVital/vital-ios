@@ -394,13 +394,16 @@ extension VitalHealthKitClient {
     }
     
     do {
-      let configuration = await configuration.get()
       try await store.requestReadAuthorization(resources)
-      
-      checkBackgroundUpdates(
-        isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
-        resources: resources
-      )
+
+      if await configuration.isNil() == false {
+        let configuration = await configuration.get()
+        
+        checkBackgroundUpdates(
+          isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
+          resources: resources
+        )
+      }
       
       return .success
     }
