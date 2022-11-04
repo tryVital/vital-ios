@@ -2,6 +2,7 @@ import XCTest
 import HealthKit
 
 @testable import VitalHealthKit
+@testable import VitalCore
 
 class VitalHealthKitClientTests: XCTestCase {
   
@@ -12,5 +13,16 @@ class VitalHealthKitClientTests: XCTestCase {
         backgroundDeliveryEnabled: true, logsEnabled: true
       )
     )
+  }
+  
+  func testAskingForPermissionsContinuesWithoutAuthentication() async {
+    
+    await VitalClient.shared.cleanUp()
+    let value = VitalHealthKitClient(store: .debug)
+    
+    _ = value.hasAskedForPermission(resource: .body)
+    let permission = await value.ask(for: [.body])
+    
+    XCTAssertEqual(permission, PermissionOutcome.success)
   }
 }
