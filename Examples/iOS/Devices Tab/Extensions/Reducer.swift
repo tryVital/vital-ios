@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Foundation
 
 extension Reducer {
   public func presents<LocalState, LocalAction, LocalEnvironment>(

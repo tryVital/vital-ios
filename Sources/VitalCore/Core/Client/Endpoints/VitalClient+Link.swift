@@ -37,6 +37,22 @@ public extension VitalClient.Link {
     return try await client.send(request).value
   }
   
+  func createLinkToken(
+    provider: Provider?,
+    redirectURL: String?
+  ) async throws -> String {
+    
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let path = "/\(configuration.apiVersion)/\(path)/token"
+    
+    let payload = CreateLinkRequest(userId: userId, provider: provider?.rawValue, redirectUrl: redirectURL)
+    let request = Request<CreateLinkResponse>.post(path, body: payload)
+    
+    return try await configuration.apiClient.send(request).value.linkToken
+  }
+  
   func createConnectedSource(
     _ userId: UUID,
     provider: Provider
@@ -76,23 +92,35 @@ public extension VitalClient.Link {
     provider: Provider? = nil,
     redirectURL: String
   ) async throws -> URL {
-    
-    let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
-
-    let path = "/\(configuration.apiVersion)/\(path)/token"
-        
-    let payload = CreateLinkRequest(userId: userId, provider: provider?.rawValue, redirectUrl: redirectURL)
-    let request = Request<CreateLinkResponse>.post(path, body: payload)
-    
-    let response = try await configuration.apiClient.send(request)
+    let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
     
     let url = URL(string: "https://link.tryvital.io/")!
-      .append("token", value: response.value.linkToken)
+      .append("token", value: token)
       .append("env", value: configuration.environment.name)
       .append("region", value: configuration.environment.region.name)
       .append("isMobile", value: "True")
       
     return url
+  }
+  
+  func createEmailProvider(
+    email: String,
+    provider: Provider,
+    region: Environment.Region,
+    redirectURL: String? = nil
+  ) async throws -> CreateEmailProviderResponse {
+    
+    let configuration = await self.client.configuration.get()
+    
+    let path = "/\(configuration.apiVersion)/\(path)/provider/email/\(provider.rawValue)"
+    
+    let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
+    
+    let payload = CreateEmailProviderRequest(email: email, region: configuration.environment.region.rawValue)
+    let request = Request<CreateEmailProviderResponse>.post(path, body: payload, headers: ["x-vital-link-token": token])
+    
+    let response = try await configuration.apiClient.send(request)
+    return response.value
   }
 }

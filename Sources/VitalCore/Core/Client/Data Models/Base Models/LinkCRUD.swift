@@ -13,12 +13,12 @@ public struct CreateConnectionSourceRequest: Encodable {
 struct CreateLinkRequest: Encodable {
   let userId: UUID
   let provider: String?
-  let redirectUrl: String
+  let redirectUrl: String?
   
   init(
     userId: UUID,
     provider: String?,
-    redirectUrl: String
+    redirectUrl: String?
   ) {
     self.userId = userId
     self.provider = provider
@@ -36,3 +36,31 @@ public struct CreateLinkResponse: Decodable {
     self.linkToken = linkToken
   }
 }
+
+
+public struct CreateEmailProviderRequest: Encodable {
+  public let email: String
+  public let region: String?
+  
+  public init(
+    email: String,
+    region: String?
+  ) {
+    self.email = email
+    self.region = region
+  }
+}
+
+public struct CreateEmailProviderResponse: Decodable {
+  public let success: Bool
+  public let redirectUrl: String?
+  
+  public init(
+    success: Bool,
+    redirectUrl: String?
+  ) {
+    self.success = success
+    self.redirectUrl = redirectUrl
+  }
+}
+
