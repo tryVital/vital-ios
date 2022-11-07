@@ -858,7 +858,7 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
         return false
       }
       
-   1 } else {
+    } else {
       /// This sample was made by something else besides com.apple.healthkit
       /// So we allow it
       return true
