@@ -28,7 +28,7 @@ public struct DeviceModel: Equatable, Encodable, Identifiable {
   
   public let id: String
   
-  init(
+  public init(
     id: String,
     name: String,
     brand: Brand,
