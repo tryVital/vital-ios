@@ -1,4 +1,4 @@
-public enum Brand: Encodable, Equatable {
+public enum Brand: String, Encodable, Equatable {
   case omron
   case accuChek
   case contour
@@ -42,7 +42,7 @@ public struct DeviceModel: Equatable, Encodable, Identifiable {
 }
 
 public extension DeviceModel {
-  enum Kind: Equatable, Encodable {
+  enum Kind: String, Equatable, Encodable {
     case bloodPressure
     case glucoseMeter
   }
