@@ -312,3 +312,18 @@ extension WorkoutPatch.Workout {
   }
 }
 
+
+extension QuantitySample {
+  public init(categorySample: HKCategorySample) {
+    self.init(
+      id: categorySample.uuid.uuidString,
+      value: Double(categorySample.value),
+      startDate: categorySample.startDate,
+      endDate: categorySample.endDate,
+      sourceBundle: categorySample.sourceRevision.source.bundleIdentifier,
+      productType: categorySample.sourceRevision.productType,
+      type: "automatic",
+      unit: "stage"
+    )
+  }
+}

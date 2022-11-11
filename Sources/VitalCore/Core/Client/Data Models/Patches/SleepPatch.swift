@@ -2,6 +2,16 @@ import Foundation
 
 public struct SleepPatch: Equatable, Encodable {
   public struct Sleep: Equatable, Encodable {
+    public struct SleepStages: Equatable, Encodable {
+      public var unspecifiedSleepSamples: [QuantitySample] = []
+      public var awakeSleepSamples: [QuantitySample] = []
+      public var deepSleepSamples: [QuantitySample] = []
+      public var lightSleepSamples: [QuantitySample] = []
+      public var remSleepSamples: [QuantitySample] = []
+      public var inBedSleepSamples: [QuantitySample] = []
+      public var unknownSleepSamples: [QuantitySample] = []
+    }
+    
     public var id: UUID?
     public var startDate: Date
     public var endDate: Date
@@ -13,6 +23,7 @@ public struct SleepPatch: Equatable, Encodable {
     public var heartRateVariability: [QuantitySample] = []
     public var oxygenSaturation: [QuantitySample] = []
     public var respiratoryRate: [QuantitySample] = []
+    public var sleepStages: SleepStages = .init()
     
     public init(
       id: UUID? = nil,
