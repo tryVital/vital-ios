@@ -498,7 +498,7 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
 
     case let.summary(.sleep(patch)):
       let sleep = patch.sleep.map { sleep in
-        SleepPatch.Sleep.init(
+        SleepPatch.Sleep(
           id: sleep.id,
           startDate: sleep.startDate,
           endDate: sleep.endDate,
@@ -508,7 +508,8 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
           restingHeartRate: average(sleep.restingHeartRate, calendar: calendar),
           heartRateVariability: average(sleep.heartRateVariability, calendar: calendar),
           oxygenSaturation: average(sleep.oxygenSaturation, calendar: calendar),
-          respiratoryRate: average(sleep.respiratoryRate, calendar: calendar)
+          respiratoryRate: average(sleep.respiratoryRate, calendar: calendar),
+          sleepStages: sleep.sleepStages
         )
       }
       
