@@ -39,4 +39,38 @@ public extension VitalClient.Summary {
     
     try await configuration.apiClient.send(request)
   }
+  
+  func sleepsSummary(
+    startDate: Date,
+    endDate: Date? = nil
+  ) async throws -> [SleepSummary] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "sleep/\(userId)"
+    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+
+    let request: Request<SleepResponse> = .get(fullPath, query: query)
+    let result = try await configuration.apiClient.send(request)
+                                                        
+    return result.value.sleep
+  }
+  
+  func sleepsSummaryWithStream(
+    startDate: Date,
+    endDate: Date? = nil
+  ) async throws -> [SleepSummary] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "sleep/\(userId)/stream"
+    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    
+    let request: Request<SleepResponse> = .get(fullPath, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.sleep
+  }
 }

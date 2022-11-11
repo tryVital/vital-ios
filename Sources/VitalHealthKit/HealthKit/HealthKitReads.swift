@@ -281,7 +281,7 @@ func handleSleep(
   
   let payload = try await query(
     healthKitStore: healthKitStore,
-    vitalStorage: nil,
+    vitalStorage: vitalStorage,
     type: sleepType,
     startDate: startDate,
     endDate: endDate,
