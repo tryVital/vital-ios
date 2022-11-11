@@ -27,8 +27,8 @@ public class DevicesManager {
           guard partialResult == false else {
             return true
           }
-          
-          return name.contains(code)
+                    
+          return name.lowercased().contains(code.lowercased())
         }
         
         guard outcome else {
