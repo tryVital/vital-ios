@@ -46,6 +46,11 @@ public class Libre1Reader {
 public struct Libre1Read: Equatable {
   public let samples: [QuantitySample]
   public let sensor: Libre1Sensor
+  
+  public init(samples: [QuantitySample], sensor: Libre1Sensor) {
+    self.samples = samples
+    self.sensor = sensor
+  }
 }
 
 public struct Libre1Sensor: Equatable {
