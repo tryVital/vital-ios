@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build-sdks:
-    runs-on: macos-latest
+    runs-on: macos-12
     strategy:
       matrix:
         scheme: ["VitalDevices"]
@@ -20,7 +20,7 @@ jobs:
           scheme: ${{ matrix.scheme }}
 
   test-sdks:
-    runs-on: macos-latest
+    runs-on: macos-12
     strategy:
       matrix:
         scheme: ["VitalHealthKit", "VitalCore"]
