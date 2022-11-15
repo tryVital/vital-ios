@@ -70,8 +70,8 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   }
 }
 
-private func toGlucoseReading(data: Data?) -> QuantitySample? {
-  guard let data = data else {
+private func toGlucoseReading(characteristic: CBCharacteristic) -> QuantitySample? {
+  guard let data = characteristic.value else {
     return nil
   }
   

@@ -23,9 +23,9 @@
         "package": "CombineCoreBluetooth",
         "repositoryURL": "https://github.com/StarryInternet/CombineCoreBluetooth.git",
         "state": {
-          "branch": null,
-          "revision": "05df53532ba6eee30df83a20dd22c447bc223f8a",
-          "version": "0.4.0"
+          "branch": "0.2.1",
+          "revision": "9027149060c022d989a1b71c361dbc55fca797f8",
+          "version": null
         }
       },
       {
@@ -78,8 +78,8 @@
         "repositoryURL": "https://github.com/pointfreeco/swift-clocks",
         "state": {
           "branch": null,
-          "revision": "692ec4f5429a667bdd968c7260dfa2b23adfeffc",
-          "version": "0.1.4"
+          "revision": "20b25ca0dd88ebfb9111ec937814ddc5a8880172",
+          "version": "0.2.0"
         }
       },
       {
@@ -105,8 +105,8 @@
         "repositoryURL": "https://github.com/pointfreeco/swift-custom-dump",
         "state": {
           "branch": null,
-          "revision": "819d9d370cd721c9d87671e29d947279292e4541",
-          "version": "0.6.0"
+          "revision": "ead7d30cc224c3642c150b546f4f1080d1c411a8",
+          "version": "0.6.1"
         }
       },
       {
@@ -114,8 +114,8 @@
         "repositoryURL": "https://github.com/pointfreeco/swift-identified-collections",
         "state": {
           "branch": null,
-          "revision": "bfb0d43e75a15b6dfac770bf33479e8393884a36",
-          "version": "0.4.1"
+          "revision": "a08887de589e3829d488e0b4b707b2ca804b1060",
+          "version": "0.5.0"
         }
       },
       {
@@ -123,8 +123,8 @@
         "repositoryURL": "https://github.com/pointfreeco/xctest-dynamic-overlay",
         "state": {
           "branch": null,
-          "revision": "16e6409ee82e1b81390bdffbf217b9c08ab32784",
-          "version": "0.5.0"
+          "revision": "5a5457a744239896e9b0b03a8e1a5069c3e7b91f",
+          "version": "0.6.0"
         }
       }
     ]
