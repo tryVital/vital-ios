@@ -3,18 +3,33 @@ import CombineCoreBluetooth
 import CoreBluetooth
 
 public class DevicesManager {
-  let manager: CentralManager
+  lazy var manager: CentralManager = .live()
   
-  public init() {
-    self.manager = .live()
-  }
+  public init() {}
   
   public func search(
     for deviceModel: DeviceModel
   ) -> AnyPublisher<ScannedDevice, Never> {
-    
-    let service = Self.service(for: deviceModel.brand)  
-    
+    if manager.state == .poweredOn {
+      return DevicesManager._search(manager: manager, deviceModel: deviceModel)
+    } else {
+      return manager
+        .didUpdateState.filter { state in
+          state == .poweredOn
+        }
+        .eraseToAnyPublisher()
+        .flatMapLatest{[manager] _ in
+          DevicesManager._search(manager: manager, deviceModel: deviceModel)
+        }
+    }
+  }
+  
+  private static func _search(
+    manager: CentralManager,
+    deviceModel: DeviceModel
+  ) -> AnyPublisher<ScannedDevice, Never> {
+    let service = Self.service(for: deviceModel.brand)
+
     return manager
       .scanForPeripherals(withServices: [service])
       .compactMap { peripheralDiscover in
@@ -27,7 +42,7 @@ public class DevicesManager {
           guard partialResult == false else {
             return true
           }
-                    
+          
           return name.lowercased().contains(code.lowercased())
         }
         

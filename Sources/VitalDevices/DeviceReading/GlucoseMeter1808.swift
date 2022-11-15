@@ -42,6 +42,38 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   }
   
   private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
+    let isOn: AnyPublisher<CBManagerState, Error> = manager
+      .didUpdateState.filter { state in
+        state == .poweredOn
+      }
+      .mapError { $0 as Error }
+      .eraseToAnyPublisher()
+    
+    if manager.state == .poweredOn {
+      return GlucoseMeter1808._pair(
+        manager: manager,
+        device: device,
+        measurementCharacteristicUUID: measurementCharacteristicUUID,
+        RACPCharacteristicUUID: RACPCharacteristicUUID
+      )
+    } else {
+      return isOn.flatMapLatest{[manager] _ in
+        return GlucoseMeter1808._pair(
+          manager: manager,
+          device: device,
+          measurementCharacteristicUUID: measurementCharacteristicUUID,
+          RACPCharacteristicUUID: RACPCharacteristicUUID
+        )
+      }
+    }
+  }
+  
+  private static func _pair(
+    manager: CentralManager,
+    device: ScannedDevice,
+    measurementCharacteristicUUID: CBUUID,
+    RACPCharacteristicUUID: CBUUID
+  ) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
     return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
       peripheral.discoverServices([service])
         .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
@@ -70,8 +102,8 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   }
 }
 
-private func toGlucoseReading(characteristic: CBCharacteristic) -> QuantitySample? {
-  guard let data = characteristic.value else {
+private func toGlucoseReading(data: Data?) -> QuantitySample? {
+  guard let data = data else {
     return nil
   }
   
