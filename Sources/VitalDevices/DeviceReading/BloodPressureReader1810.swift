@@ -36,23 +36,32 @@ class BloodPressureReader1810: BloodPressureReadable {
     let service = DevicesManager.service(for: device.deviceModel.brand)
     let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
     
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
-      
-      peripheral.discoverServices([service])
-        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
-          guard services.isEmpty == false else {
-            return .empty
+    let isOn: AnyPublisher<CBManagerState, Error> = manager
+      .didUpdateState.filter { state in
+        state == .poweredOn
+      }
+      .mapError { $0 as Error }
+      .eraseToAnyPublisher()
+    
+    return isOn.flatMapLatest{[manager] _ in
+      manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
+        
+        peripheral.discoverServices([service])
+          .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
+            guard services.isEmpty == false else {
+              return .empty
+            }
+            
+            return peripheral.discoverCharacteristics([characteristic], for: services[0])
           }
-          
-          return peripheral.discoverCharacteristics([characteristic], for: services[0])
-        }
-        .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
-          guard characteristics.isEmpty == false else {
-            return .empty
+          .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
+            guard characteristics.isEmpty == false else {
+              return .empty
+            }
+            
+            return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, characteristics[0]) }.eraseToAnyPublisher()
           }
-          
-          return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, characteristics[0]) }.eraseToAnyPublisher()
-        }
+      }
     }
     .eraseToAnyPublisher()
   }

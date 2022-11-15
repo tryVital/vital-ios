@@ -42,30 +42,40 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   }
   
   private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
+    
+    let isOn: AnyPublisher<CBManagerState, Error> = manager
+      .didUpdateState.filter { state in
+        state == .poweredOn
+      }
+      .mapError { $0 as Error }
+      .eraseToAnyPublisher()
+    
+    return isOn.flatMapLatest{[manager] _ in
       
-      peripheral.discoverServices([service])
-        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
-          guard services.isEmpty == false else {
-            return .empty
+      return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
+        peripheral.discoverServices([service])
+          .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
+            guard services.isEmpty == false else {
+              return .empty
+            }
+            
+            return peripheral.discoverCharacteristics([measurementCharacteristicUUID, RACPCharacteristicUUID], for: services[0])
           }
-          
-          return peripheral.discoverCharacteristics([measurementCharacteristicUUID, RACPCharacteristicUUID], for: services[0])
-        }
-        .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
-          guard characteristics.count == 2 else {
-            return .empty
+          .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
+            guard characteristics.count == 2 else {
+              return .empty
+            }
+            let second = peripheral.setNotifyValue(true, for: characteristics[1])
+            let first = peripheral.setNotifyValue(true, for: characteristics[0])
+            
+            let zipped = first.zip(second).eraseToAnyPublisher()
+            
+            return zipped.map { _ in
+              return (peripheral, characteristics)
+            }
+            .eraseToAnyPublisher()
           }
-          let second = peripheral.setNotifyValue(true, for: characteristics[1])
-          let first = peripheral.setNotifyValue(true, for: characteristics[0])
-          
-          let zipped = first.zip(second).eraseToAnyPublisher()
-          
-          return zipped.map { _ in
-            return (peripheral, characteristics)
-          }
-          .eraseToAnyPublisher()
-        }
+      }
     }
     .eraseToAnyPublisher()
   }
