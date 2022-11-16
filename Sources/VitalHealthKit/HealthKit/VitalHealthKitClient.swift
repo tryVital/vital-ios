@@ -361,7 +361,7 @@ extension VitalHealthKitClient {
         )
       }
       
-      // This is used for calculating the stage (daily vs historic)
+      // This is used for calculating the stage (daily vs historical)
       storage.storeFlag(for: resource)
       
       // Save the anchor/date on a succesfull network call
@@ -467,12 +467,12 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
     case let .summary(.activity(patch)):
       let activities = patch.activities.map { activity in
         ActivityPatch.Activity(
-          activeEnergyBurned: accumulate(activity.activeEnergyBurned, calendar: calendar),
-          basalEnergyBurned: accumulate(activity.basalEnergyBurned, calendar: calendar),
-          steps: accumulate(activity.steps, calendar: calendar),
-          floorsClimbed: accumulate(activity.floorsClimbed, calendar: calendar),
-          distanceWalkingRunning: accumulate(activity.distanceWalkingRunning, calendar: calendar),
-          vo2Max: accumulate(activity.vo2Max, calendar: calendar)
+          activeEnergyBurned: removeZeros(activity.activeEnergyBurned),
+          basalEnergyBurned: removeZeros(activity.basalEnergyBurned),
+          steps: removeZeros(activity.steps),
+          floorsClimbed: removeZeros(activity.floorsClimbed),
+          distanceWalkingRunning: removeZeros(activity.distanceWalkingRunning),
+          vo2Max: activity.vo2Max
         )
       }
       

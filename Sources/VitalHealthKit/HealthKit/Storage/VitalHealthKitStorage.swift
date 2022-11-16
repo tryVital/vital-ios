@@ -26,32 +26,32 @@ class VitalHealthKitStorage {
     let anchorPrefix = anchorPrefix + entity.key
     let datePrefix = datePrefix + entity.key
 
-    guard
-      let data = try? NSKeyedArchiver.archivedData(withRootObject: entity.anchor, requiringSecureCoding: true)
-    else {
-      return
+    if let anchor = entity.anchor,
+       let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+    {
+      storage.store(data, anchorPrefix)
     }
     
     if let date = entity.date {
       storage.storeDate(date, datePrefix)
     }
-    
-    storage.store(data, anchorPrefix)
   }
   
   func read(key: String) -> StoredAnchor? {
     let anchorPrefix = anchorPrefix + key
     let datePrefix = datePrefix + key
-
     
-    var storeAnchor: StoredAnchor? = nil
-    if let data = storage.read(anchorPrefix) {
+    var storeAnchor: StoredAnchor = .init(key: key, anchor: nil, date: nil)
+    
+    if
+      let data = storage.read(anchorPrefix),
       let anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
-      storeAnchor = StoredAnchor(key: key, anchor: anchor, date: nil)
+    {
+      storeAnchor.anchor = anchor
     }
     
     if let date = storage.readDate(datePrefix) {
-      storeAnchor?.date = date
+      storeAnchor.date = date
     }
     
     return storeAnchor
@@ -64,18 +64,10 @@ class VitalHealthKitStorage {
 
 struct StoredAnchor {
   var key: String
-  var anchor: HKQueryAnchor
+  var anchor: HKQueryAnchor?
   var date : Date?
   
-  init?(key: String, anchor: HKQueryAnchor?, date: Date?) {
-    guard let anchor = anchor else {
-      return nil
-    }
-    
-    self.init(key: key, anchor: anchor, date: date)
-  }
-  
-  init(key: String, anchor: HKQueryAnchor, date: Date?) {
+  init(key: String, anchor: HKQueryAnchor?, date: Date?) {
     self.key = key
     self.anchor = anchor
     self.date = date

@@ -47,6 +47,9 @@ public struct VitalBackStorage {
       userDefaults.set(date.timeIntervalSince1970, forKey: key)
     } readDate: { key in
       let value: Double? = userDefaults.double(forKey: key)
+      if value == 0 {
+        return nil
+      }
       return value.map(Date.init(timeIntervalSince1970:))
     } remove: { key in
       userDefaults.removeObject(forKey: key)

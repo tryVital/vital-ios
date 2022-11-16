@@ -155,6 +155,33 @@ extension QuantitySample {
   }
 }
 
+extension QuantitySample {
+  init?(
+    _ statistics: HKStatistics,
+    _ sampleType: HKQuantityType
+  ) {
+    guard let value = statistics.sumQuantity() else {
+      return nil
+    }
+    
+    let valueWithUnits = value.doubleValue(for: sampleType.toHealthKitUnits)
+    let type = String(describing: sampleType)
+    let id = "\(statistics.startDate)-\(statistics.endDate)-\(type)-\(valueWithUnits)"
+    let idString = MD5(string: id)
+        
+    self.init(
+      id: idString,
+      value: value.doubleValue(for: sampleType.toHealthKitUnits),
+      startDate: statistics.startDate,
+      endDate: statistics.endDate,
+      sourceBundle: "com.apple.statistics",
+      productType: "n/a",
+      type: "automatic",
+      unit: sampleType.toUnitStringRepresentation
+    )
+  }
+}
+
 extension HKSampleType {
   var toUnitStringRepresentation: String {
     switch self {
