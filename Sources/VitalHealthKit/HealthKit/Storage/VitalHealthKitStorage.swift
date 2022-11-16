@@ -54,6 +54,10 @@ class VitalHealthKitStorage {
       storeAnchor.date = date
     }
     
+    if storeAnchor.anchor == nil && storeAnchor.date == nil {
+      return nil
+    }
+    
     return storeAnchor
   }
 
