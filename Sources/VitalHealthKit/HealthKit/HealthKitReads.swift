@@ -786,21 +786,21 @@ private func populateAnchorsForStatisticalQuery(
 ///
 ///                   `populateAnchorsForStatisticalQuery`
 ///           |______________________________________________|
-///      `sevenDaysAgo`                                  `lastSavedDate`
+///   `populateAnchorsStart`                          `lastSavedDate`
 ///
 ///                                                           <------------>
 ///                                                              delta
 ///
 ///
 ///                                         |_______________________________|
-///                                    `twoDaysAgo`                     `nextHour`
+///                                `statisticsStarDate`                  `nextHour`
 ///
 ///
 ///  The goal with `populateAnchorsForStatisticalQuery` is to fill up our stored anchors.
 ///  For a new user of the system it's nil.
-///  We then try to get data between `twoDaysAgo` and `nextHour`. If the mechanism
+///  We then try to get data between `statisticsStarDate` and `nextHour`. If the mechanism
 ///  is working as expected, most values are inside the `delta` range. However
-///  it's still possible to catch scatered values between `twoDaysAgo` and `nextHour`.
+///  it's still possible to catch scatered values between `statisticsStarDate` and `nextHour`.
 ///  This happens when a app syncs up with the HealthApp before the `lastSavedDate`.
 ///  We are dealing with "whole" hours, since this is how we store the data in the backend.
 private func queryStatisticsSample(
@@ -811,32 +811,35 @@ private func queryStatisticsSample(
   endDate: Date
 ) async throws -> (statistics: [HKStatistics], anchor: StoredAnchor) {
   
-  let date = vitalStorage?.read(key: String(describing: type.self))?.date
-  let withStart = (date ?? startDate)
+  let storedDate = vitalStorage?.read(key: String(describing: type.self))?.date
+  let storedAnchors = vitalStorage?.read(key: String(describing: type.self))?.vitalAnchors
+
+  let withStart = (storedDate ?? startDate)
+  
+  let firsTimeUser = storedAnchors == nil && storedDate == nil
+  let legacyUser = storedAnchors == nil && storedDate != nil
   
   let calendar = vitalCalendar
-  
-  ///  If this is nil, it means the user is still in the old system.
-  ///  We need to populate existing anchors, so that we send the correct data.
+    
   ///  TODO: Remove this in the near future
-  ///
   /// <TO BE REMOVED>
-  let existingAnchors = vitalStorage?.read(key: String(describing: type.self))?.vitalAnchors
-  if existingAnchors == nil {
-    /// We will fill up 7 days worth of data on the anchors side
-    let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: withStart)!.dayStart
+  if legacyUser {
+    /// We will fill up 21 days worth of data on the anchors side
+    let populateAnchorsStart = calendar.date(byAdding: .day, value: -21, to: withStart)!.dayStart
     let lastSavedDate = withStart.beginningHour
     
     await populateAnchorsForStatisticalQuery(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       type: type,
-      startDate: sevenDaysAgo,
+      startDate: populateAnchorsStart,
       endDate: lastSavedDate
     )
   }
   ///
   /// </TO BE REMOVED>
+  ///
+  
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: StatisticsHandler = { query, collection, error in
@@ -864,6 +867,9 @@ private func queryStatisticsSample(
       /// The ones to send, is the delta between the new versus the existing.
       let toSendIds = anchorsToSend(old: existingIds, new: newIds)
       
+      /// The ones we want store is a union of all ids.
+      let toStoreIds = anchorsToStore(old: existingIds, new: newIds)
+      
       /// We can now filter the statistics that match the ids we want to send
       /// We also clean-up the values with zero
       let dataToSend = cleanedStatistics.filter { statistics in
@@ -873,10 +879,7 @@ private func queryStatisticsSample(
         
         return toSendIds.map(\.id).contains(id)
       }
-      
-      /// The ones to store is a union of all ids.
-      let toStoreIds = anchorsToStore(old: existingIds, new: newIds)
-      
+            
       let storedAnchor = StoredAnchor(
         key: String(describing: type),
         anchor: nil,
@@ -888,14 +891,22 @@ private func queryStatisticsSample(
     }
     
     /// Because there are no anchors, we might miss data that was inserted before our "date anchor".
-    /// E.g. Anchor date is set to 16:00. Another app inserts steps at 15:00. If we don't check at least two days
+    /// E.g. Anchor date is set to 16:00. Another app inserts steps at 15:00. If we don't check at least 7 days
     /// before, we might run the risk of losing the insered steps at 15:00.
     /// We might need to extend this value to a week.
-    let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: withStart)!.dayStart
+    let statisticsStarDate: Date
+    
+    if firsTimeUser {
+      /// If it's the first time, it will try to fetch 30 days worth of data.
+      statisticsStarDate = withStart.dayStart
+    } else {
+      /// If it's not, we only check 7 days.
+      statisticsStarDate = calendar.date(byAdding: .day, value: -7, to: withStart)!.dayStart
+    }
     let nextHour = endDate.nextHour
     
     let predicate = HKQuery.predicateForSamples(
-      withStart: twoDaysAgo,
+      withStart: statisticsStarDate,
       end: nextHour,
       options: [.strictStartDate]
     )
@@ -904,7 +915,7 @@ private func queryStatisticsSample(
       quantityType: type,
       quantitySamplePredicate: predicate,
       options: .cumulativeSum,
-      anchorDate: twoDaysAgo,
+      anchorDate: statisticsStarDate,
       intervalComponents: .init(hour: 1)
     )
     
