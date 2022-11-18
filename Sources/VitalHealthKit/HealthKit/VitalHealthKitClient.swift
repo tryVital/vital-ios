@@ -467,11 +467,11 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
     case let .summary(.activity(patch)):
       let activities = patch.activities.map { activity in
         ActivityPatch.Activity(
-          activeEnergyBurned: removeZeros(activity.activeEnergyBurned),
-          basalEnergyBurned: removeZeros(activity.basalEnergyBurned),
-          steps: removeZeros(activity.steps),
-          floorsClimbed: removeZeros(activity.floorsClimbed),
-          distanceWalkingRunning: removeZeros(activity.distanceWalkingRunning),
+          activeEnergyBurned: activity.activeEnergyBurned,
+          basalEnergyBurned: activity.basalEnergyBurned,
+          steps: activity.steps,
+          floorsClimbed: activity.floorsClimbed,
+          distanceWalkingRunning: activity.distanceWalkingRunning,
           vo2Max: activity.vo2Max
         )
       }

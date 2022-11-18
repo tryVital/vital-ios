@@ -41,7 +41,6 @@ extension Date {
   }
 }
 
-
 extension Date {
   public var nextHour: Date {
     let calendar = vitalCalendar
@@ -62,6 +61,13 @@ extension Date {
 
     
     let date = vitalCalendar.date(bySettingHour: hour, minute: 0, second: 0, of: reset) ?? reset
+    return date
+  }
+  
+  public var beginningHour: Date {
+    let calendar = vitalCalendar
+    let currentHour = calendar.component(.hour, from: self)
+    let date = vitalCalendar.date(bySettingHour: currentHour, minute: 0, second: 0, of: self)!
     return date
   }
 }
