@@ -4,6 +4,8 @@ import VitalCore
 class VitalHealthKitStorage {
   
   private let anchorPrefix = "vital_anchor_"
+  private let anchorsPrefix = "vital_anchors_"
+
   private let datePrefix = "vital_anchor_date_"
 
   private let flag = "vital_anchor_"
@@ -25,11 +27,19 @@ class VitalHealthKitStorage {
   func store(entity: StoredAnchor) {
     let anchorPrefix = anchorPrefix + entity.key
     let datePrefix = datePrefix + entity.key
+    let anchorsPrefix = anchorsPrefix + entity.key
 
     if let anchor = entity.anchor,
        let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
     {
       storage.store(data, anchorPrefix)
+    }
+    
+    if
+      let anchors = entity.vitalAnchors,
+      let data = try? JSONEncoder().encode(anchors)
+    {
+      storage.store(data, anchorsPrefix)
     }
     
     if let date = entity.date {
@@ -40,8 +50,9 @@ class VitalHealthKitStorage {
   func read(key: String) -> StoredAnchor? {
     let anchorPrefix = anchorPrefix + key
     let datePrefix = datePrefix + key
-    
-    var storeAnchor: StoredAnchor = .init(key: key, anchor: nil, date: nil)
+    let anchorsPrefix = anchorsPrefix + key
+
+    var storeAnchor: StoredAnchor = .init(key: key, anchor: nil, date: nil, vitalAnchors: nil)
     
     if
       let data = storage.read(anchorPrefix),
@@ -54,7 +65,14 @@ class VitalHealthKitStorage {
       storeAnchor.date = date
     }
     
-    if storeAnchor.anchor == nil && storeAnchor.date == nil {
+    if
+      let data = storage.read(anchorsPrefix),
+      let anchors = try? JSONDecoder().decode([VitalAnchor].self, from: data)
+    {
+      storeAnchor.vitalAnchors = anchors
+    }
+    
+    if storeAnchor.anchor == nil && storeAnchor.date == nil && storeAnchor.vitalAnchors == nil {
       return nil
     }
     
@@ -69,11 +87,16 @@ class VitalHealthKitStorage {
 struct StoredAnchor {
   var key: String
   var anchor: HKQueryAnchor?
+  /// To be deprecated (1.0)
   var date : Date?
   
-  init(key: String, anchor: HKQueryAnchor?, date: Date?) {
+  /// New approach (2.0)
+  var vitalAnchors: [VitalAnchor]?
+  
+  init(key: String, anchor: HKQueryAnchor?, date: Date?, vitalAnchors: [VitalAnchor]?) {
     self.key = key
     self.anchor = anchor
     self.date = date
+    self.vitalAnchors = vitalAnchors
   }
 }

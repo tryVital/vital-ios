@@ -45,11 +45,11 @@ private func read(
       startDate: startDate,
       endDate: endDate
     )
-    
+        
     let quantities: [QuantitySample] = payload.statistics.compactMap { value in
       return QuantitySample(value, type)
     }
-    
+            
     return (quantities, payload.anchor)
   }
   
@@ -479,7 +479,7 @@ func handleActivity(
       startDate: startDate,
       endDate: endDate
     )
-    
+        
     let quantities: [QuantitySample] = payload.statistics.compactMap { value in
       return QuantitySample(value, type)
     }
@@ -700,7 +700,8 @@ private func query(
       let storedAnchor = StoredAnchor(
         key: String(describing: type),
         anchor: newAnchor,
-        date: Date()
+        date: Date(),
+        vitalAnchors: nil
       )
       
       continuation.resume(with: .success((samples ?? [], storedAnchor)))
@@ -726,6 +727,57 @@ private func query(
   }
 }
 
+/// TODO: To be Removed
+private func populateAnchorsForStatisticalQuery(
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage?,
+  type: HKQuantityType,
+  startDate: Date,
+  endDate: Date
+) {
+  let handler: StatisticsHandler = { query, collection, error in
+    healthKitStore.stop(query)
+    
+    let values: [HKStatistics] = collection?.statistics() ?? []
+    let cleanedStatistics: [HKStatistics] = values.filter { statistic in
+      isValidStatistic(statistic, type)
+    }
+    
+    /// Generate new ids based on the read statistics values
+    let newIds = cleanedStatistics.compactMap { statistics in
+      generateIdForAnchor(statistics, type).map(VitalAnchor.init(id:))
+    }
+    
+    let storedAnchor = StoredAnchor(
+      key: String(describing: type),
+      anchor: nil,
+      date: endDate,
+      vitalAnchors: newIds
+    )
+    
+    vitalStorage?.store(entity: storedAnchor)
+  }
+  
+  let predicate = HKQuery.predicateForSamples(
+    withStart: startDate,
+    end: endDate,
+    options: [.strictStartDate]
+  )
+  
+  let query = HKStatisticsCollectionQuery(
+    quantityType: type,
+    quantitySamplePredicate: predicate,
+    options: .cumulativeSum,
+    anchorDate: startDate,
+    intervalComponents: .init(hour: 1)
+  )
+  
+  query.initialResultsHandler = handler
+  
+  healthKitStore.execute(query)
+}
+
+
 private func queryStatisticsSample(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage?,
@@ -744,21 +796,82 @@ private func queryStatisticsSample(
         return
       }
       
+      let values: [HKStatistics] = collection?.statistics() ?? []
+      let cleanedStatistics: [HKStatistics] = values.filter { statistic in
+        isValidStatistic(statistic, type)
+      }
+      
+      /// Generate new ids based on the read statistics values
+      let newIds = cleanedStatistics.compactMap { statistics in
+        generateIdForAnchor(statistics, type).map(VitalAnchor.init(id:))
+      }
+      
+      /// Get the existing keys
+      let existingIds = vitalStorage?.read(key: String(describing: type.self))?.vitalAnchors ?? []
+      
+      /// There's a difference between what we want to send to the server, versus what we want to store
+      /// The ones to send, is the delta between the new versus the existing.
+      let toSendIds = anchorsToSend(old: existingIds, new: newIds)
+      
+      /// We can now filter the statistics that match the ids we want to send
+      /// We also clean-up the values with zero
+      let dataToSend = cleanedStatistics.filter { statistics in
+        guard let id = generateIdForAnchor(statistics, type) else {
+          return false
+        }
+        
+        return toSendIds.map(\.id).contains(id)
+      }
+      
+      /// The ones to store is a union of all ids.
+      let toStoreIds = anchorsToStore(old: existingIds, new: newIds)
+
       let storedAnchor = StoredAnchor(
         key: String(describing: type),
         anchor: nil,
-        date: endDate
+        date: endDate,
+        vitalAnchors: toStoreIds
       )
       
-      let values: [HKStatistics] = collection?.statistics() ?? []
-      continuation.resume(with: .success((values, storedAnchor)))
+      continuation.resume(with: .success((dataToSend, storedAnchor)))
     }
     
     let date = vitalStorage?.read(key: String(describing: type.self))?.date
     let withStart = date ?? startDate
+    
+    let calendar = Calendar.autoupdatingCurrent
+
+    
+    /// If this is nil, it means the user is still in the old system.
+    /// We need to populate existing anchors, so that we send the correct data.
+    /// TODO: Remove this in the near future
+    ///
+    ///
+    /// <TO BE REMOVED>
+    let existingAnchors = vitalStorage?.read(key: String(describing: type.self))?.vitalAnchors
+    if existingAnchors == nil {
+      /// We will fill up 7 days worth of data on the anchors side
+      let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: withStart)
+      
+      populateAnchorsForStatisticalQuery(
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        type: type,
+        startDate: sevenDaysAgo!,
+        endDate: withStart
+      )
+    }
+    ///
+    /// </TO BE REMOVED>
+    
+    /// Because there are no anchors, we might miss data that was inserted before our "date anchor".
+    /// E.g. Anchor date is set to 16:00. Another app inserts steps at 15:00. If we don't check at least two days
+    /// before, we might run the risk of losing the insered steps at 15:00.
+    /// We might need to extend this value to a week.
+    let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: withStart)
         
     let predicate = HKQuery.predicateForSamples(
-      withStart: withStart,
+      withStart: twoDaysAgo,
       end: endDate,
       options: [.strictStartDate]
     )
@@ -768,7 +881,7 @@ private func queryStatisticsSample(
       quantitySamplePredicate: predicate,
       options: .cumulativeSum,
       anchorDate: startDate,
-      intervalComponents: .init(minute: 15)
+      intervalComponents: .init(hour: 1)
     )
   
     query.initialResultsHandler = handler

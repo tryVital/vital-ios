@@ -155,20 +155,45 @@ extension QuantitySample {
   }
 }
 
+func isValidStatistic(_ statistics: HKStatistics, _ sampleType: HKQuantityType) -> Bool {
+  guard let value = statistics.sumQuantity() else {
+    return false
+  }
+  
+  return value.doubleValue(for: sampleType.toHealthKitUnits) > 0
+}
+
+func generateIdForAnchor(_ statistics: HKStatistics, _ sampleType: HKQuantityType) -> String? {
+  guard let value = statistics.sumQuantity() else {
+    return nil
+  }
+  
+  let valueWithUnits = value.doubleValue(for: sampleType.toHealthKitUnits)
+  let type = String(describing: sampleType)
+  let id = "\(statistics.startDate)-\(statistics.endDate)-\(type)-\(valueWithUnits)"
+  return id.sha256()
+}
+
+private func generateIdForServer(for startDate: Date, endDate: Date, type: String) -> String? {
+  let id = "\(startDate)-\(endDate)-\(type)"
+  return id.sha256()
+}
+
 extension QuantitySample {
   init?(
     _ statistics: HKStatistics,
     _ sampleType: HKQuantityType
   ) {
-    guard let value = statistics.sumQuantity() else {
+    
+    let type = String(describing: sampleType)
+
+    guard
+      let value = statistics.sumQuantity(),
+      let idString = generateIdForServer(for: statistics.startDate, endDate: statistics.endDate, type: type)
+    else {
       return nil
     }
     
-    let valueWithUnits = value.doubleValue(for: sampleType.toHealthKitUnits)
-    let type = String(describing: sampleType)
-    let id = "\(statistics.startDate)-\(statistics.endDate)-\(type)-\(valueWithUnits)"
-    let idString = MD5(string: id)
-        
     self.init(
       id: idString,
       value: value.doubleValue(for: sampleType.toHealthKitUnits),

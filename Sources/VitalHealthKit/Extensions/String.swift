@@ -1,13 +1,22 @@
 /// Taken from here:
-/// https://stackoverflow.com/a/56578995/491239 thanks Mr. Brown
+/// https://stackoverflow.com/a/57255549/491239
 import Foundation
 import CryptoKit
 
-func MD5(string: String) -> String {
-  let digest = Insecure.MD5.hash(data: string.data(using: .utf8) ?? Data())
+extension Digest {
+  var bytes: [UInt8] { Array(makeIterator()) }
   
-  return digest.map {
-    String(format: "%02hhx", $0)
-  }.joined()
+  var hexStr: String {
+    bytes.map { String(format: "%02X", $0) }.joined()
+  }
 }
 
+extension String {
+  func sha256() -> String? {
+    guard let data = self.data(using: .utf8) else {
+      return nil
+    }
+    
+    return SHA256.hash(data: data).hexStr
+  }
+}
