@@ -746,7 +746,9 @@ private func populateAnchorsForStatisticalQuery(
       }
       
       /// Generate new ids based on the read statistics values
-      let newIds = cleanedStatistics.compactMap { statistics in
+      let ids = cleanedStatistics.compactMap { statistics in
+        
+        
         generateIdForAnchor(statistics, type).map(VitalAnchor.init(id:))
       }
       
@@ -754,7 +756,7 @@ private func populateAnchorsForStatisticalQuery(
         key: String(describing: type),
         anchor: nil,
         date: endDate,
-        vitalAnchors: newIds
+        vitalAnchors: ids
       )
       
       vitalStorage?.store(entity: storedAnchor)
@@ -803,7 +805,7 @@ private func queryStatisticsSample(
   let existingAnchors = vitalStorage?.read(key: String(describing: type.self))?.vitalAnchors
   if existingAnchors == nil {
     /// We will fill up 7 days worth of data on the anchors side
-    let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: withStart)
+    let sevenDaysAgo = calendar.date(byAdding: .day, value: -2, to: withStart)
     
     print("==Populate Anchors==")
     print(sevenDaysAgo)
@@ -874,7 +876,7 @@ private func queryStatisticsSample(
     /// E.g. Anchor date is set to 16:00. Another app inserts steps at 15:00. If we don't check at least two days
     /// before, we might run the risk of losing the insered steps at 15:00.
     /// We might need to extend this value to a week.
-    let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: withStart)
+    let twoDaysAgo = calendar.date(byAdding: .day, value: -1, to: withStart)
     
     print("==Normal Query==")
     print(twoDaysAgo)
