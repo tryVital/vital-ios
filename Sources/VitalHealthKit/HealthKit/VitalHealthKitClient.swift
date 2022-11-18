@@ -346,7 +346,7 @@ extension VitalHealthKitClient {
         /// Make sure the user has a connected source set up
         try await vitalClient.checkConnectedSource(.appleHealthKit)
         
-        let transformedData = transform(data: data, calendar: Calendar.autoupdatingCurrent)
+        let transformedData = transform(data: data, calendar: vitalCalendar)
         
         // Post data
         try await vitalClient.post(
@@ -457,7 +457,7 @@ extension VitalHealthKitClient {
       endDate: endDate
     )
     
-    return transform(data: data, calendar: Calendar.autoupdatingCurrent)
+    return transform(data: data, calendar: vitalCalendar)
   }
 }
 

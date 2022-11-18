@@ -747,8 +747,6 @@ private func populateAnchorsForStatisticalQuery(
       
       /// Generate new ids based on the read statistics values
       let ids = cleanedStatistics.compactMap { statistics in
-        
-        
         generateIdForAnchor(statistics, type).map(VitalAnchor.init(id:))
       }
       
@@ -793,9 +791,13 @@ private func queryStatisticsSample(
 ) async throws -> (statistics: [HKStatistics], anchor: StoredAnchor) {
   
   let date = vitalStorage?.read(key: String(describing: type.self))?.date
-  let withStart = date ?? startDate
+  let withStart = (date ?? startDate).dayStart
+  let withEnd = endDate.nextHour
   
-  let calendar = Calendar.autoupdatingCurrent
+  print(withStart)
+  print(withEnd)
+  
+  let calendar = vitalCalendar
   /// If this is nil, it means the user is still in the old system.
   /// We need to populate existing anchors, so that we send the correct data.
   /// TODO: Remove this in the near future

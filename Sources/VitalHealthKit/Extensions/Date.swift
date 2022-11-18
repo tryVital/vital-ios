@@ -1,7 +1,7 @@
 import Foundation
 
-private let vitalCalendar: Calendar = {
-  var calendar = Calendar(identifier: .gregorian)
+let vitalCalendar: Calendar = {
+  var calendar = Calendar.autoupdatingCurrent
   calendar.timeZone = TimeZone(abbreviation: "UTC")!
   return calendar
 }()
@@ -41,3 +41,27 @@ extension Date {
   }
 }
 
+
+extension Date {
+  public var nextHour: Date {
+    let calendar = vitalCalendar
+    
+    let currentMinutes = calendar.component(.minute, from: self)
+    let currentSeconds = calendar.component(.second, from: self)
+    
+    /// Don't round, if it's already in the shape we want
+    if currentMinutes == 0 && currentSeconds == 0 {
+      return self
+    }
+    
+    let minutes = calendar.component(.minute, from: self)
+    let components = DateComponents(hour: 1, minute: -minutes)
+    
+    let reset = calendar.date(byAdding: components, to: self) ?? self
+    let hour = calendar.component(.hour, from: reset)
+
+    
+    let date = vitalCalendar.date(bySettingHour: hour, minute: 0, second: 0, of: reset) ?? reset
+    return date
+  }
+}
