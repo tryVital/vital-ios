@@ -8,7 +8,7 @@ struct VitalHealthKitStore {
   
   var toVitalResource: (HKSampleType) -> VitalResource
   
-  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage?) async throws -> (ProcessedResourceData, [StoredAnchor])
+  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var execute: (HKObserverQuery) -> Void

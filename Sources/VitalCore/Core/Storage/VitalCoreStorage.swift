@@ -58,7 +58,7 @@ public struct VitalBackStorage {
     }
   }
   
-  static var debug: VitalBackStorage {
+  public static var debug: VitalBackStorage {
     
     var storage: [String: Bool] = [:]
     var dataStorage: [String: Data] = [:]

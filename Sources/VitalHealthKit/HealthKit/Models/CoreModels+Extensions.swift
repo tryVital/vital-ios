@@ -155,22 +155,12 @@ extension QuantitySample {
   }
 }
 
-func isValidStatistic(_ statistics: HKStatistics, _ sampleType: HKQuantityType) -> Bool {
-  guard let value = statistics.sumQuantity() else {
-    return false
-  }
-  
-  return value.doubleValue(for: sampleType.toHealthKitUnits) > 0
+func isValidStatistic(_ statistics: VitalStatistics) -> Bool {
+  return statistics.value > 0
 }
 
-func generateIdForAnchor(_ statistics: HKStatistics, _ sampleType: HKQuantityType) -> String? {
-  guard let value = statistics.sumQuantity() else {
-    return nil
-  }
-  
-  let valueWithUnits = value.doubleValue(for: sampleType.toHealthKitUnits)
-  let type = String(describing: sampleType)
-  let id = "\(statistics.startDate)-\(statistics.endDate)-\(type)-\(valueWithUnits)"
+func generateIdForAnchor(_ statistics: VitalStatistics) -> String? {
+  let id = "\(statistics.startDate)-\(statistics.endDate)-\(statistics.type)-\(statistics.value)"
   return id.sha256()
 }
 
@@ -181,14 +171,13 @@ private func generateIdForServer(for startDate: Date, endDate: Date, type: Strin
 
 extension QuantitySample {
   init?(
-    _ statistics: HKStatistics,
+    _ statistics: VitalStatistics,
     _ sampleType: HKQuantityType
   ) {
     
     let type = String(describing: sampleType)
 
     guard
-      let value = statistics.sumQuantity(),
       let idString = generateIdForServer(for: statistics.startDate, endDate: statistics.endDate, type: type)
     else {
       return nil
@@ -196,7 +185,7 @@ extension QuantitySample {
     
     self.init(
       id: idString,
-      value: value.doubleValue(for: sampleType.toHealthKitUnits),
+      value: statistics.value,
       startDate: statistics.startDate,
       endDate: statistics.endDate,
       sourceBundle: "com.apple.statistics",

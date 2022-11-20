@@ -452,7 +452,7 @@ extension VitalHealthKitClient {
       resource: resource,
       healthKitStore: store,
       typeToResource: toVitalResource,
-      vitalStorage: nil,
+      vitalStorage: VitalHealthKitStorage(storage: .debug),
       startDate: startDate,
       endDate: endDate
     )
