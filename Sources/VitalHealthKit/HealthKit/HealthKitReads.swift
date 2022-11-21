@@ -43,12 +43,14 @@ private func read(
     let dependencies = StatisticsQueryDependencies.live(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
-      type: type,
+      type: type
+    )
+    
+    let payload = try await queryStatisticsSample(
+      dependency: dependencies,
       startDate: startDate,
       endDate: endDate
     )
-    let payload = try await queryStatisticsSample(dependency: dependencies)
-    
     
     let quantities: [QuantitySample] = payload.statistics.compactMap { value in
       return QuantitySample(value, type)
@@ -479,12 +481,15 @@ func handleActivity(
     let dependencies = StatisticsQueryDependencies.live(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
-      type: type,
+      type: type
+    )
+    
+    let payload = try await queryStatisticsSample(
+      dependency: dependencies,
       startDate: startDate,
       endDate: endDate
     )
-    let payload = try await queryStatisticsSample(dependency: dependencies)
-    
+        
     let quantities: [QuantitySample] = payload.statistics.compactMap { value in
       return QuantitySample(value, type)
     }
@@ -795,26 +800,16 @@ func calculateIdsForAnchorsAndData(
 
 /// TODO: To be Removed
 private func populateAnchorsForStatisticalQuery(
-  dependency: StatisticsQueryDependencies
-
-//  healthKitStore: HKHealthStore,
-//  vitalStorage: VitalHealthKitStorage,
-//  type: HKQuantityType,
-//  startDate: Date,
-//  endDate: Date
+  dependency: StatisticsQueryDependencies,
+  statisticsQueryStartDate: Date
 ) async -> [VitalAnchor] {
-  
-  let (startDate, endDate) = dependency.populateAnchorsDates()
-  
+    
+  let startDate = vitalCalendar.date(byAdding: .day, value: -21, to: statisticsQueryStartDate)!.dayStart
+  let endDate = statisticsQueryStartDate.beginningHour
+
   return await withCheckedContinuation { continuation in
     
     let handler: StatisticInjectedsHandler = { vitalStatistics, error in
-//      healthKitStore.stop(query)
-      
-//      let values: [HKStatistics] = collection?.statistics() ?? []
-//      let vitalStatistics = values.compactMap { statistics in
-//        VitalStatistics(statistics: statistics, type: type)
-//      }
       
       let newAnchors = calculateIdsForAnchorsPopulation(
         vitalStatistics: vitalStatistics,
@@ -823,25 +818,8 @@ private func populateAnchorsForStatisticalQuery(
             
       continuation.resume(returning: newAnchors)
     }
-    
-    let query = dependency.query(startDate, endDate)
-    
-//    let predicate = HKQuery.predicateForSamples(
-//      withStart: startDate,
-//      end: endDate,
-//      options: [.strictStartDate]
-//    )
-//
-//    let query = HKStatisticsCollectionQuery(
-//      quantityType: type,
-//      quantitySamplePredicate: predicate,
-//      options: .cumulativeSum,
-//      anchorDate: startDate,
-//      intervalComponents: .init(hour: 1)
-//    )
-        
-    dependency.executeQuery(query, handler)
-//    healthKitStore.execute(query)
+            
+    dependency.executeQuery(startDate, endDate, handler)
   }
 }
 
@@ -867,50 +845,31 @@ private func populateAnchorsForStatisticalQuery(
 ///  it's still possible to catch scatered values between `statisticsStarDate` and `nextHour`.
 ///  This happens when a app syncs up with the HealthApp before the `lastSavedDate`.
 ///
-private func queryStatisticsSample(
-  dependency: StatisticsQueryDependencies
-//  healthKitStore: HKHealthStore,
-//  vitalStorage: VitalHealthKitStorage,
-//  type: HKQuantityType,
-//  startDate: Date,
-//  endDate: Date
+func queryStatisticsSample(
+  dependency: StatisticsQueryDependencies,
+  startDate: Date,
+  endDate: Date
 ) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor) {
   
-//  let storedDate = vitalStorage.read(key: String(describing: type.self))?.date
   let vitalAnchors: [VitalAnchor]
   
-  let (newStartDate, newEndDate) = dependency.statisticQuery()
-
-//  let withStart = dependency.startDateForType()//(storedDate ?? startDate)
+  let newStartDate = dependency.storedDate() ?? startDate
+  let newEndDate = endDate.nextHour
   
   let isFirstTimeSycingType = dependency.isFirstTimeSycingType()
-  //vitalStorage.isFirstTimeSycingType(for: String(describing: type.self))
   let isLegacyType = dependency.isLegacyType()
-  //vitalStorage.isLegacyType(for: String(describing: type.self))
   
-  let calendar = vitalCalendar
     
   ///  TODO: Remove this in the near future
   /// <TO BE REMOVED>
   if isLegacyType {
-
     /// We will fill up 21 days worth of anchors
-//    let populateAnchorsStart = calendar.date(byAdding: .day, value: -21, to: withStart)!.dayStart
-//    let lastSavedDate = withStart.beginningHour
-    
-    vitalAnchors = await populateAnchorsForStatisticalQuery(dependency: dependency)
-    
-//    vitalAnchors = await populateAnchorsForStatisticalQuery(
-//      healthKitStore: healthKitStore,
-//      vitalStorage: vitalStorage,
-//      type: type,
-//      startDate: populateAnchorsStart,
-//      endDate: lastSavedDate
-//    )
+    vitalAnchors = await populateAnchorsForStatisticalQuery(
+      dependency: dependency,
+      statisticsQueryStartDate: newStartDate
+    )
   } else {
     vitalAnchors = dependency.vitalAnchorsForType()
-    
-    //vitalStorage.read(key: String(describing: type.self))?.vitalAnchors ?? []
   }
   ///
   /// </TO BE REMOVED>
@@ -918,17 +877,10 @@ private func queryStatisticsSample(
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: StatisticInjectedsHandler = { vitalStatistics, error in
-//      healthKitStore.stop(query)
-      
       if let error = error {
         continuation.resume(with: .failure(error))
         return
       }
-            
-//      let values: [HKStatistics] = collection?.statistics() ?? []
-//      let vitalStatistics = values.compactMap { statistics in
-//        VitalStatistics(statistics: statistics, type: type)
-//      }
 
       let payload = calculateIdsForAnchorsAndData(
         vitalStatistics: vitalStatistics,
@@ -951,31 +903,11 @@ private func queryStatisticsSample(
       statisticsStarDate = newStartDate.dayStart
     } else {
       /// If it's not, we only check 7 days.
-      statisticsStarDate = calendar.date(byAdding: .day, value: -7, to: newStartDate)!.dayStart
+      statisticsStarDate = Date.dateAgo(newStartDate, days: 7).dayStart
     }
     
     let nextHour = newEndDate.nextHour
-    let query = dependency.query(statisticsStarDate, nextHour)
-    
-//    let predicate = HKQuery.predicateForSamples(
-//      withStart: statisticsStarDate,
-//      end: nextHour,
-//      options: [.strictStartDate]
-//    )
-//
-//    let query = HKStatisticsCollectionQuery(
-//      quantityType: type,
-//      quantitySamplePredicate: predicate,
-//      options: .cumulativeSum,
-//      anchorDate: statisticsStarDate,
-//      intervalComponents: .init(hour: 1)
-//    )
-    
-    dependency.executeQuery(query, handler)
-    
-//    query.initialResultsHandler = handler
-//
-//    healthKitStore.execute(query)
+    dependency.executeQuery(statisticsStarDate, nextHour, handler)
   }
 }
 

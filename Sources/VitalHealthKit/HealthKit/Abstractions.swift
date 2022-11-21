@@ -175,20 +175,17 @@ extension VitalClientProtocol {
 
 struct StatisticsQueryDependencies {
 
-  var executeQuery: (HKStatisticsCollectionQuery, @escaping StatisticInjectedsHandler) -> Void
+  var executeQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
   
   var isFirstTimeSycingType: () -> Bool
   var isLegacyType: () -> Bool
   
   var vitalAnchorsForType: () -> [VitalAnchor]
-    
-  var statisticQuery: () -> (start: Date, end: Date)
-  var populateAnchorsDates: () -> (start: Date, end: Date)
-  var query: (Date, Date) -> HKStatisticsCollectionQuery
+  var storedDate: () -> Date?
   var key: () -> String
   
   static var debug: StatisticsQueryDependencies {
-    return .init { query, handler in
+    return .init { startDate, endDate, handler in
       fatalError()
     } isFirstTimeSycingType: {
       fatalError()
@@ -196,11 +193,7 @@ struct StatisticsQueryDependencies {
       fatalError()
     } vitalAnchorsForType: {
       fatalError()
-    } statisticQuery: {
-      fatalError()
-    } populateAnchorsDates: {
-      fatalError()
-    } query: { _, _ in
+    } storedDate: {
       fatalError()
     } key: {
       fatalError()
@@ -210,19 +203,28 @@ struct StatisticsQueryDependencies {
   static func live(
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage,
-    type: HKQuantityType,
-    startDate: Date,
-    endDate: Date
+    type: HKQuantityType
+//    startDate: Date,
+//    endDate: Date
   ) -> StatisticsQueryDependencies {
     let key = String(describing: type.self)
-    let calendar = vitalCalendar
     
-    let storedDate = vitalStorage.read(key: key)?.date
-    let newStartDate = storedDate ?? startDate
-    let newEndDate = endDate.nextHour
-
-
-    return .init { query, handler in
+    return .init { startDate, endDate, handler in
+      
+      let predicate = HKQuery.predicateForSamples(
+        withStart: startDate,
+        end: endDate,
+        options: [.strictStartDate]
+      )
+      
+      let query = HKStatisticsCollectionQuery(
+        quantityType: type,
+        quantitySamplePredicate: predicate,
+        options: .cumulativeSum,
+        anchorDate: startDate,
+        intervalComponents: .init(hour: 1)
+      )
+      
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
 
@@ -246,29 +248,9 @@ struct StatisticsQueryDependencies {
     } vitalAnchorsForType: {
       return vitalStorage.read(key: key)?.vitalAnchors ?? []
       
-    } statisticQuery: {
-      return (newStartDate, newEndDate)
+    } storedDate: {
+      return vitalStorage.read(key: key)?.date
       
-    } populateAnchorsDates: {
-      let populatedStartDate = calendar.date(byAdding: .day, value: -21, to: newStartDate)!.dayStart
-      let populatedEndDate = newStartDate.beginningHour
-
-      return (populatedStartDate, populatedEndDate)
-    } query: { startDate, endDate in
-      
-      let predicate = HKQuery.predicateForSamples(
-        withStart: startDate,
-        end: endDate,
-        options: [.strictStartDate]
-      )
-      
-      return HKStatisticsCollectionQuery(
-        quantityType: type,
-        quantitySamplePredicate: predicate,
-        options: .cumulativeSum,
-        anchorDate: startDate,
-        intervalComponents: .init(hour: 1)
-      )
     } key: {
       return key
     }

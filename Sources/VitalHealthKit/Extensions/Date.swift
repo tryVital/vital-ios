@@ -9,7 +9,7 @@ let vitalCalendar: Calendar = {
 extension Date {
   
   static func dateAgo(_ date: Date = .init(), days: Int) -> Date {
-    let daysAgoDate = Calendar.current.date(byAdding: .day, value: -abs(days), to: date)
+    let daysAgoDate = vitalCalendar.date(byAdding: .day, value: -abs(days), to: date)
     let beginningOfTheDay = daysAgoDate?.dayStart
     
     return beginningOfTheDay ?? date
@@ -17,8 +17,8 @@ extension Date {
   
   var dateComponentsForActivityQuery: DateComponents {
     let units: Set<Calendar.Component> = [.day, .month, .year, .era]
-    var dateComponents = Calendar.current.dateComponents(units, from: self)
-    dateComponents.calendar = Calendar.current
+    var dateComponents = vitalCalendar.dateComponents(units, from: self)
+    dateComponents.calendar = vitalCalendar
     
     return dateComponents
   }

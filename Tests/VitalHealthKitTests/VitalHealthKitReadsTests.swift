@@ -159,6 +159,111 @@ class VitalHealthKitReadsTests: XCTestCase {
     XCTAssert(sleeps1[0].startDate == Date("2022-08-06 21:35:31"))
     XCTAssert(sleeps1[0].endDate == Date("2022-08-07 05:33:00"))
   }
+  
+  func testStatisticalReadingForLegacyUser() async throws {
+    let key = "key"
+    var vitalStastics: [[VitalStatistics]] = [
+      [
+        .init(value: 10, type: key, startDate: Date(), endDate: Date()),
+        .init(value: 20, type: key, startDate: Date(), endDate: Date()),
+        .init(value: 30, type: key, startDate: Date(), endDate: Date())
+      ],
+      [
+        .init(value: 5, type: key, startDate: Date(), endDate: Date())
+      ]
+    ]
+    
+    var debug = StatisticsQueryDependencies.debug
+    let date = Date()
+    
+    var dateRanges: [ClosedRange<Date>] = []
+    
+    debug.executeQuery = { startDate, endDate, handler in
+      
+      dateRanges.append(startDate ... endDate)
+      let element = vitalStastics.removeFirst()
+      handler(element, nil)
+    }
+    
+    debug.isLegacyType = { return true }
+    debug.isFirstTimeSycingType = { return false }
+    debug.key = { key }
+    
+    debug.vitalAnchorsForType = {
+      /// It should fail here, since we are dealing with a legacy type
+      XCTAssert(false)
+      return []
+    }
+    debug.storedDate = {
+      return date.adding(minutes: -10)
+    }
+    
+    do {
+      let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
+      let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
+      
+      /// Only one element will be pushed to the server
+      XCTAssert(value.statistics.count == 1)
+      
+      /// We now have 4 ids as part of the anchor
+      XCTAssert(value.anchor.vitalAnchors?.count == 4)
+      
+      XCTAssert(dateRanges.count == 2)
+      XCTAssert(dateRanges[0].overlaps(dateRanges[1]) == true)
+    }
+    catch {
+      XCTAssert(false)
+    }
+  }
+  
+  func testStatisticalReadingForNewUser() async throws {
+    let key = "key"
+    var vitalStastics: [[VitalStatistics]] = [
+      [
+        .init(value: 5, type: key, startDate: Date(), endDate: Date())
+      ]
+    ]
+    
+    var debug = StatisticsQueryDependencies.debug
+    let date = Date()
+    
+    var dateRanges: [ClosedRange<Date>] = []
+    
+    debug.executeQuery = { startDate, endDate, handler in
+      dateRanges.append(startDate ... endDate)
+      let element = vitalStastics.removeFirst()
+      handler(element, nil)
+    }
+    
+    debug.isLegacyType = { return false }
+    debug.isFirstTimeSycingType = { return true }
+    debug.key = { key }
+    
+    debug.vitalAnchorsForType = {
+      return [
+        .init(id: "1"),
+        .init(id: "2")
+      ]
+    }
+    debug.storedDate = {
+      return date.adding(minutes: -10)
+    }
+    
+    do {
+      let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
+      let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
+      
+      /// Only one element will be pushed to the server
+      XCTAssert(value.statistics.count == 1)
+      
+      /// We now have 3 ids as part of the anchor
+      XCTAssert(value.anchor.vitalAnchors?.count == 3)
+      XCTAssert(dateRanges.count == 1)
+    }
+    catch {
+      XCTAssert(false)
+    }
+  }
 }
 
 

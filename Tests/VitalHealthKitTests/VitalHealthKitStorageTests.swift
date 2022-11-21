@@ -20,7 +20,7 @@ class VitalHealthKitStorageTests: XCTestCase {
         
     let storedAnchor = storage.read(key: key)?.anchor
     XCTAssertNotNil(storedAnchor)
-    XCTAssert(storage.isLegacyUser(for: key) == true)
+    XCTAssert(storage.isLegacyType(for: key) == true)
   }
   
   func testStorageRecreation() throws {
@@ -36,7 +36,7 @@ class VitalHealthKitStorageTests: XCTestCase {
     let storedAnchor = storage.read(key: key)?.anchor
 
     XCTAssertNotNil(storedAnchor)
-    XCTAssert(storage.isLegacyUser(for: key) == true)
+    XCTAssert(storage.isLegacyType(for: key) == true)
   }
     
   func testNilDateStorage() throws {
@@ -45,7 +45,7 @@ class VitalHealthKitStorageTests: XCTestCase {
     
     let storedDate = storage.read(key: key)
     XCTAssertNil(storedDate)
-    XCTAssert(storage.isFirstTimeUser(for: key) == true)
+    XCTAssert(storage.isFirstTimeSycingType(for: key) == true)
   }
   
   func testLegacy() throws {
@@ -53,11 +53,11 @@ class VitalHealthKitStorageTests: XCTestCase {
     let key = "key"
     
     storage.store(entity: .init(key: key, anchor: nil, date: Date(), vitalAnchors: nil))
-    XCTAssert(storage.isLegacyUser(for: key) == true)
+    XCTAssert(storage.isLegacyType(for: key) == true)
     
     storage.remove(key: key)
     storage.store(entity: .init(key: key, anchor: nil, date: nil, vitalAnchors: []))
-    XCTAssert(storage.isLegacyUser(for: key) == false)
+    XCTAssert(storage.isLegacyType(for: key) == false)
   }
 }
 
