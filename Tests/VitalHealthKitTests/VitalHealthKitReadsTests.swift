@@ -175,12 +175,24 @@ class VitalHealthKitReadsTests: XCTestCase {
     
     var debug = StatisticsQueryDependencies.debug
     let date = Date()
-    
+    let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
+
     var dateRanges: [ClosedRange<Date>] = []
     
-    debug.executeQuery = { startDate, endDate, handler in
+    debug.executeQuery = { queryStartDate, queryEndDate, handler in
+      let range = queryStartDate ... queryEndDate
+      dateRanges.append(range)
       
-      dateRanges.append(startDate ... endDate)
+      if dateRanges.count == 1 {
+        XCTAssert(range.contains(startDate) == false)
+        XCTAssert(range.contains(endDate) == false)
+      }
+      
+      if dateRanges.count == 2 {
+        XCTAssert(range.contains(startDate) == false)
+        XCTAssert(range.contains(endDate) == true)
+      }
+      
       let element = vitalStastics.removeFirst()
       handler(element, nil)
     }
@@ -199,7 +211,6 @@ class VitalHealthKitReadsTests: XCTestCase {
     }
     
     do {
-      let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
       let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
       
       /// Only one element will be pushed to the server
@@ -225,12 +236,20 @@ class VitalHealthKitReadsTests: XCTestCase {
     ]
     
     var debug = StatisticsQueryDependencies.debug
-    let date = Date()
     
+    let date = Date()
+    let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
+
     var dateRanges: [ClosedRange<Date>] = []
     
-    debug.executeQuery = { startDate, endDate, handler in
-      dateRanges.append(startDate ... endDate)
+    debug.executeQuery = { queryStartDate, queryEndDate, handler in
+      
+      let range = queryStartDate ... queryEndDate
+      
+      XCTAssert(range.contains(startDate) == true)
+      XCTAssert(range.contains(endDate) == true)
+      
+      dateRanges.append(range)
       let element = vitalStastics.removeFirst()
       handler(element, nil)
     }
@@ -246,11 +265,10 @@ class VitalHealthKitReadsTests: XCTestCase {
       ]
     }
     debug.storedDate = {
-      return date.adding(minutes: -10)
+      return nil
     }
     
     do {
-      let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
       let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
       
       /// Only one element will be pushed to the server

@@ -906,8 +906,7 @@ func queryStatisticsSample(
       statisticsStarDate = Date.dateAgo(newStartDate, days: 7).dayStart
     }
     
-    let nextHour = newEndDate.nextHour
-    dependency.executeQuery(statisticsStarDate, nextHour, handler)
+    dependency.executeQuery(statisticsStarDate, newEndDate.nextHour, handler)
   }
 }
 
