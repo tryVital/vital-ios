@@ -24,12 +24,12 @@ class VitalHealthKitStorage {
     return storage.isResourceFlagged(resource)
   }
   
-  func isLegacyUser(for key: String) -> Bool {
+  func isLegacyType(for key: String) -> Bool {
     let anchor = self.read(key: key)
     return anchor?.vitalAnchors == nil && (anchor?.date != nil || anchor?.anchor != nil)
   }
   
-  func isFirstTimeUser(for key: String) -> Bool {
+  func isFirstTimeSycingType(for key: String) -> Bool {
     let anchor = self.read(key: key)
     return anchor?.vitalAnchors == nil && anchor?.date == nil && anchor?.anchor == nil
   }
