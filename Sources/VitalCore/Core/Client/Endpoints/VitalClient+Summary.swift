@@ -90,4 +90,21 @@ public extension VitalClient.Summary {
     
     return result.value.activity
   }
+  
+  func workoutSummary(
+    startDate: Date,
+    endDate: Date? = nil
+  ) async throws -> [WorkoutSummary] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "workouts/\(userId)"
+    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    
+    let request: Request<WorkoutResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.workouts
+  }
 }

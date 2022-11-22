@@ -7,7 +7,7 @@ public enum SimpleTimeSeriesResource {
   var toPath: String {
     switch self {
       case .heartRate:
-        return "heartrates"
+        return "heartrate"
       case .glucose:
         return "glucose"
     }
