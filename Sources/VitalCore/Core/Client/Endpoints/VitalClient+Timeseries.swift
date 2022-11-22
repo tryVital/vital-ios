@@ -2,6 +2,16 @@ import Foundation
 
 public enum SimpleTimeSeriesResource {
   case glucose
+  case heartRate
+  
+  var toPath: String {
+    switch self {
+      case .heartRate:
+        return "heartrate"
+      case .glucose:
+        return "glucose"
+    }
+  }
 }
 
 public extension VitalClient {
@@ -53,16 +63,14 @@ public extension VitalClient.TimeSeries {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
 
-    let query = makeQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    let path = resource.toPath
     
-    switch resource {
-      case .glucose:
-        let path = await makePath(for: "glucose", userId: userId.uuidString)
-
-        let request: Request<[TimeSeriesDataPoint]> = .get(path, query: query, headers: [:])
-        let response = try await configuration.apiClient.send(request)
-        return response.value
-    }
+    let fullPath = await makePath(for: path, userId: userId.uuidString)
+    
+    let request: Request<[TimeSeriesDataPoint]> = .get(fullPath, query: query, headers: [:])
+    let response = try await configuration.apiClient.send(request)
+    return response.value
   }
   
   func getBloodPressure(

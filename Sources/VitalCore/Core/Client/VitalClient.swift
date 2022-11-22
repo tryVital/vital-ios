@@ -1,6 +1,8 @@
 import Foundation
 import os.log
 
+let sdk_version = "0.3.6"
+
 struct Credentials: Equatable, Hashable {
   let apiKey: String
   let environment: Environment

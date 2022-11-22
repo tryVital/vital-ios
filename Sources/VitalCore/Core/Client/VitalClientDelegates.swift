@@ -18,7 +18,8 @@ class VitalClientDelegate: APIClientDelegate {
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
     request.setValue(apiKey, forHTTPHeaderField: "x-vital-api-key")
-    
+    request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
+
     let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary"]))
     
     /// For summary and timeseries, we want to gzip its contents
@@ -55,7 +56,11 @@ class VitalClientDelegate: APIClientDelegate {
   }
 }
 
-class VitalBaseClientDelegate: APIClientDelegate {  
+class VitalBaseClientDelegate: APIClientDelegate {
+  func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
+    request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
+  }
+  
   func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) async throws {
     if (200..<300).contains(response.statusCode) {
       return
