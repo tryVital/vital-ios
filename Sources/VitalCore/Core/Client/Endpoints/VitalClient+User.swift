@@ -21,7 +21,7 @@ public extension VitalClient.User {
     
     let path = "/\(configuration.apiVersion)/\(path)/providers/\(userId)"
     
-    let request: Request<ProviderResponse> = .get(path, query: nil, headers: [:])
+    let request: Request<ProviderResponse> = .init(path: path, method: .get)
     let response = try await configuration.apiClient.send(request)
     let providers = response.value.providers.compactMap { Provider(rawValue: $0.slug) }
     
@@ -36,7 +36,7 @@ public extension VitalClient.User {
     let configuration = await self.client.configuration.get()
     
     let path = "/\(configuration.apiVersion)/\(path)/"
-    let request = Request<CreateUserResponse>.post(path, body: payload)
+    let request: Request<CreateUserResponse> = .init(path: path, method: .post, body: payload)
     
     configuration.logger?.info("Creating Vital's userId for id: \(payload.clientUserId)")
     let value = try await configuration.apiClient.send(request).value

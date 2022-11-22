@@ -7,7 +7,7 @@ public enum SimpleTimeSeriesResource {
   var toPath: String {
     switch self {
       case .heartRate:
-        return "heartrate"
+        return "heartrates"
       case .glucose:
         return "glucose"
     }
@@ -47,7 +47,7 @@ public extension VitalClient.TimeSeries {
     )
     
     let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId.uuidString)
-    let request: Request<Void> = .post(fullPath, body: taggedPayload)
+    let request: Request<Void> = .init(path: fullPath, method: .post, body: taggedPayload)
     
     configuration.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name)")
     try await configuration.apiClient.send(request)
@@ -68,7 +68,8 @@ public extension VitalClient.TimeSeries {
     
     let fullPath = await makePath(for: path, userId: userId.uuidString)
     
-    let request: Request<[TimeSeriesDataPoint]> = .get(fullPath, query: query, headers: [:])
+    let request: Request<[TimeSeriesDataPoint]> = .init(path: fullPath, method: .get, query: query)
+    
     let response = try await configuration.apiClient.send(request)
     return response.value
   }
@@ -85,7 +86,7 @@ public extension VitalClient.TimeSeries {
     let path = await makePath(for: "blood_pressure", userId: userId.uuidString)
     let query = makeQuery(startDate: startDate, endDate: endDate)
     
-    let request: Request<[BloodPressureDataPoint]> = .get(path, query: query, headers: [:])
+    let request: Request<[BloodPressureDataPoint]> = .init(path: path, method: .get, query: query)
     let response = try await configuration.apiClient.send(request)
     
     return response.value

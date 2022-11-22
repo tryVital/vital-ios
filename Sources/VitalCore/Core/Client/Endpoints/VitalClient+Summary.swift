@@ -35,7 +35,7 @@ public extension VitalClient.Summary {
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "\(summaryData.name)/\(userId)"
     
-    let request: Request<Void> = .post(fullPath, body: taggedPayload)
+    let request: Request<Void> = .init(path: fullPath, method: .post, body: taggedPayload)
     
     try await configuration.apiClient.send(request)
   }
@@ -51,7 +51,7 @@ public extension VitalClient.Summary {
     let fullPath = prefix + "sleep/\(userId)"
     let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
 
-    let request: Request<SleepResponse> = .get(fullPath, query: query)
+    let request: Request<SleepResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
                                                         
     return result.value.sleep
@@ -68,7 +68,7 @@ public extension VitalClient.Summary {
     let fullPath = prefix + "sleep/\(userId)/stream"
     let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
     
-    let request: Request<SleepResponse> = .get(fullPath, query: query)
+    let request: Request<SleepResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
     
     return result.value.sleep
@@ -85,7 +85,7 @@ public extension VitalClient.Summary {
     let fullPath = prefix + "activity/\(userId)"
     let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
     
-    let request: Request<ActivityResponse> = .get(fullPath, query: query)
+    let request: Request<ActivityResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
     
     return result.value.activity

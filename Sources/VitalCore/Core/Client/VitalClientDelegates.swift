@@ -29,7 +29,7 @@ class VitalClientDelegate: APIClientDelegate {
     }
   }
   
-  func shouldClientRetry(_ client: APIClient, withError error: Error) async throws -> Bool {
+  func client(_ client: APIClient, shouldRetry task: URLSessionTask, error: Error, attempts: Int) async throws -> Bool {
     guard case .unacceptableStatusCode(401) = error as? APIError else {
       return false
     }
@@ -39,7 +39,7 @@ class VitalClientDelegate: APIClientDelegate {
     return true
   }
   
-  func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) async throws {
+  func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) throws {
     if (200..<300).contains(response.statusCode) {
      return
     }
@@ -61,7 +61,7 @@ class VitalBaseClientDelegate: APIClientDelegate {
     request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
   }
   
-  func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) async throws {
+  func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) throws {
     if (200..<300).contains(response.statusCode) {
       return
     }

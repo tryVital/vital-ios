@@ -32,7 +32,7 @@ public extension VitalClient.Link {
   
   static func exchangeCode(code: String, environment: Environment) async throws -> ExchangedCredentials {
     let client = makeClient(environment: environment)
-    let request = Request<ExchangedCredentials>(method: "POST", url: "/v2/link/token/exchange", query: [("code", code)])
+    let request: Request<ExchangedCredentials> = .init(path: "/v2/link/token/exchange", method: .post, query: [("code", code)])
     
     return try await client.send(request).value
   }
@@ -48,7 +48,7 @@ public extension VitalClient.Link {
     let path = "/\(configuration.apiVersion)/\(path)/token"
     
     let payload = CreateLinkRequest(userId: userId, provider: provider?.rawValue, redirectUrl: redirectURL)
-    let request = Request<CreateLinkResponse>.post(path, body: payload)
+    let request: Request<CreateLinkResponse> = .init(path: path, method: .post, body: payload)
     
     return try await configuration.apiClient.send(request).value.linkToken
   }
@@ -63,7 +63,7 @@ public extension VitalClient.Link {
     let path = "/\(configuration.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
     
     let payload = CreateConnectionSourceRequest(userId: userId)
-    let request = Request<Void>.post(path, body: payload)
+    let request: Request<Void> = .init(path: path, method: .post, body: payload)
     
     do {
       try await configuration.apiClient.send(request)
@@ -118,7 +118,7 @@ public extension VitalClient.Link {
     let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
     
     let payload = CreateEmailProviderRequest(email: email, region: configuration.environment.region.rawValue)
-    let request = Request<CreateEmailProviderResponse>.post(path, body: payload, headers: ["x-vital-link-token": token])
+    let request: Request<CreateEmailProviderResponse> = .init(path: path, method: .post, body: payload, headers: ["x-vital-link-token": token])
     
     let response = try await configuration.apiClient.send(request)
     return response.value

@@ -11,12 +11,14 @@ public struct NetworkError: Error, LocalizedError {
     let data: String = payload.flatMap { String(data: $0, encoding: .utf8) } ?? "n/a"
       
     return """
-            =============
+           
+            ❌❌❌❌❌❌❌
             URL: \(url?.absoluteString ?? "n/a")\n
             headers: \(headers)\n
             Status code: \(statusCode)\n
             payload: \(data))
-            =============
+            ❌❌❌❌❌❌❌
+           
            """
   }
   
