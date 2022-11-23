@@ -24,7 +24,7 @@ public extension VitalClient.Summary {
   ) async throws -> Void {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
-
+    
     let taggedPayload = TaggedPayload(
       stage: stage,
       timeZone: timeZone,
@@ -42,31 +42,33 @@ public extension VitalClient.Summary {
   
   func sleepsSummary(
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [SleepSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "sleep/\(userId)"
-    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
-
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
     let request: Request<SleepResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
-                                                        
+    
     return result.value.sleep
   }
   
   func sleepsSummaryWithStream(
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [SleepSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "sleep/\(userId)/stream"
-    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
     let request: Request<SleepResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
@@ -76,14 +78,15 @@ public extension VitalClient.Summary {
   
   func activitySummary(
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [ActivitySummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "activity/\(userId)"
-    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
     let request: Request<ActivityResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
@@ -93,18 +96,20 @@ public extension VitalClient.Summary {
   
   func workoutSummary(
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [WorkoutSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
     let fullPath = prefix + "workouts/\(userId)"
-    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
     let request: Request<WorkoutResponse> = .init(path: fullPath, method: .get, query: query)
     let result = try await configuration.apiClient.send(request)
     
     return result.value.workouts
   }
+
 }

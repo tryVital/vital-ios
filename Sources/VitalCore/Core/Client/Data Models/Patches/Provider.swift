@@ -32,4 +32,7 @@ public enum Provider: String, Codable {
   case withings = "withings"
   case googleFit = "google_fit"
   case hammerhead = "hammerhead"
+  case dexcom = "dexcom"
+  case myFitnessPal = "my_fitness_pal"
+  case healthConnect = "health_connect"
 }

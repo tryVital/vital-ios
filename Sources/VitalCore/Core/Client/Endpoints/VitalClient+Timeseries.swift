@@ -55,15 +55,15 @@ public extension VitalClient.TimeSeries {
   
   func get(
     resource: SimpleTimeSeriesResource,
-    provider: Provider? = nil,
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [TimeSeriesDataPoint] {
     
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
 
-    let query = makeBaseDatesQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     let path = resource.toPath
     
     let fullPath = await makePath(for: path, userId: userId.uuidString)
@@ -75,16 +75,16 @@ public extension VitalClient.TimeSeries {
   }
   
   func getBloodPressure(
-    provider: Provider? = nil,
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    provider: Provider? = nil
   ) async throws -> [BloodPressureDataPoint] {
     
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
 
     let path = await makePath(for: "blood_pressure", userId: userId.uuidString)
-    let query = makeQuery(startDate: startDate, endDate: endDate)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
     let request: Request<[BloodPressureDataPoint]> = .init(path: path, method: .get, query: query)
     let response = try await configuration.apiClient.send(request)

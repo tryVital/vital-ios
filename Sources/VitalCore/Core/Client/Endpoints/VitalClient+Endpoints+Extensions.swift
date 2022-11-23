@@ -1,8 +1,9 @@
 import Foundation
 
-func makeBaseDatesQuery(
+func makeBaseQuery(
   startDate: Date,
-  endDate: Date?
+  endDate: Date?,
+  provider: Provider? = nil
 ) -> [(String, String?)] {
   
   let formatter = DateFormatter()
@@ -14,6 +15,10 @@ func makeBaseDatesQuery(
   if let endDate = endDate {
     let endDateString = formatter.string(from: endDate)
     query.append(("end_date", endDateString))
+  }
+  
+  if let provider = provider {
+    query.append(("provider", provider.rawValue))
   }
   
   return query
