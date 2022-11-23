@@ -204,8 +204,6 @@ struct StatisticsQueryDependencies {
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage,
     type: HKQuantityType
-//    startDate: Date,
-//    endDate: Date
   ) -> StatisticsQueryDependencies {
     let key = String(describing: type.self)
     
@@ -220,7 +218,7 @@ struct StatisticsQueryDependencies {
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
-        options: .cumulativeSum,
+        options: [.cumulativeSum, .separateBySource],
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )

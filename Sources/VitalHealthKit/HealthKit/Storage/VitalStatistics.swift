@@ -6,11 +6,24 @@ struct VitalStatistics {
   var startDate: Date
   var endDate: Date
   
-  init(value: Double, type: String, startDate: Date, endDate: Date) {
+  var sources: [String]
+  
+  var sourcesValue: String {
+    return sources.joined(separator: ",")
+  }
+  
+  init(
+    value: Double,
+    type: String,
+    startDate: Date,
+    endDate: Date,
+    sources: [String]
+  ) {
     self.value = value
     self.type = type
     self.startDate = startDate
     self.endDate = endDate
+    self.sources = sources
   }
     
   init?(statistics: HKStatistics, type: HKQuantityType) {
@@ -18,12 +31,17 @@ struct VitalStatistics {
       return nil
     }
     
+    let sources: [String]? = statistics.sources?.compactMap { source in
+      source.bundleIdentifier
+    }
+    
     let value = sum.doubleValue(for: type.toHealthKitUnits)
     self.init(
       value: value,
       type: String(describing: type),
       startDate: statistics.startDate,
-      endDate: statistics.endDate
+      endDate: statistics.endDate,
+      sources: sources ?? []
     )
   }
 }

@@ -160,7 +160,7 @@ func isValidStatistic(_ statistics: VitalStatistics) -> Bool {
 }
 
 func generateIdForAnchor(_ statistics: VitalStatistics) -> String? {
-  let id = "\(statistics.startDate)-\(statistics.endDate)-\(statistics.type)-\(statistics.value)"
+  let id = "\(statistics.startDate)-\(statistics.endDate)-\(statistics.type)-\(statistics.value)-\(statistics.sourcesValue)"
   return id.sha256()
 }
 
@@ -188,7 +188,7 @@ extension QuantitySample {
       value: statistics.value,
       startDate: statistics.startDate,
       endDate: statistics.endDate,
-      sourceBundle: "com.apple.statistics",
+      sourceBundle: statistics.sourcesValue,
       productType: "n/a",
       type: "automatic",
       unit: sampleType.toUnitStringRepresentation
