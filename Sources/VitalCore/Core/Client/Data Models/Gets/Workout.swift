@@ -42,3 +42,8 @@ public struct Sport: Equatable, Decodable {
   public var name: String
   public var slug: String
 }
+
+
+public struct WorkoutRawResponse: Equatable, Decodable {
+  public var workouts: [AnyDecodable]
+}

@@ -18,3 +18,7 @@ public struct ActivitySummary: Equatable, Decodable {
   public var floorsClimbed: Int?
   public var timezoneOffset: Int?
 }
+
+public struct ActivityRawResponse: Equatable, Decodable {
+  public var activity: [AnyDecodable]
+}

@@ -33,3 +33,7 @@ public struct SleepStream: Equatable, Decodable {
   public var hypnogram: [TimeseriesSummary]?
   public var respiratoryRate: [TimeseriesSummary]?
 }
+
+public struct SleepRawResponse: Equatable, Decodable {
+  public var sleep: [AnyDecodable]
+}

@@ -58,6 +58,24 @@ public extension VitalClient.Summary {
     return result.value.sleep
   }
   
+  func sleepsRaw(
+    startDate: Date,
+    endDate: Date? = nil,
+    provider: Provider? = nil
+  ) async throws -> [AnyDecodable] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "sleep/\(userId)"
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
+    let request: Request<SleepRawResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.sleep
+  }
+  
   func sleepsSummaryWithStream(
     startDate: Date,
     endDate: Date? = nil,
@@ -94,6 +112,24 @@ public extension VitalClient.Summary {
     return result.value.activity
   }
   
+  func activityRaw(
+    startDate: Date,
+    endDate: Date? = nil,
+    provider: Provider? = nil
+  ) async throws -> [AnyDecodable] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "activity/\(userId)/raw"
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
+    let request: Request<ActivityRawResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.activity
+  }
+  
   func workoutSummary(
     startDate: Date,
     endDate: Date? = nil,
@@ -111,5 +147,22 @@ public extension VitalClient.Summary {
     
     return result.value.workouts
   }
-
+  
+  func workoutRaw(
+    startDate: Date,
+    endDate: Date? = nil,
+    provider: Provider? = nil
+  ) async throws -> [AnyDecodable] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "workouts/\(userId)/raw"
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
+    let request: Request<WorkoutRawResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.workouts
+  }
 }
