@@ -32,7 +32,7 @@ public extension VitalClient.Link {
   
   static func exchangeCode(code: String, environment: Environment) async throws -> ExchangedCredentials {
     let client = makeClient(environment: environment)
-    let request: Request<ExchangedCredentials> = .init(path: "/v2/link/token/exchange", method: .post, query: [("code", code)])
+    let request: Request<ExchangedCredentials> = .init(path: "/v2/link/code/exchange", method: .post, query: [("code", code)])
     
     return try await client.send(request).value
   }
