@@ -11,6 +11,8 @@ struct VitalHealthKitStore {
   var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
+  var disableBackgroundDelivery: () async -> Void
+  
   var execute: (HKObserverQuery) -> Void
   var stop: (HKObserverQuery) -> Void
 }
@@ -107,6 +109,8 @@ extension VitalHealthKitStore {
         )
       } enableBackgroundDelivery: { (type, frequency, completion) in
         store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
+      } disableBackgroundDelivery: {
+        try? await store.disableAllBackgroundDelivery()
       } execute: { query in
         store.execute(query)
       } stop: { query in
@@ -126,6 +130,8 @@ extension VitalHealthKitStore {
     } readResource: { _,_,_,_  in
       return (ProcessedResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
+      return
+    } disableBackgroundDelivery: {
       return
     } execute: { _ in
       return

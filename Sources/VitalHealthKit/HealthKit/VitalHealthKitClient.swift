@@ -9,6 +9,8 @@ public enum PermissionOutcome: Equatable {
   case healthKitNotAvailable
 }
 
+let health_secureStorageKey: String = "health_secureStorageKey"
+
 public class VitalHealthKitClient {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
@@ -166,9 +168,10 @@ extension VitalHealthKitClient {
     enableBackgroundDelivery(for: sampleTypes)
     
     let stream = backgroundObservers(for: sampleTypes)
+    
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
-        /// Sync a sample one-by-one
+        /// Sync types one-by-one
         await sync(payload: .type(payload.sampleType), completion: payload.completion)
       }
     }
@@ -250,6 +253,16 @@ extension VitalHealthKitClient {
       
       _status.send(.syncingCompleted)
     }
+  }
+  
+  public func cleanUp() async {
+    await store.disableBackgroundDelivery()
+    backgroundDeliveryTask?.cancel()
+    
+    await backgroundDeliveryEnabled.set(value: false)
+    
+    await VitalClient.shared.cleanUp()
+    self.secureStorage.clean(key: health_secureStorageKey)
   }
   
   public enum SyncPayload {

@@ -85,8 +85,6 @@ public enum Environment: Equatable, Hashable, Codable {
 let core_secureStorageKey: String = "core_secureStorageKey"
 let user_secureStorageKey: String = "user_secureStorageKey"
 
-public let health_secureStorageKey: String = "health_secureStorageKey"
-
 public class VitalClient {
   
   private let secureStorage: VitalSecureStorage
@@ -287,7 +285,6 @@ public class VitalClient {
     }
     
     self.secureStorage.clean(key: core_secureStorageKey)
-    self.secureStorage.clean(key: health_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
     
     await self.userId.clean()
