@@ -57,5 +57,15 @@ public extension VitalClient.User {
       setUserIdOnSuccess: setUserIdOnSuccess
     )
   }
+  
+  func deregisterProvider(provider: Provider) async throws -> Void {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let path = "/\(configuration.apiVersion)/\(path)/\(userId)/\(provider.rawValue)"
+    
+    let request: Request<Void> = .init(path: path, method: .delete)
+    try await configuration.apiClient.send(request)
+  }
 }
 
