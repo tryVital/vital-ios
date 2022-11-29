@@ -223,7 +223,7 @@ extension HKSampleType {
       case
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
-        return "kJ"
+        return "kcal"
         
       case HKSampleType.quantityType(forIdentifier: .stepCount)!:
         return ""
