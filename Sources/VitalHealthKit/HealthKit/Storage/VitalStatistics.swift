@@ -8,6 +8,9 @@ struct VitalStatistics {
   
   var sources: [String]
   
+  var firstSampleDate: Date?
+  var lastSampleDate: Date?
+  
   var sourcesValue: String {
     return sources.joined(separator: ",")
   }

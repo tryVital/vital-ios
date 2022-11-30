@@ -181,8 +181,9 @@ extension VitalClientProtocol {
 
 struct StatisticsQueryDependencies {
 
-  var executeQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
-  
+  var executeStatisticalQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
+  var executeSampleQuery: (Date, Date) async throws -> [HKSample]
+
   var isFirstTimeSycingType: () -> Bool
   var isLegacyType: () -> Bool
   
@@ -192,6 +193,8 @@ struct StatisticsQueryDependencies {
   
   static var debug: StatisticsQueryDependencies {
     return .init { startDate, endDate, handler in
+      fatalError()
+    } executeSampleQuery: { _, _ in
       fatalError()
     } isFirstTimeSycingType: {
       fatalError()
@@ -242,6 +245,9 @@ struct StatisticsQueryDependencies {
       
       query.initialResultsHandler = queryHandler
       healthKitStore.execute(query)
+      
+    } executeSampleQuery: { startDate, endDate in
+      try await querySample(healthKitStore: healthKitStore, type: type, startDate: startDate, endDate: endDate)
       
     } isFirstTimeSycingType: {
       return vitalStorage.isFirstTimeSycingType(for: key)

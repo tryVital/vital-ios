@@ -819,7 +819,7 @@ private func populateAnchorsForStatisticalQuery(
       continuation.resume(returning: newAnchors)
     }
             
-    dependency.executeQuery(startDate, endDate, handler)
+    dependency.executeStatisticalQuery(startDate, endDate, handler)
   }
 }
 
@@ -874,6 +874,28 @@ func queryStatisticsSample(
   ///
   /// </TO BE REMOVED>
   ///
+  ///
+  
+  /// Because there are no anchors, we might miss data that was inserted before our "date anchor".
+  /// E.g. Anchor date is at 16:00. Another app (e.g. Garmin) inserts steps at 15:00. If we don't check at least 7 days
+  /// before, we might run the risk of losing data inserted before the date anchor
+  /// We might need to extend this value to a week.
+  let statisticsStarDate: Date
+  
+  if isFirstTimeSycingType {
+    /// If it's the first time, it will try to fetch 30 days worth of data (or whatever `withStart` is)
+    statisticsStarDate = newStartDate.dayStart
+  } else {
+    /// If it's not, we only check 7 days.
+    statisticsStarDate = Date.dateAgo(newStartDate, days: 7).dayStart
+  }
+  
+  let statisticsEndDate = newEndDate.nextHour
+  
+  
+  let samples: [HKSample] = try await dependency.executeSampleQuery(statisticsStarDate, statisticsEndDate)
+  
+  
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: StatisticInjectedsHandler = { vitalStatistics, error in
@@ -889,28 +911,63 @@ func queryStatisticsSample(
         date: newEndDate
       )
       
-      continuation.resume(with: .success((payload.0, payload.1)))
+      
+      let enrichedStatistics = enrichWithDates(samples: samples, statistics: payload.0)
+      
+      continuation.resume(with: .success((enrichedStatistics, payload.1)))
     }
     
-    /// Because there are no anchors, we might miss data that was inserted before our "date anchor".
-    /// E.g. Anchor date is at 16:00. Another app (e.g. Garmin) inserts steps at 15:00. If we don't check at least 7 days
-    /// before, we might run the risk of losing data inserted before the date anchor
-    /// We might need to extend this value to a week.
-    let statisticsStarDate: Date
-    
-    if isFirstTimeSycingType {
-      /// If it's the first time, it will try to fetch 30 days worth of data (or whatever `withStart` is)
-      statisticsStarDate = newStartDate.dayStart
-    } else {
-      /// If it's not, we only check 7 days.
-      statisticsStarDate = Date.dateAgo(newStartDate, days: 7).dayStart
-    }
-    
-    dependency.executeQuery(statisticsStarDate, newEndDate.nextHour, handler)
+    dependency.executeStatisticalQuery(statisticsStarDate, statisticsEndDate, handler)
   }
 }
 
-private func querySample(
+
+func enrichWithDates(samples: [HKSample], statistics: [VitalStatistics]) -> [VitalStatistics] {
+  func diff(
+    range: ClosedRange<Date>,
+    storedDate: Date?,
+    statisticalDate: Date,
+    sampleDate: Date
+  ) -> Date? {
+    
+    guard range.contains(sampleDate) else {
+      return storedDate
+    }
+    
+    let newDiff = abs(sampleDate.timeIntervalSince(statisticalDate))
+    
+    if let storedDate = storedDate {
+      let existingDiff = abs(storedDate.timeIntervalSince(statisticalDate))
+      
+      if existingDiff < newDiff {
+        return storedDate
+      }
+    }
+    
+    return sampleDate
+  }
+  
+  return statistics.map { statistic in
+    var copy = statistic
+    
+    var startDate: Date? = nil
+    var endDate: Date? = nil
+    
+    let range = copy.startDate ... copy.endDate
+
+    for sample in samples {
+      startDate = diff(range: range, storedDate: startDate, statisticalDate: copy.startDate, sampleDate: sample.startDate)
+      endDate = diff(range: range, storedDate: endDate, statisticalDate: copy.endDate, sampleDate: sample.endDate)
+    }
+    
+    copy.firstSampleDate = startDate
+    copy.lastSampleDate = endDate
+    
+    return copy
+  }
+}
+
+func querySample(
   healthKitStore: HKHealthStore,
   type: HKSampleType,
   limit: Int = HKObjectQueryNoLimit,
@@ -949,78 +1006,6 @@ private func querySample(
       sortDescriptors: sort,
       resultsHandler: handler
     )
-    
-    healthKitStore.execute(query)
-  }
-}
-
-private func querySeries(
-  healthKitStore: HKHealthStore,
-  type: HKQuantityType,
-  startDate: Date,
-  endDate: Date
-) async throws -> [HKQuantity] {
-  
-  return try await withCheckedThrowingContinuation { continuation in
-    
-    var quantities: [HKQuantity] = []
-    let handler: SeriesSampleHandler = { (query, quantity, dateInterval, sample, isFinished, error) in
-      healthKitStore.stop(query)
-      if let error = error {
-        continuation.resume(with: .failure(error))
-        return
-      }
-      
-      if let quantity = quantity {
-        quantities.append(quantity)
-      }
-      
-      if isFinished {
-        continuation.resume(with: .success(quantities))
-      }
-    }
-    
-    
-    let predicate = HKQuery.predicateForSamples(
-      withStart: startDate,
-      end: endDate,
-      options: [.strictStartDate]
-    )
-    
-    let query = HKQuantitySeriesSampleQuery(
-      quantityType: type,
-      predicate: predicate,
-      quantityHandler: handler
-    )
-    
-    healthKitStore.execute(query)
-  }
-}
-
-private func activityQuery(
-  healthKitStore: HKHealthStore,
-  startDate: Date,
-  endDate: Date
-) async throws -> [HKActivitySummary] {
-  
-  return try await withCheckedThrowingContinuation { continuation in
-    
-    let handler: ActivityQueryHandler = { (query, activities, error) in
-      healthKitStore.stop(query)
-      
-      if let error = error {
-        continuation.resume(with: .failure(error))
-        return
-      }
-      
-      continuation.resume(with: .success(activities ?? []))
-    }
-    
-    let startDateComponent = startDate.dateComponentsForActivityQuery
-    let endDateComponent = endDate.dateComponentsForActivityQuery
-    
-    let predicate = HKQuery.predicate(forActivitySummariesBetweenStart: startDateComponent, end: endDateComponent)
-    let query = HKActivitySummaryQuery(predicate: predicate, resultsHandler: handler)
     
     healthKitStore.execute(query)
   }

@@ -183,6 +183,13 @@ extension QuantitySample {
       return nil
     }
     
+    let metadata = VitalAnyEncodable(
+      [
+        "firstSampleDate": statistics.firstSampleDate,
+        "lastSampleDate": statistics.lastSampleDate
+      ]
+    )
+    
     self.init(
       id: idString,
       value: statistics.value,
@@ -191,7 +198,8 @@ extension QuantitySample {
       sourceBundle: statistics.sourcesValue,
       productType: "n/a",
       type: "automatic",
-      unit: sampleType.toUnitStringRepresentation
+      unit: sampleType.toUnitStringRepresentation,
+      metadata: metadata
     )
   }
 }
