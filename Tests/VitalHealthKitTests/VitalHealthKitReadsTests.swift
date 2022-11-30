@@ -179,7 +179,11 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [ClosedRange<Date>] = []
     
-    debug.executeQuery = { queryStartDate, queryEndDate, handler in
+    debug.executeSampleQuery = { _, _ in
+      return []
+    }
+    
+    debug.executeStatisticalQuery = { queryStartDate, queryEndDate, handler in
       let range = queryStartDate ... queryEndDate
       dateRanges.append(range)
       
@@ -242,7 +246,11 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [ClosedRange<Date>] = []
     
-    debug.executeQuery = { queryStartDate, queryEndDate, handler in
+    debug.executeSampleQuery = { _, _ in
+      return []
+    }
+    
+    debug.executeStatisticalQuery = { queryStartDate, queryEndDate, handler in
       
       let range = queryStartDate ... queryEndDate
       
