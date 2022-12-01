@@ -24,7 +24,7 @@ public extension VitalClient.Summary {
   ) async throws -> Void {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
-    
+        
     let taggedPayload = TaggedPayload(
       stage: stage,
       timeZone: timeZone,
@@ -164,5 +164,41 @@ public extension VitalClient.Summary {
     let result = try await configuration.apiClient.send(request)
     
     return result.value.workouts
+  }
+  
+  func body(
+    startDate: Date,
+    endDate: Date? = nil,
+    provider: Provider? = nil
+  ) async throws -> [BodySummary] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "body/\(userId)"
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
+    let request: Request<BodyResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.body
+  }
+  
+  func bodyRaw(
+    startDate: Date,
+    endDate: Date? = nil,
+    provider: Provider? = nil
+  ) async throws -> [AnyDecodable] {
+    let userId = await self.client.userId.get()
+    let configuration = await self.client.configuration.get()
+    
+    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
+    let fullPath = prefix + "body/\(userId)/raw"
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    
+    let request: Request<BodyRawResponse> = .init(path: fullPath, method: .get, query: query)
+    let result = try await configuration.apiClient.send(request)
+    
+    return result.value.body
   }
 }

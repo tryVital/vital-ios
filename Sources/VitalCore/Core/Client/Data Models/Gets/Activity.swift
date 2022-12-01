@@ -4,6 +4,10 @@ public struct ActivityResponse: Equatable, Decodable {
   public var activity: [ActivitySummary]
 }
 
+public struct ActivityRawResponse: Equatable, Decodable {
+  public var activity: [AnyDecodable]
+}
+
 public struct ActivitySummary: Equatable, Decodable {
   public var id: UUID
   public var date: Date
@@ -17,8 +21,4 @@ public struct ActivitySummary: Equatable, Decodable {
   public var source: SourceSummary
   public var floorsClimbed: Int?
   public var timezoneOffset: Int?
-}
-
-public struct ActivityRawResponse: Equatable, Decodable {
-  public var activity: [AnyDecodable]
 }
