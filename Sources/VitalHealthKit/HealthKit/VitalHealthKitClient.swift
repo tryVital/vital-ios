@@ -399,7 +399,8 @@ extension VitalHealthKitClient {
   }
   
   public func ask(
-    for resources: [VitalResource]
+    readPermissions readResources: [VitalResource],
+    writePermissions writeResource: [WritableVitalResource]
   ) async -> PermissionOutcome {
     
     guard store.isHealthDataAvailable() else {
@@ -407,14 +408,14 @@ extension VitalHealthKitClient {
     }
     
     do {
-      try await store.requestReadAuthorization(resources)
+      try await store.requestReadWriteAuthorization(readResources, writeResource)
 
       if await configuration.isNil() == false {
         let configuration = await configuration.get()
         
         checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
-          resources: resources
+          resources: readResources
         )
       }
       
@@ -448,7 +449,6 @@ extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData {
-    
     let store = HKHealthStore()
     
     let hasAskedForPermission: (VitalResource) -> Bool = { resource in
@@ -474,6 +474,16 @@ extension VitalHealthKitClient {
   }
 }
 
+extension VitalHealthKitClient {
+  public func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
+    try await self.store.writeInput(input, startDate, endDate)
+  }
+  
+  public static func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
+    let store = HKHealthStore()
+    try await VitalHealthKit.write(healthKitStore: store, dataInput: input, startDate: startDate, endDate: endDate)
+  }
+}
 
 func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedResourceData {
   switch data {
@@ -527,6 +537,7 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
       }
       
       return .summary(.sleep(SleepPatch(sleep: sleep)))
+      
     case .summary(.body), .summary(.profile):
       return data
       
@@ -534,7 +545,7 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
       let newSamples = average(samples, calendar: calendar)
       return .timeSeries(.heartRate(newSamples))
       
-    case .timeSeries(.bloodPressure), .timeSeries(.glucose):
+    case .timeSeries(.bloodPressure), .timeSeries(.glucose), .timeSeries(.nutrition):
       return data
   }
 }

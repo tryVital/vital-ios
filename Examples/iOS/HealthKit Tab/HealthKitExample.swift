@@ -52,7 +52,7 @@ struct HealthKitExample: View {
     } else {
       Button("Request Permission") {
         Task {
-          await VitalHealthKitClient.shared.ask(for: resources)
+          await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: [])
         }
       }
       .buttonStyle(PermissionStyle())

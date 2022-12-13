@@ -1,4 +1,4 @@
-public enum ProcessedResourceData: Equatable {
+public enum ProcessedResourceData: Equatable, Encodable {
   case summary(SummaryData)
   case timeSeries(TimeSeriesData)
   
@@ -30,11 +30,44 @@ public enum ProcessedResourceData: Equatable {
   }
 }
 
-public enum TimeSeriesData: Equatable {
+public enum NutritionData: Equatable, Encodable {
+  case caffeine([QuantitySample])
+  case water([QuantitySample])
+  
+  public var payload: Encodable {
+    switch self {
+      case let .caffeine(dataPoints):
+        return dataPoints
+      case let .water(dataPoints):
+        return dataPoints
+    }
+  }
+  
+  public var shouldSkipPost: Bool {
+    switch self {
+      case let .caffeine(samples):
+        return samples.isEmpty
+      case let .water(samples):
+        return samples.isEmpty
+    }
+  }
+  
+  public var name: String {
+    switch self {
+      case .caffeine:
+        return "caffeine"
+      case .water:
+        return "water"
+    }
+  }
+}
+
+public enum TimeSeriesData: Equatable, Encodable {
   case glucose([QuantitySample])
   case bloodPressure([BloodPressureSample])
   case heartRate([QuantitySample])
-
+  case nutrition(NutritionData)
+  
   
   public var payload: Encodable {
     switch self {
@@ -44,6 +77,8 @@ public enum TimeSeriesData: Equatable {
         return dataPoints
       case let .heartRate(dataPoints):
         return dataPoints
+      case let .nutrition(nutrition):
+        return nutrition.payload
     }
   }
   
@@ -55,6 +90,8 @@ public enum TimeSeriesData: Equatable {
         return samples.isEmpty
       case let .heartRate(samples):
         return samples.isEmpty
+      case let .nutrition(nutrition):
+        return nutrition.shouldSkipPost
     }
   }
   
@@ -66,11 +103,13 @@ public enum TimeSeriesData: Equatable {
         return "glucose"
       case .heartRate:
         return "heartrate"
+      case let .nutrition(nutrition):
+        return nutrition.name
     }
   }
 }
 
-public enum SummaryData: Equatable {
+public enum SummaryData: Equatable, Encodable {
   case profile(ProfilePatch)
   case body(BodyPatch)
   case activity(ActivityPatch)

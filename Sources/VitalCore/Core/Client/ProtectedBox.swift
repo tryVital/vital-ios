@@ -32,7 +32,7 @@ public actor ProtectedBox<T> {
     continuations.forEach { continuation in
       continuation.resume(with: .success(value))
     }
-    
+
     continuations = []
   }
   

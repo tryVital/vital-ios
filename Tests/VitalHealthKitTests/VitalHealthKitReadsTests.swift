@@ -292,7 +292,6 @@ class VitalHealthKitReadsTests: XCTestCase {
   }
 }
 
-
 extension Date {
   init(_ dateString:String) {
     let dateStringFormatter = DateFormatter()
