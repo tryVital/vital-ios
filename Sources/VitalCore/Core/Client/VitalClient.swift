@@ -42,6 +42,25 @@ public enum Environment: Equatable, Hashable, Codable {
   case sandbox(Region)
   case production(Region)
   
+  init?(environment: String, region: String) {
+    switch(environment, region) {
+      case ("production", "us"):
+        self = .production(.us)
+      case ("production", "eu"):
+        self = .production(.eu)
+      case ("sandbox", "us"):
+        self = .sandbox(.us)
+      case ("sandbox", "eu"):
+        self = .sandbox(.eu)
+      case ("dev", "us"):
+        self = .dev(.us)
+      case ("dev", "eu"):
+        self = .dev(.eu)
+      case (_, _):
+        return nil
+    }
+  }
+  
   var host: String {
     switch self {
       case .dev(.eu):
@@ -85,7 +104,7 @@ public enum Environment: Equatable, Hashable, Codable {
 let core_secureStorageKey: String = "core_secureStorageKey"
 let user_secureStorageKey: String = "user_secureStorageKey"
 
-public class VitalClient {
+@objc public class VitalClient: NSObject {
   
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
@@ -100,6 +119,23 @@ public class VitalClient {
     }
     
     return value
+  }
+  
+  /// Only use this method if you are working from Objc.
+  /// Please use the async/await configure method when working from Swift.
+  @objc public static func configure(
+    apiKey: String,
+    environment: String,
+    region: String,
+    isLogsEnable: Bool
+  ) {
+    Task {
+      guard let environment = Environment(environment: environment, region: region) else {
+        fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
+      }
+      
+      await configure(apiKey: apiKey, environment: environment, configuration: .init(logsEnable: isLogsEnable))
+    }
   }
   
   public static func configure(
@@ -148,6 +184,8 @@ public class VitalClient {
     self.secureStorage = secureStorage
     self.configuration = configuration
     self.userId = userId
+    
+    super.init()
     
     VitalClient.client = self
   }
@@ -242,6 +280,12 @@ public class VitalClient {
     }
     catch {
       configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
+    }
+  }
+  
+  @objc public static func setUserId(_ newUserId: UUID) {
+    Task {
+      await setUserId(newUserId)
     }
   }
   

@@ -11,7 +11,7 @@ public enum PermissionOutcome: Equatable {
 
 let health_secureStorageKey: String = "health_secureStorageKey"
 
-public class VitalHealthKitClient {
+@objc public class VitalHealthKitClient: NSObject {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
     case successSyncing(VitalResource, ProcessedResourceData)
@@ -63,7 +63,28 @@ public class VitalHealthKitClient {
     
     self._status = PassthroughSubject<Status, Never>()
     
+    super.init()
+    
     VitalHealthKitClient.client = self
+  }
+  
+  /// Only use this method if you are working from Objc.
+  /// Please use the async/await configure method when working from Swift.
+  @objc public static func configure(
+    backgroundDeliveryEnabled: Bool = false,
+    logsEnabled: Bool = true,
+    numberOfDaysToBackFill: Int = 90
+  ) {
+    Task {
+      await configure(
+        .init(
+          backgroundDeliveryEnabled: backgroundDeliveryEnabled,
+          logsEnabled: logsEnabled,
+          numberOfDaysToBackFill: numberOfDaysToBackFill,
+          mode: .automatic
+        )
+      )
+    }
   }
   
   public static func configure(
