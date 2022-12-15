@@ -11,7 +11,7 @@ public enum PermissionOutcome: Equatable {
 
 let health_secureStorageKey: String = "health_secureStorageKey"
 
-public class VitalHealthKitClient {
+@objc public class VitalHealthKitClient: NSObject {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
     case successSyncing(VitalResource, ProcessedResourceData)
@@ -63,7 +63,28 @@ public class VitalHealthKitClient {
     
     self._status = PassthroughSubject<Status, Never>()
     
+    super.init()
+    
     VitalHealthKitClient.client = self
+  }
+  
+  /// Only use this method if you are working from Objc.
+  /// Please use the async/await configure method when working from Swift.
+  @objc public static func configure(
+    backgroundDeliveryEnabled: Bool = false,
+    numberOfDaysToBackFill: Int = 90,
+    logsEnabled: Bool = true
+  ) {
+    Task {
+      await configure(
+        .init(
+          backgroundDeliveryEnabled: backgroundDeliveryEnabled,
+          numberOfDaysToBackFill: numberOfDaysToBackFill,
+          logsEnabled: logsEnabled,
+          mode: .automatic
+        )
+      )
+    }
   }
   
   public static func configure(
@@ -133,19 +154,19 @@ public extension VitalHealthKitClient {
     }
     
     public let backgroundDeliveryEnabled: Bool
-    public let logsEnabled: Bool
     public let numberOfDaysToBackFill: Int
+    public let logsEnabled: Bool
     public let mode: DataPushMode
     
     public init(
       backgroundDeliveryEnabled: Bool = false,
-      logsEnabled: Bool = true,
       numberOfDaysToBackFill: Int = 90,
+      logsEnabled: Bool = true,
       mode: DataPushMode = .automatic
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
-      self.logsEnabled = logsEnabled
       self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 90)
+      self.logsEnabled = logsEnabled
       self.mode = mode
     }
   }
