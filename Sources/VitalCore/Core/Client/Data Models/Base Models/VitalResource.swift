@@ -92,6 +92,9 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .individual(.basalEnergyBurned),
     .individual(.weight),
     .individual(.bodyFat),
+    
+    .nutrition(.water),
+    .nutrition(.caffeine)
   ]
   
   public var logDescription: String {

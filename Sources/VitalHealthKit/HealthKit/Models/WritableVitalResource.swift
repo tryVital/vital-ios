@@ -15,20 +15,24 @@ public enum DataInput {
   }
   
   var units: HKUnit {
-    switch self {
-      case .water:
-        return .literUnit(with: .milli)
-      case .coffee:
-        return .gram()
-    }
+    return type.toHealthKitUnits
   }
   
   var type: HKQuantityType {
+    let types = toHealthKitTypes(resource: resource)
+    guard let type = types.first as? HKQuantityType else {
+      fatalError("This is a developer error. No type for \(self)")
+    }
+    
+    return type
+  }
+  
+  var resource: VitalResource {
     switch self {
       case .water:
-        return .quantityType(forIdentifier: .dietaryWater)!
+        return .nutrition(.water)
       case .coffee:
-        return .quantityType(forIdentifier: .dietaryCaffeine)!
+        return .nutrition(.caffeine)
     }
   }
 }

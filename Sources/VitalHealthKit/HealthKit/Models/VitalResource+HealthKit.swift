@@ -36,7 +36,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
       ]
       
-    
     case .profile:
       return [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
@@ -138,6 +137,10 @@ func observedSampleTypes() -> [HKSampleType] {
     
     /// Vitals Heartrate
     HKSampleType.quantityType(forIdentifier: .heartRate)!,
+    
+    /// Nutrition
+    HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
+    HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!
   ]
 }
 

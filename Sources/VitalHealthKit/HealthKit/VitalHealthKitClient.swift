@@ -185,6 +185,10 @@ extension VitalHealthKitClient {
     let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
     let sampleTypes = common.compactMap { $0 as? HKSampleType }
     
+    if sampleTypes.isEmpty {
+      logger?.info("Not observing any type")
+    }
+    
     /// Enable background deliveries
     enableBackgroundDelivery(for: sampleTypes)
     
