@@ -26,7 +26,6 @@ public enum VitalResource: Equatable, Hashable, Codable {
       }
     }
   }
-
   
   public enum Individual: Equatable, Hashable, Codable {
     case steps

@@ -560,7 +560,7 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
           sleepStages: sleep.sleepStages
         )
       }
-      
+
       return .summary(.sleep(SleepPatch(sleep: sleep)))
       
     case .summary(.body), .summary(.profile):

@@ -3,14 +3,11 @@ import VitalCore
 
 public enum DataInput {
   case water(milliliters: Int)
-  case coffee(grams: Int)
-  
+
   var value: Int {
     switch self {
       case let .water(milliliters):
         return milliliters
-      case let .coffee(grams):
-        return grams
     }
   }
   
