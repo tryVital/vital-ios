@@ -1,5 +1,5 @@
-public enum VitalResource: Equatable, Hashable {
-  public enum Vitals: Equatable, Hashable {
+public enum VitalResource: Equatable, Hashable, Codable {
+  public enum Vitals: Equatable, Hashable, Codable {
     case glucose
     case bloodPressure
     case hearthRate
@@ -16,7 +16,18 @@ public enum VitalResource: Equatable, Hashable {
     }
   }
   
-  public enum Individual: Equatable, Hashable {
+  public enum Nutrition: Equatable, Hashable, Codable {
+    case water
+    
+    public var logDescription: String {
+      switch self {
+        case .water:
+          return "water"
+      }
+    }
+  }
+  
+  public enum Individual: Equatable, Hashable, Codable {
     case steps
     case activeEnergyBurned
     case basalEnergyBurned
@@ -56,6 +67,7 @@ public enum VitalResource: Equatable, Hashable {
   case sleep
   case vitals(Vitals)
   case individual(Individual)
+  case nutrition(Nutrition)
   
   public static var all: [VitalResource] = [
     .profile,
@@ -76,6 +88,8 @@ public enum VitalResource: Equatable, Hashable {
     .individual(.basalEnergyBurned),
     .individual(.weight),
     .individual(.bodyFat),
+    
+    .nutrition(.water),
   ]
   
   public var logDescription: String {
@@ -90,10 +104,12 @@ public enum VitalResource: Equatable, Hashable {
         return "activity"
       case .sleep:
         return "sleep"
-      case .vitals(let vitals):
+      case let .vitals(vitals):
         return "vitals - \(vitals.logDescription)"
-      case .individual(let individual):
-        return "vitals - \(individual.logDescription)"
+      case let .individual(individual):
+        return "individual - \(individual.logDescription)"
+      case let .nutrition(nutrition):
+        return "nutrition - \(nutrition.logDescription)"
     }
   }
 }

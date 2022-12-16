@@ -35,14 +35,14 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
       ]
-    
+      
     case .profile:
       return [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
         HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
         HKQuantityType.quantityType(forIdentifier: .height)!,
       ]
-      
+
     case .body:
       
       return toHealthKitTypes(resource: .individual(.bodyFat)) +
@@ -55,7 +55,7 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
         HKSampleType.quantityType(forIdentifier: .restingHeartRate)!, 
-        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
+        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
       ]
       
     case .activity:
@@ -88,6 +88,11 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
     case .vitals(.hearthRate):
       return [
         HKSampleType.quantityType(forIdentifier: .heartRate)!
+      ]
+      
+    case .nutrition(.water):
+      return [
+        .quantityType(forIdentifier: .dietaryWater)!
       ]
   }
 }
@@ -127,6 +132,9 @@ func observedSampleTypes() -> [HKSampleType] {
     
     /// Vitals Heartrate
     HKSampleType.quantityType(forIdentifier: .heartRate)!,
+    
+    /// Nutrition
+    HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
   ]
 }
 

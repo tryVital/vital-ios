@@ -190,24 +190,26 @@ func read(
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
       
     case .vitals(.glucose):
-      let payload = try await handleGlucose(
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .bloodGlucose)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: startDate,
         endDate: endDate
       )
       
-      return (.timeSeries(.glucose(payload.glucose)), payload.anchors)
+      return (.timeSeries(.glucose(payload.samples)), payload.anchors)
       
     case .vitals(.hearthRate):
-      let payload = try await handleHeartRate(
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .heartRate)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: startDate,
         endDate: endDate
       )
       
-      return (.timeSeries(.heartRate(payload.heartrate)), payload.anchors)
+      return (.timeSeries(.heartRate(payload.samples)), payload.anchors)
       
     case .vitals(.bloodPressure):
       let payload = try await handleBloodPressure(
@@ -218,6 +220,17 @@ func read(
       )
       
       return (.timeSeries(.bloodPressure(payload.bloodPressure)), payload.anchors)
+      
+    case .nutrition(.water):
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .dietaryWater)!,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+      
+      return (.timeSeries(.nutrition(.water(payload.samples))), payload.anchors)
   }
 }
 
@@ -338,7 +351,7 @@ func handleSleep(
   
   /// Sleep samples can be sliced up. For example you can have a slice going from `2022-09-08 22:00` to `2022-09-08 22:15`
   /// And several others until the last one is `2022-09-09 07:00`. The goal of of `stichedSleeps` is to put all these slices together
-  /// Into a single `SleepPatch.Sleep` going from  `2022-09-08 22:00` to `2022-09-08 22:15`
+  /// Into a single `SleepPatch.Sleep` going from `2022-09-08 22:00` to `2022-09-08 22:15`
   let stitchedData = stichedSleeps(sleeps: sleeps)
   
   /// `stichedSleeps` doesn't deal with non-consecutive samples. So it's possible to have a sequence of samples that belong to different
@@ -614,29 +627,6 @@ func handleWorkouts(
   return (.init(workouts: copies), anchors)
 }
 
-func handleGlucose(
-  healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
-  startDate: Date,
-  endDate: Date
-) async throws -> (glucose: [QuantitySample], anchors: [StoredAnchor]) {
-  
-  let bloodGlucoseType = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
-  let payload = try await query(
-    healthKitStore: healthKitStore,
-    vitalStorage: vitalStorage,
-    type: bloodGlucoseType,
-    startDate: startDate,
-    endDate: endDate
-  )
-  
-  var anchors: [StoredAnchor] = []
-  let glucose: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
-  
-  anchors.appendOptional(payload.anchor)
-  
-  return (glucose,anchors)
-}
 
 func handleBloodPressure(
   healthKitStore: HKHealthStore,
@@ -663,29 +653,30 @@ func handleBloodPressure(
   return (bloodPressure: bloodPressure, anchors: anchors)
 }
 
-func handleHeartRate(
+func handleTimeSeries(
+  type: HKSampleType,
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (heartrate: [QuantitySample], anchors: [StoredAnchor]) {
+) async throws -> (samples: [QuantitySample], anchors: [StoredAnchor]) {
   
-  let heartRateType = HKSampleType.quantityType(forIdentifier: .heartRate)!
   let payload = try await query(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
-    type: heartRateType,
+    type: type,
     startDate: startDate,
     endDate: endDate
   )
   
   var anchors: [StoredAnchor] = []
-  let glucose: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
+  let samples: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
   
   anchors.appendOptional(payload.anchor)
   
-  return (glucose,anchors)
+  return (samples,anchors)
 }
+
 
 private func query(
   healthKitStore: HKHealthStore,

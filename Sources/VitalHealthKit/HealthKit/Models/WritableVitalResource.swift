@@ -1,0 +1,44 @@
+import HealthKit
+import VitalCore
+
+public enum DataInput {
+  case water(milliliters: Int)
+
+  var value: Int {
+    switch self {
+      case let .water(milliliters):
+        return milliliters
+    }
+  }
+  
+  var units: HKUnit {
+    return type.toHealthKitUnits
+  }
+  
+  var type: HKQuantityType {
+    let types = toHealthKitTypes(resource: resource)
+    guard let type = types.first as? HKQuantityType else {
+      fatalError("This is a developer error. No type for \(self)")
+    }
+    
+    return type
+  }
+  
+  var resource: VitalResource {
+    switch self {
+      case .water:
+        return .nutrition(.water)
+    }
+  }
+}
+
+public enum WritableVitalResource {
+  case water
+  
+  var toResource: VitalResource {
+    switch self {        
+      case .water:
+        return .nutrition(.water)
+    }
+  }
+}

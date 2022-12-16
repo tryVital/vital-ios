@@ -30,16 +30,6 @@
 		E8D7A95D283292E90039943E /* Libre1Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D7A95C283292E90039943E /* Libre1Connection.swift */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		E85A259927D6AAFA00B2212C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E85A257F27D6AAF900B2212C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E85A258A27D6AAFA00B2212C;
-			remoteInfo = "Example (iOS)";
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
 		E83CAEEC27F79BCF001EDB12 /* DevicesExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesExample.swift; sourceTree = "<group>"; };
 		E84BB65F2816C2280075327D /* LinkCreation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkCreation.swift; sourceTree = "<group>"; };
@@ -47,7 +37,6 @@
 		E85A258527D6AAF900B2212C /* HealthKitExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitExample.swift; sourceTree = "<group>"; };
 		E85A258627D6AAFA00B2212C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E85A258B27D6AAFA00B2212C /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E85A259827D6AAFA00B2212C /* Tests iOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Tests iOS.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E87E67E428A53E1100B9CAB3 /* vital-ios */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = "vital-ios"; path = ..; sourceTree = "<group>"; };
 		E891318C280458540049608B /* DateFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatter.swift; sourceTree = "<group>"; };
 		E8913191280464DC0049608B /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
@@ -75,13 +64,6 @@
 				E892239727D7A29F00733C13 /* HealthKit.framework in Frameworks */,
 				E8A286E127FC7BB400F1F1B1 /* ComposableArchitecture in Frameworks */,
 				E87E67E928A53E2600B9CAB3 /* VitalDevices in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E85A259527D6AAFA00B2212C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,7 +108,6 @@
 			isa = PBXGroup;
 			children = (
 				E85A258B27D6AAFA00B2212C /* Example.app */,
-				E85A259827D6AAFA00B2212C /* Tests iOS.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -222,24 +203,6 @@
 			productReference = E85A258B27D6AAFA00B2212C /* Example.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E85A259727D6AAFA00B2212C /* Tests iOS */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E85A25BA27D6AAFA00B2212C /* Build configuration list for PBXNativeTarget "Tests iOS" */;
-			buildPhases = (
-				E85A259427D6AAFA00B2212C /* Sources */,
-				E85A259527D6AAFA00B2212C /* Frameworks */,
-				E85A259627D6AAFA00B2212C /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E85A259A27D6AAFA00B2212C /* PBXTargetDependency */,
-			);
-			name = "Tests iOS";
-			productName = "Tests iOS";
-			productReference = E85A259827D6AAFA00B2212C /* Tests iOS.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -252,10 +215,6 @@
 				TargetAttributes = {
 					E85A258A27D6AAFA00B2212C = {
 						CreatedOnToolsVersion = 13.2.1;
-					};
-					E85A259727D6AAFA00B2212C = {
-						CreatedOnToolsVersion = 13.2.1;
-						TestTargetID = E85A258A27D6AAFA00B2212C;
 					};
 				};
 			};
@@ -278,7 +237,6 @@
 			projectRoot = "";
 			targets = (
 				E85A258A27D6AAFA00B2212C /* Example (iOS) */,
-				E85A259727D6AAFA00B2212C /* Tests iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -289,13 +247,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				E85A25B027D6AAFA00B2212C /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E85A259627D6AAFA00B2212C /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,22 +273,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E85A259427D6AAFA00B2212C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		E85A259A27D6AAFA00B2212C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E85A258A27D6AAFA00B2212C /* Example (iOS) */;
-			targetProxy = E85A259927D6AAFA00B2212C /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		E85A25B227D6AAFA00B2212C /* Debug */ = {
@@ -528,45 +464,6 @@
 			};
 			name = Release;
 		};
-		E85A25BB27D6AAFA00B2212C /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.vital.ios.example.Tests-iOS";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Example (iOS)";
-			};
-			name = Debug;
-		};
-		E85A25BC27D6AAFA00B2212C /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.vital.ios.example.Tests-iOS";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "Example (iOS)";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -584,15 +481,6 @@
 			buildConfigurations = (
 				E85A25B527D6AAFA00B2212C /* Debug */,
 				E85A25B627D6AAFA00B2212C /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		E85A25BA27D6AAFA00B2212C /* Build configuration list for PBXNativeTarget "Tests iOS" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E85A25BB27D6AAFA00B2212C /* Debug */,
-				E85A25BC27D6AAFA00B2212C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

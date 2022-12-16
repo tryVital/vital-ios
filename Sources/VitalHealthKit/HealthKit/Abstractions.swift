@@ -3,13 +3,16 @@ import VitalCore
 
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
-  var requestReadAuthorization: ([VitalResource]) async throws -> Void
+  
+  var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource]) async throws -> Void
+  
   var hasAskedForPermission: (VitalResource) -> Bool
   
   var toVitalResource: (HKSampleType) -> VitalResource
   
+  var writeInput: (DataInput, Date, Date) async throws -> Void
   var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData, [StoredAnchor])
-
+  
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void
   
@@ -71,6 +74,9 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .heartRate)!:
         return .vitals(.hearthRate)
         
+      case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
+        return .nutrition(.water)
+        
       default:
         fatalError("\(String(describing: self)) is not supported. This is a developer error")
     }
@@ -90,43 +96,64 @@ extension VitalHealthKitStore {
     }
     
     return .init {
-        HKHealthStore.isHealthDataAvailable()
-      } requestReadAuthorization: { resources in
-        let types = resources.flatMap(toHealthKitTypes)
-        try await store.__requestAuthorization(toShare: [], read: Set(types))
-      } hasAskedForPermission: { resource in
-        return hasAskedForPermission(resource)
-      } toVitalResource: { type in
-        return toVitalResource(type)
-      } readResource: { (resource, startDate, endDate, storage) in
-        try await read(
-          resource: resource,
-          healthKitStore: store,
-          typeToResource: toVitalResource,
-          vitalStorage: storage,
-          startDate: startDate,
-          endDate: endDate
-        )
-      } enableBackgroundDelivery: { (type, frequency, completion) in
-        store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
-      } disableBackgroundDelivery: {
-        try? await store.disableAllBackgroundDelivery()
-      } execute: { query in
-        store.execute(query)
-      } stop: { query in
-        store.stop(query)
+      HKHealthStore.isHealthDataAvailable()
+    } requestReadWriteAuthorization: { readResources, writeResources in
+      let readTypes = readResources.flatMap(toHealthKitTypes)
+      let writeTypes: [HKSampleType] = writeResources
+        .map(\.toResource)
+        .flatMap(toHealthKitTypes)
+        .compactMap { type in
+          type as? HKSampleType
+        }
+      
+      if #available(iOS 15.0, *) {
+        try await store.requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
+      } else {
+        try await store.__requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
       }
+      
+    } hasAskedForPermission: { resource in
+      return hasAskedForPermission(resource)
+    } toVitalResource: { type in
+      return toVitalResource(type)
+    } writeInput: { (dataInput, startDate, endDate) in
+      try await write(
+        healthKitStore: store,
+        dataInput: dataInput,
+        startDate: startDate,
+        endDate: endDate
+      )
+    } readResource: { (resource, startDate, endDate, storage) in
+      try await read(
+        resource: resource,
+        healthKitStore: store,
+        typeToResource: toVitalResource,
+        vitalStorage: storage,
+        startDate: startDate,
+        endDate: endDate
+      )
+    } enableBackgroundDelivery: { (type, frequency, completion) in
+      store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
+    } disableBackgroundDelivery: {
+      try? await store.disableAllBackgroundDelivery()
+    } execute: { query in
+      store.execute(query)
+    } stop: { query in
+      store.stop(query)
+    }
   }
   
   static var debug: VitalHealthKitStore {
     return .init {
       return true
-    } requestReadAuthorization: { _ in
+    } requestReadWriteAuthorization: { _, _ in
       return
     } hasAskedForPermission: { _ in
       true
     } toVitalResource: { sampleType in
       return .sleep
+    } writeInput: { (dataInput, startDate, endDate) in
+      return
     } readResource: { _,_,_,_  in
       return (ProcessedResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
@@ -180,10 +207,10 @@ extension VitalClientProtocol {
 }
 
 struct StatisticsQueryDependencies {
-
+  
   var executeStatisticalQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
   var executeSampleQuery: (Date, Date) async throws -> [HKSample]
-
+  
   var isFirstTimeSycingType: () -> Bool
   var isLegacyType: () -> Bool
   
@@ -208,7 +235,7 @@ struct StatisticsQueryDependencies {
       fatalError()
     }
   }
- 
+  
   static func live(
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage,
@@ -234,12 +261,12 @@ struct StatisticsQueryDependencies {
       
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
-
+        
         let values: [HKStatistics] = statistics?.statistics() ?? []
         let vitalStatistics = values.compactMap { statistics in
           VitalStatistics(statistics: statistics, type: type)
         }
-
+        
         handler(vitalStatistics, error)
       }
       
@@ -254,7 +281,7 @@ struct StatisticsQueryDependencies {
       
     } isLegacyType: {
       return vitalStorage.isLegacyType(for: key)
-
+      
     } vitalAnchorsForType: {
       return vitalStorage.read(key: key)?.vitalAnchors ?? []
       

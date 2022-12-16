@@ -21,7 +21,7 @@ class VitalHealthKitClientTests: XCTestCase {
     let value = VitalHealthKitClient(store: .debug)
     
     _ = value.hasAskedForPermission(resource: .body)
-    let permission = await value.ask(for: [.body])
+    let permission = await value.ask(readPermissions: [.body], writePermissions: [])
     
     XCTAssertEqual(permission, PermissionOutcome.success)
   }

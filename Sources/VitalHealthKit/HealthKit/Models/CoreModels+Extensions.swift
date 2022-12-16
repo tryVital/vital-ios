@@ -250,6 +250,9 @@ extension HKSampleType {
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
         return "mmHg"
         
+      case HKQuantityType.quantityType(forIdentifier: .dietaryWater)!:
+        return "mL"
+        
       default:
         fatalError("\(String(describing: self)) type not supported)")
     }
@@ -294,6 +297,9 @@ extension HKSampleType {
         
       case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
         return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
+        
+      case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
+        return .literUnit(with: .milli)
         
       case
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,

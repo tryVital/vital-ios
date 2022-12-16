@@ -10,6 +10,8 @@ struct HealthKitExample: View {
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
             
+            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water])
+            
             makePermissionRow("Profile", resources: [.profile])
             
             makePermissionRow("Body", resources: [.body])
@@ -21,10 +23,6 @@ struct HealthKitExample: View {
             makePermissionRow("Steps", resources: [.individual(.steps)])
             
             makePermissionRow("Workout", resources: [.workout])
-
-            makePermissionRow("Glucose", resources: [.vitals(.glucose)])
-            
-            makePermissionRow("BloodPressure", resources: [.vitals(.bloodPressure)])
             
             makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)])
 
@@ -33,6 +31,12 @@ struct HealthKitExample: View {
           }
           .buttonStyle(PlainButtonStyle())
         }
+        
+        Button("Add water 1L") {
+          Task {
+            try await VitalHealthKitClient.shared.write(input: .water(milliliters: 1000), startDate: Date(), endDate: Date())
+          }
+        }
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
@@ -40,7 +44,7 @@ struct HealthKitExample: View {
   }
 }
 
-@ViewBuilder func makePermissionRow(_ text: String, resources: [VitalResource]) -> some View {
+@ViewBuilder func makePermissionRow(_ text: String, resources: [VitalResource], writeResources: [WritableVitalResource] = []) -> some View {
   HStack {
     Text(text)
     Spacer()
@@ -52,10 +56,11 @@ struct HealthKitExample: View {
     } else {
       Button("Request Permission") {
         Task {
-          await VitalHealthKitClient.shared.ask(for: resources)
+          await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
         }
       }
       .buttonStyle(PermissionStyle())
     }
   }
 }
+
