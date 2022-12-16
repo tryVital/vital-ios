@@ -31,21 +31,15 @@ public enum DataInput {
     switch self {
       case .water:
         return .nutrition(.water)
-      case .coffee:
-        return .nutrition(.caffeine)
     }
   }
 }
 
 public enum WritableVitalResource {
-  case caffeine
   case water
   
   var toResource: VitalResource {
-    switch self {
-      case .caffeine:
-        return .nutrition(.caffeine)
-        
+    switch self {        
       case .water:
         return .nutrition(.water)
     }

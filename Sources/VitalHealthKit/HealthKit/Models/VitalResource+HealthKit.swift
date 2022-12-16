@@ -94,11 +94,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         .quantityType(forIdentifier: .dietaryWater)!
       ]
-      
-    case .nutrition(.caffeine):
-      return [
-        .quantityType(forIdentifier: .dietaryCaffeine)!
-      ]
   }
 }
 
@@ -140,7 +135,6 @@ func observedSampleTypes() -> [HKSampleType] {
     
     /// Nutrition
     HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
-    HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!
   ]
 }
 
