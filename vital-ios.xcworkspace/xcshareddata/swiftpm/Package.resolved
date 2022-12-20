@@ -23,9 +23,9 @@
         "package": "CombineCoreBluetooth",
         "repositoryURL": "https://github.com/StarryInternet/CombineCoreBluetooth.git",
         "state": {
-          "branch": "0.3.1",
-          "revision": "52ecaa2e7a94f9aff9c823532993cd266fd74c6a",
-          "version": null
+          "branch": null,
+          "revision": "05df53532ba6eee30df83a20dd22c447bc223f8a",
+          "version": "0.4.0"
         }
       },
       {
