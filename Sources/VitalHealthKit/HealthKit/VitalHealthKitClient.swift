@@ -367,12 +367,19 @@ extension VitalHealthKitClient {
         startDate: startDate,
         endDate: endDate
       )
-      
-      /// If it's historical, even if there's no data, we still push
-      /// If there's no data and it's daily, then we bailout.
-      guard data.shouldSkipPost == false || stage.isDaily == false else {
+
+      /// If there's no data, independently of the stage, we don't send data.
+      /// Currently the server is returning 4XX when sending an empty payload.
+      /// More context on VIT-2232.
+      if data.shouldSkipPost {
+        /// If it's historical, we store the entity and bailout
+        if stage.isDaily == false {
+          entitiesToStore.forEach(storage.store(entity:))
+        }
+
         logger?.info("Skipping. No new data available \(infix): \(description)")
         _status.send(.nothingToSync(resource))
+
         return
       }
       
