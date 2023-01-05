@@ -37,6 +37,16 @@ public struct CreateLinkResponse: Decodable {
   }
 }
 
+public struct CreateOAuthProviderResponse: Decodable {
+  public let name: String
+  public let slug: String
+  public let logo: String
+  public let description: String
+  public let oauthUrl: URL
+  public let authType: String
+  public let id: Int
+}
+
 
 public struct CreateEmailProviderRequest: Encodable {
   public let email: String

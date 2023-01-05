@@ -103,6 +103,22 @@ public extension VitalClient.Link {
       
     return url
   }
+
+  func createOAuthProvider(
+    provider: Provider,
+    redirectURL: String? = nil
+  ) async throws -> CreateOAuthProviderResponse {
+    let configuration = await self.client.configuration.get()
+
+    let path = "/\(configuration.apiVersion)/\(path)/provider/oauth/\(provider.rawValue)"
+
+    let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
+
+    let request: Request<CreateOAuthProviderResponse> = .init(path: path, method: .get, headers: ["x-vital-link-token": token])
+
+    let response = try await configuration.apiClient.send(request)
+    return response.value
+  }
   
   func createEmailProvider(
     email: String,
