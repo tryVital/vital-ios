@@ -231,6 +231,17 @@ func read(
       )
       
       return (.timeSeries(.nutrition(.water(payload.samples))), payload.anchors)
+
+    case .nutrition(.caffeine):
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .dietaryCaffeine)!,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+
+      return (.timeSeries(.nutrition(.caffeine(payload.samples))), payload.anchors)
   }
 }
 

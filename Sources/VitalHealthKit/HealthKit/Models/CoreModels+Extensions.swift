@@ -252,6 +252,9 @@ extension HKSampleType {
         
       case HKQuantityType.quantityType(forIdentifier: .dietaryWater)!:
         return "mL"
+
+      case HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!:
+        return "g"
         
       default:
         fatalError("\(String(describing: self)) type not supported)")
@@ -300,6 +303,9 @@ extension HKSampleType {
         
       case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
         return .literUnit(with: .milli)
+
+      case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
+        return .gram()
         
       case
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,

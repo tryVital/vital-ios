@@ -18,11 +18,14 @@ public enum VitalResource: Equatable, Hashable, Codable {
   
   public enum Nutrition: Equatable, Hashable, Codable {
     case water
+    case caffeine
     
     public var logDescription: String {
       switch self {
         case .water:
           return "water"
+        case .caffeine:
+          return "caffeine"
       }
     }
   }
@@ -90,6 +93,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .individual(.bodyFat),
     
     .nutrition(.water),
+    .nutrition(.caffeine),
   ]
   
   public var logDescription: String {
