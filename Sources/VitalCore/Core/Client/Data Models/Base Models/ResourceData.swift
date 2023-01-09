@@ -32,10 +32,13 @@ public enum ProcessedResourceData: Equatable, Encodable {
 
 public enum NutritionData: Equatable, Encodable {
   case water([QuantitySample])
+  case caffeine([QuantitySample])
   
   public var payload: Encodable {
     switch self {
       case let .water(dataPoints):
+        return dataPoints
+      case let .caffeine(dataPoints):
         return dataPoints
     }
   }
@@ -44,6 +47,8 @@ public enum NutritionData: Equatable, Encodable {
     switch self {
       case let .water(samples):
         return samples.isEmpty
+      case let .caffeine(samples):
+        return samples.isEmpty
     }
   }
   
@@ -51,6 +56,8 @@ public enum NutritionData: Equatable, Encodable {
     switch self {
       case .water:
         return "water"
+      case .caffeine:
+        return "caffeine"
     }
   }
 }
