@@ -11,6 +11,9 @@ struct HealthKitExample: View {
           VStack(spacing: 25) {
             
             makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water])
+
+            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
+
             
             makePermissionRow("Profile", resources: [.profile])
             
@@ -37,6 +40,13 @@ struct HealthKitExample: View {
             try await VitalHealthKitClient.shared.write(input: .water(milliliters: 1000), startDate: Date(), endDate: Date())
           }
         }
+
+        Button("Add caffeine 20g") {
+          Task {
+            try await VitalHealthKitClient.shared.write(input: .caffeine(grams: 20), startDate: Date(), endDate: Date())
+          }
+        }
+
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
