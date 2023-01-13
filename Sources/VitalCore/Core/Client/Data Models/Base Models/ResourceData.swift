@@ -67,6 +67,7 @@ public enum TimeSeriesData: Equatable, Encodable {
   case bloodPressure([BloodPressureSample])
   case heartRate([QuantitySample])
   case nutrition(NutritionData)
+  case mindfulSession([QuantitySample])
   
   
   public var payload: Encodable {
@@ -79,6 +80,8 @@ public enum TimeSeriesData: Equatable, Encodable {
         return dataPoints
       case let .nutrition(nutrition):
         return nutrition.payload
+      case let .mindfulSession(dataPoints):
+        return dataPoints
     }
   }
   
@@ -92,6 +95,8 @@ public enum TimeSeriesData: Equatable, Encodable {
         return samples.isEmpty
       case let .nutrition(nutrition):
         return nutrition.shouldSkipPost
+      case let .mindfulSession(dataPoints):
+        return dataPoints.isEmpty
     }
   }
   
@@ -105,6 +110,10 @@ public enum TimeSeriesData: Equatable, Encodable {
         return "heartrate"
       case let .nutrition(nutrition):
         return nutrition.name
+      case .mindfulSession:
+        /// This is the path used by the endpoint
+        /// so it needs to be `mindfulness_minutes` versus `mindful_session`.
+        return "mindfulness_minutes"
     }
   }
 }

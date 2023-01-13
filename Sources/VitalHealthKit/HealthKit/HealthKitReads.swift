@@ -242,7 +242,40 @@ func read(
       )
 
       return (.timeSeries(.nutrition(.caffeine(payload.samples))), payload.anchors)
+
+    case .vitals(.mindfulSession):
+      let payload = try await handleMindfulSessions(
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+
+      return (.timeSeries(.mindfulSession(payload.samples)), payload.anchors)
   }
+}
+
+func handleMindfulSessions(
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage,
+  startDate: Date,
+  endDate: Date
+) async throws -> (samples: [QuantitySample], anchors: [StoredAnchor]) {
+
+  var anchors: [StoredAnchor] = []
+
+  let payload = try await query(
+    healthKitStore: healthKitStore,
+    vitalStorage: vitalStorage,
+    type: .categoryType(forIdentifier: .mindfulSession)!,
+    startDate: startDate,
+    endDate: endDate
+  )
+
+  let samples = payload.sample.compactMap(QuantitySample.fromMindfulSession(sample:))
+  anchors.appendOptional(payload.anchor)
+
+  return (samples: samples, anchors: anchors)
 }
 
 func handleProfile(
