@@ -398,6 +398,8 @@ extension VitalHealthKitClient {
           transformedData,
           stage,
           .appleHealthKit,
+          /// We can't use `vitalCalendar` here. We want to send the user's timezone
+          /// rather than UTC (which is what `vitalCalendar` is set to).
           TimeZone.autoupdatingCurrent
         )
       } else {

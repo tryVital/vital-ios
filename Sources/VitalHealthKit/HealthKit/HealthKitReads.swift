@@ -337,7 +337,7 @@ func handleSleep(
   
   var predicate: NSPredicate?
   if #available(iOS 16.0, *) {
-    predicate = HKCategoryValueSleepAnalysis.predicateForSamples(equalTo: HKCategoryValueSleepAnalysis.allAsleepValues)
+    predicate = HKCategoryValueSleepAnalysis.predicateForSamples(equalTo: [.asleepUnspecified, .asleepCore, .asleepREM, .asleepDeep, .awake, .inBed])
   }
   
   let payload = try await query(
