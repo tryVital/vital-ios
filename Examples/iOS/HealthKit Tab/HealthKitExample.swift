@@ -9,6 +9,8 @@ struct HealthKitExample: View {
       Form {
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
+
+            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession])
             
             makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water])
 
@@ -22,8 +24,6 @@ struct HealthKitExample: View {
             makePermissionRow("Sleep", resources: [.sleep])
             
             makePermissionRow("Activity", resources: [.activity])
-            
-            makePermissionRow("Steps", resources: [.individual(.steps)])
             
             makePermissionRow("Workout", resources: [.workout])
             
@@ -46,6 +46,13 @@ struct HealthKitExample: View {
             try await VitalHealthKitClient.shared.write(input: .caffeine(grams: 20), startDate: Date(), endDate: Date())
           }
         }
+
+        Button("Add mindfuless minutes 10m") {
+          Task {
+            try await VitalHealthKitClient.shared.write(input: .mindfulSession, startDate: Date().addingTimeInterval(-(60 * 60)), endDate: Date())
+          }
+        }
+
 
       }
       .listStyle(GroupedListStyle())

@@ -388,3 +388,24 @@ extension QuantitySample {
     )
   }
 }
+
+extension QuantitySample {
+  static func fromMindfulSession(sample: HKSample) -> QuantitySample? {
+
+    guard let minutes = Date.differenceInMinutes(startDate: sample.startDate, endDate: sample.endDate) else {
+      return nil
+    }
+
+    return self.init(
+      id: sample.uuid.uuidString,
+      value: Double(minutes),
+      startDate: sample.startDate,
+      endDate: sample.endDate,
+      sourceBundle: sample.sourceRevision.source.bundleIdentifier,
+      productType: sample.sourceRevision.productType,
+      type: "automatic",
+      unit: "minute"
+    )
+  }
+}
+

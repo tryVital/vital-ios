@@ -99,6 +99,11 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         .quantityType(forIdentifier: .dietaryCaffeine)!
       ]
+
+    case .vitals(.mindfulSession):
+      return [
+        .categoryType(forIdentifier: .mindfulSession)!
+      ]
   }
 }
 
@@ -129,6 +134,9 @@ func observedSampleTypes() -> [HKSampleType] {
     /// Vitals Glucose
     HKSampleType.quantityType(forIdentifier: .bloodGlucose)!,
 
+    /// Mindfuless Minutes
+    HKSampleType.categoryType(forIdentifier: .mindfulSession)!,
+
     /// Vitals BloodPressure
     /// We only need to observe one, we know the other will be present. If we observe both,
     /// we are triggering the observer twice.
@@ -140,7 +148,10 @@ func observedSampleTypes() -> [HKSampleType] {
     
     /// Nutrition
     HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
-    HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!
+    HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!,
+
+    /// Mindfulness Minutes
+    HKSampleType.categoryType(forIdentifier: .mindfulSession)!
   ]
 }
 

@@ -79,6 +79,9 @@ extension VitalHealthKitStore {
 
       case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
         return .nutrition(.caffeine)
+
+      case HKSampleType.categoryType(forIdentifier: .mindfulSession)!:
+        return .vitals(.mindfulSession)
         
       default:
         fatalError("\(String(describing: self)) is not supported. This is a developer error")

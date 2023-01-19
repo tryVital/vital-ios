@@ -4,6 +4,7 @@ import VitalCore
 public enum DataInput {
   case water(milliliters: Int)
   case caffeine(grams: Int)
+  case mindfulSession
 
   var value: Int {
     switch self {
@@ -12,6 +13,9 @@ public enum DataInput {
 
       case let .caffeine(grams: grams):
         return grams
+
+      case .mindfulSession:
+        fatalError("mindful session has no data associated with")
     }
   }
   
@@ -30,6 +34,8 @@ public enum DataInput {
   
   var resource: VitalResource {
     switch self {
+      case .mindfulSession:
+        return .vitals(.mindfulSession)
       case .water:
         return .nutrition(.water)
       case .caffeine:
@@ -41,6 +47,7 @@ public enum DataInput {
 public enum WritableVitalResource {
   case water
   case caffeine
+  case mindfulSession
   
   var toResource: VitalResource {
     switch self {        
@@ -48,6 +55,8 @@ public enum WritableVitalResource {
         return .nutrition(.water)
       case .caffeine:
         return .nutrition(.caffeine)
+      case .mindfulSession:
+        return .vitals(.mindfulSession)
     }
   }
 }

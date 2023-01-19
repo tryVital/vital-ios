@@ -71,3 +71,10 @@ extension Date {
     return date
   }
 }
+
+extension Date {
+  static func differenceInMinutes(startDate: Date, endDate: Date) -> Int? {
+    let components = vitalCalendar.dateComponents([.minute], from: startDate, to: endDate)
+    return components.minute
+  }
+}
