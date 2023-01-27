@@ -59,7 +59,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       ]
       
     case .activity:
-      
       return toHealthKitTypes(resource: .individual(.steps)) +
       toHealthKitTypes(resource: .individual(.floorsClimbed)) +
       toHealthKitTypes(resource: .individual(.basalEnergyBurned)) +
@@ -104,6 +103,11 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         .categoryType(forIdentifier: .mindfulSession)!
       ]
+
+    case .vitals(.heartRateVariability):
+      return [
+        .quantityType(forIdentifier: .heartRateVariabilitySDNN)!
+      ]
   }
 }
 
@@ -145,6 +149,7 @@ func observedSampleTypes() -> [HKSampleType] {
     
     /// Vitals Heartrate
     HKSampleType.quantityType(forIdentifier: .heartRate)!,
+    HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
     
     /// Nutrition
     HKSampleType.quantityType(forIdentifier: .dietaryWater)!,

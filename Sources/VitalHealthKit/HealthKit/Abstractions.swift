@@ -70,9 +70,11 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
         return .vitals(.bloodPressure)
         
-      case
-        HKSampleType.quantityType(forIdentifier: .heartRate)!:
+      case HKSampleType.quantityType(forIdentifier: .heartRate)!:
         return .vitals(.hearthRate)
+
+      case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
+        return .vitals(.heartRateVariability)
         
       case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
         return .nutrition(.water)
@@ -82,9 +84,9 @@ extension VitalHealthKitStore {
 
       case HKSampleType.categoryType(forIdentifier: .mindfulSession)!:
         return .vitals(.mindfulSession)
-        
+
       default:
-        fatalError("\(String(describing: self)) is not supported. This is a developer error")
+        fatalError("\(String(describing: type)) is not supported. This is a developer error")
     }
   }
   

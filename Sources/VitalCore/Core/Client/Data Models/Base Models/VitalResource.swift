@@ -3,6 +3,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case glucose
     case bloodPressure
     case hearthRate
+    case heartRateVariability
     case mindfulSession
     
     public var logDescription: String {
@@ -13,6 +14,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
           return "bloodPressure"
         case .hearthRate:
           return "hearthRate"
+        case .heartRateVariability:
+          return "heartRateVariability"
         case .mindfulSession:
           return "mindfulSession"
       }
@@ -85,6 +88,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .vitals(.glucose),
     .vitals(.bloodPressure),
     .vitals(.hearthRate),
+    .vitals(.heartRateVariability),
     .vitals(.mindfulSession),
     
     .individual(.steps),
