@@ -210,6 +210,17 @@ func read(
       )
       
       return (.timeSeries(.heartRate(payload.samples)), payload.anchors)
+
+    case .vitals(.heartRateVariability):
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+
+      return (.timeSeries(.heartRateVariability(payload.samples)), payload.anchors)
       
     case .vitals(.bloodPressure):
       let payload = try await handleBloodPressure(

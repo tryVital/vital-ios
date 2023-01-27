@@ -45,6 +45,26 @@ class VitalHealthKitReadsTests: XCTestCase {
     XCTAssertEqual(mergeSleeps(sleeps: [sleep, sleep1, sleep2, sleep3, sleep4]).count, 3)
   }
 
+  func testMerge_overlappingSleeps() {
+    let sleep = SleepPatch.Sleep(
+      startDate: Date("2023-01-26 05:01:16"),
+      endDate: Date("2023-01-26 12:21:16"),
+      sourceBundle: "com.apple.health",
+      productType: "product"
+    )
+
+    let sleep1 = SleepPatch.Sleep(
+      startDate: Date("2023-01-26 04:54:16"),
+      endDate: Date("2023-01-26 12:21:16"),
+      sourceBundle: "com.apple.health",
+      productType: "product"
+    )
+
+    XCTAssertEqual(mergeSleeps(sleeps: [sleep, sleep1]).count, 1)
+    XCTAssertEqual(mergeSleeps(sleeps: [sleep1, sleep]).count, 1)
+
+  }
+
   
   func testStichSleep_overlap() {
 

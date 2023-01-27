@@ -66,6 +66,7 @@ public enum TimeSeriesData: Equatable, Encodable {
   case glucose([QuantitySample])
   case bloodPressure([BloodPressureSample])
   case heartRate([QuantitySample])
+  case heartRateVariability([QuantitySample])
   case nutrition(NutritionData)
   case mindfulSession([QuantitySample])
   
@@ -77,6 +78,8 @@ public enum TimeSeriesData: Equatable, Encodable {
       case let .bloodPressure(dataPoints):
         return dataPoints
       case let .heartRate(dataPoints):
+        return dataPoints
+      case let .heartRateVariability(dataPoints):
         return dataPoints
       case let .nutrition(nutrition):
         return nutrition.payload
@@ -93,6 +96,8 @@ public enum TimeSeriesData: Equatable, Encodable {
         return samples.isEmpty
       case let .heartRate(samples):
         return samples.isEmpty
+      case let .heartRateVariability(samples):
+        return samples.isEmpty
       case let .nutrition(nutrition):
         return nutrition.shouldSkipPost
       case let .mindfulSession(dataPoints):
@@ -108,6 +113,8 @@ public enum TimeSeriesData: Equatable, Encodable {
         return "glucose"
       case .heartRate:
         return "heartrate"
+      case .heartRateVariability:
+        return "heartrate_variability"
       case let .nutrition(nutrition):
         return nutrition.name
       case .mindfulSession:
