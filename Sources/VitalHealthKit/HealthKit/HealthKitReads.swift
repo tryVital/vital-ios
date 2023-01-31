@@ -295,12 +295,14 @@ func handleProfile(
   
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
-  
-  var components = try healthKitStore.dateOfBirthComponents()
-  components.timeZone = TimeZone(secondsFromGMT: 0)
-  
-  let dateOfBirth = components.date!
-  
+
+  var components = try healthKitStore.patched_dateOfBirthComponents()
+  components?.timeZone = TimeZone(secondsFromGMT: 0)
+  // HealthKit promises that the returned components respect Grogorian calendar.
+  components?.calendar = Calendar(identifier: .gregorian)
+
+  let dateOfBirth = components?.date
+
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
