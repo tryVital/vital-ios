@@ -297,11 +297,7 @@ func handleProfile(
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
 
   var components = try healthKitStore.patched_dateOfBirthComponents()
-  components?.timeZone = TimeZone(secondsFromGMT: 0)
-  // HealthKit promises that the returned components respect Grogorian calendar.
-  components?.calendar = Calendar(identifier: .gregorian)
-
-  let dateOfBirth = components?.date
+  let dateOfBirth = vitalCalendar.date(from: components)
 
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
