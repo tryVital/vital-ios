@@ -296,8 +296,8 @@ func handleProfile(
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
 
-  var components = try healthKitStore.patched_dateOfBirthComponents()
-  let dateOfBirth = vitalCalendar.date(from: components)
+  let dateOfBirth = try healthKitStore.patched_dateOfBirthComponents()
+    .flatMap(vitalCalendar.date(from:))
 
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
