@@ -19,7 +19,7 @@ private func read(
   typeToResource: ((HKSampleType) -> VitalResource),
   startDate: Date,
   endDate: Date
-) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   func queryQuantities(
     type: HKSampleType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
@@ -119,7 +119,7 @@ func read(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
   switch resource {
     case .individual:
@@ -144,10 +144,16 @@ func read(
       
     case .profile:
       let profilePayload = try await handleProfile(
-        healthKitStore: healthKitStore
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage
       )
-      
-      return (.summary(.profile(profilePayload)), [])
+
+      if let patch = profilePayload.profilePatch {
+        return (.summary(.profile(patch)), profilePayload.anchors)
+      } else {
+        return (nil, [])
+      }
+
       
     case .body:
       let payload = try await handleBody(
@@ -290,17 +296,25 @@ func handleMindfulSessions(
 }
 
 func handleProfile(
-  healthKitStore: HKHealthStore
-) async throws -> ProfilePatch {
-  
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage
+) async throws -> (profilePatch: ProfilePatch?, anchors: [StoredAnchor]) {
+
+  let storage_key = "profile"
+
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
-  
-  var components = try healthKitStore.dateOfBirthComponents()
-  components.timeZone = TimeZone(secondsFromGMT: 0)
-  
-  let dateOfBirth = components.date!
-  
+  let dateOfBirth: Date?
+
+  do {
+    var components = try healthKitStore.dateOfBirthComponents()
+    components.timeZone = TimeZone(secondsFromGMT: 0)
+    dateOfBirth = components.date
+  } catch {
+    /// if the date of birth is not set an exception is triggered
+    dateOfBirth = nil
+  }
+
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
@@ -310,10 +324,24 @@ func handleProfile(
   
   let height = payload.last.map { Int($0.value)}
   
-  return .init(
+  let profile: ProfilePatch = .init(
     biologicalSex: biologicalSex,
     dateOfBirth: dateOfBirth,
-    height: height
+    height: height,
+    timeZone: TimeZone.autoupdatingCurrent.identifier
+  )
+  let id = profile.id.sha256()
+
+  let anchor = vitalStorage.read(key: storage_key)
+  let storedId = anchor?.vitalAnchors?.first?.id
+
+  guard let id = id, storedId != id else {
+    return (profilePatch: nil, anchors: [])
+  }
+
+  return (
+    profilePatch: profile,
+    anchors: [.init(key: storage_key, anchor: nil, date: Date(), vitalAnchors: [.init(id: id)])]
   )
 }
 

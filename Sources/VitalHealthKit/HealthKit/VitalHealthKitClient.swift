@@ -353,7 +353,7 @@ extension VitalHealthKitClient {
       _status.send(.syncing(resource))
       
       // Fetch from HealthKit
-      let (data, entitiesToStore): (ProcessedResourceData, [StoredAnchor])
+      let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
         resource,
@@ -368,10 +368,11 @@ extension VitalHealthKitClient {
         endDate: endDate
       )
 
-      /// If there's no data, independently of the stage, we don't send data.
-      /// Currently the server is returning 4XX when sending an empty payload.
-      /// More context on VIT-2232.
-      if data.shouldSkipPost {
+      guard let data = data, data.shouldSkipPost == false else {
+        /// If there's no data, independently of the stage, we won't send it.
+        /// Currently the server is returning 4XX when sending an empty payload.
+        /// More context on VIT-2232.
+
         /// If it's historical, we store the entity and bailout
         if stage.isDaily == false {
           entitiesToStore.forEach(storage.store(entity:))
@@ -482,7 +483,7 @@ extension VitalHealthKitClient {
 }
 
 extension VitalHealthKitClient {
-  public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData {
+  public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData? {
     let store = HKHealthStore()
     
     let hasAskedForPermission: (VitalResource) -> Bool = { resource in
@@ -495,7 +496,7 @@ extension VitalHealthKitClient {
       return VitalHealthKitStore.sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
     }
     
-    let (data, _): (ProcessedResourceData, [StoredAnchor]) = try await VitalHealthKit.read(
+    let (data, _): (ProcessedResourceData?, [StoredAnchor]) = try await VitalHealthKit.read(
       resource: resource,
       healthKitStore: store,
       typeToResource: toVitalResource,
@@ -503,8 +504,12 @@ extension VitalHealthKitClient {
       startDate: startDate,
       endDate: endDate
     )
-    
-    return transform(data: data, calendar: vitalCalendar)
+
+    if let data = data {
+      return transform(data: data, calendar: vitalCalendar)
+    }
+
+    return nil
   }
 }
 
