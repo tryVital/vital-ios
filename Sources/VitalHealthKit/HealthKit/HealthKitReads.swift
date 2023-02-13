@@ -304,16 +304,9 @@ func handleProfile(
 
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
-  let dateOfBirth: Date?
 
-  do {
-    var components = try healthKitStore.dateOfBirthComponents()
-    components.timeZone = TimeZone(secondsFromGMT: 0)
-    dateOfBirth = components.date
-  } catch {
-    /// if the date of birth is not set an exception is triggered
-    dateOfBirth = nil
-  }
+  let dateOfBirth = try healthKitStore.patched_dateOfBirthComponents()
+    .flatMap(vitalCalendar.date(from:))
 
   let payload: [QuantitySample] = try await querySample(
     healthKitStore: healthKitStore,

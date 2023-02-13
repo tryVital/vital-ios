@@ -1,7 +1,8 @@
 import Foundation
 
+/// UTC Gregorian calendar for standard statistical queries.
 let vitalCalendar: Calendar = {
-  var calendar = Calendar.autoupdatingCurrent
+  var calendar = Calendar(identifier: .gregorian)
   calendar.timeZone = TimeZone(abbreviation: "UTC")!
   return calendar
 }()

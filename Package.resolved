@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/StarryInternet/CombineCoreBluetooth.git",
         "state": {
           "branch": null,
-          "revision": "52ecaa2e7a94f9aff9c823532993cd266fd74c6a",
-          "version": "0.3.1"
+          "revision": "05df53532ba6eee30df83a20dd22c447bc223f8a",
+          "version": "0.4.0"
         }
       },
       {
@@ -15,8 +15,8 @@
         "repositoryURL": "https://github.com/WeTransfer/Mocker.git",
         "state": {
           "branch": null,
-          "revision": "e7165fb0378193c6784f1d46a9ab2b6184c384fa",
-          "version": "2.7.0"
+          "revision": "5d86f27a8f80d4ba388bc1a379a3c2289a1f3d18",
+          "version": "2.6.0"
         }
       }
     ]
