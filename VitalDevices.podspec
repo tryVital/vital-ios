@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name = 'VitalDevices'
-    s.version = '0.7.15'
+    s.version = '0.7.16'
     s.license = 'GPL v3.0'
     s.summary = 'The official Swift Library for Vital API, HealthKit and Devices'
     s.homepage = 'https://github.com/tryVital/vital-ios'
@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
     s.source_files = 'Sources/VitalDevices/**/*.swift'
     s.frameworks = ['CoreNFC', 'AVFoundation', 'CoreBluetooth', 'Combine', 'CryptoKit']
     
-    s.dependency 'VitalCore', '~> 0.7.15'
+    s.dependency 'VitalCore', '~> 0.7.16'
     s.dependency 'CombineCoreBluetooth', '~> 0.3.1'
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
