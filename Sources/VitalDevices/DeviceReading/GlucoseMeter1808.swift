@@ -17,27 +17,64 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   
   init(manager: CentralManager = .live(), queue: DispatchQueue) {
     self.manager = manager
-    self.queue = queue    
+    self.queue = DispatchQueue(label: "co.tryvital.VitalDevices.GlucoseMeter1808", target: queue)
   }
-  
-  public func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
+
+  func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
     return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<[QuantitySample], Error> in
-      
-      let measurementCharacteristic = characteristics.first { $0.uuid == measurementCharacteristicUUID }
-      let RACPCharacteristic = characteristics.first { $0.uuid == RACPCharacteristicUUID }
-      
-      let write = peripheral.writeValue(Data([1, 1]), for: RACPCharacteristic!, type: .withResponse)
-      
-      return write.flatMapLatest { _ in
-        peripheral.listenForUpdates(on: measurementCharacteristic!)
+        guard
+          let measurementCharacteristic = characteristics.first(where: { $0.uuid == measurementCharacteristicUUID }),
+          let RACPCharacteristic = characteristics.first(where: { $0.uuid == RACPCharacteristicUUID })
+        else {
+          return Fail(outputType: [QuantitySample].self, failure: BluetoothError(message: "Missing required characteristics."))
+            .eraseToAnyPublisher()
+        }
+        var cancellables: Set<AnyCancellable> = []
+
+        let write = peripheral.writeValue(Data([1, 1]), for: RACPCharacteristic, type: .withResponse)
+
+        let racpResponse = CurrentValueSubject<RACPResponse?, Error>(nil)
+        let racpSuccessOrFailure = racpResponse.compactMap { $0 }.first().tryMap { response in
+          switch response {
+          case .success, .noRecordsFound:
+            return ()
+          case .notCompleted, .unknown, .invalidPayloadStructure:
+            throw BluetoothRACPError(code: response.code)
+          }
+        }
+
+        // (1) We first start listening for measurement notifications
+        return peripheral
+          .listenForUpdates(on: measurementCharacteristic)
           .compactMap(toGlucoseReading)
-      }
-      .collect(.byTimeOrCount(self.queue, 3.0, 50))
-      .eraseToAnyPublisher()
+          .prefix(untilOutputFrom: racpSuccessOrFailure)
+          .collect()
+          .handleEvents(
+            receiveSubscription: { _ in
+              // (2) We then start listening for RACP response indication
+              peripheral
+                .listenForUpdates(on: RACPCharacteristic)
+                .map { $0.map(RACPResponse.init) ?? .invalidPayloadStructure }
+                .subscribe(racpResponse)
+                .store(in: &cancellables)
+
+              // (3) We finally write to RACP to initiate the Load All Records operation.
+              write
+                .sink(receiveCompletion: { _ in }, receiveValue: {})
+                .store(in: &cancellables)
+            },
+            receiveCompletion: { _ in
+              cancellables.forEach { $0.cancel() }
+            },
+            receiveCancel: {
+              cancellables.forEach { $0.cancel() }
+            }
+          )
+          .eraseToAnyPublisher()
     }
   }
-  
-  public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
+
+  func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
     _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
   }
   
@@ -46,7 +83,7 @@ class GlucoseMeter1808: GlucoseMeterReadable {
       .didUpdateState.filter { state in
         state == .poweredOn
       }
-      .mapError { $0 as Error }
+      .mapError { _ -> Error in }
       .eraseToAnyPublisher()
     
     if manager.state == .poweredOn {
@@ -57,7 +94,7 @@ class GlucoseMeter1808: GlucoseMeterReadable {
         RACPCharacteristicUUID: RACPCharacteristicUUID
       )
     } else {
-      return isOn.flatMapLatest{[manager] _ in
+      return isOn.flatMapLatest { [manager] _ in
         return GlucoseMeter1808._pair(
           manager: manager,
           device: device,
@@ -89,8 +126,8 @@ class GlucoseMeter1808: GlucoseMeterReadable {
           }
           let second = peripheral.setNotifyValue(true, for: characteristics[1])
           let first = peripheral.setNotifyValue(true, for: characteristics[0])
-          
-          let zipped = first.zip(second).eraseToAnyPublisher()
+
+          let zipped = first.zip(second).first().eraseToAnyPublisher()
           
           return zipped.map { _ in
             return (peripheral, characteristics)
@@ -103,21 +140,28 @@ class GlucoseMeter1808: GlucoseMeterReadable {
 }
 
 private func toGlucoseReading(data: Data?) -> QuantitySample? {
-  guard let data = data else {
+  guard let data = data, data.count >= 10 else {
     return nil
   }
-  
-  let byteArrayFromData: [UInt8] = [UInt8](data)
-//  let record: UInt16 = [byteArrayFromData[1], byteArrayFromData[2]].withUnsafeBytes { $0.load(as: UInt16.self) }
-  
-  let year: UInt16 = [byteArrayFromData[3], byteArrayFromData[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
-  let month = byteArrayFromData[5]
-  let day = byteArrayFromData[6]
-  let hour = byteArrayFromData[7]
-  let minute = byteArrayFromData[8]
-  let second = byteArrayFromData[9]
-  let timeOff = [byteArrayFromData[10], byteArrayFromData[11]].withUnsafeBytes { $0.load(as: UInt16.self) }
-  
+
+  let bytes: [UInt8] = [UInt8](data)
+
+  let flags: UInt8 = bytes[0]
+  let isUnitMolL = (flags & 0x04) != 0
+  let isGlucoseDataPresent = (flags & 0x02) != 0
+  let isTimeOffsetPresent = (flags & 0x01) != 0
+
+  guard isGlucoseDataPresent else { return nil }
+
+  let sequenceNumber: UInt16 = (UInt16(bytes[2]) << 8) | UInt16(bytes[1])
+
+  let year: UInt16 = [bytes[3], bytes[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
+  let month = bytes[5]
+  let day = bytes[6]
+  let hour = bytes[7]
+  let minute = bytes[8]
+  let second = bytes[9]
+
   let components = DateComponents(
     year: Int(year),
     month: Int(month),
@@ -126,18 +170,40 @@ private func toGlucoseReading(data: Data?) -> QuantitySample? {
     minute: Int(minute),
     second: Int(second)
   )
-  
+
   let calendar = Calendar.current
-  let date = calendar.date(from: components) ?? .init()
-  let correctedDate = calendar.date(byAdding: .minute, value:  Int(timeOff), to: date) ?? .init()
-  
-  let glucose = byteArrayFromData[12]
-  
+  var date = calendar.date(from: components) ?? .init()
+
+  var offset = 10
+
+  if isTimeOffsetPresent {
+    let timeOffset = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
+    date = calendar.date(byAdding: .minute, value: Int(timeOffset), to: date) ?? .init()
+    offset += 2
+  }
+
+  let glucoseSFloat = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
+  offset += 2
+
+  // BLE Glucose Service spec: either kg/L or mol/L.
+  let deviceValue = SFloat.read(data: glucoseSFloat)
+  let value: Double
+  let unit: String
+
+  if isUnitMolL { // mol/L
+    value = deviceValue * 1000
+    unit = "mmol/L"
+  } else { // kg/L
+    value = deviceValue * 100000
+    unit = "mg/dL"
+  }
+
   return QuantitySample(
-    value: Double(glucose),
-    startDate: correctedDate,
-    endDate: correctedDate,
+    id: "\(sequenceNumber)",
+    value: value,
+    startDate: date,
+    endDate: date,
     type: "fingerprick",
-    unit: "mg/dL"
+    unit: unit
   )
 }

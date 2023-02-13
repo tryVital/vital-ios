@@ -122,10 +122,17 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       let brand = state.device.brand
       state.status = .searching
       
-      let createConnectedSource = Effect<Void, Error>.task {
+      let createConnectedSource = Effect<DeviceConnection.Action?, Never>.task {
         let provider = DevicesManager.provider(for: brand)
-        try await VitalClient.shared.link.createConnectedSource(for: provider)
+        do {
+          try await VitalClient.shared.link.createConnectedSource(for: provider)
+        } catch let error {
+          return DeviceConnection.Action.pairingFailed("Failed to create connected source: \(error)")
+        }
+        return nil
       }
+      .compactMap { $0 }
+      .eraseToEffect()
       
       let search = env.deviceManager.search(for: state.device)
         .first()
@@ -133,7 +140,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .receive(on: env.mainQueue)
         .eraseToEffect()
       
-      return Effect.concatenate(createConnectedSource.fireAndForget(), search)
+      return Effect.concatenate(createConnectedSource, search)
       
     case let .scannedDevice(device):
       state.status = .found
