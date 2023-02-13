@@ -300,7 +300,7 @@ func handleProfile(
   vitalStorage: VitalHealthKitStorage
 ) async throws -> (profilePatch: ProfilePatch?, anchors: [StoredAnchor]) {
 
-  let storage_key = "profile"
+  let storageKey = "profile"
 
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
@@ -325,7 +325,7 @@ func handleProfile(
   )
   let id = profile.id
 
-  let anchor = vitalStorage.read(key: storage_key)
+  let anchor = vitalStorage.read(key: storageKey)
   let storedId = anchor?.vitalAnchors?.first?.id
 
   guard let id = id, storedId != id else {
@@ -334,7 +334,7 @@ func handleProfile(
 
   return (
     profilePatch: profile,
-    anchors: [.init(key: storage_key, anchor: nil, date: Date(), vitalAnchors: [.init(id: id)])]
+    anchors: [.init(key: storageKey, anchor: nil, date: Date(), vitalAnchors: [.init(id: id)])]
   )
 }
 
