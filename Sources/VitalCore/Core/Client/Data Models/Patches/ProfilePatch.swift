@@ -24,15 +24,6 @@ public struct ProfilePatch: Equatable, Encodable, Hashable {
     self.height = height
     self.timeZone = timeZone
   }
-
-  public var id: String {
-    let biologicalSex = String(describing: self.biologicalSex?.rawValue)
-    let dateOfBirth = String(describing: self.dateOfBirth)
-    let height = String(describing: self.height?.description)
-    let timeZone = String(describing: self.timeZone)
-
-    return "\(biologicalSex)_\(dateOfBirth)_\(height)_\(timeZone)"
-  }
 }
 
 

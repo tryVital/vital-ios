@@ -323,7 +323,7 @@ func handleProfile(
     height: height,
     timeZone: TimeZone.autoupdatingCurrent.identifier
   )
-  let id = profile.id.sha256()
+  let id = profile.id
 
   let anchor = vitalStorage.read(key: storage_key)
   let storedId = anchor?.vitalAnchors?.first?.id
