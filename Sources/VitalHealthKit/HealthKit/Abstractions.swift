@@ -11,7 +11,7 @@ struct VitalHealthKitStore {
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
-  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData, [StoredAnchor])
+  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData?, [StoredAnchor])
   
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void

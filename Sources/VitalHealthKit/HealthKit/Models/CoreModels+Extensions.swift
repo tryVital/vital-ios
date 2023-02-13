@@ -409,3 +409,13 @@ extension QuantitySample {
   }
 }
 
+extension ProfilePatch {
+  var id: String? {
+    let biologicalSex = String(describing: self.biologicalSex?.rawValue)
+    let dateOfBirth = String(describing: self.dateOfBirth)
+    let height = String(describing: self.height?.description)
+    let timeZone = String(describing: self.timeZone)
+
+    return "\(biologicalSex)_\(dateOfBirth)_\(height)_\(timeZone)".sha256()
+  }
+}

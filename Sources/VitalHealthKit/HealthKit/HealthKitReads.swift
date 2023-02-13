@@ -19,7 +19,7 @@ private func read(
   typeToResource: ((HKSampleType) -> VitalResource),
   startDate: Date,
   endDate: Date
-) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   func queryQuantities(
     type: HKSampleType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
@@ -119,7 +119,7 @@ func read(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
   switch resource {
     case .individual:
@@ -144,10 +144,16 @@ func read(
       
     case .profile:
       let profilePayload = try await handleProfile(
-        healthKitStore: healthKitStore
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage
       )
-      
-      return (.summary(.profile(profilePayload)), [])
+
+      if let patch = profilePayload.profilePatch {
+        return (.summary(.profile(patch)), profilePayload.anchors)
+      } else {
+        return (nil, [])
+      }
+
       
     case .body:
       let payload = try await handleBody(
@@ -290,9 +296,12 @@ func handleMindfulSessions(
 }
 
 func handleProfile(
-  healthKitStore: HKHealthStore
-) async throws -> ProfilePatch {
-  
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage
+) async throws -> (profilePatch: ProfilePatch?, anchors: [StoredAnchor]) {
+
+  let storageKey = "profile"
+
   let sex = try healthKitStore.biologicalSex().biologicalSex
   let biologicalSex = ProfilePatch.BiologicalSex(healthKitSex: sex)
 
@@ -308,10 +317,24 @@ func handleProfile(
   
   let height = payload.last.map { Int($0.value)}
   
-  return .init(
+  let profile: ProfilePatch = .init(
     biologicalSex: biologicalSex,
     dateOfBirth: dateOfBirth,
-    height: height
+    height: height,
+    timeZone: TimeZone.autoupdatingCurrent.identifier
+  )
+  let id = profile.id
+
+  let anchor = vitalStorage.read(key: storageKey)
+  let storedId = anchor?.vitalAnchors?.first?.id
+
+  guard let id = id, storedId != id else {
+    return (profilePatch: nil, anchors: [])
+  }
+
+  return (
+    profilePatch: profile,
+    anchors: [.init(key: storageKey, anchor: nil, date: Date(), vitalAnchors: [.init(id: id)])]
   )
 }
 
