@@ -17,7 +17,7 @@ class GlucoseMeter1808: GlucoseMeterReadable {
   
   init(manager: CentralManager = .live(), queue: DispatchQueue) {
     self.manager = manager
-    self.queue = DispatchQueue(label: "co.tryvital.VitalDevices.GlucoseMeter1808", target: queue)
+    self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.GlucoseMeter1808", target: queue)
   }
 
   func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
@@ -140,6 +140,9 @@ class GlucoseMeter1808: GlucoseMeterReadable {
 }
 
 private func toGlucoseReading(data: Data?) -> QuantitySample? {
+  /// Record size is minimum 10 bytes (all mandatory fields)
+  /// Size can vary based on flags encoded in the first byte.
+  /// Refer to Bluetooth Glucose Service specification for more information.
   guard let data = data, data.count >= 10 else {
     return nil
   }
