@@ -41,10 +41,11 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
   let date = Calendar.current.date(from: components) ?? .init()
   
   let pulseRate: UInt16 = [byteArrayFromData[14], byteArrayFromData[15]].withUnsafeBytes { $0.load(as: UInt16.self) }
-  
-  let systolicSample = QuantitySample(value: Double(systolic), startDate: date, endDate: date, type: "cuff", unit: units)
-  let diastolicSample = QuantitySample(value: Double(diastolic), startDate: date, endDate: date, type: "cuff", unit: units)
-  let pulseSample = QuantitySample(value: Double(pulseRate), startDate: date, endDate: date, type: "cuff", unit: "bpm")
+
+  let idPrefix = "\(date.timeIntervalSince1970.rounded())-"
+  let systolicSample = QuantitySample(id: "\(idPrefix)systolic", value: Double(systolic), startDate: date, endDate: date, type: "cuff", unit: units)
+  let diastolicSample = QuantitySample(id: "\(idPrefix)diastolic", value: Double(diastolic), startDate: date, endDate: date, type: "cuff", unit: units)
+  let pulseSample = QuantitySample(id: "\(idPrefix)pulse", value: Double(pulseRate), startDate: date, endDate: date, type: "cuff", unit: "bpm")
   
   return BloodPressureSample(
     systolic: systolicSample,

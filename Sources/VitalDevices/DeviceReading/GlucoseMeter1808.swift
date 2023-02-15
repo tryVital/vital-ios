@@ -84,7 +84,9 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
   }
 
   return QuantitySample(
-    id: "\(sequenceNumber)",
+    // Prefixed with epoch in seconds to avoid sequence number conflicts
+    // (due to new device and/or device reset)
+    id: "\(date.timeIntervalSince1970.rounded())-\(sequenceNumber)",
     value: value,
     startDate: date,
     endDate: date,
