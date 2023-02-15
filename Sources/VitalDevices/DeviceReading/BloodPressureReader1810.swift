@@ -5,81 +5,24 @@ public protocol BloodPressureReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error>
 }
 
-private let service = CBUUID(string: "1810")
-private let BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC = "2A35"
-
-
-class BloodPressureReader1810: BloodPressureReadable {
-    
-  private let manager: CentralManager
-  private let queue: DispatchQueue
-  
-  init(manager: CentralManager = .live(), queue: DispatchQueue) {
-    self.manager = manager
-    self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.BloodPressureReader1810", target: queue)
-  }
-  
-  public func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristic) -> AnyPublisher<[BloodPressureSample], Error> in
-      return peripheral.listenForUpdates(on: characteristic)
-        .compactMap(toBloodPressureReading).eraseToAnyPublisher()
-        .collect(.byTimeOrCount(self.queue, 3.0, 50))
-        .eraseToAnyPublisher()
-    }
-  }
-  
-  public func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
-    _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
-  }
-  
-  private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, CBCharacteristic), Error> {
-    let isOn: AnyPublisher<CBManagerState, Error> = manager
-      .didUpdateState.filter { state in
-        state == .poweredOn
-      }
-      .mapError { _ -> Error in }
-      .eraseToAnyPublisher()
-    
-    if manager.state == .poweredOn {
-      return BloodPressureReader1810._pair(manager: manager, device: device)
-    } else {
-      return isOn.flatMapLatest{[manager] _ in
-        return BloodPressureReader1810._pair(manager: manager, device: device)
-      }
-    }
-  }
-  
-  private static func _pair(manager: CentralManager, device: ScannedDevice) -> AnyPublisher<(Peripheral, CBCharacteristic), Error> {
-    let service = DevicesManager.service(for: device.deviceModel.brand)
-    let characteristic = CBUUID(string: BLE_BLOOD_PRESSURE_MEASURE_CHARACTERISTIC.fullUUID)
-
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
-      
-      peripheral.discoverServices([service])
-        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
-          guard services.isEmpty == false else {
-            return .empty
-          }
-          
-          return peripheral.discoverCharacteristics([characteristic], for: services[0])
-        }
-        .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, CBCharacteristic), Error> in
-          guard characteristics.isEmpty == false else {
-            return .empty
-          }
-          
-          return peripheral.setNotifyValue(true, for: characteristics[0]).map { (peripheral, characteristics[0]) }.eraseToAnyPublisher()
-        }
-    }
-    .eraseToAnyPublisher()
+class BloodPressureReader1810: GATTMeter<BloodPressureSample>, BloodPressureReadable {
+  init(
+    manager: CentralManager = .live(),
+    queue: DispatchQueue
+  ) {
+    super.init(
+      manager: manager,
+      queue: queue,
+      serviceID: CBUUID(string: "1810".fullUUID),
+      measurementCharacteristicID: CBUUID(string: "2A35".fullUUID),
+      parser: toBloodPressureReading(data:)
+    )
   }
 }
-  
-private func toBloodPressureReading(data: Data?) -> BloodPressureSample? {
-  guard let data = data else {
-    return nil
-  }
-  
+
+private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
+  guard data.count >= 16 else { return nil }
+
   let byteArrayFromData: [UInt8] = [UInt8](data)
   
   let units = (byteArrayFromData[0] & 1) != 0 ? "kPa" : "mmHg"
