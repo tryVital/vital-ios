@@ -26,9 +26,12 @@ func url(for device: DeviceModel) -> URL {
     
     case "Beurer Devices":
       image = "https://storage.googleapis.com/vital-assets/beurer_devices.png"
-      
+
     case "Freestyle Libre 1":
       image = "https://storage.googleapis.com/vital-assets/libre1.png"
+
+    case "Vital BLE Simulator":
+      image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
       
     default:
       fatalError("Device not supported")

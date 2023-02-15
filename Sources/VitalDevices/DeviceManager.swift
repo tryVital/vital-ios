@@ -38,14 +38,11 @@ public class DevicesManager {
         }
         
         let codes = DevicesManager.codes(for: deviceModel.id)
-        let outcome = codes.reduce(false) { partialResult, code in
-          guard partialResult == false else {
-            return true
-          }
-          
-          return name.lowercased().contains(code.lowercased())
-        }
-        
+
+        let lowercasedName = name.lowercased()
+        let outcome = codes.contains { lowercasedName.contains($0.lowercased()) }
+          || codes.contains(Self.vitalBLESimulator)
+
         guard outcome else {
           return nil
         }

@@ -16,7 +16,7 @@ class BloodPressureReader1810: BloodPressureReadable {
   
   init(manager: CentralManager = .live(), queue: DispatchQueue) {
     self.manager = manager
-    self.queue = queue
+    self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.BloodPressureReader1810", target: queue)
   }
   
   public func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error> {
@@ -37,7 +37,7 @@ class BloodPressureReader1810: BloodPressureReadable {
       .didUpdateState.filter { state in
         state == .poweredOn
       }
-      .mapError { $0 as Error }
+      .mapError { _ -> Error in }
       .eraseToAnyPublisher()
     
     if manager.state == .poweredOn {

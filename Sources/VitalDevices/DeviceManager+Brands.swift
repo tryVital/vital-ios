@@ -2,6 +2,9 @@ import CoreBluetooth
 import VitalCore
 
 public extension DevicesManager {
+  /// Special string to detect the Vital BLE simulator entry.
+  static let vitalBLESimulator = "$vital_ble_simulator$"
+
   static func devices(for brand: Brand) -> [DeviceModel] {
     return [
       .init(
@@ -51,7 +54,13 @@ public extension DevicesManager {
         name: "Freestyle Libre 1",
         brand: .libre,
         kind: .glucoseMeter
-      )
+      ),
+      .init(
+        id: Self.vitalBLESimulator,
+        name: "Vital BLE Simulator",
+        brand: .accuChek,
+        kind: .glucoseMeter
+      ),
     ].filter {
       $0.brand == brand
     }
@@ -69,6 +78,8 @@ public extension DevicesManager {
         return ["meter"]
       case "accuchek_guide_active":
         return ["meter"]
+      case Self.vitalBLESimulator:
+        return [Self.vitalBLESimulator]
       case "contour_next_one":
         return ["contour"]
       case "beurer":
