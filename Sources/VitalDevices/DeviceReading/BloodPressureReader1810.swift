@@ -24,7 +24,12 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
   guard data.count >= 16 else { return nil }
 
   let byteArrayFromData: [UInt8] = [UInt8](data)
-  
+  let isTimestampPresent = (byteArrayFromData[0] & 0x02) != 0
+
+  // We accept only stored Blood Pressure records with a timestamp (as suggested
+  // by BLE Blood Pressure Service specification v1.1.1).
+  guard isTimestampPresent else { return nil }
+
   let units = (byteArrayFromData[0] & 1) != 0 ? "kPa" : "mmHg"
   
   let systolic: UInt16 = [byteArrayFromData[1], byteArrayFromData[2]].withUnsafeBytes { $0.load(as: UInt16.self) }
