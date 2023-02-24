@@ -6,144 +6,26 @@ public protocol GlucoseMeterReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error>
 }
 
-private let service = CBUUID(string: "1808")
-private let measurementCharacteristicUUID = CBUUID(string: "2A18".fullUUID)
-private let RACPCharacteristicUUID = CBUUID(string: "2A52".fullUUID)
-
-class GlucoseMeter1808: GlucoseMeterReadable {
-  
-  private let manager: CentralManager
-  private let queue: DispatchQueue
-  
-  init(manager: CentralManager = .live(), queue: DispatchQueue) {
-    self.manager = manager
-    self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.GlucoseMeter1808", target: queue)
-  }
-
-  func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<[QuantitySample], Error> in
-        guard
-          let measurementCharacteristic = characteristics.first(where: { $0.uuid == measurementCharacteristicUUID }),
-          let RACPCharacteristic = characteristics.first(where: { $0.uuid == RACPCharacteristicUUID })
-        else {
-          return Fail(outputType: [QuantitySample].self, failure: BluetoothError(message: "Missing required characteristics."))
-            .eraseToAnyPublisher()
-        }
-        var cancellables: Set<AnyCancellable> = []
-
-        let write = peripheral.writeValue(Data([1, 1]), for: RACPCharacteristic, type: .withResponse)
-
-        let racpResponse = CurrentValueSubject<RACPResponse?, Error>(nil)
-        let racpSuccessOrFailure = racpResponse.compactMap { $0 }.first().tryMap { response in
-          switch response {
-          case .success, .noRecordsFound:
-            return ()
-          case .notCompleted, .unknown, .invalidPayloadStructure:
-            throw BluetoothRACPError(code: response.code)
-          }
-        }
-
-        // (1) We first start listening for measurement notifications
-        return peripheral
-          .listenForUpdates(on: measurementCharacteristic)
-          .compactMap(toGlucoseReading)
-          .prefix(untilOutputFrom: racpSuccessOrFailure)
-          .collect()
-          .handleEvents(
-            receiveSubscription: { _ in
-              // (2) We then start listening for RACP response indication
-              peripheral
-                .listenForUpdates(on: RACPCharacteristic)
-                .map { $0.map(RACPResponse.init) ?? .invalidPayloadStructure }
-                .subscribe(racpResponse)
-                .store(in: &cancellables)
-
-              // (3) We finally write to RACP to initiate the Load All Records operation.
-              write
-                .sink(receiveCompletion: { _ in }, receiveValue: {})
-                .store(in: &cancellables)
-            },
-            receiveCompletion: { _ in
-              cancellables.forEach { $0.cancel() }
-            },
-            receiveCancel: {
-              cancellables.forEach { $0.cancel() }
-            }
-          )
-          .eraseToAnyPublisher()
-    }
-  }
-
-  func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
-    _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
-  }
-  
-  private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
-    let isOn: AnyPublisher<CBManagerState, Error> = manager
-      .didUpdateState.filter { state in
-        state == .poweredOn
-      }
-      .mapError { _ -> Error in }
-      .eraseToAnyPublisher()
-    
-    if manager.state == .poweredOn {
-      return GlucoseMeter1808._pair(
-        manager: manager,
-        device: device,
-        measurementCharacteristicUUID: measurementCharacteristicUUID,
-        RACPCharacteristicUUID: RACPCharacteristicUUID
-      )
-    } else {
-      return isOn.flatMapLatest { [manager] _ in
-        return GlucoseMeter1808._pair(
-          manager: manager,
-          device: device,
-          measurementCharacteristicUUID: measurementCharacteristicUUID,
-          RACPCharacteristicUUID: RACPCharacteristicUUID
-        )
-      }
-    }
-  }
-  
-  private static func _pair(
-    manager: CentralManager,
-    device: ScannedDevice,
-    measurementCharacteristicUUID: CBUUID,
-    RACPCharacteristicUUID: CBUUID
-  ) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
-      peripheral.discoverServices([service])
-        .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
-          guard services.isEmpty == false else {
-            return .empty
-          }
-          
-          return peripheral.discoverCharacteristics([measurementCharacteristicUUID, RACPCharacteristicUUID], for: services[0])
-        }
-        .flatMapLatest { characteristics -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
-          guard characteristics.count == 2 else {
-            return .empty
-          }
-          let second = peripheral.setNotifyValue(true, for: characteristics[1])
-          let first = peripheral.setNotifyValue(true, for: characteristics[0])
-
-          let zipped = first.zip(second).first().eraseToAnyPublisher()
-          
-          return zipped.map { _ in
-            return (peripheral, characteristics)
-          }
-          .eraseToAnyPublisher()
-        }
-    }
-    .eraseToAnyPublisher()
+class GlucoseMeter1808: GATTMeter<QuantitySample>, GlucoseMeterReadable {
+  init(
+    manager: CentralManager = .live(),
+    queue: DispatchQueue
+  ) {
+    super.init(
+      manager: manager,
+      queue: queue,
+      serviceID: CBUUID(string: "1808".fullUUID),
+      measurementCharacteristicID: CBUUID(string: "2A18".fullUUID),
+      parser: toGlucoseReading(data:)
+    )
   }
 }
 
-private func toGlucoseReading(data: Data?) -> QuantitySample? {
+private func toGlucoseReading(data: Data) -> QuantitySample? {
   /// Record size is minimum 10 bytes (all mandatory fields)
   /// Size can vary based on flags encoded in the first byte.
   /// Refer to Bluetooth Glucose Service specification for more information.
-  guard let data = data, data.count >= 10 else {
+  guard data.count >= 10 else {
     return nil
   }
 
@@ -202,7 +84,9 @@ private func toGlucoseReading(data: Data?) -> QuantitySample? {
   }
 
   return QuantitySample(
-    id: "\(sequenceNumber)",
+    // Prefixed with epoch in seconds to avoid sequence number conflicts
+    // (due to new device and/or device reset)
+    id: "\(date.timeIntervalSince1970.rounded())-\(sequenceNumber)",
     value: value,
     startDate: date,
     endDate: date,
