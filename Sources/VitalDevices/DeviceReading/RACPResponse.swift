@@ -24,13 +24,16 @@ enum RACPResponse {
   }
 
   init(data: Data) {
-    // byte 0 (opcode) must be 6; byte 1 (operator) must be 0 (null).
-    guard data.count >= 3, data[0] == 6, data[1] == 0 else {
+    // byte 0: opcode      must be 6 (RACP Response opcode)
+    // byte 1: operator    must be 0 (null)
+    // byte 2: requestcode must be 1 (Store All Records opcode)
+    guard data.count >= 4, data[0] == 6, data[1] == 0, data[2] == 1 else {
       self = .invalidPayloadStructure
       return
     }
 
-    let responseCode = data[2]
+    // byte 3: responsecode
+    let responseCode = data[3]
 
     switch responseCode {
     case 1:
