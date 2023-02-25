@@ -27,6 +27,8 @@ public struct SleepPatch: Equatable, Encodable {
     public var heartRateVariability: [QuantitySample] = []
     public var oxygenSaturation: [QuantitySample] = []
     public var respiratoryRate: [QuantitySample] = []
+    public var wristTemperature: [QuantitySample] = []
+
     public var sleepStages: SleepStages = .init()
     
     public init(
