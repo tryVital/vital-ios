@@ -1079,7 +1079,7 @@ func querySample(
     let predicate = HKQuery.predicateForSamples(
       withStart: startDate,
       end: endDate,
-      options: []
+      options: options
     )
     
     let sort = [
