@@ -1,0 +1,479 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9A25BB40299A81FD0019D0BA /* BLEMonitorSimulatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A25BB3F299A81FD0019D0BA /* BLEMonitorSimulatorApp.swift */; };
+		9A25BB42299A81FD0019D0BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A25BB41299A81FD0019D0BA /* ContentView.swift */; };
+		9A25BB44299A81FE0019D0BA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9A25BB43299A81FE0019D0BA /* Assets.xcassets */; };
+		9A25BB47299A81FE0019D0BA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9A25BB46299A81FE0019D0BA /* Preview Assets.xcassets */; };
+		9A25BB4E299A82100019D0BA /* GlucoseMonitorSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A25BB4D299A82100019D0BA /* GlucoseMonitorSimulation.swift */; };
+		9A25BB50299A95C90019D0BA /* SFloat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A25BB4F299A95C90019D0BA /* SFloat.swift */; };
+		9A25BB58299A9D170019D0BA /* SFloatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A25BB57299A9D170019D0BA /* SFloatTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9A25BB59299A9D170019D0BA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9A25BB34299A81FD0019D0BA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9A25BB3B299A81FD0019D0BA;
+			remoteInfo = GlocuseMonitorSim;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9A25BB3C299A81FD0019D0BA /* BLEMonitorSimulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BLEMonitorSimulator.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A25BB3F299A81FD0019D0BA /* BLEMonitorSimulatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEMonitorSimulatorApp.swift; sourceTree = "<group>"; };
+		9A25BB41299A81FD0019D0BA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9A25BB43299A81FE0019D0BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9A25BB46299A81FE0019D0BA /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		9A25BB4D299A82100019D0BA /* GlucoseMonitorSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlucoseMonitorSimulation.swift; sourceTree = "<group>"; };
+		9A25BB4F299A95C90019D0BA /* SFloat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFloat.swift; sourceTree = "<group>"; };
+		9A25BB55299A9D170019D0BA /* BLEMonitorSimulatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BLEMonitorSimulatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A25BB57299A9D170019D0BA /* SFloatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFloatTests.swift; sourceTree = "<group>"; };
+		9A620235299AAAE9000814D8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9A25BB39299A81FD0019D0BA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A25BB52299A9D170019D0BA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9A25BB33299A81FD0019D0BA = {
+			isa = PBXGroup;
+			children = (
+				9A25BB3E299A81FD0019D0BA /* BLEMonitorSimulator */,
+				9A25BB56299A9D170019D0BA /* BLEMonitorSimulatorTests */,
+				9A25BB3D299A81FD0019D0BA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9A25BB3D299A81FD0019D0BA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9A25BB3C299A81FD0019D0BA /* BLEMonitorSimulator.app */,
+				9A25BB55299A9D170019D0BA /* BLEMonitorSimulatorTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9A25BB3E299A81FD0019D0BA /* BLEMonitorSimulator */ = {
+			isa = PBXGroup;
+			children = (
+				9A620235299AAAE9000814D8 /* Info.plist */,
+				9A25BB3F299A81FD0019D0BA /* BLEMonitorSimulatorApp.swift */,
+				9A25BB41299A81FD0019D0BA /* ContentView.swift */,
+				9A25BB43299A81FE0019D0BA /* Assets.xcassets */,
+				9A25BB45299A81FE0019D0BA /* Preview Content */,
+				9A25BB4D299A82100019D0BA /* GlucoseMonitorSimulation.swift */,
+				9A25BB4F299A95C90019D0BA /* SFloat.swift */,
+			);
+			path = BLEMonitorSimulator;
+			sourceTree = "<group>";
+		};
+		9A25BB45299A81FE0019D0BA /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				9A25BB46299A81FE0019D0BA /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		9A25BB56299A9D170019D0BA /* BLEMonitorSimulatorTests */ = {
+			isa = PBXGroup;
+			children = (
+				9A25BB57299A9D170019D0BA /* SFloatTests.swift */,
+			);
+			path = BLEMonitorSimulatorTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9A25BB3B299A81FD0019D0BA /* BLEMonitorSimulator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9A25BB4A299A81FE0019D0BA /* Build configuration list for PBXNativeTarget "BLEMonitorSimulator" */;
+			buildPhases = (
+				9A25BB38299A81FD0019D0BA /* Sources */,
+				9A25BB39299A81FD0019D0BA /* Frameworks */,
+				9A25BB3A299A81FD0019D0BA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BLEMonitorSimulator;
+			productName = GlocuseMonitorSim;
+			productReference = 9A25BB3C299A81FD0019D0BA /* BLEMonitorSimulator.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9A25BB54299A9D170019D0BA /* BLEMonitorSimulatorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9A25BB5B299A9D170019D0BA /* Build configuration list for PBXNativeTarget "BLEMonitorSimulatorTests" */;
+			buildPhases = (
+				9A25BB51299A9D170019D0BA /* Sources */,
+				9A25BB52299A9D170019D0BA /* Frameworks */,
+				9A25BB53299A9D170019D0BA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9A25BB5A299A9D170019D0BA /* PBXTargetDependency */,
+			);
+			name = BLEMonitorSimulatorTests;
+			productName = GlocuseMonitorSimTests;
+			productReference = 9A25BB55299A9D170019D0BA /* BLEMonitorSimulatorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9A25BB34299A81FD0019D0BA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1420;
+				LastUpgradeCheck = 1420;
+				TargetAttributes = {
+					9A25BB3B299A81FD0019D0BA = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					9A25BB54299A9D170019D0BA = {
+						CreatedOnToolsVersion = 14.2;
+						TestTargetID = 9A25BB3B299A81FD0019D0BA;
+					};
+				};
+			};
+			buildConfigurationList = 9A25BB37299A81FD0019D0BA /* Build configuration list for PBXProject "BLEMonitorSimulator" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9A25BB33299A81FD0019D0BA;
+			productRefGroup = 9A25BB3D299A81FD0019D0BA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9A25BB3B299A81FD0019D0BA /* BLEMonitorSimulator */,
+				9A25BB54299A9D170019D0BA /* BLEMonitorSimulatorTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9A25BB3A299A81FD0019D0BA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A25BB47299A81FE0019D0BA /* Preview Assets.xcassets in Resources */,
+				9A25BB44299A81FE0019D0BA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A25BB53299A9D170019D0BA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9A25BB38299A81FD0019D0BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A25BB50299A95C90019D0BA /* SFloat.swift in Sources */,
+				9A25BB42299A81FD0019D0BA /* ContentView.swift in Sources */,
+				9A25BB4E299A82100019D0BA /* GlucoseMonitorSimulation.swift in Sources */,
+				9A25BB40299A81FD0019D0BA /* BLEMonitorSimulatorApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A25BB51299A9D170019D0BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A25BB58299A9D170019D0BA /* SFloatTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9A25BB5A299A9D170019D0BA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9A25BB3B299A81FD0019D0BA /* BLEMonitorSimulator */;
+			targetProxy = 9A25BB59299A9D170019D0BA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9A25BB48299A81FE0019D0BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9A25BB49299A81FE0019D0BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9A25BB4B299A81FE0019D0BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"BLEMonitorSimulator/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BLEMonitorSimulator/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Simulate a BLE glucose monitor.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tryvital.ios.BLEMonitorSimulator;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9A25BB4C299A81FE0019D0BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"BLEMonitorSimulator/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BLEMonitorSimulator/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Simulate a BLE glucose monitor.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tryvital.ios.BLEMonitorSimulator;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9A25BB5C299A9D170019D0BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tryvital.BLEMonitorSimulatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BLEMonitorSimulator.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BLEMonitorSimulator";
+			};
+			name = Debug;
+		};
+		9A25BB5D299A9D170019D0BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tryvital.BLEMonitorSimulatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BLEMonitorSimulator.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BLEMonitorSimulator";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9A25BB37299A81FD0019D0BA /* Build configuration list for PBXProject "BLEMonitorSimulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A25BB48299A81FE0019D0BA /* Debug */,
+				9A25BB49299A81FE0019D0BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9A25BB4A299A81FE0019D0BA /* Build configuration list for PBXNativeTarget "BLEMonitorSimulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A25BB4B299A81FE0019D0BA /* Debug */,
+				9A25BB4C299A81FE0019D0BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9A25BB5B299A9D170019D0BA /* Build configuration list for PBXNativeTarget "BLEMonitorSimulatorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A25BB5C299A9D170019D0BA /* Debug */,
+				9A25BB5D299A9D170019D0BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9A25BB34299A81FD0019D0BA /* Project object */;
+}
