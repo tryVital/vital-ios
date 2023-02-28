@@ -49,6 +49,13 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       toHealthKitTypes(resource: .individual(.weight))
       
     case .sleep:
+      let temperature: Set<HKObjectType>
+      if #available(iOS 16.0, *) {
+        temperature = [HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!]
+      } else {
+        temperature = []
+      }
+
       return [
         HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
@@ -56,7 +63,7 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
         HKSampleType.quantityType(forIdentifier: .restingHeartRate)!, 
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
-      ]
+      ] + temperature
       
     case .activity:
       return toHealthKitTypes(resource: .individual(.steps)) +

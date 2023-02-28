@@ -526,6 +526,24 @@ func handleSleep(
     )
       .filter(by: sleep.sourceBundle)
       .compactMap(QuantitySample.init)
+
+    let wristTemperature: [QuantitySample]
+
+    if #available(iOS 16.0, *) {
+      wristTemperature = try await querySample(
+        healthKitStore: healthKitStore,
+        type: .quantityType(forIdentifier: .appleSleepingWristTemperature)!,
+        startDate: sleep.startDate,
+        endDate: sleep.endDate,
+        // `appleSleepingWristTemperature` sometimes falls outside the bounds of a sleep
+        // This means that if we use `strictStartDate` we won't pick up these values.
+        options: []
+      )
+        .filter(by: sleep.sourceBundle)
+        .compactMap(QuantitySample.init)
+    } else {
+      wristTemperature = []
+    }
     
     var copy = sleep
     copy.heartRate = heartRate
@@ -533,6 +551,7 @@ func handleSleep(
     copy.restingHeartRate = restingHeartRate
     copy.oxygenSaturation = oxygenSaturation
     copy.respiratoryRate = respiratoryRate
+    copy.wristTemperature = wristTemperature
     
     copies.append(copy)
   }
@@ -1040,7 +1059,8 @@ func querySample(
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,
   endDate: Date? = nil,
-  ascending: Bool = true
+  ascending: Bool = true,
+  options: HKQueryOptions = [.strictStartDate]
 ) async throws -> [HKSample] {
   
   return try await withCheckedThrowingContinuation { continuation in
@@ -1059,7 +1079,7 @@ func querySample(
     let predicate = HKQuery.predicateForSamples(
       withStart: startDate,
       end: endDate,
-      options: [.strictStartDate]
+      options: options
     )
     
     let sort = [

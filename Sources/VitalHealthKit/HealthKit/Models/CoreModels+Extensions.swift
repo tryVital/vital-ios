@@ -206,6 +206,15 @@ extension QuantitySample {
 
 extension HKSampleType {
   var toUnitStringRepresentation: String {
+    if #available(iOS 16.0, *) {
+      switch self {
+        case HKQuantityType.quantityType(forIdentifier: .appleSleepingWristTemperature)!:
+          return "C"
+        default:
+          break
+      }
+    }
+
     switch self {
       case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
         return "kg"
@@ -262,6 +271,16 @@ extension HKSampleType {
   }
   
   var toHealthKitUnits: HKUnit {
+
+    if #available(iOS 16.0, *) {
+      switch self {
+        case HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!:
+          return .degreeCelsius()
+        default:
+          break
+      }
+    }
+
     switch self {
       case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
         return .gramUnit(with: .kilo)
@@ -306,7 +325,7 @@ extension HKSampleType {
 
       case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
         return .gram()
-        
+
       case
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
