@@ -55,11 +55,13 @@ extension DeviceConnection {
       case notSetup = "Missing credentials. Visit settings tab."
       case found = "Found device"
       case paired = "Device paired"
+      case creatingConnectedSource = "Creating a Connected Source via API..."
       case searching = "Searching..."
       case pairingFailed = "Pairing failed"
       case readingFailed = "Reading failed"
       case sendingToServer = "Sending to server..."
       case serverFailed = "Sending to server failed"
+      case connectedSourceCreationFailed = "Failed to create Connected Source for the device"
       case noneFound = "None found"
       case serverSuccess = "Value sent to the server"
     }
@@ -67,8 +69,11 @@ extension DeviceConnection {
     let device: DeviceModel
     var status: Status
     var scannedDevice: ScannedDevice?
-    
+    var scanSource: ScanSource?
+
     var readings: [Reading] = []
+
+    var alertText: String? = nil
     
     init(device: DeviceModel) {
       self.device = device
@@ -83,23 +88,44 @@ extension DeviceConnection {
           return true
       }
     }
+
+    var deviceScanStatus: String? {
+      switch scanSource {
+      case .paired?:
+        return "Previously Paired"
+      case .scanned?:
+        return "Discovered via BLE Scan"
+      case nil:
+        return nil
+      }
+    }
+  }
+
+  public enum ScanSource: Int {
+    case paired
+    case scanned
   }
   
   public enum Action: Equatable {
+    case createConnectedSource
     case startScanning
-    case scannedDevice(ScannedDevice)
+    case scannedDevice(ScannedDevice, ScanSource)
     
     case scannedDeviceUpdate(Bool)
     
     case newReading([Reading])
     case readingSentToServer(Reading)
     case failedSentToServer(String)
+
+    case connectedSourceCreationFailure(String)
     
     case pairDevice(ScannedDevice)
     case pairedSuccesfully(ScannedDevice)
     case pairingFailed(String)
-    
+
     case readingFailed(String)
+
+    case dismissErrorAlert
   }
   
   public struct Environment {
@@ -117,34 +143,47 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
     case let .readingSentToServer(reading):
       state.status = .serverSuccess
       return .none
-      
-    case .startScanning:
+
+    case .createConnectedSource:
+      state.status = .creatingConnectedSource
       let brand = state.device.brand
-      state.status = .searching
-      
-      let createConnectedSource = Effect<DeviceConnection.Action?, Never>.task {
+
+      return Effect<DeviceConnection.Action, Never>.task {
+        guard await VitalClient.isConfigured else {
+          return DeviceConnection.Action.connectedSourceCreationFailure("Vital SDK has not been configured.")
+        }
+
         let provider = DevicesManager.provider(for: brand)
         do {
           try await VitalClient.shared.link.createConnectedSource(for: provider)
+
+          // Start scanning immediately if we have created connected source successfully.
+          return DeviceConnection.Action.startScanning
         } catch let error {
-          return DeviceConnection.Action.pairingFailed("Failed to create connected source: \(error)")
+          return DeviceConnection.Action.connectedSourceCreationFailure("Failed to create connected source: \(error)")
         }
-        return nil
       }
-      .compactMap { $0 }
-      .eraseToEffect()
-      
-      let search = env.deviceManager.search(for: state.device)
+
+    case .startScanning:
+      state.status = .searching
+
+      // Prefer to use any matching paired BLE device.
+      let pairedDevices = env.deviceManager.connected(state.device)
+      if !pairedDevices.isEmpty {
+          return Effect.send(DeviceConnection.Action.scannedDevice(pairedDevices[0], .paired))
+      }
+
+      // If no paired device is found, fallback to scanning for one.
+      return env.deviceManager.search(for: state.device)
         .first()
-        .map(DeviceConnection.Action.scannedDevice)
+        .map { DeviceConnection.Action.scannedDevice($0, .scanned) }
         .receive(on: env.mainQueue)
         .eraseToEffect()
       
-      return Effect.concatenate(createConnectedSource, search)
-      
-    case let .scannedDevice(device):
+    case let .scannedDevice(device, source):
       state.status = .found
       state.scannedDevice = device
+      state.scanSource = source
       
       let pairedSuccessfully = Effect<DeviceConnection.Action, Never>(value: DeviceConnection.Action.pairedSuccesfully(device))
       
@@ -214,14 +253,22 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
     case let .failedSentToServer(reason):
       state.status = .serverFailed
+      state.alertText = reason
       return .init(value: .startScanning)
+
+    case let .connectedSourceCreationFailure(reason):
+      state.status = .connectedSourceCreationFailed
+      state.alertText = reason
+      return .none
       
     case let .readingFailed(reason):
       state.status = .readingFailed
+      state.alertText = reason
       return .none
       
     case let .pairingFailed(reason):
       state.status = .pairingFailed
+      state.alertText = reason
       return .none
       
     case let .pairedSuccesfully(scannedDevice):
@@ -274,6 +321,10 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       } else {
         return .none
       }
+
+    case .dismissErrorAlert:
+      state.alertText = nil
+      return .none
   }
 }
 
@@ -288,14 +339,23 @@ extension DeviceConnection {
           VStack(alignment: .center, spacing: 5) {
             LazyImage(source: url(for: viewStore.device), resizingMode: .aspectFit)
               .frame(width: 200, height: 200, alignment: .leading)
-            
+
             Text("\(viewStore.status.rawValue)")
               .font(.system(size: 14))
               .fontWeight(.medium)
               .padding(.all, 5)
               .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
               .cornerRadius(5.0)
-            
+
+            if let deviceScanStatus = viewStore.deviceScanStatus {
+              Text(deviceScanStatus)
+                .font(.system(size: 14))
+                .fontWeight(.medium)
+                .padding(.all, 5)
+                .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
+                .cornerRadius(5.0)
+            }
+
             Spacer(minLength: 15)
             
             List {
@@ -370,8 +430,23 @@ extension DeviceConnection {
           }
         }
         .onAppear {
-          viewStore.send(.startScanning)
+          viewStore.send(.createConnectedSource)
         }
+        .alert(
+            store.scope { state -> AlertState<DeviceConnection.Action>? in
+              guard let alertText = state.alertText else { return nil }
+              return AlertState {
+                TextState("Error")
+              } actions: {
+                ButtonState(role: .none, action: .dismissErrorAlert) {
+                  TextState("OK")
+                }
+              } message: {
+                TextState(alertText)
+              }
+            } action: { $0 },
+            dismiss: .dismissErrorAlert
+        )
         .environment(\.defaultMinListRowHeight, 25)
         .listStyle(PlainListStyle())
         .background(Color.white)

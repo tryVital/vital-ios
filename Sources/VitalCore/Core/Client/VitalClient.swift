@@ -151,6 +151,14 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       apiVersion: "v2"
     )
   }
+
+  public static var isConfigured: Bool {
+    get async {
+      guard !(await self.shared.userId.isNil()) else { return false }
+      guard !(await self.shared.configuration.isNil()) else { return false }
+      return true
+    }
+  }
   
   public static func automaticConfiguration() async {
     do {
