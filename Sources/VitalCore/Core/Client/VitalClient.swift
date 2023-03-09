@@ -160,7 +160,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
   }
   
-  public static func automaticConfiguration() async {
+  @objc public static func automaticConfiguration() async {
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
