@@ -172,7 +172,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     return true
   }
   
-  @objc public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+  @objc(automaticConfigurationWithCompletion:)
+  public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.

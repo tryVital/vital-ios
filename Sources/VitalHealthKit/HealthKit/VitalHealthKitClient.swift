@@ -98,7 +98,8 @@ let health_secureStorageKey: String = "health_secureStorageKey"
   ) {
     self.shared.setConfiguration(configuration: configuration)
   }
-  
+
+  @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     do {
       let secureStorage = self.shared.secureStorage
