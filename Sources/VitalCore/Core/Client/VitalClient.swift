@@ -129,21 +129,35 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     region: String,
     isLogsEnable: Bool
   ) {
-    Task {
-      guard let environment = Environment(environment: environment, region: region) else {
-        fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
-      }
-      
-      await configure(apiKey: apiKey, environment: environment, configuration: .init(logsEnable: isLogsEnable))
+    guard let environment = Environment(environment: environment, region: region) else {
+      fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
     }
+
+    configure(apiKey: apiKey, environment: environment, configuration: .init(logsEnable: isLogsEnable))
   }
-  
+
+  public static func configure(
+    apiKey: String,
+    environment: Environment,
+    configuration: Configuration = .init()
+  ) {
+    self.shared.setConfiguration(
+      apiKey: apiKey,
+      environment: environment,
+      configuration: configuration,
+      storage: .init(storage: .live),
+      apiVersion: "v2"
+    )
+  }
+
+  @_disfavoredOverload
+  @available(*, deprecated, message: "Remove the await keyword to use the non-async version of `configure`.")
   public static func configure(
     apiKey: String,
     environment: Environment,
     configuration: Configuration = .init()
   ) async {
-    await self.shared.setConfiguration(
+    self.shared.setConfiguration(
       apiKey: apiKey,
       environment: environment,
       configuration: configuration,
@@ -153,34 +167,39 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
 
   public static var isConfigured: Bool {
-    get async {
-      guard !(await self.shared.userId.isNil()) else { return false }
-      guard !(await self.shared.configuration.isNil()) else { return false }
-      return true
-    }
+    guard !(self.shared.userId.isNil()) else { return false }
+    guard !(self.shared.configuration.isNil()) else { return false }
+    return true
   }
   
-  @objc public static func automaticConfiguration() async {
+  @objc public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
       if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
         
         /// 1) Set the configuration
-        await configure(
+        configure(
           apiKey: payload.apiKey,
           environment: payload.environment,
           configuration: payload.configuration
         )
       }
-      
+
       if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
         /// 2) If and only if there's a `userId`, we set it.
-        await setUserId(userId)
+        Task {
+          await setUserId(userId)
+          completion?()
+        }
+      } else {
+        completion?()
       }
-    }
-    catch {
+    } catch let error {
+      completion?()
       /// Bailout, there's nothing else to do here.
+      /// (But still try to log it if we have a logger around)
+      shared.configuration.value?.logger?.error("Failed to perform automatic configuration: \(error)")
     }
   }
   
@@ -197,7 +216,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     
     VitalClient.client = self
   }
-  
+
+  /// **Synchronously** set the configuration and kick off the side effects.
+  ///
+  /// - important: This cannot not be `async` due to background observer registration
+  /// timing requirement by HealthKit in VitalHealthKit. Instead, spawn async tasks if necessary,
   func setConfiguration(
     apiKey: String,
     environment: Environment,
@@ -205,7 +228,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     storage: VitalCoreStorage,
     apiVersion: String,
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
-  ) async {
+  ) {
     
     var logger: Logger?
     
@@ -260,11 +283,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       storage: storage
     )
     
-    await self.configuration.set(value: coreConfiguration)
+    self.configuration.set(value: coreConfiguration)
   }
   
   private func _setUserId(_ newUserId: UUID) async {
-    if await configuration.isNil() {
+    if configuration.isNil() {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
       fatalError("You need to call `VitalClient.configuration` before setting the `userId`")
     }
@@ -281,7 +304,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error.localizedDescription)")
     }
     
-    await self.userId.set(value: newUserId)
+    self.userId.set(value: newUserId)
     
     do {
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
@@ -296,7 +319,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       await setUserId(newUserId)
     }
   }
-  
+
   public static func setUserId(_ newUserId: UUID) async {
     await shared._setUserId(newUserId)
   }
@@ -332,15 +355,15 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     /// We might be able to derive 2) from 1)?
     ///
     /// We need to check this first, otherwise it will suspend until a configuration is set
-    if await self.configuration.isNil() == false {
+    if self.configuration.isNil() == false {
       await self.configuration.get().storage.clean()
     }
     
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
     
-    await self.userId.clean()
-    await self.configuration.clean()
+    self.userId.clean()
+    self.configuration.clean()
   }
 }
 
