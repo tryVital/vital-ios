@@ -40,6 +40,7 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
 
   let sequenceNumber: UInt16 = (UInt16(bytes[2]) << 8) | UInt16(bytes[1])
 
+  // Little-endian
   let year: UInt16 = [bytes[3], bytes[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
   let month = bytes[5]
   let day = bytes[6]
@@ -61,10 +62,15 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
 
   var offset = 10
 
+  let bleTimeOffset: UInt16?
+
   if isTimeOffsetPresent {
     let timeOffset = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
     date = calendar.date(byAdding: .minute, value: Int(timeOffset), to: date) ?? .init()
     offset += 2
+    bleTimeOffset = timeOffset
+  } else {
+    bleTimeOffset = nil
   }
 
   let glucoseSFloat = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
@@ -91,6 +97,9 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
     startDate: date,
     endDate: date,
     type: "fingerprick",
-    unit: unit
+    unit: unit,
+    metadata: VitalAnyEncodable(
+      ["ble_time_offset": bleTimeOffset]
+    )
   )
 }
