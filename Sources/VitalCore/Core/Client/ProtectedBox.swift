@@ -38,13 +38,21 @@ public final class ProtectedBox<T>: @unchecked Sendable {
   /// Get the current value, or wait until it is set.
   public func get() async -> T {
     return await withCheckedContinuation { continuation in
-      lock.withLock {
+      let value: T? = lock.withLock {
         switch self.state {
         case let .awaiting(continuations):
           self.state = .awaiting(continuations + [continuation])
+          return nil
         case let .ready(value):
-          continuation.resume(returning: value)
+          return value
         }
+      }
+
+      // Resume outside the lock, just in case of future concurrency features
+      // that might cause the continuation to resume in place, instead of
+      // enqueued.
+      if let value = value {
+        continuation.resume(returning: value)
       }
     }
   }
@@ -63,6 +71,9 @@ public final class ProtectedBox<T>: @unchecked Sendable {
       }
     }
 
+    // Resume outside the lock, just in case of future concurrency features
+    // that might cause the continuation to resume in place, instead of
+    // enqueued.
     continuationsToCall.forEach { $0.resume(returning: value) }
   }
   
