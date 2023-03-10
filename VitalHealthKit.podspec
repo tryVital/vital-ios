@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
     s.name = 'VitalHealthKit'
-    s.version = '0.7.17'
-    s.license = 'GPL v3.0'
+    s.version = '0.8.0'
+    s.license = 'AGPL v3.0'
     s.summary = 'The official Swift Library for Vital API, HealthKit and Devices'
     s.homepage = 'https://github.com/tryVital/vital-ios'
     s.authors = { 'Vital' => 'contact@tryVital.io' }
@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
     s.swift_versions = ['5']
     s.source_files = 'Sources/VitalHealthKit/**/*.swift'
 
-    s.dependency 'VitalCore', '~> 0.7.17'
+    s.dependency 'VitalCore', '~> 0.8.0'
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end
