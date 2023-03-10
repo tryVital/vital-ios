@@ -34,7 +34,7 @@ class VitalClientTests: XCTestCase {
     /// The issue is that we have no way to inject mocks, therefore we have to rely on `setConfiguration`.
     /// I don't feel particularly happy with this approach. The only reason I know that I should
     /// call `setConfiguration` is because I know the implementation, which sort of defeats the point.
-    await client.setConfiguration(
+    client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
       configuration: .init(logsEnable: false),
@@ -60,8 +60,8 @@ class VitalClientTests: XCTestCase {
     
     await VitalClient.shared.cleanUp()
     
-    let inMemoryStoredUser = await VitalClient.shared.userId.isNil()
-    let inMemoryStoredConfiguration = await VitalClient.shared.configuration.isNil()
+    let inMemoryStoredUser = VitalClient.shared.userId.isNil()
+    let inMemoryStoredConfiguration = VitalClient.shared.configuration.isNil()
     
     XCTAssertTrue(inMemoryStoredUser)
     XCTAssertTrue(inMemoryStoredConfiguration)
@@ -78,10 +78,14 @@ class VitalClientTests: XCTestCase {
   }
   
   func testAutoUserIdConfiguration() async {
-    await VitalClient.automaticConfiguration()
+    let _: Void = await withCheckedContinuation { continuation in
+      VitalClient.automaticConfiguration {
+        continuation.resume(returning: ())
+      }
+    }
     
-    let nilConfiguration = await VitalClient.shared.configuration.isNil()
-    let nilUserId = await VitalClient.shared.userId.isNil()
+    let nilConfiguration = VitalClient.shared.configuration.isNil()
+    let nilUserId = VitalClient.shared.userId.isNil()
     
     XCTAssertTrue(nilUserId)
     XCTAssertTrue(nilConfiguration)
@@ -98,10 +102,15 @@ class VitalClientTests: XCTestCase {
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
     
     let _ = VitalClient(secureStorage: secureStorage)
-    await VitalClient.automaticConfiguration()
+
+    let _: Void = await withCheckedContinuation { continuation in
+      VitalClient.automaticConfiguration {
+        continuation.resume(returning: ())
+      }
+    }
     
-    let nonNilConfiguration = await VitalClient.shared.configuration.isNil()
-    let nonNilUserId = await VitalClient.shared.userId.isNil()
+    let nonNilConfiguration = VitalClient.shared.configuration.isNil()
+    let nonNilUserId = VitalClient.shared.userId.isNil()
     
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
@@ -117,7 +126,7 @@ class VitalClientTests: XCTestCase {
       secureStorage: secureStorage
     )
     
-    await client.setConfiguration(
+    client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
       configuration: .init(logsEnable: false),
@@ -144,7 +153,7 @@ class VitalClientTests: XCTestCase {
       secureStorage: secureStorage
     )
     
-    await client.setConfiguration(
+    client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
       configuration: .init(logsEnable: false),

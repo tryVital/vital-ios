@@ -75,42 +75,56 @@ let health_secureStorageKey: String = "health_secureStorageKey"
     numberOfDaysToBackFill: Int = 90,
     logsEnabled: Bool = true
   ) {
-    Task {
-      await configure(
-        .init(
-          backgroundDeliveryEnabled: backgroundDeliveryEnabled,
-          numberOfDaysToBackFill: numberOfDaysToBackFill,
-          logsEnabled: logsEnabled,
-          mode: .automatic
-        )
+    configure(
+      .init(
+        backgroundDeliveryEnabled: backgroundDeliveryEnabled,
+        numberOfDaysToBackFill: numberOfDaysToBackFill,
+        logsEnabled: logsEnabled,
+        mode: .automatic
       )
-    }
+    )
+  }
+
+  @_disfavoredOverload
+  @available(*, deprecated, message: "Remove the await keyword to use the non-async version of `configure`.")
+  public static func configure(
+    _ configuration: Configuration = .init()
+  ) async {
+    self.shared.setConfiguration(configuration: configuration)
   }
   
   public static func configure(
     _ configuration: Configuration = .init()
-  ) async {
-    await self.shared.setConfiguration(configuration: configuration)
+  ) {
+    self.shared.setConfiguration(configuration: configuration)
   }
-  
-  public static func automaticConfiguration() async {
+
+  @objc(automaticConfigurationWithCompletion:)
+  public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     do {
       let secureStorage = self.shared.secureStorage
       guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
+        completion?()
         return
       }
       
-      await configure(payload)
-      await VitalClient.automaticConfiguration()
-    }
-    catch {
+      configure(payload)
+      VitalClient.automaticConfiguration(completion: completion)
+    } catch let error {
+      completion?()
       /// Bailout, there's nothing else to do here.
+      /// (But still try to log it if we have a logger around)
+      shared.logger?.error("Failed to perform automatic configuration: \(error)")
     }
   }
-  
+
+  /// **Synchronously** set the configuration and kick off the side effects.
+  ///
+  /// - important: This cannot not be `async` due to background observer registration
+  /// timing requirement by HealthKit. Instead, spawn async tasks if necessary,
   func setConfiguration(
     configuration: Configuration
-  ) async {
+  ) {
     if configuration.logsEnabled {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
@@ -122,10 +136,10 @@ let health_secureStorageKey: String = "health_secureStorageKey"
       logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
     }
     
-    await self.configuration.set(value: configuration)
+    self.configuration.set(value: configuration)
     
-    if await backgroundDeliveryEnabled.get() == false {
-      await backgroundDeliveryEnabled.set(value: true)
+    if backgroundDeliveryEnabled.value != true {
+      backgroundDeliveryEnabled.set(value: true)
       
       let resources = resourcesAskedForPermission(store: self.store)
       checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
@@ -445,7 +459,7 @@ extension VitalHealthKitClient {
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource)
 
-      if await configuration.isNil() == false {
+      if configuration.isNil() == false {
         let configuration = await configuration.get()
         
         checkBackgroundUpdates(

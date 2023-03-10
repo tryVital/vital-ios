@@ -5,12 +5,17 @@ import VitalHealthKit
 
 @main
 struct ExampleApp: App {
-  
-  init() {
-//    Task {
-//      await VitalHealthKitClient.automaticConfiguration()
-//    }
+  final class Delegate: NSObject, UIApplicationDelegate {
+    func application(
+      _ application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
+    ) -> Bool {
+      VitalHealthKitClient.automaticConfiguration()
+      return true
+    }
   }
+
+  @UIApplicationDelegateAdaptor var appDelegate: Delegate
   
   var body: some Scene {
     WindowGroup {
