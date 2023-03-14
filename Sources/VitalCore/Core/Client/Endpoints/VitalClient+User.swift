@@ -16,15 +16,22 @@ public extension VitalClient {
 public extension VitalClient.User {
   
   func userConnectedSources() async throws -> [Provider] {
+    let providers: [FullProvider] = try await self.userConnectedSources()
+    return providers.compactMap { Provider(rawValue: $0.slug) }
+  }
+
+  func userConnectedSources() async throws -> [FullProvider] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
-    
+
     let path = "/\(configuration.apiVersion)/\(path)/providers/\(userId)"
-    
+
     let request: Request<ProviderResponse> = .init(path: path, method: .get)
     let response = try await configuration.apiClient.send(request)
-    let providers = response.value.providers.compactMap { Provider(rawValue: $0.slug) }
-    
+    let providers = response.value.providers.map {
+      FullProvider.init(name: $0.name, slug: $0.slug, logo: $0.logo)
+    }
+
     return providers
   }
   

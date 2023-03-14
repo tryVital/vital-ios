@@ -8,6 +8,12 @@ struct ProviderResponse: Equatable, Decodable {
   let providers: [ProviderResponse.Provider]
 }
 
+public struct FullProvider: Equatable {
+  public let name: String
+  public let slug: String
+  public let logo: String
+}
+
 public enum Provider: String, Codable {
   case beurerBLE = "beurer_ble"
   case beurer = "beurer_api"

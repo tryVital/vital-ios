@@ -333,7 +333,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       return true
     }
     
-    let connectedSources = try await self.user.userConnectedSources()
+    let connectedSources: [Provider] = try await self.user.userConnectedSources()
     return connectedSources.contains(provider)
   }
   
