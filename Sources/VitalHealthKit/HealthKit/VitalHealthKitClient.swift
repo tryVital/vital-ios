@@ -201,11 +201,7 @@ extension VitalHealthKitClient {
     let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
     let cleaned: Set<[HKSampleType]> = Set(common.filter { $0.isEmpty == false })
 
-    let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.reduce([]) { acc, next in
-      var copy = acc
-      copy.append(contentsOf: next)
-      return copy
-    })
+    let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.flatMap { $0 })
 
     if uniqueFlatenned.isEmpty {
       logger?.info("Not observing any type")
@@ -225,7 +221,7 @@ extension VitalHealthKitClient {
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
 
-        guard payload.sampleTypes.isEmpty == false else {
+        guard let first = payload.sampleTypes.first else {
           continue
         }
 
@@ -234,7 +230,7 @@ extension VitalHealthKitClient {
           let resource = store.toVitalResource(payload.sampleTypes.first!)
           await sync(payload: .resource(resource), completion: payload.completion)
         } else {
-          await sync(payload: .type(payload.sampleTypes.first!), completion: payload.completion)
+          await sync(payload: .type(first), completion: payload.completion)
         }
       }
     }
