@@ -2,7 +2,9 @@ import HealthKit
 import VitalCore
 
 class VitalHealthKitStorage {
-  
+
+  static let daySummaryKey = "vital_activity_day_summary"
+
   private let anchorPrefix = "vital_anchor_"
   private let anchorsPrefix = "vital_anchors_"
 

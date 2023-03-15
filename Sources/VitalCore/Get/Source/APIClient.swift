@@ -347,6 +347,7 @@ actor APIClient {
     if let body = request.body {
       let encoder = delegate.client(self, encoderForRequest: request) ?? self.encoder
       urlRequest.httpBody = try await encode(body, using: encoder)
+
       if urlRequest.value(forHTTPHeaderField: "Content-Type") == nil &&
           session.configuration.httpAdditionalHeaders?["Content-Type"] == nil {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")

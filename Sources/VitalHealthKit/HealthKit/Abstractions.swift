@@ -216,43 +216,51 @@ extension VitalClientProtocol {
 
 struct StatisticsQueryDependencies {
   
-  var executeStatisticalQuery: (Date, Date, @escaping StatisticsResultHandler) -> Void
-  var executeSampleQuery: (Date, Date) async throws -> [HKSample]
+  var executeHourlyStatisticalQuery: (HKQuantityType, Date, Date, @escaping HourlyStatisticsResultHandler) -> Void
+  var executeDaySummaryQuery: (HKQuantityType, GregorianCalendar.FloatingDate, GregorianCalendar) async throws -> VitalStatistics?
+  var executeSampleQuery: (HKQuantityType, Date, Date) async throws -> [HKSample]
   
-  var isFirstTimeSycingType: () -> Bool
-  var isLegacyType: () -> Bool
+  var isFirstTimeSycingType: (HKQuantityType) -> Bool
+  var isLegacyType: (HKQuantityType) -> Bool
   
-  var vitalAnchorsForType: () -> [VitalAnchor]
-  var storedDate: () -> Date?
-  var key: () -> String
-  
+  var vitalAnchorsForType: (HKQuantityType) -> [VitalAnchor]
+  var storedDate: (HKQuantityType) -> Date?
+
+  var key: (HKQuantityType) -> String
+
+  var lastComputedDaySummary: () -> Date?
+
   static var debug: StatisticsQueryDependencies {
-    return .init { startDate, endDate, handler in
+    return .init { _, startDate, endDate, handler in
       fatalError()
-    } executeSampleQuery: { _, _ in
+    } executeDaySummaryQuery: { _, date, calendar in
       fatalError()
-    } isFirstTimeSycingType: {
+    } executeSampleQuery: { _, _, _ in
       fatalError()
-    } isLegacyType: {
+    } isFirstTimeSycingType: { _ in
       fatalError()
-    } vitalAnchorsForType: {
+    } isLegacyType: { _ in
       fatalError()
-    } storedDate: {
+    } vitalAnchorsForType: { _ in
       fatalError()
-    } key: {
+    } storedDate: { _ in
+      fatalError()
+    } key: { _ in
+      fatalError()
+    } lastComputedDaySummary: {
       fatalError()
     }
   }
   
   static func live(
     healthKitStore: HKHealthStore,
-    vitalStorage: VitalHealthKitStorage,
-    type: HKQuantityType
+    vitalStorage: VitalHealthKitStorage
   ) -> StatisticsQueryDependencies {
-    let key = String(describing: type.self)
-    
-    return .init { startDate, endDate, handler in
-      
+    return .init { type, startDate, endDate, handler in
+
+      // %@ <= %K AND %K < %@
+      // Exclusive end as per Apple documentation
+      // https://developer.apple.com/documentation/healthkit/hkquery/1614771-predicateforsampleswithstartdate#discussion
       let predicate = HKQuery.predicateForSamples(
         withStart: startDate,
         end: endDate,
@@ -268,7 +276,7 @@ struct StatisticsQueryDependencies {
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
-        options: [.cumulativeSum],
+        options: type.idealStatisticalQueryOptions,
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )
@@ -278,7 +286,14 @@ struct StatisticsQueryDependencies {
 
         guard let statistics = statistics else {
           precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
-          handler(.failure(error!))
+
+          switch (error as? HKError)?.code {
+          case .errorNoData:
+            handler(.success([]))
+          default:
+            handler(.failure(error!))
+          }
+
           return
         }
 
@@ -288,11 +303,15 @@ struct StatisticsQueryDependencies {
           let sources = sources?.map { $0.bundleIdentifier } ?? []
           let values: [HKStatistics] = statistics.statistics()
 
-          let vitalStatistics = values.compactMap { statistics in
-            VitalStatistics(statistics: statistics, type: type, sources: sources)
-          }
+          do {
+            let vitalStatistics = try values.map { statistics in
+              try VitalStatistics(statistics: statistics, type: type, sources: sources)
+            }
 
-          handler(.success(vitalStatistics))
+            handler(.success(vitalStatistics))
+          } catch let error {
+            handler(.failure(error))
+          }
         }
 
         healthKitStore.execute(sourceQuery)
@@ -301,23 +320,72 @@ struct StatisticsQueryDependencies {
       query.initialResultsHandler = queryHandler
       healthKitStore.execute(query)
       
-    } executeSampleQuery: { startDate, endDate in
+    } executeDaySummaryQuery: { type, date, calendar in
+
+      // %@ <= %K AND %K < %@
+      // Exclusive end as per Apple documentation
+      // https://developer.apple.com/documentation/healthkit/hkquery/1614771-predicateforsampleswithstartdate#discussion
+      let nextDay = calendar.offset(date, byDays: 1)
+      let predicate = HKQuery.predicateForSamples(
+        withStart: calendar.startOfDay(date),
+        end: calendar.startOfDay(nextDay),
+        options: []
+      )
+
+      return try await withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKStatisticsQuery(
+            quantityType: type,
+            quantitySamplePredicate: predicate,
+            options: type.idealStatisticalQueryOptions
+          ) { _, statistics, error in
+            guard let statistics = statistics else {
+              precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
+
+              switch (error as? HKError)?.code {
+              case .errorNoData:
+                continuation.resume(with: .success(nil))
+              default:
+                continuation.resume(with: .failure(error!))
+              }
+
+              return
+            }
+
+            do {
+              continuation.resume(
+                with: .success(try VitalStatistics(statistics: statistics, type: type, sources: []))
+              )
+            } catch let error {
+              continuation.resume(with: .failure(error))
+            }
+          }
+        )
+      }
+
+    } executeSampleQuery: { type, startDate, endDate in
       try await querySample(healthKitStore: healthKitStore, type: type, startDate: startDate, endDate: endDate)
       
-    } isFirstTimeSycingType: {
+    } isFirstTimeSycingType: { type in
+      let key = String(describing: type.self)
       return vitalStorage.isFirstTimeSycingType(for: key)
       
-    } isLegacyType: {
+    } isLegacyType: { type in
+      let key = String(describing: type.self)
       return vitalStorage.isLegacyType(for: key)
       
-    } vitalAnchorsForType: {
+    } vitalAnchorsForType: { type in
+      let key = String(describing: type.self)
       return vitalStorage.read(key: key)?.vitalAnchors ?? []
       
-    } storedDate: {
+    } storedDate: { type in
+      let key = String(describing: type.self)
       return vitalStorage.read(key: key)?.date
       
-    } key: {
-      return key
+    } key: { type in
+      return String(describing: type.self)
+    } lastComputedDaySummary: {
+      return vitalStorage.read(key: VitalHealthKitStorage.daySummaryKey)?.date
     }
   }
 }

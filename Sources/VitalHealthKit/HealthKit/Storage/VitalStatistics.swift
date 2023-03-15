@@ -29,12 +29,15 @@ struct VitalStatistics {
     self.sources = sources
   }
     
-  init?(statistics: HKStatistics, type: HKQuantityType, sources: [String]) {
-    guard let sum = statistics.sumQuantity() else {
-      return nil
-    }
+  init(statistics: HKStatistics, type: HKQuantityType, sources: [String]) throws {
+    let unit = type.toHealthKitUnits
+
+    guard
+      type.is(compatibleWith: unit),
+      let quantity = type.idealStatisticalQuantity(from: statistics)
+    else { throw VitalStatisticsError(statistics: statistics) }
     
-    let value = sum.doubleValue(for: type.toHealthKitUnits)
+    let value = quantity.doubleValue(for: unit)
     self.init(
       value: value,
       type: String(describing: type),
