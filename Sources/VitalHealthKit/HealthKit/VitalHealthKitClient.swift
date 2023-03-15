@@ -227,7 +227,7 @@ extension VitalHealthKitClient {
 
         if payload.sampleTypes.count > 1 {
         /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-          let resource = store.toVitalResource(payload.sampleTypes.first!)
+          let resource = store.toVitalResource(first)
           await sync(payload: .resource(resource), completion: payload.completion)
         } else {
           await sync(payload: .type(first), completion: payload.completion)
