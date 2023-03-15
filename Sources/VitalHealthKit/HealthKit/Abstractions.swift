@@ -258,7 +258,13 @@ struct StatisticsQueryDependencies {
         end: endDate,
         options: []
       )
-      
+
+      // While we are interested in the contributing sources, we should not use
+      // the `sepearateBySource` option, as we want HealthKit to provide
+      // final statistics points that are merged from all data sources.
+      //
+      // We will issue a separate HKSourceQuery to lookup the contributing
+      // sources.
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
@@ -275,15 +281,21 @@ struct StatisticsQueryDependencies {
           handler(.failure(error!))
           return
         }
-        
-        let values: [HKStatistics] = statistics.statistics()
-        let sources = statistics.sources().map { $0.bundleIdentifier }
 
-        let vitalStatistics = values.compactMap { statistics in
-          VitalStatistics(statistics: statistics, type: type, sources: sources)
+        // HKSourceQuery should report the set of sources of all the samples that
+        // would have been matched by the HKStatisticsCollectionQuery.
+        let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
+          let sources = sources?.map { $0.bundleIdentifier } ?? []
+          let values: [HKStatistics] = statistics.statistics()
+
+          let vitalStatistics = values.compactMap { statistics in
+            VitalStatistics(statistics: statistics, type: type, sources: sources)
+          }
+
+          handler(.success(vitalStatistics))
         }
-        
-        handler(.success(vitalStatistics))
+
+        healthKitStore.execute(sourceQuery)
       }
       
       query.initialResultsHandler = queryHandler
