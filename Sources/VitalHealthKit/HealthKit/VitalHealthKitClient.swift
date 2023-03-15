@@ -254,8 +254,6 @@ extension VitalHealthKitClient {
     }
   }
 
-
-
   @available(iOS 15.0, *)
   private func bundledBackgroundObservers(
     for typesBundle: Set<[HKSampleType]>
@@ -267,7 +265,7 @@ extension VitalHealthKitClient {
       for types in typesBundle {
 
         let descriptors = types.map {
-          HKQueryDescriptor.init(sampleType: $0, predicate: nil)
+          HKQueryDescriptor(sampleType: $0, predicate: nil)
         }
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
