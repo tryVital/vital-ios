@@ -196,27 +196,51 @@ extension VitalHealthKitClient {
     self.backgroundDeliveryTask?.cancel()
     
     let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
-    let common = Set(observedSampleTypes()).intersection(allowedSampleTypes)
-    let sampleTypes = common.compactMap { $0 as? HKSampleType }
-    
-    if sampleTypes.isEmpty {
+
+    let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
+    let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
+    let cleaned: Set<[HKSampleType]> = Set(common.filter { $0.isEmpty == false })
+
+    let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.reduce([]) { acc, next in
+      var copy = acc
+      copy.append(contentsOf: next)
+      return copy
+    })
+
+    if uniqueFlatenned.isEmpty {
       logger?.info("Not observing any type")
     }
-    
+
     /// Enable background deliveries
-    enableBackgroundDelivery(for: sampleTypes)
-    
-    let stream = backgroundObservers(for: sampleTypes)
-    
+    enableBackgroundDelivery(for: uniqueFlatenned)
+
+    let stream: AsyncStream<BackgroundDeliveryPayload>
+
+    if #available(iOS 15.0, *) {
+      stream = bundledBackgroundObservers(for: cleaned)
+    } else {
+      stream = backgroundObservers(for: uniqueFlatenned)
+    }
+
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
-        /// Sync types one-by-one
-        await sync(payload: .type(payload.sampleType), completion: payload.completion)
+
+        guard payload.sampleTypes.isEmpty == false else {
+          continue
+        }
+
+        if payload.sampleTypes.count > 1 {
+        /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
+          let resource = store.toVitalResource(payload.sampleTypes.first!)
+          await sync(payload: .resource(resource), completion: payload.completion)
+        } else {
+          await sync(payload: .type(payload.sampleTypes.first!), completion: payload.completion)
+        }
       }
     }
   }
   
-  private func enableBackgroundDelivery(for sampleTypes: [HKSampleType]) {
+  private func enableBackgroundDelivery(for sampleTypes: Set<HKSampleType>) {
     for sampleType in sampleTypes {
       store.enableBackgroundDelivery(sampleType, .hourly) { [weak self] success, failure in
         
@@ -229,9 +253,55 @@ extension VitalHealthKitClient {
       }
     }
   }
+
+
+
+  @available(iOS 15.0, *)
+  private func bundledBackgroundObservers(
+    for typesBundle: Set<[HKSampleType]>
+  ) -> AsyncStream<BackgroundDeliveryPayload> {
+
+    return AsyncStream<BackgroundDeliveryPayload> { continuation in
+      var queries: [HKObserverQuery] = []
+
+      for types in typesBundle {
+
+        let descriptors = types.map {
+          HKQueryDescriptor.init(sampleType: $0, predicate: nil)
+        }
+
+        let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
+          guard let sampleTypes = sampleTypes else {
+            self.logger?.error("Failed to background deliver. Empty samples")
+            return
+          }
+
+          guard error == nil else {
+            self.logger?.error("Failed to background deliver for \(String(describing: sampleTypes)) with \(error).")
+
+            ///  We need a better way to handle if a failure happens here.
+            return
+          }
+
+          let payload = BackgroundDeliveryPayload(sampleTypes: sampleTypes, completion: handler)
+          continuation.yield(payload)
+        }
+
+        queries.append(query)
+        store.execute(query)
+      }
+
+      /// If the task is cancelled, make sure we clean up the existing queries
+      continuation.onTermination = { @Sendable [queries] _ in
+        queries.forEach { query in
+          self.store.stop(query)
+        }
+      }
+    }
+  }
   
   private func backgroundObservers(
-    for sampleTypes: [HKSampleType]
+    for sampleTypes: Set<HKSampleType>
   ) -> AsyncStream<BackgroundDeliveryPayload> {
     
     return AsyncStream<BackgroundDeliveryPayload> { continuation in
@@ -248,7 +318,7 @@ extension VitalHealthKitClient {
             return
           }
           
-          let payload = BackgroundDeliveryPayload(sampleType: sampleType, completion: handler)
+          let payload = BackgroundDeliveryPayload(sampleTypes: Set([sampleType]), completion: handler)
           continuation.yield(payload)
         }
         
