@@ -218,7 +218,7 @@ class VitalHealthKitReadsTests: XCTestCase {
       }
       
       let element = vitalStastics.removeFirst()
-      handler(element, nil)
+      handler(.success(element))
     }
     
     debug.isLegacyType = { return true }
@@ -279,7 +279,7 @@ class VitalHealthKitReadsTests: XCTestCase {
       
       dateRanges.append(range)
       let element = vitalStastics.removeFirst()
-      handler(element, nil)
+      handler(.success(element))
     }
     
     debug.isLegacyType = { return false }

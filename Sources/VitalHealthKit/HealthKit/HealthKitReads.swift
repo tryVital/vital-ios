@@ -9,7 +9,7 @@ typealias SeriesSampleHandler = (HKQuantitySeriesSampleQuery, HKQuantity?, DateI
 
 typealias StatisticsHandler = (HKStatisticsCollectionQuery, HKStatisticsCollection?, Error?) -> Void
 
-typealias StatisticInjectedsHandler = ([VitalStatistics], Error?) -> Void
+typealias StatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
 
 
 private func read(
@@ -888,21 +888,26 @@ func calculateIdsForAnchorsAndData(
 private func populateAnchorsForStatisticalQuery(
   dependency: StatisticsQueryDependencies,
   statisticsQueryStartDate: Date
-) async -> [VitalAnchor] {
+) async throws -> [VitalAnchor] {
     
   let startDate = vitalCalendar.date(byAdding: .day, value: -21, to: statisticsQueryStartDate)!.dayStart
   let endDate = statisticsQueryStartDate.beginningHour
 
-  return await withCheckedContinuation { continuation in
+  return try await withCheckedThrowingContinuation { continuation in
     
-    let handler: StatisticInjectedsHandler = { vitalStatistics, error in
-      
-      let newAnchors = calculateIdsForAnchorsPopulation(
-        vitalStatistics: vitalStatistics,
-        date: endDate
-      )
-            
-      continuation.resume(returning: newAnchors)
+    let handler: StatisticsResultHandler = { result in
+      switch result {
+      case let .success(statistics):
+        let newAnchors = calculateIdsForAnchorsPopulation(
+          vitalStatistics: statistics,
+          date: endDate
+        )
+
+        continuation.resume(returning: newAnchors)
+
+      case let .failure(error):
+        continuation.resume(throwing: error)
+      }
     }
             
     dependency.executeStatisticalQuery(startDate, endDate, handler)
@@ -950,7 +955,7 @@ func queryStatisticsSample(
   /// <TO BE REMOVED>
   if isLegacyType {
     /// We will fill up 21 days worth of anchors
-    vitalAnchors = await populateAnchorsForStatisticalQuery(
+    vitalAnchors = try await populateAnchorsForStatisticalQuery(
       dependency: dependency,
       statisticsQueryStartDate: newStartDate
     )
@@ -984,23 +989,22 @@ func queryStatisticsSample(
   
   return try await withCheckedThrowingContinuation { continuation in
     
-    let handler: StatisticInjectedsHandler = { vitalStatistics, error in
-      if let error = error {
-        continuation.resume(with: .failure(error))
-        return
-      }
+    let handler: StatisticsResultHandler = { result in
+      switch result {
+      case let .success(statistics):
+        let payload = calculateIdsForAnchorsAndData(
+          vitalStatistics: statistics,
+          existingAnchors: vitalAnchors,
+          key: dependency.key(),
+          date: newEndDate
+        )
 
-      let payload = calculateIdsForAnchorsAndData(
-        vitalStatistics: vitalStatistics,
-        existingAnchors: vitalAnchors,
-        key: dependency.key(),
-        date: newEndDate
-      )
-      
-      
-      let enrichedStatistics = enrichWithDates(samples: samples, statistics: payload.0)
-      
-      continuation.resume(with: .success((enrichedStatistics, payload.1)))
+        let enrichedStatistics = enrichWithDates(samples: samples, statistics: payload.0)
+        continuation.resume(with: .success((enrichedStatistics, payload.1)))
+
+      case let .failure(error):
+        continuation.resume(with: .failure(error))
+      }
     }
     
     dependency.executeStatisticalQuery(statisticsStarDate, statisticsEndDate, handler)

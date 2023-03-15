@@ -216,7 +216,7 @@ extension VitalClientProtocol {
 
 struct StatisticsQueryDependencies {
   
-  var executeStatisticalQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
+  var executeStatisticalQuery: (Date, Date, @escaping StatisticsResultHandler) -> Void
   var executeSampleQuery: (Date, Date) async throws -> [HKSample]
   
   var isFirstTimeSycingType: () -> Bool
@@ -256,26 +256,34 @@ struct StatisticsQueryDependencies {
       let predicate = HKQuery.predicateForSamples(
         withStart: startDate,
         end: endDate,
-        options: [.strictStartDate]
+        options: []
       )
       
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
-        options: [.cumulativeSum, .separateBySource],
+        options: [.cumulativeSum],
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )
       
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
-        
-        let values: [HKStatistics] = statistics?.statistics() ?? []
-        let vitalStatistics = values.compactMap { statistics in
-          VitalStatistics(statistics: statistics, type: type)
+
+        guard let statistics = statistics else {
+          precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
+          handler(.failure(error!))
+          return
         }
         
-        handler(vitalStatistics, error)
+        let values: [HKStatistics] = statistics.statistics()
+        let sources = statistics.sources().map { $0.bundleIdentifier }
+
+        let vitalStatistics = values.compactMap { statistics in
+          VitalStatistics(statistics: statistics, type: type, sources: sources)
+        }
+        
+        handler(.success(vitalStatistics))
       }
       
       query.initialResultsHandler = queryHandler
