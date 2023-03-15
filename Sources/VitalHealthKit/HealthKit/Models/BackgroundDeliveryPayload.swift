@@ -1,6 +1,6 @@
 import HealthKit
 
 struct BackgroundDeliveryPayload {
-  let sampleType: HKSampleType
+  let sampleTypes: Set<HKSampleType>
   let completion: () -> Void
 }

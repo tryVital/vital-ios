@@ -118,52 +118,78 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
-func observedSampleTypes() -> [HKSampleType] {
+func observedSampleTypes() -> [[HKSampleType]] {
   return [
     /// Profile
-    HKQuantityType.quantityType(forIdentifier: .height)!,
+    [
+      HKQuantityType.quantityType(forIdentifier: .height)!
+    ],
     
     
     /// Body
-    HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-    HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
+    [
+      HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
+      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!
+    ],
 
     /// Sleep
-    HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
+    [
+      HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!]
+    ,
 
     /// Activity
-    HKSampleType.quantityType(forIdentifier: .stepCount)!,
-    HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-    HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-    HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-    HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-    HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+    [
+      HKSampleType.quantityType(forIdentifier: .stepCount)!,
+      HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+      HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+      HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+      HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+      HKSampleType.quantityType(forIdentifier: .vo2Max)!
+    ],
     
     /// Workout
-    HKSampleType.workoutType(),
+    [
+      HKSampleType.workoutType()
+    ],
 
     /// Vitals Glucose
-    HKSampleType.quantityType(forIdentifier: .bloodGlucose)!,
+    [
+      HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
+    ],
 
     /// Mindfuless Minutes
-    HKSampleType.categoryType(forIdentifier: .mindfulSession)!,
+    [
+      HKSampleType.categoryType(forIdentifier: .mindfulSession)!
+    ],
 
     /// Vitals BloodPressure
     /// We only need to observe one, we know the other will be present. If we observe both,
     /// we are triggering the observer twice.
     //  HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-    HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!,
+    [
+      HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
+    ],
     
     /// Vitals Heartrate
-    HKSampleType.quantityType(forIdentifier: .heartRate)!,
-    HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+    [
+      HKSampleType.quantityType(forIdentifier: .heartRate)!,
+    ],
+
+    /// Vitals HRV
+    [
+      HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!
+    ],
     
     /// Nutrition
-    HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
-    HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!,
+    [
+      HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
+      HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!
+    ],
 
     /// Mindfulness Minutes
-    HKSampleType.categoryType(forIdentifier: .mindfulSession)!
+    [
+      HKSampleType.categoryType(forIdentifier: .mindfulSession)!
+    ]
   ]
 }
 
