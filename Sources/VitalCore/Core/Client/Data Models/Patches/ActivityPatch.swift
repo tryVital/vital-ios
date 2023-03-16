@@ -11,7 +11,7 @@ public struct ActivityPatch: Equatable, Encodable {
     public var vo2Max: [QuantitySample] = []
 
     public var isNotEmpty: Bool {
-      daySummary != nil || !activeEnergyBurned.isEmpty ||
+      (daySummary.map(\.isNotEmpty) ?? false) || !activeEnergyBurned.isEmpty ||
       !basalEnergyBurned.isEmpty || !basalEnergyBurned.isEmpty ||
       !steps.isEmpty || !floorsClimbed.isEmpty ||
       !distanceWalkingRunning.isEmpty || !vo2Max.isEmpty
