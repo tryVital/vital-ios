@@ -25,8 +25,7 @@ extension Date {
   }
   
   var dayStart: Date {
-    let date = vitalCalendar.date(bySettingHour: 0, minute: 0, second: 0, of: self)!
-    return date
+    return vitalCalendar.startOfDay(for: self)
   }
   
   var dayEnd: Date {

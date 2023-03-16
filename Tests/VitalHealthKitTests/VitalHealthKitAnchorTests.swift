@@ -7,7 +7,7 @@ import HealthKit
 class VitalHealthKitAnchorTests: XCTestCase {
     
   func testAnchorsPopulation() {
-    let type = "type"
+    let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let input: [VitalStatistics] = [
       .init(value: 1, type: type, startDate: Date(), endDate: Date(), sources: []),
       .init(value: 2, type: type, startDate: Date(), endDate: Date(), sources: []),
@@ -25,7 +25,7 @@ class VitalHealthKitAnchorTests: XCTestCase {
   }
   
   func testAnchorsAndData() {
-    let type = "type"
+    let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let key = "key"
     let existing: [VitalAnchor] = [
       .init(id: "1"),
@@ -47,7 +47,7 @@ class VitalHealthKitAnchorTests: XCTestCase {
   }
   
   func testAnchorsAndDataNoExisting() {
-    let type = "type"
+    let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let key = "key"
     let existing: [VitalAnchor] = [
     ]

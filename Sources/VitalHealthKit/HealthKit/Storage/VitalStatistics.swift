@@ -2,7 +2,7 @@ import HealthKit
 
 struct VitalStatistics {
   var value: Double
-  var type: String
+  var type: HKQuantityType
   var startDate: Date
   var endDate: Date
   
@@ -17,7 +17,7 @@ struct VitalStatistics {
   
   init(
     value: Double,
-    type: String,
+    type: HKQuantityType,
     startDate: Date,
     endDate: Date,
     sources: [String]
@@ -37,10 +37,17 @@ struct VitalStatistics {
     let value = sum.doubleValue(for: type.toHealthKitUnits)
     self.init(
       value: value,
-      type: String(describing: type),
+      type: type,
       startDate: statistics.startDate,
       endDate: statistics.endDate,
       sources: sources
     )
+  }
+
+  func withSampleDates(first: Date, last: Date) -> Self {
+    var copy = self
+    copy.firstSampleDate = first
+    copy.lastSampleDate = last
+    return copy
   }
 }
