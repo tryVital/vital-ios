@@ -615,22 +615,6 @@ func handleActivity(
     return (quantities, payload.anchor)
   }
 
-  // - Day summaries
-
-  let daySummaryStartDate: Date? = [
-    dependencies.storedDate(.quantityType(forIdentifier: .activeEnergyBurned)!),
-    dependencies.storedDate(.quantityType(forIdentifier: .basalEnergyBurned)!),
-    dependencies.storedDate(.quantityType(forIdentifier: .stepCount)!),
-    dependencies.storedDate(.quantityType(forIdentifier: .flightsClimbed)!),
-    dependencies.storedDate(.quantityType(forIdentifier: .distanceWalkingRunning)!),
-  ].compactMap { $0 }.min()
-
-  let daySummaries = try await queryActivityDaySummaries(
-    dependencies: dependencies,
-    startTime: daySummaryStartDate ?? startDate,
-    endTime: endDate
-  )
-
   // - Hourly timeseries samples
   var anchors: [StoredAnchor] = []
   
@@ -665,7 +649,32 @@ func handleActivity(
   anchors.appendOptional(distanceWalkingRunningAnchor)
   anchors.appendOptional(vo2MaxAnchor)
 
-  let allDaySummaries = daySummaries.map { ActivityPatch.Activity(daySummary: $0) }
+  // - Day summaries
+
+  // Find the minimum start date.
+  let daySummaryStartDate: Date? = [
+    activeEnergyBurned.first?.startDate,
+    basalEnergyBurned.first?.startDate,
+    steps.first?.startDate,
+    floorsClimbed.first?.startDate,
+    distanceWalkingRunning.first?.startDate,
+  ].compactMap { $0 }.min()
+
+  let allDaySummaries: [ActivityPatch.Activity]
+
+  if let startDate = daySummaryStartDate {
+    let daySummaries = try await queryActivityDaySummaries(
+      dependencies: dependencies,
+      startTime: daySummaryStartDate ?? startDate,
+      endTime: endDate
+    )
+    allDaySummaries = daySummaries
+      .filter(\.isNotEmpty)
+      .map { ActivityPatch.Activity(daySummary: $0) }
+  } else {
+    allDaySummaries = []
+  }
+
   let allSamples = ActivityPatch.Activity(
     activeEnergyBurned: activeEnergyBurned,
     basalEnergyBurned: basalEnergyBurned,
@@ -888,7 +897,7 @@ func calculateIdsForAnchorsAndData(
     date: date,
     vitalAnchors: toStoreIds
   )
-  
+
   return (dataToSend, storedAnchor)
 }
 
