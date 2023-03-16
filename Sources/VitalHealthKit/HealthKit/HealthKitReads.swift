@@ -1003,13 +1003,9 @@ func queryStatisticsSample(
   }
   
   let statisticsEndDate = newEndDate.nextHour
-  
-  
-  let samples: [HKSample] = try await dependency.executeSampleQuery(type, statisticsStarDate, statisticsEndDate)
-  
-  
-  return try await withCheckedThrowingContinuation { continuation in
-    
+
+  let (statistics, anchor): ([VitalStatistics], StoredAnchor) = try await withCheckedThrowingContinuation { continuation in
+
     let handler: HourlyStatisticsResultHandler = { result in
       switch result {
       case let .success(statistics):
@@ -1020,8 +1016,7 @@ func queryStatisticsSample(
           date: newEndDate
         )
 
-        let enrichedStatistics = enrichWithDates(samples: samples, statistics: payload.0)
-        continuation.resume(with: .success((enrichedStatistics, payload.1)))
+        continuation.resume(with: .success(payload))
 
       case let .failure(error):
         continuation.resume(with: .failure(error))
@@ -1030,51 +1025,35 @@ func queryStatisticsSample(
     
     dependency.executeHourlyStatisticalQuery(type, statisticsStarDate, statisticsEndDate, handler)
   }
+
+  let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
+
+  return (enrichedStatistics, anchor)
 }
 
 
-func enrichWithDates(samples: [HKSample], statistics: [VitalStatistics]) -> [VitalStatistics] {
-  func diff(
-    range: ClosedRange<Date>,
-    storedDate: Date?,
-    statisticalDate: Date,
-    sampleDate: Date
-  ) -> Date? {
-    
-    guard range.contains(sampleDate) else {
-      return storedDate
-    }
-    
-    let newDiff = abs(sampleDate.timeIntervalSince(statisticalDate))
-    
-    if let storedDate = storedDate {
-      let existingDiff = abs(storedDate.timeIntervalSince(statisticalDate))
-      
-      if existingDiff < newDiff {
-        return storedDate
+func enrichWithDates(
+  dependencies: StatisticsQueryDependencies,
+  statistics: [VitalStatistics]
+) async throws -> [VitalStatistics] {
+  return try await withThrowingTaskGroup(of: VitalStatistics.self) { group in
+    for entry in statistics {
+      group.addTask {
+        let result = try await dependencies.getFirstAndLastSampleTime(
+          entry.type,
+          entry.startDate,
+          entry.endDate
+        )
+
+        if let (first, last) = result {
+          return entry.withSampleDates(first: first, last: last)
+        } else {
+          return entry
+        }
       }
     }
-    
-    return sampleDate
-  }
-  
-  return statistics.map { statistic in
-    var copy = statistic
-    
-    var startDate: Date? = nil
-    var endDate: Date? = nil
-    
-    let range = copy.startDate ... copy.endDate
 
-    for sample in samples {
-      startDate = diff(range: range, storedDate: startDate, statisticalDate: copy.startDate, sampleDate: sample.startDate)
-      endDate = diff(range: range, storedDate: endDate, statisticalDate: copy.endDate, sampleDate: sample.endDate)
-    }
-    
-    copy.firstSampleDate = startDate
-    copy.lastSampleDate = endDate
-    
-    return copy
+    return try await group.reduce(into: []) { $0.append($1) }
   }
 }
 

@@ -215,10 +215,12 @@ extension VitalClientProtocol {
 }
 
 struct StatisticsQueryDependencies {
-  
+
   var executeHourlyStatisticalQuery: (HKQuantityType, Date, Date, @escaping HourlyStatisticsResultHandler) -> Void
   var executeDaySummaryQuery: (HKQuantityType, GregorianCalendar.FloatingDate, GregorianCalendar) async throws -> VitalStatistics?
   var executeSampleQuery: (HKQuantityType, Date, Date) async throws -> [HKSample]
+
+  var getFirstAndLastSampleTime: (HKQuantityType, Date, Date) async throws -> (first: Date, last: Date)?
   
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
@@ -234,6 +236,8 @@ struct StatisticsQueryDependencies {
     } executeDaySummaryQuery: { _, date, calendar in
       fatalError()
     } executeSampleQuery: { _, _, _ in
+      fatalError()
+    } getFirstAndLastSampleTime: { _, _, _ in
       fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
@@ -276,6 +280,8 @@ struct StatisticsQueryDependencies {
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )
+
+      let queryInterval = startDate ... endDate
       
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
@@ -297,7 +303,21 @@ struct StatisticsQueryDependencies {
         // would have been matched by the HKStatisticsCollectionQuery.
         let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
           let sources = sources?.map { $0.bundleIdentifier } ?? []
-          let values: [HKStatistics] = statistics.statistics()
+          let values: [HKStatistics] = statistics.statistics().filter { entry in
+            // We perform a HKStatisticsCollectionQuery w/o strictStartDate and strictEndDate in
+            // order to have aggregates matching numbers in the Health app.
+            //
+            // However, a caveat is that HealthKit can often return incomplete statistics point
+            // outside the query interval we specified. While including samples astriding the
+            // bounds would desirably contribute to stat points we are interested in, as a byproduct,
+            // of the bucketing process (in our case, hourly buckets), HealthKit would also create
+            // stat points from the unwanted portion of these samples.
+            //
+            // These unwanted stat points must be explicitly discarded, since they are not backed by
+            // the complete set of samples within their representing time interval (as they are
+            // rightfully excluded by the query interval we specified).
+            queryInterval.contains(entry.startDate) && queryInterval.contains(entry.endDate)
+          }
 
           do {
             let vitalStatistics = try values.map { statistics in
@@ -361,7 +381,59 @@ struct StatisticsQueryDependencies {
 
     } executeSampleQuery: { type, startDate, endDate in
       try await querySample(healthKitStore: healthKitStore, type: type, startDate: startDate, endDate: endDate)
-      
+
+    } getFirstAndLastSampleTime: { type, start, end in
+      @Sendable func makePredicate() -> NSPredicate {
+        // start <= %K AND %K < end (end exclusive)
+        HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+      }
+
+      async let _first: Date? = withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKSampleQuery(
+            sampleType: type,
+            predicate: makePredicate(),
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: true)]
+          ) { _, samples, error in
+            continuation.resume(returning: samples?.first?.startDate)
+          }
+        )
+      }
+
+      async let _last: Date? = withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKSampleQuery(
+            sampleType: type,
+            predicate: makePredicate(),
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: false)]
+          ) { _, samples, error in
+            continuation.resume(returning: samples?.first?.endDate)
+          }
+        )
+      }
+
+      let first = try await _first
+      let last = try await _last
+
+      switch (first, last) {
+      case let (first?, last?):
+        precondition(first <= last, "Illogical query result from HKSampleQuery. [2]")
+
+        // Clamp to the given start..<end
+        return (
+          first: max(first, start),
+          last: min(last, end)
+        )
+
+      case (nil, _?), (_?, nil):
+        fatalError("Illogical query result from HKSampleQuery. [1]")
+
+      case (nil, nil):
+        return nil
+      }
+
     } isFirstTimeSycingType: { type in
       let key = String(describing: type.self)
       return vitalStorage.isFirstTimeSycingType(for: key)

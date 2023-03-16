@@ -181,15 +181,16 @@ class VitalHealthKitReadsTests: XCTestCase {
   }
   
   func testStatisticalReadingForLegacyUser() async throws {
+    let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let key = "key"
     var vitalStastics: [[VitalStatistics]] = [
       [
-        .init(value: 10, type: key, startDate: Date(), endDate: Date(), sources: []),
-        .init(value: 20, type: key, startDate: Date(), endDate: Date(), sources: []),
-        .init(value: 30, type: key, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 10, type: type, startDate: Date(), endDate: Date(), sources: []),
+        .init(value: 20, type: type, startDate: Date(), endDate: Date(), sources: []),
+        .init(value: 30, type: type, startDate: Date(), endDate: Date(), sources: [])
       ],
       [
-        .init(value: 5, type: key, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 5, type: type, startDate: Date(), endDate: Date(), sources: [])
       ]
     ]
     
@@ -200,11 +201,6 @@ class VitalHealthKitReadsTests: XCTestCase {
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
     var dateRanges: [ClosedRange<Date>] = []
-    
-    debug.executeSampleQuery = { type, _, _ in
-      XCTAssertEqual(quantityType, type)
-      return []
-    }
     
     debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
       XCTAssertEqual(quantityType, type)
@@ -224,6 +220,12 @@ class VitalHealthKitReadsTests: XCTestCase {
       
       let element = vitalStastics.removeFirst()
       handler(.success(element))
+    }
+
+    debug.getFirstAndLastSampleTime = { type, start, end in
+      XCTAssertEqual(quantityType, type)
+
+      return nil
     }
     
     debug.isLegacyType = { type in
@@ -267,10 +269,11 @@ class VitalHealthKitReadsTests: XCTestCase {
   }
   
   func testStatisticalReadingForNewUser() async throws {
+    let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let key = "key"
     var vitalStastics: [[VitalStatistics]] = [
       [
-        .init(value: 5, type: key, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 5, type: type, startDate: Date(), endDate: Date(), sources: [])
       ]
     ]
     
@@ -281,10 +284,10 @@ class VitalHealthKitReadsTests: XCTestCase {
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
     var dateRanges: [ClosedRange<Date>] = []
-    
-    debug.executeSampleQuery = { type, _, _ in
+
+    debug.getFirstAndLastSampleTime = { type, start, end in
       XCTAssertEqual(quantityType, type)
-      return []
+      return nil
     }
     
     debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
