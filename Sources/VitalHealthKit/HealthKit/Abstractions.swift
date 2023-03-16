@@ -276,6 +276,8 @@ struct StatisticsQueryDependencies {
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )
+
+      let queryInterval = startDate ... endDate
       
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
@@ -290,7 +292,21 @@ struct StatisticsQueryDependencies {
         // would have been matched by the HKStatisticsCollectionQuery.
         let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
           let sources = sources?.map { $0.bundleIdentifier } ?? []
-          let values: [HKStatistics] = statistics.statistics()
+          let values: [HKStatistics] = statistics.statistics().filter { entry in
+            // We perform a HKStatisticsCollectionQuery w/o strictStartDate and strictEndDate in
+            // order to have aggregates matching numbers in the Health app.
+            //
+            // However, a caveat is that HealthKit can often return incomplete statistics point
+            // outside the query interval we specified. While including samples astriding the
+            // bounds would desirably contribute to stat points we are interested in, as a byproduct,
+            // of the bucketing process (in our case, hourly buckets), HealthKit would also create
+            // stat points from the unwanted portion of these samples.
+            //
+            // These unwanted stat points must be explicitly discarded, since they are not backed by
+            // the complete set of samples within their representing time interval (as they are
+            // rightfully excluded by the query interval we specified).
+            queryInterval.contains(entry.startDate) && queryInterval.contains(entry.endDate)
+          }
 
           let vitalStatistics = values.compactMap { statistics in
             VitalStatistics(statistics: statistics, type: type, sources: sources)
