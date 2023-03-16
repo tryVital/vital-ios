@@ -198,6 +198,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             )
           }
           
+
           await VitalHealthKitClient.configure(
             .init(
               backgroundDeliveryEnabled: true,
@@ -206,7 +207,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             )
           )
         }
-        
+
         return .didConfigureSDK
       } catch: { error in
         let alert = AlertState<Settings.Action> {
@@ -220,7 +221,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         }
         return .binding(BindingAction.set(\.$alert, alert))
       }
-            
+
       return effect
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
@@ -254,6 +255,7 @@ extension Settings {
     
     let store: Store<State, Action>
     @FocusState private var activeKeyboard: Bool
+    @SwiftUI.State private var enablePersistentLogging: Bool = VitalPersistentLogger.isEnabled
 
     static let allEnviornments: [VitalCore.Environment] = [
       .sandbox(.eu),
@@ -366,9 +368,23 @@ extension Settings {
                 .disabled(viewStore.sdkIsConfigured == false)
               }
             }
+
+            Section("Logging") {
+              Toggle(
+                "Persistent Logging",
+                isOn: $enablePersistentLogging
+              )
+
+              Button("Share Persistent Logs") {
+                VitalHealthKitClient.createAndShareLogArchive()
+              }
+            }
           }
           .onAppear {
             UIScrollView.appearance().keyboardDismissMode = .onDrag
+          }
+          .onChange(of: enablePersistentLogging) { newValue in
+            VitalPersistentLogger.isEnabled = newValue
           }
           .alert(store.scope(state: \.alert), dismiss: .dismissAlert)
           .navigationBarTitle(Text("Settings"), displayMode: .large)

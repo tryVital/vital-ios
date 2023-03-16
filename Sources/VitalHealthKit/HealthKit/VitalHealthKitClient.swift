@@ -1,8 +1,8 @@
 import HealthKit
 import Combine
 import os.log
-@_spi(VitalSDKInternals) import VitalCore
 import UIKit
+@_spi(VitalSDKInternals) import VitalCore
 
 public enum PermissionOutcome: Equatable {
   case success
@@ -35,8 +35,9 @@ public enum PermissionOutcome: Equatable {
   private static let clientInitLock = NSLock()
   private static var client: VitalHealthKitClient?
 
+  let storage: VitalHealthKitStorage
+
   private let store: VitalHealthKitStore
-  private let storage: VitalHealthKitStorage
   private let secureStorage: VitalSecureStorage
   private let vitalClient: VitalClientProtocol
   
@@ -45,7 +46,8 @@ public enum PermissionOutcome: Equatable {
 
   private var cancellables: Set<AnyCancellable> = []
 
-  private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
+  internal let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
+
   let configuration: ProtectedBox<Configuration>
 
   private var isAutoSyncConfigured: Bool {
@@ -288,6 +290,10 @@ extension VitalHealthKitClient {
       }
 
       for await payload in stream {
+        defer {
+          VitalPersistentLogger.shared?.dumpOSLog(.healthKit)
+        }
+
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
         // HealthKit.
@@ -363,6 +369,10 @@ extension VitalHealthKitClient {
         }
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
+          defer {
+            VitalPersistentLogger.shared?.dumpOSLog(.healthKit)
+          }
+
           guard let sampleTypes = sampleTypes else {
             VitalLogger.healthKit.error("Failed to background deliver. Empty samples")
             return
@@ -424,7 +434,10 @@ extension VitalHealthKitClient {
       
       for sampleType in sampleTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { query, handler, error in
-          
+          defer {
+            VitalPersistentLogger.shared?.dumpOSLog(.healthKit)
+          }
+
           guard error == nil else {
             VitalLogger.healthKit.error("Failed to background deliver for \(sampleType.identifier, privacy: .public).")
             
@@ -481,6 +494,10 @@ extension VitalHealthKitClient {
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
+      defer {
+        VitalPersistentLogger.shared?.dumpOSLog(.healthKit)
+      }
+
       let remappedResources = Set(resources.map(self.store.remapResource(_:)))
       for resource in remappedResources {
         await sync(resource)

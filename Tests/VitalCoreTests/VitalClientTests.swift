@@ -1,7 +1,7 @@
 import XCTest
 import Mocker
 
-@testable import VitalCore
+@testable @_spi(VitalSDKInternals) import VitalCore
 
 let environment = Environment.sandbox(.us)
 let userId = UUID().uuidString
