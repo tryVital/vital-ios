@@ -617,14 +617,22 @@ func handleActivity(
 
   // - Day summaries
 
-  let (daySummaries, daySummaryAnchor) = try await queryActivityDaySummaries(
+  let daySummaryStartDate: Date? = [
+    dependencies.storedDate(.quantityType(forIdentifier: .activeEnergyBurned)!),
+    dependencies.storedDate(.quantityType(forIdentifier: .basalEnergyBurned)!),
+    dependencies.storedDate(.quantityType(forIdentifier: .stepCount)!),
+    dependencies.storedDate(.quantityType(forIdentifier: .flightsClimbed)!),
+    dependencies.storedDate(.quantityType(forIdentifier: .distanceWalkingRunning)!),
+  ].compactMap { $0 }.min()
+
+  let daySummaries = try await queryActivityDaySummaries(
     dependencies: dependencies,
-    startTime: startDate,
+    startTime: daySummaryStartDate ?? startDate,
     endTime: endDate
   )
 
   // - Hourly timeseries samples
-  var anchors: [StoredAnchor] = [daySummaryAnchor]
+  var anchors: [StoredAnchor] = []
   
   let (activeEnergyBurned, activeEnergyBurnedAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .activeEnergyBurned)!
@@ -1076,10 +1084,8 @@ func queryActivityDaySummaries(
   dependencies: StatisticsQueryDependencies,
   startTime: Date,
   endTime: Date
-) async throws -> ([ActivityPatch.DaySummary], StoredAnchor) {
+) async throws -> [ActivityPatch.DaySummary] {
   let calendar = GregorianCalendar(timeZone: .current)
-
-  let startTime = dependencies.lastComputedDaySummary() ?? startTime
 
   let datesToCompute = calendar.enumerate(
     // System wall time can go backwards. Cap the start time just in case.
@@ -1132,14 +1138,7 @@ func queryActivityDaySummaries(
     return try await group.reduce(into: []) { $0.append($1) }
   }
 
-  let newAnchor = StoredAnchor(
-    key: VitalHealthKitStorage.daySummaryKey,
-    anchor: nil,
-    date: endTime,
-    vitalAnchors: nil
-  )
-
-  return (daySummaries.filter(\.isNotEmpty), newAnchor)
+  return daySummaries.filter(\.isNotEmpty)
 }
 
 func querySample(

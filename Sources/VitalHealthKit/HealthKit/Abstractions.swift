@@ -228,8 +228,6 @@ struct StatisticsQueryDependencies {
 
   var key: (HKQuantityType) -> String
 
-  var lastComputedDaySummary: () -> Date?
-
   static var debug: StatisticsQueryDependencies {
     return .init { _, startDate, endDate, handler in
       fatalError()
@@ -246,8 +244,6 @@ struct StatisticsQueryDependencies {
     } storedDate: { _ in
       fatalError()
     } key: { _ in
-      fatalError()
-    } lastComputedDaySummary: {
       fatalError()
     }
   }
@@ -384,8 +380,6 @@ struct StatisticsQueryDependencies {
       
     } key: { type in
       return String(describing: type.self)
-    } lastComputedDaySummary: {
-      return vitalStorage.read(key: VitalHealthKitStorage.daySummaryKey)?.date
     }
   }
 }
