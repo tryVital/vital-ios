@@ -92,6 +92,14 @@ class VitalHealthKitStorage {
   func remove(key: String) {
     storage.remove(key)
   }
+
+  func clean() {
+    storage.clean()
+  }
+
+  func dump() -> [String: Any?] {
+    storage.dump()
+  }
 }
 
 struct StoredAnchor {

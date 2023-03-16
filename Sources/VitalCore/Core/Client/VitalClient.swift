@@ -9,12 +9,13 @@ struct Credentials: Equatable, Hashable {
   let environment: Environment
 }
 
-struct VitalCoreConfiguration {
-  let apiVersion: String
+@_spi(VitalSDKInternals)
+public struct VitalCoreConfiguration {
+  public let apiVersion: String
   let apiClient: APIClient
-  let environment: Environment
+  public let environment: Environment
   let storage: VitalCoreStorage
-  let authMode: VitalClient.AuthMode
+  public let authMode: VitalClient.AuthMode
 }
 
 struct VitalClientRestorationState: Codable {
@@ -167,7 +168,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 @objc public class VitalClient: NSObject {
   
   private let secureStorage: VitalSecureStorage
-  let configuration: ProtectedBox<VitalCoreConfiguration>
+
+  @_spi(VitalSDKInternals)
+  public let configuration: ProtectedBox<VitalCoreConfiguration>
+
   let jwtAuth: VitalJWTAuth
 
   // Moments that would materially affect `VitalClient.Type.status`.
@@ -175,7 +179,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
   // @testable
   internal let apiKeyModeUserId: ProtectedBox<UUID>
-  
+
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
   
@@ -204,6 +208,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     region: String,
     isLogsEnable: Bool
   ) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     guard let environment = Environment(environment: environment, region: region) else {
       fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
     }
@@ -221,6 +227,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
     let jwtAuth = VitalJWTAuth.live
@@ -248,6 +256,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
@@ -267,6 +277,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) async {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
@@ -332,6 +344,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
@@ -456,6 +470,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
 
   private func _setUserId(_ newUserId: UUID) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
       fatalError("You need to call `VitalClient.configure` before setting the `userId`")

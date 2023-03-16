@@ -17,6 +17,13 @@ class VitalClientDelegate: APIClientDelegate {
     self.environment = environment
     self.authStrategy = authStrategy
   }
+
+  func client<T>(_ client: APIClient, encoderForRequest request: Request<T>) -> JSONEncoder? {
+    VitalPersistentLogger.shared?.log(request)
+
+    // Use default implementation
+    return nil
+  }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
 
@@ -38,6 +45,9 @@ class VitalClientDelegate: APIClientDelegate {
       request.httpBody = try request.httpBody?.gzipped()
       request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
     }
+
+    let requestCopy = request
+    VitalLogger.requests.info("\(requestCopy.logPrefix, privacy: .public) (\(requestCopy.httpBody?.count ?? 0, privacy: .public) bytes)")
   }
   
   func client(_ client: APIClient, shouldRetry task: URLSessionTask, error: Error, attempts: Int) async throws -> Bool {
@@ -64,7 +74,9 @@ class VitalClientDelegate: APIClientDelegate {
     
     let networkError = NetworkError(response: response, data: data)
 
-    VitalLogger.core.error("Failed request with error: \(networkError, privacy: .public)")
+    let request = task.currentRequest ?? task.originalRequest
+    VitalLogger.requests.error("\(request?.logPrefix ?? "", privacy: .public) Error response: \(networkError.localizedDescription, privacy: .public)")
+
     throw networkError
   }
 }
@@ -81,5 +93,11 @@ class VitalBaseClientDelegate: APIClientDelegate {
     
     let networkError = NetworkError(response: response, data: data)
     throw networkError
+  }
+}
+
+extension URLRequest {
+  fileprivate var logPrefix: String {
+    "[\(self.httpMethod ?? "") \(self.url?.absoluteString ?? "")]"
   }
 }

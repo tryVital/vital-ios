@@ -198,6 +198,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             )
           }
           
+
           await VitalHealthKitClient.configure(
             .init(
               backgroundDeliveryEnabled: true,
@@ -206,7 +207,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             )
           )
         }
-        
+
         return .didConfigureSDK
       } catch: { error in
         let alert = AlertState<Settings.Action> {
@@ -220,7 +221,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         }
         return .binding(BindingAction.set(\.$alert, alert))
       }
-            
+
       return effect
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
@@ -364,6 +365,20 @@ extension Settings {
                   }
                 })
                 .disabled(viewStore.sdkIsConfigured == false)
+              }
+            }
+
+            Section("Logging") {
+              Toggle(
+                "Persistent Logging",
+                isOn: Binding(
+                  get: { VitalPersistentLogger.isEnabled },
+                  set: { VitalPersistentLogger.isEnabled = $0 }
+                )
+              )
+
+              Button("Share Persistent Logs") {
+                VitalHealthKitClient.createAndShareLogArchive()
               }
             }
           }

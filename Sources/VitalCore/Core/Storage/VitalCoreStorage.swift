@@ -17,6 +17,8 @@ public struct VitalBackStorage {
   public var remove: (String) -> Void
   
   public var clean: () -> Void
+
+  public var dump: () -> [String: Any?]
   
   public static var live: VitalBackStorage {
     
@@ -55,6 +57,8 @@ public struct VitalBackStorage {
       userDefaults.removeObject(forKey: key)
     } clean: {
       userDefaults.removePersistentDomain(forName: "tryVital")
+    } dump: {
+      userDefaults.persistentDomain(forName: "tryVital") ?? [:]
     }
   }
   
@@ -93,11 +97,13 @@ public struct VitalBackStorage {
     } clean: {
       storage = [:]
       dataStorage = [:]
+    } dump: {
+      return [:]
     }
   }
 }
 
-class VitalCoreStorage {
+public class VitalCoreStorage {
   private let storage: VitalBackStorage
   
   init(storage: VitalBackStorage) {

@@ -21,14 +21,13 @@ struct ExampleApp: App {
     WindowGroup {
       WithViewStore(appStore) { viewStore in
         TabView {
-          #if DEBUG
           HealthKitExample()
             .tabItem {
               Image(systemName: "suit.heart")
               Text("HealthKit")
             }
             .tag(0)
-          #endif
+
           DevicesExample.RootView(store: devicesStore)
             .tabItem {
               Image(systemName: "laptopcomputer.and.iphone")
