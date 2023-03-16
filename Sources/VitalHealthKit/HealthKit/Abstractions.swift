@@ -216,7 +216,7 @@ extension VitalClientProtocol {
 
 struct StatisticsQueryDependencies {
   
-  var executeStatisticalQuery: (Date, Date, @escaping StatisticInjectedsHandler) -> Void
+  var executeStatisticalQuery: (Date, Date, @escaping StatisticsResultHandler) -> Void
   var executeSampleQuery: (Date, Date) async throws -> [HKSample]
   
   var isFirstTimeSycingType: () -> Bool
@@ -256,26 +256,46 @@ struct StatisticsQueryDependencies {
       let predicate = HKQuery.predicateForSamples(
         withStart: startDate,
         end: endDate,
-        options: [.strictStartDate]
+        options: []
       )
-      
+
+      // While we are interested in the contributing sources, we should not use
+      // the `separateBySource` option, as we want HealthKit to provide
+      // final statistics points that are merged from all data sources.
+      //
+      // We will issue a separate HKSourceQuery to lookup the contributing
+      // sources.
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
-        options: [.cumulativeSum, .separateBySource],
+        options: [.cumulativeSum],
         anchorDate: startDate,
         intervalComponents: .init(hour: 1)
       )
       
       let queryHandler: StatisticsHandler = { query, statistics, error in
         healthKitStore.stop(query)
-        
-        let values: [HKStatistics] = statistics?.statistics() ?? []
-        let vitalStatistics = values.compactMap { statistics in
-          VitalStatistics(statistics: statistics, type: type)
+
+        guard let statistics = statistics else {
+          precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
+          handler(.failure(error!))
+          return
         }
-        
-        handler(vitalStatistics, error)
+
+        // HKSourceQuery should report the set of sources of all the samples that
+        // would have been matched by the HKStatisticsCollectionQuery.
+        let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
+          let sources = sources?.map { $0.bundleIdentifier } ?? []
+          let values: [HKStatistics] = statistics.statistics()
+
+          let vitalStatistics = values.compactMap { statistics in
+            VitalStatistics(statistics: statistics, type: type, sources: sources)
+          }
+
+          handler(.success(vitalStatistics))
+        }
+
+        healthKitStore.execute(sourceQuery)
       }
       
       query.initialResultsHandler = queryHandler

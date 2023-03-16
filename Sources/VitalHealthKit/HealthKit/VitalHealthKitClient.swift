@@ -362,7 +362,7 @@ extension VitalHealthKitClient {
     await store.disableBackgroundDelivery()
     backgroundDeliveryTask?.cancel()
     
-    await backgroundDeliveryEnabled.set(value: false)
+    backgroundDeliveryEnabled.set(value: false)
     
     await VitalClient.shared.cleanUp()
     self.secureStorage.clean(key: health_secureStorageKey)

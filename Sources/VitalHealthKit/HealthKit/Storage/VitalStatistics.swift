@@ -29,13 +29,9 @@ struct VitalStatistics {
     self.sources = sources
   }
     
-  init?(statistics: HKStatistics, type: HKQuantityType) {
+  init?(statistics: HKStatistics, type: HKQuantityType, sources: [String]) {
     guard let sum = statistics.sumQuantity() else {
       return nil
-    }
-    
-    let sources: [String]? = statistics.sources?.compactMap { source in
-      source.bundleIdentifier
     }
     
     let value = sum.doubleValue(for: type.toHealthKitUnits)
@@ -44,7 +40,7 @@ struct VitalStatistics {
       type: String(describing: type),
       startDate: statistics.startDate,
       endDate: statistics.endDate,
-      sources: sources ?? []
+      sources: sources
     )
   }
 }

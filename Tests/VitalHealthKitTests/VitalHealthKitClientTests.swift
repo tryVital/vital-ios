@@ -6,9 +6,9 @@ import HealthKit
 
 class VitalHealthKitClientTests: XCTestCase {
   
-  func testSetupWithoutVitalClient() async throws {
+  func testSetupWithoutVitalClient() {
     /// This shouldn't crash if called before VitaClient.configure
-    await VitalHealthKitClient.configure(
+    VitalHealthKitClient.configure(
       .init(
         backgroundDeliveryEnabled: true, logsEnabled: true
       )
