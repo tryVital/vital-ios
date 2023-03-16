@@ -2,7 +2,7 @@ import HealthKit
 import VitalCore
 
 class VitalHealthKitStorage {
-  
+
   private let anchorPrefix = "vital_anchor_"
   private let anchorsPrefix = "vital_anchors_"
 
@@ -97,7 +97,8 @@ class VitalHealthKitStorage {
 struct StoredAnchor {
   var key: String
   var anchor: HKQueryAnchor?
-  /// To be deprecated (1.0)
+
+  /// Used by the day summary process to determine when a summary was last computed.
   var date : Date?
   
   /// New approach (2.0)

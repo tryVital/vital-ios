@@ -11,6 +11,10 @@ public enum PermissionOutcome: Equatable {
 
 let health_secureStorageKey: String = "health_secureStorageKey"
 
+internal var logger: Logger? {
+  VitalHealthKitClient.shared.logger
+}
+
 @objc public class VitalHealthKitClient: NSObject {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
@@ -46,7 +50,7 @@ let health_secureStorageKey: String = "health_secureStorageKey"
     return _status.eraseToAnyPublisher()
   }
   
-  private var logger: Logger? = nil
+  fileprivate var logger: Logger? = nil
   
   init(
     configuration: ProtectedBox<Configuration> = .init(),
@@ -471,7 +475,7 @@ extension VitalHealthKitClient {
         try await vitalClient.checkConnectedSource(.appleHealthKit)
         
         let transformedData = transform(data: data, calendar: vitalCalendar)
-        
+
         // Post data
         try await vitalClient.post(
           transformedData,
@@ -479,7 +483,7 @@ extension VitalHealthKitClient {
           .appleHealthKit,
           /// We can't use `vitalCalendar` here. We want to send the user's timezone
           /// rather than UTC (which is what `vitalCalendar` is set to).
-          TimeZone.autoupdatingCurrent
+          TimeZone.current
         )
       } else {
         self.logger?.info(
@@ -604,20 +608,9 @@ extension VitalHealthKitClient {
 
 func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedResourceData {
   switch data {
-    case let .summary(.activity(patch)):
-      let activities = patch.activities.map { activity in
-        ActivityPatch.Activity(
-          activeEnergyBurned: activity.activeEnergyBurned,
-          basalEnergyBurned: activity.basalEnergyBurned,
-          steps: activity.steps,
-          floorsClimbed: activity.floorsClimbed,
-          distanceWalkingRunning: activity.distanceWalkingRunning,
-          vo2Max: activity.vo2Max
-        )
-      }
-      
-      return .summary(.activity(ActivityPatch(activities: activities)))
-      
+    case .summary(.activity):
+      return data
+
     case let .summary(.workout(patch)):
       let workouts = patch.workouts.map { workout in
         WorkoutPatch.Workout(

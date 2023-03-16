@@ -195,12 +195,16 @@ class VitalHealthKitReadsTests: XCTestCase {
     ]
     
     var debug = StatisticsQueryDependencies.debug
+    let quantityType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
+
     let date = Date()
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
     var dateRanges: [ClosedRange<Date>] = []
     
-    debug.executeStatisticalQuery = { queryStartDate, queryEndDate, handler in
+    debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
+      XCTAssertEqual(quantityType, type)
+
       let range = queryStartDate ... queryEndDate
       dateRanges.append(range)
       
@@ -219,24 +223,36 @@ class VitalHealthKitReadsTests: XCTestCase {
     }
 
     debug.getFirstAndLastSampleTime = { type, start, end in
+      XCTAssertEqual(quantityType, type)
+
       return nil
     }
     
-    debug.isLegacyType = { return true }
-    debug.isFirstTimeSycingType = { return false }
-    debug.key = { key }
+    debug.isLegacyType = { type in
+      XCTAssertEqual(quantityType, type)
+      return true
+    }
+    debug.isFirstTimeSycingType = { type in
+      XCTAssertEqual(quantityType, type)
+      return false
+    }
+    debug.key = { type in
+      XCTAssertEqual(quantityType, type)
+      return key
+    }
     
-    debug.vitalAnchorsForType = {
+    debug.vitalAnchorsForType = { type in
       /// It should fail here, since we are dealing with a legacy type
       XCTAssert(false)
       return []
     }
-    debug.storedDate = {
+    debug.storedDate = { type in
+      XCTAssertEqual(quantityType, type)
       return date.adding(minutes: -10)
     }
     
     do {
-      let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
+      let value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
       
       /// Only one element will be pushed to the server
       XCTAssert(value.statistics.count == 1)
@@ -262,18 +278,21 @@ class VitalHealthKitReadsTests: XCTestCase {
     ]
     
     var debug = StatisticsQueryDependencies.debug
-    
+    let quantityType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
+
     let date = Date()
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
     var dateRanges: [ClosedRange<Date>] = []
 
     debug.getFirstAndLastSampleTime = { type, start, end in
+      XCTAssertEqual(quantityType, type)
       return nil
     }
     
-    debug.executeStatisticalQuery = { queryStartDate, queryEndDate, handler in
-      
+    debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
+      XCTAssertEqual(quantityType, type)
+
       let range = queryStartDate ... queryEndDate
       
       XCTAssert(range.contains(startDate) == true)
@@ -284,22 +303,33 @@ class VitalHealthKitReadsTests: XCTestCase {
       handler(.success(element))
     }
     
-    debug.isLegacyType = { return false }
-    debug.isFirstTimeSycingType = { return true }
-    debug.key = { key }
+    debug.isLegacyType = { type in
+      XCTAssertEqual(quantityType, type)
+      return false
+    }
+    debug.isFirstTimeSycingType = { type in
+      XCTAssertEqual(quantityType, type)
+      return true
+    }
+    debug.key = { type in
+      XCTAssertEqual(quantityType, type)
+      return key
+    }
     
-    debug.vitalAnchorsForType = {
+    debug.vitalAnchorsForType = { type in
+      XCTAssertEqual(quantityType, type)
       return [
         .init(id: "1"),
         .init(id: "2")
       ]
     }
-    debug.storedDate = {
+    debug.storedDate = { type in
+      XCTAssertEqual(quantityType, type)
       return nil
     }
-    
+
     do {
-      let value = try await queryStatisticsSample(dependency: debug, startDate: startDate, endDate: endDate)
+      let value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
       
       /// Only one element will be pushed to the server
       XCTAssert(value.statistics.count == 1)

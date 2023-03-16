@@ -335,6 +335,52 @@ extension HKSampleType {
         fatalError("\(String(describing: self)) type not supported)")
     }
   }
+
+  var idealStatisticalQueryOptions: HKStatisticsOptions {
+    guard let quantityType = self as? HKQuantityType else {
+      fatalError("Only quantity types can work with HKStatisticalQuery.")
+    }
+
+    switch quantityType.aggregationStyle {
+    case .cumulative:
+      // We always want sum for cumulative quantity types.
+      return [.cumulativeSum]
+
+    case .discreteArithmetic:
+      // Defaults to most recent reading.
+      return [.mostRecent]
+
+    case .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
+      // Not supported.
+      return []
+
+    @unknown default:
+      return []
+    }
+  }
+
+  func idealStatisticalQuantity(from statistics: HKStatistics) -> HKQuantity? {
+    guard let quantityType = self as? HKQuantityType else {
+      fatalError("Only quantity types can work with HKStatisticalQuery.")
+    }
+
+    switch quantityType.aggregationStyle {
+    case .cumulative:
+      // We always want sum for cumulative quantity types.
+      return statistics.sumQuantity()
+
+    case .discreteArithmetic:
+      // Defaults to most recent reading.
+      return statistics.mostRecentQuantity()
+
+    case .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
+      // Not supported.
+      return nil
+
+    @unknown default:
+      return nil
+    }
+  }
 }
 
 extension ProfilePatch.BiologicalSex {

@@ -9,8 +9,18 @@ typealias SeriesSampleHandler = (HKQuantitySeriesSampleQuery, HKQuantity?, DateI
 
 typealias StatisticsHandler = (HKStatisticsCollectionQuery, HKStatisticsCollection?, Error?) -> Void
 
-typealias StatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
+typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
 
+struct VitalStatisticsError: Error {
+  let statistics: HKStatistics
+
+  var description: String {
+    let formatter = ISO8601DateFormatter()
+    let start = formatter.string(from: statistics.startDate)
+    let end = formatter.string(from: statistics.endDate)
+    return "Failed to convert HKStatistics for \(statistics.quantityType.identifier): \(start) -> \(end)"
+  }
+}
 
 private func read(
   type: HKSampleType,
@@ -42,12 +52,12 @@ private func read(
     
     let dependencies = StatisticsQueryDependencies.live(
       healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      type: type
+      vitalStorage: vitalStorage
     )
     
     let payload = try await queryStatisticsSample(
       dependency: dependencies,
+      type: type,
       startDate: startDate,
       endDate: endDate
     )
@@ -183,7 +193,7 @@ func read(
         endDate: endDate
       )
       
-      return (.summary(.activity(payload.activityPatch)), payload.anchors)
+      return (payload.activityPatch.map { .summary(.activity($0)) }, payload.anchors)
       
     case .workout:
       let payload = try await handleWorkouts(
@@ -321,7 +331,7 @@ func handleProfile(
     biologicalSex: biologicalSex,
     dateOfBirth: dateOfBirth,
     height: height,
-    timeZone: TimeZone.autoupdatingCurrent.identifier
+    timeZone: TimeZone.current.identifier
   )
   let id = profile.id
 
@@ -564,8 +574,13 @@ func handleActivity(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (activityPatch: ActivityPatch, anchors: [StoredAnchor]) {
-  
+) async throws -> (activityPatch: ActivityPatch?, anchors: [StoredAnchor]) {
+
+  let dependencies = StatisticsQueryDependencies.live(
+    healthKitStore: healthKitStore,
+    vitalStorage: vitalStorage
+  )
+
   func queryQuantities(
     type: HKSampleType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
@@ -581,53 +596,49 @@ func handleActivity(
     let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
     return (quantities, payload.anchor)
   }
-  
-  func queryStatistics(
+
+  func queryHourlyStatistics(
     type: HKQuantityType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
-    
-    let dependencies = StatisticsQueryDependencies.live(
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      type: type
-    )
-    
+
     let payload = try await queryStatisticsSample(
       dependency: dependencies,
+      type: type,
       startDate: startDate,
       endDate: endDate
     )
-        
+
     let quantities: [QuantitySample] = payload.statistics.compactMap { value in
       return QuantitySample(value, type)
     }
-    
+
     return (quantities, payload.anchor)
   }
-  
+
+  // - Hourly timeseries samples
   var anchors: [StoredAnchor] = []
   
-  let (activeEnergyBurned, activeEnergyBurnedAnchor) = try await queryStatistics(
+  let (activeEnergyBurned, activeEnergyBurnedAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .activeEnergyBurned)!
   )
   
-  let (basalEnergyBurned, basalEnergyBurnedAnchor) = try await queryStatistics(
+  let (basalEnergyBurned, basalEnergyBurnedAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .basalEnergyBurned)!
   )
   
-  let (steps, stepsAnchor) = try await queryStatistics(
+  let (steps, stepsAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .stepCount)!
   )
   
-  let (floorsClimbed, floorsClimbedAnchor) = try await queryStatistics(
+  let (floorsClimbed, floorsClimbedAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .flightsClimbed)!
   )
   
-  let (distanceWalkingRunning, distanceWalkingRunningAnchor) = try await queryStatistics(
+  let (distanceWalkingRunning, distanceWalkingRunningAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .distanceWalkingRunning)!
   )
   
-  let (vo2Max, vo2MaxAnchor) = try await queryQuantities(
+  let (vo2Max, vo2MaxAnchor) = try await queryHourlyStatistics(
     type: .quantityType(forIdentifier: .vo2Max)!
   )
   
@@ -637,38 +648,45 @@ func handleActivity(
   anchors.appendOptional(floorsClimbedAnchor)
   anchors.appendOptional(distanceWalkingRunningAnchor)
   anchors.appendOptional(vo2MaxAnchor)
-  
-  let allSamples = Array(
-    [
-      activeEnergyBurned,
-      basalEnergyBurned,
-      steps,
-      floorsClimbed,
-      distanceWalkingRunning,
-      vo2Max
-    ].joined()
-  )
-  
-  let allDates: Set<Date> = Set(allSamples.reduce([]) { acc, next in
-    acc + [next.startDate.dayStart]
-  })
-  
-  let activities: [ActivityPatch.Activity] = allDates.map { date in
-    func filter(_ samples: [QuantitySample]) -> [QuantitySample] {
-      samples.filter { $0.startDate.dayStart == date }
-    }
-    
-    return ActivityPatch.Activity(
-      activeEnergyBurned: filter(activeEnergyBurned),
-      basalEnergyBurned: filter(basalEnergyBurned),
-      steps: filter(steps),
-      floorsClimbed: filter(floorsClimbed),
-      distanceWalkingRunning: filter(distanceWalkingRunning),
-      vo2Max: filter(vo2Max)
+
+  // - Day summaries
+
+  // Find the minimum start date.
+  let daySummaryStartDate: Date? = [
+    activeEnergyBurned.first?.startDate,
+    basalEnergyBurned.first?.startDate,
+    steps.first?.startDate,
+    floorsClimbed.first?.startDate,
+    distanceWalkingRunning.first?.startDate,
+  ].compactMap { $0 }.min()
+
+  let allDaySummaries: [ActivityPatch.Activity]
+
+  if let startDate = daySummaryStartDate {
+    let daySummaries = try await queryActivityDaySummaries(
+      dependencies: dependencies,
+      startTime: daySummaryStartDate ?? startDate,
+      endTime: endDate
     )
+    allDaySummaries = daySummaries
+      .filter(\.isNotEmpty)
+      .map { ActivityPatch.Activity(daySummary: $0) }
+  } else {
+    allDaySummaries = []
   }
+
+  let allSamples = ActivityPatch.Activity(
+    activeEnergyBurned: activeEnergyBurned,
+    basalEnergyBurned: basalEnergyBurned,
+    steps: steps,
+    floorsClimbed: floorsClimbed,
+    distanceWalkingRunning: distanceWalkingRunning,
+    vo2Max: vo2Max
+  )
+
+  let patch = ActivityPatch(activities: allDaySummaries + [allSamples])
   
-  return (.init(activities: activities), anchors: anchors)
+  return (patch.isNotEmpty ? patch : nil, anchors: anchors)
 }
 
 func handleWorkouts(
@@ -879,7 +897,7 @@ func calculateIdsForAnchorsAndData(
     date: date,
     vitalAnchors: toStoreIds
   )
-  
+
   return (dataToSend, storedAnchor)
 }
 
@@ -887,6 +905,7 @@ func calculateIdsForAnchorsAndData(
 /// TODO: To be Removed
 private func populateAnchorsForStatisticalQuery(
   dependency: StatisticsQueryDependencies,
+  type: HKQuantityType,
   statisticsQueryStartDate: Date
 ) async throws -> [VitalAnchor] {
     
@@ -895,7 +914,7 @@ private func populateAnchorsForStatisticalQuery(
 
   return try await withCheckedThrowingContinuation { continuation in
     
-    let handler: StatisticsResultHandler = { result in
+    let handler: HourlyStatisticsResultHandler = { result in
       switch result {
       case let .success(statistics):
         let newAnchors = calculateIdsForAnchorsPopulation(
@@ -910,7 +929,7 @@ private func populateAnchorsForStatisticalQuery(
       }
     }
             
-    dependency.executeStatisticalQuery(startDate, endDate, handler)
+    dependency.executeHourlyStatisticalQuery(type, startDate, endDate, handler)
   }
 }
 
@@ -938,17 +957,18 @@ private func populateAnchorsForStatisticalQuery(
 ///
 func queryStatisticsSample(
   dependency: StatisticsQueryDependencies,
+  type: HKQuantityType,
   startDate: Date,
   endDate: Date
 ) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor) {
   
   let vitalAnchors: [VitalAnchor]
   
-  let newStartDate = dependency.storedDate() ?? startDate
+  let newStartDate = dependency.storedDate(type) ?? startDate
   let newEndDate = endDate.nextHour
   
-  let isFirstTimeSycingType = dependency.isFirstTimeSycingType()
-  let isLegacyType = dependency.isLegacyType()
+  let isFirstTimeSycingType = dependency.isFirstTimeSycingType(type)
+  let isLegacyType = dependency.isLegacyType(type)
   
     
   ///  TODO: Remove this in the near future
@@ -957,10 +977,11 @@ func queryStatisticsSample(
     /// We will fill up 21 days worth of anchors
     vitalAnchors = try await populateAnchorsForStatisticalQuery(
       dependency: dependency,
+      type: type,
       statisticsQueryStartDate: newStartDate
     )
   } else {
-    vitalAnchors = dependency.vitalAnchorsForType()
+    vitalAnchors = dependency.vitalAnchorsForType(type)
   }
   ///
   /// </TO BE REMOVED>
@@ -982,16 +1003,16 @@ func queryStatisticsSample(
   }
   
   let statisticsEndDate = newEndDate.nextHour
-  
+
   let (statistics, anchor): ([VitalStatistics], StoredAnchor) = try await withCheckedThrowingContinuation { continuation in
-    
-    let handler: StatisticsResultHandler = { result in
+
+    let handler: HourlyStatisticsResultHandler = { result in
       switch result {
       case let .success(statistics):
         let payload = calculateIdsForAnchorsAndData(
           vitalStatistics: statistics,
           existingAnchors: vitalAnchors,
-          key: dependency.key(),
+          key: dependency.key(type),
           date: newEndDate
         )
 
@@ -1002,7 +1023,7 @@ func queryStatisticsSample(
       }
     }
     
-    dependency.executeStatisticalQuery(statisticsStarDate, statisticsEndDate, handler)
+    dependency.executeHourlyStatisticalQuery(type, statisticsStarDate, statisticsEndDate, handler)
   }
 
   let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
@@ -1034,6 +1055,78 @@ func enrichWithDates(
 
     return try await group.reduce(into: []) { $0.append($1) }
   }
+}
+
+/// We compute one summary per quantity type for the calendar day in the
+/// **CURRENT DEVICE TIME ZONE**. After all, a (floating) day cannot be
+/// projected into into UTC time without a time zone, and the user intuition is
+/// to see numbers and time that align to their perception of time.
+///
+/// (where the device time zone is the closest approximation)
+///
+/// This is different from the typical hourly timeseries samples gathering process, which
+/// works with `HKStatisticalCollectionQuery` solely in UTC time (`vitalCalendar`).
+/// Hour granularity is time zone agnostic, and the resulting hourly samples can be reinterpreted into all
+/// time zones pretty easily and consistently.
+func queryActivityDaySummaries(
+  dependencies: StatisticsQueryDependencies,
+  startTime: Date,
+  endTime: Date
+) async throws -> [ActivityPatch.DaySummary] {
+  let calendar = GregorianCalendar(timeZone: .current)
+
+  let datesToCompute = calendar.enumerate(
+    // System wall time can go backwards. Cap the start time just in case.
+    calendar.floatingDate(of: min(startTime, endTime)),
+    calendar.floatingDate(of: endTime)
+  )
+
+  logger?.info("[Day Summary] lastComputed = \(startTime) now = \(endTime) datesToCompute = \(datesToCompute)")
+
+  let daySummaries = try await withThrowingTaskGroup(of: ActivityPatch.DaySummary.self) { group -> [ActivityPatch.DaySummary] in
+    for date in datesToCompute {
+      group.addTask {
+        async let activeEnergyBurnedSum = dependencies.executeDaySummaryQuery(
+          HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+          date,
+          calendar
+        )
+        async let basalEnergyBurnedSum = dependencies.executeDaySummaryQuery(
+          HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned)!,
+          date,
+          calendar
+        )
+        async let stepsSum = dependencies.executeDaySummaryQuery(
+          HKQuantityType.quantityType(forIdentifier: .stepCount)!,
+          date,
+          calendar
+        )
+        async let floorsClimbedSum = dependencies.executeDaySummaryQuery(
+          HKQuantityType.quantityType(forIdentifier: .flightsClimbed)!,
+          date,
+          calendar
+        )
+        async let distanceWalkingRunningSum = dependencies.executeDaySummaryQuery(
+          HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+          date,
+          calendar
+        )
+
+        return await ActivityPatch.DaySummary(
+          calendarDate: date,
+          activeEnergyBurnedSum: try activeEnergyBurnedSum?.value,
+          basalEnergyBurnedSum: try basalEnergyBurnedSum?.value,
+          stepsSum: try (stepsSum?.value).map(Int.init),
+          floorsClimbedSum: try (floorsClimbedSum?.value).map(Int.init),
+          distanceWalkingRunningSum: try distanceWalkingRunningSum?.value
+        )
+      }
+    }
+
+    return try await group.reduce(into: []) { $0.append($1) }
+  }
+
+  return daySummaries.filter(\.isNotEmpty)
 }
 
 func querySample(
