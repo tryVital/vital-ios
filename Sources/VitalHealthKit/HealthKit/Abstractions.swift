@@ -260,7 +260,7 @@ struct StatisticsQueryDependencies {
       )
 
       // While we are interested in the contributing sources, we should not use
-      // the `sepearateBySource` option, as we want HealthKit to provide
+      // the `separateBySource` option, as we want HealthKit to provide
       // final statistics points that are merged from all data sources.
       //
       // We will issue a separate HKSourceQuery to lookup the contributing
