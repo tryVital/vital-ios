@@ -218,6 +218,8 @@ struct StatisticsQueryDependencies {
   
   var executeStatisticalQuery: (Date, Date, @escaping StatisticsResultHandler) -> Void
   var executeSampleQuery: (Date, Date) async throws -> [HKSample]
+
+  var getFirstAndLastSampleTime: (HKQuantityType, Date, Date) async throws -> (first: Date, last: Date)?
   
   var isFirstTimeSycingType: () -> Bool
   var isLegacyType: () -> Bool
@@ -230,6 +232,8 @@ struct StatisticsQueryDependencies {
     return .init { startDate, endDate, handler in
       fatalError()
     } executeSampleQuery: { _, _ in
+      fatalError()
+    } getFirstAndLastSampleTime: { _, _, _ in
       fatalError()
     } isFirstTimeSycingType: {
       fatalError()
@@ -304,6 +308,57 @@ struct StatisticsQueryDependencies {
     } executeSampleQuery: { startDate, endDate in
       try await querySample(healthKitStore: healthKitStore, type: type, startDate: startDate, endDate: endDate)
       
+    } getFirstAndLastSampleTime: { type, start, end in
+      @Sendable func makePredicate() -> NSPredicate {
+        // start <= %K AND %K < end (end exclusive)
+        HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+      }
+
+      async let _first: Date? = withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKSampleQuery(
+            sampleType: type,
+            predicate: makePredicate(),
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: true)]
+          ) { _, samples, error in
+            continuation.resume(returning: samples?.first?.startDate)
+          }
+        )
+      }
+
+      async let _last: Date? = withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKSampleQuery(
+            sampleType: type,
+            predicate: makePredicate(),
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: false)]
+          ) { _, samples, error in
+            continuation.resume(returning: samples?.first?.endDate)
+          }
+        )
+      }
+
+      let first = try await _first
+      let last = try await _last
+
+      switch (first, last) {
+      case let (first?, last?):
+        precondition(first <= last, "Illogical query result from HKSampleQuery. [2]")
+
+        // Clamp to the given start..<end
+        return (
+          first: max(first, start),
+          last: min(last, end)
+        )
+
+      case (nil, _?), (_?, nil):
+        fatalError("Illogical query result from HKSampleQuery. [1]")
+
+      case (nil, nil):
+        return nil
+      }
     } isFirstTimeSycingType: {
       return vitalStorage.isFirstTimeSycingType(for: key)
       
