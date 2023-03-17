@@ -7,7 +7,7 @@ let environment = Environment.sandbox(.us)
 let userId = UUID()
 let apiKey = UUID().uuidString
 let apiVersion = "2.0"
-let provider = Provider.strava
+let provider = Provider.Slug.strava
 
 class VitalClientTests: XCTestCase {
   

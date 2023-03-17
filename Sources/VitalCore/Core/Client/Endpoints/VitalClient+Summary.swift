@@ -19,7 +19,7 @@ public extension VitalClient.Summary {
   func post(
     _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,
-    provider: Provider,
+    provider: Provider.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
     let userId = await self.client.userId.get()
@@ -43,7 +43,7 @@ public extension VitalClient.Summary {
   func sleepsSummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [SleepSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -61,7 +61,7 @@ public extension VitalClient.Summary {
   func sleepsRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -79,7 +79,7 @@ public extension VitalClient.Summary {
   func sleepsSummaryWithStream(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [SleepSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -97,7 +97,7 @@ public extension VitalClient.Summary {
   func activitySummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [ActivitySummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -115,7 +115,7 @@ public extension VitalClient.Summary {
   func activityRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -133,7 +133,7 @@ public extension VitalClient.Summary {
   func workoutSummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [WorkoutSummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -151,7 +151,7 @@ public extension VitalClient.Summary {
   func workoutRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -169,7 +169,7 @@ public extension VitalClient.Summary {
   func body(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [BodySummary] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()
@@ -187,7 +187,7 @@ public extension VitalClient.Summary {
   func bodyRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = await self.client.userId.get()
     let configuration = await self.client.configuration.get()

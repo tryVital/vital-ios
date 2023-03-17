@@ -325,7 +325,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     await shared._setUserId(newUserId)
   }
   
-  public func isUserConnected(to provider: Provider) async throws -> Bool {
+  public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
     let userId = await userId.get()
     let storage = await configuration.get().storage
     
@@ -334,10 +334,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
     
     let connectedSources: [Provider] = try await self.user.userConnectedSources()
-    return connectedSources.contains(provider)
+    return connectedSources.contains { $0.slug == provider }
   }
   
-  public func checkConnectedSource(for provider: Provider) async throws {
+  public func checkConnectedSource(for provider: Provider.Slug) async throws {
     let userId = await userId.get()
     let storage = await configuration.get().storage
     

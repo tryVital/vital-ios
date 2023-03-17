@@ -114,7 +114,7 @@ public extension DevicesManager {
     ]
   }
   
-  static func provider(for brand: Brand) -> Provider {
+  static func provider(for brand: Brand) -> Provider.Slug {
     switch brand {
       case .omron:
         return .omronBLE
