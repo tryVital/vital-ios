@@ -177,8 +177,8 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
-  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider, TimeZone) async throws -> Void
-  var checkConnectedSource: (Provider) async throws -> Void
+  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone) async throws -> Void
+  var checkConnectedSource: (Provider.Slug) async throws -> Void
 }
 
 extension VitalClientProtocol {

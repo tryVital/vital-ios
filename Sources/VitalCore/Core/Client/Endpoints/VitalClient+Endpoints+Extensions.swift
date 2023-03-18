@@ -3,7 +3,7 @@ import Foundation
 func makeBaseQuery(
   startDate: Date,
   endDate: Date?,
-  provider: Provider? = nil
+  provider: Provider.Slug? = nil
 ) -> [(String, String?)] {
   
   let formatter = DateFormatter()
