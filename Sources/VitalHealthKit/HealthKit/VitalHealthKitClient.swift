@@ -228,7 +228,9 @@ extension VitalHealthKitClient {
         // Any buffered payload would not be processed, and is expected to be redelivered by
         // HealthKit.
         //
-        // https://developer.apple.com/documentation/healthkit/hkhealthstore/1614175-enablebackgrounddelivery
+        // > https://developer.apple.com/documentation/healthkit/hkhealthstore/1614175-enablebackgrounddelivery#3801028
+        // > If you don’t call the update’s completion handler, HealthKit continues to attempt to
+        // > launch your app using a backoff algorithm to increase the delay between attempts.
         try Task.checkCancellation()
 
         // Task is not cancelled — we must call the HealthKit completion handler irrespective of
