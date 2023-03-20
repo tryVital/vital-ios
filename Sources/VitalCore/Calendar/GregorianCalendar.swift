@@ -65,7 +65,7 @@ public struct GregorianCalendar {
 }
 
 extension GregorianCalendar {
-  public struct FloatingDate: Hashable, Codable, LosslessStringConvertible {
+  public struct FloatingDate: Hashable, Codable, LosslessStringConvertible, Comparable {
     private static let utcFormatter: ISO8601DateFormatter = {
       let formatter = ISO8601DateFormatter()
       formatter.formatOptions = [.withFullDate, .withColonSeparatorInTime]
@@ -119,6 +119,13 @@ extension GregorianCalendar {
 
     public func dateComponents() -> DateComponents {
       DateComponents(year: year, month: month, day: day)
+    }
+
+    public static func <(lhs: Self, rhs: Self) -> Bool {
+      lhs.year < rhs.year ||
+      lhs.year == rhs.year && (
+        lhs.month < rhs.month || lhs.month == rhs.month && lhs.day < rhs.day
+      )
     }
   }
 }

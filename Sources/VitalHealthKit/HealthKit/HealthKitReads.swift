@@ -581,6 +581,9 @@ func handleActivity(
     vitalStorage: vitalStorage
   )
 
+  // Calendar in local TZ, used for day summaries and final sample grouping.
+  let deviceTimeZoneCalendar = GregorianCalendar(timeZone: .current)
+
   func queryQuantities(
     type: HKSampleType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
@@ -660,19 +663,17 @@ func handleActivity(
     distanceWalkingRunning.first?.startDate,
   ].compactMap { $0 }.min()
 
-  let allDaySummaries: [ActivityPatch.Activity]
+  let daySummaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]
 
   if let startDate = daySummaryStartDate {
-    let daySummaries = try await queryActivityDaySummaries(
+    daySummaries = try await queryActivityDaySummaries(
       dependencies: dependencies,
       startTime: daySummaryStartDate ?? startDate,
-      endTime: endDate
+      endTime: endDate,
+      in: deviceTimeZoneCalendar
     )
-    allDaySummaries = daySummaries
-      .filter(\.isNotEmpty)
-      .map { ActivityPatch.Activity(daySummary: $0) }
   } else {
-    allDaySummaries = []
+    daySummaries = [:]
   }
 
   let allSamples = ActivityPatch.Activity(
@@ -684,9 +685,9 @@ func handleActivity(
     vo2Max: vo2Max
   )
 
-  let patch = ActivityPatch(activities: allDaySummaries + [allSamples])
+  let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: allSamples, in: deviceTimeZoneCalendar)
   
-  return (patch.isNotEmpty ? patch : nil, anchors: anchors)
+  return (patch, anchors: anchors)
 }
 
 func handleWorkouts(
@@ -1071,10 +1072,9 @@ func enrichWithDates(
 func queryActivityDaySummaries(
   dependencies: StatisticsQueryDependencies,
   startTime: Date,
-  endTime: Date
-) async throws -> [ActivityPatch.DaySummary] {
-  let calendar = GregorianCalendar(timeZone: .current)
-
+  endTime: Date,
+  in calendar: GregorianCalendar
+) async throws -> [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary] {
   let datesToCompute = calendar.enumerate(
     // System wall time can go backwards. Cap the start time just in case.
     calendar.floatingDate(of: min(startTime, endTime)),
@@ -1083,7 +1083,10 @@ func queryActivityDaySummaries(
 
   logger?.info("[Day Summary] lastComputed = \(startTime) now = \(endTime) datesToCompute = \(datesToCompute)")
 
-  let daySummaries = try await withThrowingTaskGroup(of: ActivityPatch.DaySummary.self) { group -> [ActivityPatch.DaySummary] in
+  return try await withThrowingTaskGroup(
+    of: ActivityPatch.DaySummary.self,
+    returning: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary].self
+  ) { group in
     for date in datesToCompute {
       group.addTask {
         async let activeEnergyBurnedSum = dependencies.executeDaySummaryQuery(
@@ -1123,10 +1126,12 @@ func queryActivityDaySummaries(
       }
     }
 
-    return try await group.reduce(into: []) { $0.append($1) }
+    return try await group.reduce(into: [:]) { results, summary in
+      if summary.isNotEmpty {
+        results[summary.calendarDate] = summary
+      }
+    }
   }
-
-  return daySummaries.filter(\.isNotEmpty)
 }
 
 func querySample(
@@ -1492,4 +1497,44 @@ func average(_ values: [QuantitySample], calendar: Calendar) -> [QuantitySample]
   }
   
   return orderByDate(outcome)
+}
+
+func activityPatchGroupedByDay(
+  summaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary],
+  samples: ActivityPatch.Activity,
+  in calendar: GregorianCalendar
+) -> ActivityPatch? {
+  func grouped(_ samples: [QuantitySample]) -> [GregorianCalendar.FloatingDate: [QuantitySample]] {
+    Dictionary(
+     grouping: samples, by: { calendar.floatingDate(of: $0.startDate) }
+   )
+  }
+
+  let activeEnergyBurned = grouped(samples.activeEnergyBurned)
+  let basalEnergyBurned = grouped(samples.basalEnergyBurned)
+  let steps = grouped(samples.steps)
+  let distanceWalkingRunning = grouped(samples.distanceWalkingRunning)
+  let floorsClimbed = grouped(samples.floorsClimbed)
+  let vo2Max = grouped(samples.vo2Max)
+
+  // Current assumption: Day summaries must have been computed from the earliest calendar date
+  // touched by the samples we've loaded. So `summaries.key` must contain all the dates that have
+  // data.
+  let activities = summaries
+    .filter { $0.value.isNotEmpty }
+    .sorted(by: { $0.key < $1.key })
+    .map { date, summary in
+      ActivityPatch.Activity(
+        daySummary: summary,
+        activeEnergyBurned: activeEnergyBurned[date] ?? [],
+        basalEnergyBurned: basalEnergyBurned[date] ?? [],
+        steps: steps[date] ?? [],
+        floorsClimbed: floorsClimbed[date] ?? [],
+        distanceWalkingRunning: distanceWalkingRunning[date] ?? [],
+        vo2Max: vo2Max[date] ?? []
+      )
+    }
+
+  let patch = ActivityPatch(activities: activities)
+  return patch.isNotEmpty ? patch : nil
 }
