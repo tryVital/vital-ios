@@ -1081,7 +1081,7 @@ func queryActivityDaySummaries(
     calendar.floatingDate(of: endTime)
   )
 
-  logger?.info("[Day Summary] lastComputed = \(startTime) now = \(endTime) datesToCompute = \(datesToCompute)")
+  logger?.info("[Day Summary] lastComputed = \(startTime, privacy: .public) now = \(endTime, privacy: .public) datesToCompute = \(datesToCompute, privacy: .public)")
 
   return try await withThrowingTaskGroup(
     of: ActivityPatch.DaySummary.self,
