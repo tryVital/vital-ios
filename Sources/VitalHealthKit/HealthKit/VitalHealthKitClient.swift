@@ -11,10 +11,6 @@ public enum PermissionOutcome: Equatable {
 
 let health_secureStorageKey: String = "health_secureStorageKey"
 
-internal var logger: Logger? {
-  VitalHealthKitClient.shared.logger
-}
-
 @objc public class VitalHealthKitClient: NSObject {
   public enum Status {
     case failedSyncing(VitalResource, Error?)
@@ -53,9 +49,7 @@ internal var logger: Logger? {
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
   }
-  
-  fileprivate var logger: Logger? = nil
-  
+
   init(
     configuration: ProtectedBox<Configuration> = .init(),
     store: VitalHealthKitStore = .live,
@@ -124,7 +118,7 @@ internal var logger: Logger? {
       completion?()
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
-      shared.logger?.error("Failed to perform automatic configuration: \(error, privacy: .public)")
+      VitalLogger.healthKit.error("Failed to perform automatic configuration: \(error, privacy: .public)")
     }
   }
 
@@ -135,15 +129,11 @@ internal var logger: Logger? {
   func setConfiguration(
     configuration: Configuration
   ) {
-    if configuration.logsEnabled {
-      self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
-    }
-    
     do {
       try secureStorage.set(value: configuration, key: health_secureStorageKey)
     }
     catch {
-      logger?.info("We weren't able to securely store Configuration: \(error, privacy: .public)")
+      VitalLogger.healthKit.info("We weren't able to securely store Configuration: \(error, privacy: .public)")
     }
     
     self.configuration.set(value: configuration)
@@ -214,7 +204,7 @@ extension VitalHealthKitClient {
     let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.flatMap { $0 })
 
     if uniqueFlatenned.isEmpty {
-      logger?.info("Not observing any type")
+      VitalLogger.healthKit.info("Not observing any type")
     }
 
     /// Enable background deliveries
@@ -250,7 +240,7 @@ extension VitalHealthKitClient {
         // (except for the task cancellation redelivery expectation stated above).
         defer { payload.completion() }
 
-        logger?.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
+        VitalLogger.healthKit.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
 
         guard let first = payload.sampleTypes.first else {
           continue
@@ -272,11 +262,11 @@ extension VitalHealthKitClient {
       store.enableBackgroundDelivery(sampleType, .hourly) { [weak self] success, failure in
         
         guard failure == nil && success else {
-          self?.logger?.error("Failed to enable background delivery for type: \(sampleType.identifier, privacy: .public). Did you enable \"Background Delivery\" in Capabilities?")
+          VitalLogger.healthKit.error("Failed to enable background delivery for type: \(sampleType.identifier, privacy: .public). Did you enable \"Background Delivery\" in Capabilities?")
           return
         }
         
-        self?.logger?.info("Successfully enabled background delivery for type: \(sampleType.identifier, privacy: .public)")
+        VitalLogger.healthKit.info("Successfully enabled background delivery for type: \(sampleType.identifier, privacy: .public)")
       }
     }
   }
@@ -297,19 +287,18 @@ extension VitalHealthKitClient {
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { [weak self] query, sampleTypes, handler, error in
           guard let sampleTypes = sampleTypes else {
-            self?.logger?.error("Failed to background deliver. Empty samples")
+            VitalLogger.healthKit.error("Failed to background deliver. Empty samples")
             return
           }
 
           guard error == nil else {
-            self?.logger?.error("Failed to background deliver for \(String(describing: sampleTypes), privacy: .public) with \(error, privacy: .public).")
-
+            VitalLogger.healthKit.error("Failed to background deliver for \(String(describing: sampleTypes), privacy: .public) with \(error, privacy: .public).")
 
             ///  We need a better way to handle if a failure happens here.
             return
           }
 
-          self?.logger?.info("[HealthKit] Notified changes in \(sampleTypes, privacy: .public)")
+          VitalLogger.healthKit.info("[HealthKit] Notified changes in \(sampleTypes, privacy: .public)")
 
           // It appears that the iOS 15+ HKObserverQuery might pass us `HKSampleType`s that is
           // outside the conditions we specified via `descriptors`. Filter out any unsolicited types
@@ -349,13 +338,13 @@ extension VitalHealthKitClient {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
           
           guard error == nil else {
-            self?.logger?.error("Failed to background deliver for \(sampleType.identifier, privacy: .public).")
+            VitalLogger.healthKit.error("Failed to background deliver for \(sampleType.identifier, privacy: .public).")
             
             ///  We need a better way to handle if a failure happens here.
             return
           }
 
-          self?.logger?.info("[HealthKit] Notified changes in \(sampleType, privacy: .public)")
+          VitalLogger.healthKit.info("[HealthKit] Notified changes in \(sampleType, privacy: .public)")
           
           let payload = BackgroundDeliveryPayload(sampleTypes: Set([sampleType]), completion: handler)
           continuation.yield(payload)
@@ -468,7 +457,7 @@ extension VitalHealthKitClient {
     let description = payload.description(store: store)
     let resource = payload.resource(store: store)
     
-    logger?.info("Syncing HealthKit \(infix, privacy: .public): \(description, privacy: .public)")
+    VitalLogger.healthKit.info("Syncing HealthKit \(infix, privacy: .public): \(description, privacy: .public)")
     
     do {
       // Signal syncing (so the consumer can convey it to the user)
@@ -500,14 +489,14 @@ extension VitalHealthKitClient {
           entitiesToStore.forEach(storage.store(entity:))
         }
 
-        logger?.info("Skipping. No new data available \(infix, privacy: .public): \(description, privacy: .public)")
+        VitalLogger.healthKit.info("Skipping. No new data available \(infix, privacy: .public): \(description, privacy: .public)")
         _status.send(.nothingToSync(resource))
 
         return
       }
       
       if configuration.mode.isAutomatic {
-        self.logger?.info(
+        VitalLogger.healthKit.info(
           "Automatic Mode. Posting data for stage \(stage, privacy: .public) \(infix, privacy: .public): \(description, privacy: .public)"
         )
         
@@ -526,7 +515,7 @@ extension VitalHealthKitClient {
           TimeZone.current
         )
       } else {
-        self.logger?.info(
+        VitalLogger.healthKit.info(
           "Manual Mode. Skipping posting data for stage \(stage, privacy: .public) \(infix, privacy: .public): \(description, privacy: .public)"
         )
       }
@@ -537,14 +526,14 @@ extension VitalHealthKitClient {
       // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      logger?.info("Completed syncing \(infix, privacy: .public): \(description, privacy: .public)")
+      VitalLogger.healthKit.info("Completed syncing \(infix, privacy: .public): \(description, privacy: .public)")
       
       // Signal success
       _status.send(.successSyncing(resource, data))
     }
     catch let error {
       // Signal failure
-      logger?.error(
+      VitalLogger.healthKit.error(
         "Failed syncing data \(infix, privacy: .public): \(description, privacy: .public). Error: \(error, privacy: .public)"
       )
       _status.send(.failedSyncing(resource, error))

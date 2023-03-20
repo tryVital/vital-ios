@@ -49,7 +49,7 @@ public extension VitalClient.TimeSeries {
     let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId)
     let request: Request<Void> = .init(path: fullPath, method: .post, body: taggedPayload)
     
-    configuration.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name, privacy: .public)")
+    VitalLogger.core.info("Posting TimeSeries data for: \(timeSeriesData.name, privacy: .public)")
     try await configuration.apiClient.send(request)
   }
   
