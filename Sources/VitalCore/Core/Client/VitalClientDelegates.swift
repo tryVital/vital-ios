@@ -34,7 +34,7 @@ class VitalClientDelegate: APIClientDelegate {
       return false
     }
     
-    self.logger?.info("Retrying after error: \(error.localizedDescription)")
+    self.logger?.info("Retrying after error: \(error, privacy: .public)")
     
     return true
   }
@@ -51,7 +51,7 @@ class VitalClientDelegate: APIClientDelegate {
       payload: data
     )
         
-    self.logger?.error("Failed request with error: \(networkError.localizedDescription)")
+    self.logger?.error("Failed request with error: \(networkError, privacy: .public)")
     throw networkError
   }
 }

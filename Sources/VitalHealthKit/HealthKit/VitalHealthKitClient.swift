@@ -118,7 +118,7 @@ internal var logger: Logger? {
       completion?()
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
-      shared.logger?.error("Failed to perform automatic configuration: \(error)")
+      shared.logger?.error("Failed to perform automatic configuration: \(error, privacy: .public)")
     }
   }
 
@@ -137,7 +137,7 @@ internal var logger: Logger? {
       try secureStorage.set(value: configuration, key: health_secureStorageKey)
     }
     catch {
-      logger?.info("We weren't able to securely store Configuration: \(error.localizedDescription)")
+      logger?.info("We weren't able to securely store Configuration: \(error, privacy: .public)")
     }
     
     self.configuration.set(value: configuration)
@@ -245,11 +245,11 @@ extension VitalHealthKitClient {
       store.enableBackgroundDelivery(sampleType, .hourly) { [weak self] success, failure in
         
         guard failure == nil && success else {
-          self?.logger?.error("Failed to enable background delivery for type: \(String(describing: sampleType)). Did you enable \"Background Delivery\" in Capabilities?")
+          self?.logger?.error("Failed to enable background delivery for type: \(sampleType.identifier, privacy: .public). Did you enable \"Background Delivery\" in Capabilities?")
           return
         }
         
-        self?.logger?.info("Successfully enabled background delivery for type: \(String(describing: sampleType))")
+        self?.logger?.info("Successfully enabled background delivery for type: \(sampleType.identifier, privacy: .public)")
       }
     }
   }
@@ -275,7 +275,7 @@ extension VitalHealthKitClient {
           }
 
           guard error == nil else {
-            self.logger?.error("Failed to background deliver for \(String(describing: sampleTypes)) with \(error).")
+            self.logger?.error("Failed to background deliver for \(String(describing: sampleTypes), privacy: .public) with \(error, privacy: .public).")
 
             ///  We need a better way to handle if a failure happens here.
             return
@@ -310,7 +310,7 @@ extension VitalHealthKitClient {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
           
           guard error == nil else {
-            self?.logger?.error("Failed to background deliver for \(String(describing: sampleType)).")
+            self?.logger?.error("Failed to background deliver for \(sampleType.identifier, privacy: .public).")
             
             ///  We need a better way to handle if a failure happens here.
             return
@@ -428,7 +428,7 @@ extension VitalHealthKitClient {
     let description = payload.description(store: store)
     let resource = payload.resource(store: store)
     
-    logger?.info("Syncing HealthKit \(infix): \(description)")
+    logger?.info("Syncing HealthKit \(infix, privacy: .public): \(description, privacy: .public)")
     
     do {
       // Signal syncing (so the consumer can convey it to the user)
@@ -460,7 +460,7 @@ extension VitalHealthKitClient {
           entitiesToStore.forEach(storage.store(entity:))
         }
 
-        logger?.info("Skipping. No new data available \(infix): \(description)")
+        logger?.info("Skipping. No new data available \(infix, privacy: .public): \(description, privacy: .public)")
         _status.send(.nothingToSync(resource))
 
         return
@@ -468,7 +468,7 @@ extension VitalHealthKitClient {
       
       if configuration.mode.isAutomatic {
         self.logger?.info(
-          "Automatic Mode. Posting data for stage \(stage) \(infix): \(description)"
+          "Automatic Mode. Posting data for stage \(stage, privacy: .public) \(infix, privacy: .public): \(description, privacy: .public)"
         )
         
         /// Make sure the user has a connected source set up
@@ -487,7 +487,7 @@ extension VitalHealthKitClient {
         )
       } else {
         self.logger?.info(
-          "Manual Mode. Skipping posting data for stage \(stage) \(infix): \(description)"
+          "Manual Mode. Skipping posting data for stage \(stage, privacy: .public) \(infix, privacy: .public): \(description, privacy: .public)"
         )
       }
       
@@ -497,7 +497,7 @@ extension VitalHealthKitClient {
       // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      logger?.info("Completed syncing \(infix): \(description)")
+      logger?.info("Completed syncing \(infix, privacy: .public): \(description, privacy: .public)")
       
       // Signal success
       _status.send(.successSyncing(resource, data))
@@ -509,7 +509,7 @@ extension VitalHealthKitClient {
     catch let error {
       // Signal failure
       logger?.error(
-        "Failed syncing data \(infix): \(description). Error: \(error.localizedDescription)"
+        "Failed syncing data \(infix, privacy: .public): \(description, privacy: .public). Error: \(error, privacy: .public)"
       )
       _status.send(.failedSyncing(resource, error))
     }
