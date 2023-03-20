@@ -251,9 +251,9 @@ extension VitalHealthKitClient {
         if payload.sampleTypes.count > 1 {
         /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
           let resource = store.toVitalResource(first)
-          await sync(payload: .resource(resource), completion: payload.completion)
+          await sync(payload: .resource(resource))
         } else {
-          await sync(payload: .type(first), completion: payload.completion)
+          await sync(payload: .type(first))
         }
       }
     }
@@ -378,7 +378,7 @@ extension VitalHealthKitClient {
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
       for resource in resources {
-        await sync(payload: .resource(resource), completion: {})
+        await sync(payload: .resource(resource))
       }
       
       _status.send(.syncingCompleted)
@@ -439,8 +439,7 @@ extension VitalHealthKitClient {
   }
   
   private func sync(
-    payload: SyncPayload,
-    completion: () -> Void
+    payload: SyncPayload
   ) async {
     
     let configuration = await configuration.get()
@@ -524,10 +523,6 @@ extension VitalHealthKitClient {
       
       // Signal success
       _status.send(.successSyncing(resource, data))
-      
-      /// Call completion
-      completion()
-      
     }
     catch let error {
       // Signal failure
