@@ -407,7 +407,7 @@ struct StatisticsQueryDependencies {
             sampleType: type,
             predicate: makePredicate(),
             limit: 1,
-            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: false)]
+            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathEndDate, ascending: false)]
           ) { _, samples, error in
             continuation.resume(returning: samples?.first?.endDate)
           }
