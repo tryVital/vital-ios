@@ -200,7 +200,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       completion?()
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
-      shared.configuration.value?.logger?.error("Failed to perform automatic configuration: \(error)")
+      shared.configuration.value?.logger?.error("Failed to perform automatic configuration: \(error, privacy: .public)")
     }
   }
   
@@ -237,7 +237,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       logger = Logger(subsystem: "vital", category: "vital-network-client")
     }
     
-    logger?.info("VitalClient setup for environment \(String(describing: environment))")
+    logger?.info("VitalClient setup for environment \(String(describing: environment), privacy: .public)")
     
     let apiClientDelegate = VitalClientDelegate(
       environment: environment,
@@ -273,7 +273,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       try secureStorage.set(value: securePayload, key: core_secureStorageKey)
     }
     catch {
-      logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
+      logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error, privacy: .public)")
     }
     
     let coreConfiguration = VitalCoreConfiguration(
@@ -302,7 +302,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       }
     }
     catch {
-      configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error.localizedDescription)")
+      configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error, privacy: .public)")
     }
     
     self.userId.set(value: newUserId)
@@ -311,7 +311,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
     }
     catch {
-      configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error.localizedDescription)")
+      configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error, privacy: .public)")
     }
   }
   
