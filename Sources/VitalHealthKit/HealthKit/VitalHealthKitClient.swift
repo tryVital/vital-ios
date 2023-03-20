@@ -224,6 +224,25 @@ extension VitalHealthKitClient {
 
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
+        // If the task is cancelled, we would break the endless iteration and end the task.
+        // Any buffered payload would not be processed, and is expected to be redelivered by
+        // HealthKit.
+        //
+        // https://developer.apple.com/documentation/healthkit/hkhealthstore/1614175-enablebackgrounddelivery
+        try Task.checkCancellation()
+
+        // Task is not cancelled — we must call the HealthKit completion handler irrespective of
+        // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
+        // rule of HealthKit background delivery.
+        //
+        // Since we have fairly frequent delivery anyway, each of which will implicit retry from
+        // where the last sync has left off, this unconfigurable exponential backoff retry
+        // behaviour adds little to no value in maintaining data freshness.
+        //
+        // (except for the task cancellation redelivery expectation stated above).
+        defer { payload.completion() }
+
+        logger?.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
 
         guard let first = payload.sampleTypes.first else {
           continue
@@ -268,18 +287,20 @@ extension VitalHealthKitClient {
           HKQueryDescriptor(sampleType: $0, predicate: nil)
         }
 
-        let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
+        let query = HKObserverQuery(queryDescriptors: descriptors) { [weak self] query, sampleTypes, handler, error in
           guard let sampleTypes = sampleTypes else {
-            self.logger?.error("Failed to background deliver. Empty samples")
+            self?.logger?.error("Failed to background deliver. Empty samples")
             return
           }
 
           guard error == nil else {
-            self.logger?.error("Failed to background deliver for \(String(describing: sampleTypes)) with \(error).")
+            self?.logger?.error("Failed to background deliver for \(String(describing: sampleTypes)) with \(error).")
 
             ///  We need a better way to handle if a failure happens here.
             return
           }
+
+          self?.logger?.info("[HealthKit] Notified changes in \(sampleTypes, privacy: .public)")
 
           let payload = BackgroundDeliveryPayload(sampleTypes: sampleTypes, completion: handler)
           continuation.yield(payload)
@@ -315,6 +336,8 @@ extension VitalHealthKitClient {
             ///  We need a better way to handle if a failure happens here.
             return
           }
+
+          self?.logger?.info("[HealthKit] Notified changes in \(sampleType, privacy: .public)")
           
           let payload = BackgroundDeliveryPayload(sampleTypes: Set([sampleType]), completion: handler)
           continuation.yield(payload)
