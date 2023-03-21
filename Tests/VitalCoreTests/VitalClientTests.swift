@@ -10,26 +10,22 @@ let apiVersion = "2.0"
 let provider = Provider.Slug.strava
 
 class VitalClientTests: XCTestCase {
-  
+  let secureStorage = VitalSecureStorage(keychain: .debug)
+  lazy var client = VitalClient(secureStorage: secureStorage)
+
   override func setUp() async throws {
     await VitalClient.shared.cleanUp()
+    VitalClient.setClient(client)
   }
   
   func testInitSetsSharedInstance() throws {
-    let client = VitalClient()
     XCTAssertTrue(client === VitalClient.shared)
   }
   
   func testStorageAndCleanUp() async throws {
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
-    
-    let secureStorage = VitalSecureStorage(keychain: .debug)
-    
-    let client = VitalClient(
-      secureStorage: secureStorage
-    )
-    
+
     /// Ideally we would call `VitalClient.configure(...)`
     /// The issue is that we have no way to inject mocks, therefore we have to rely on `setConfiguration`.
     /// I don't feel particularly happy with this approach. The only reason I know that I should
@@ -101,7 +97,8 @@ class VitalClientTests: XCTestCase {
     try! secureStorage.set(value: userId, key: user_secureStorageKey)
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
     
-    let _ = VitalClient(secureStorage: secureStorage)
+    let newClient = VitalClient(secureStorage: secureStorage)
+    VitalClient.setClient(newClient)
 
     let _: Void = await withCheckedContinuation { continuation in
       VitalClient.automaticConfiguration {
@@ -119,12 +116,6 @@ class VitalClientTests: XCTestCase {
   func testStorageIsCleanedUpOnUserIdChange() async {
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
-    
-    let secureStorage = VitalSecureStorage(keychain: .debug)
-    
-    let client = VitalClient(
-      secureStorage: secureStorage
-    )
     
     client.setConfiguration(
       apiKey: apiKey,
@@ -146,13 +137,7 @@ class VitalClientTests: XCTestCase {
   func testProviderIsStored() async {
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
-    
-    let secureStorage = VitalSecureStorage(keychain: .debug)
-    
-    let client = VitalClient(
-      secureStorage: secureStorage
-    )
-    
+
     client.setConfiguration(
       apiKey: apiKey,
       environment: environment,
