@@ -215,10 +215,16 @@ extension VitalClientProtocol {
 }
 
 struct StatisticsQueryDependencies {
+  enum Granularity {
+    case hourly
+    case daily
+  }
 
-  var executeHourlyStatisticalQuery: (HKQuantityType, Date, Date, @escaping HourlyStatisticsResultHandler) -> Void
-  var executeDaySummaryQuery: (HKQuantityType, GregorianCalendar.FloatingDate, GregorianCalendar) async throws -> VitalStatistics?
-  var executeSampleQuery: (HKQuantityType, Date, Date) async throws -> [HKSample]
+  /// Compute statistics at the specified granularity over the given time interval.
+  ///
+  /// Note that the time interval `Range<Date>` is end exclusive. This is because both the HealthKit query predicate
+  /// and the resulting statistics use end-exclusive time intervals as well.
+  var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity) async throws -> [VitalStatistics]
 
   var getFirstAndLastSampleTime: (HKQuantityType, Date, Date) async throws -> (first: Date, last: Date)?
   
@@ -231,11 +237,7 @@ struct StatisticsQueryDependencies {
   var key: (HKQuantityType) -> String
 
   static var debug: StatisticsQueryDependencies {
-    return .init { _, startDate, endDate, handler in
-      fatalError()
-    } executeDaySummaryQuery: { _, date, calendar in
-      fatalError()
-    } executeSampleQuery: { _, _, _ in
+    return .init { _, _, _ in
       fatalError()
     } getFirstAndLastSampleTime: { _, _, _ in
       fatalError()
@@ -256,16 +258,24 @@ struct StatisticsQueryDependencies {
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage
   ) -> StatisticsQueryDependencies {
-    return .init { type, startDate, endDate, handler in
+    return .init { type, queryInterval, granularity in
 
       // %@ <= %K AND %K < %@
       // Exclusive end as per Apple documentation
       // https://developer.apple.com/documentation/healthkit/hkquery/1614771-predicateforsampleswithstartdate#discussion
       let predicate = HKQuery.predicateForSamples(
-        withStart: startDate,
-        end: endDate,
+        withStart: queryInterval.lowerBound,
+        end: queryInterval.upperBound,
         options: []
       )
+
+      let intervalComponents: DateComponents
+      switch granularity {
+      case .hourly:
+        intervalComponents = DateComponents(hour: 1)
+      case .daily:
+        intervalComponents = DateComponents(day: 1)
+      }
 
       // While we are interested in the contributing sources, we should not use
       // the `separateBySource` option, as we want HealthKit to provide
@@ -277,23 +287,26 @@ struct StatisticsQueryDependencies {
         quantityType: type,
         quantitySamplePredicate: predicate,
         options: type.idealStatisticalQueryOptions,
-        anchorDate: startDate,
-        intervalComponents: .init(hour: 1)
+        anchorDate: queryInterval.lowerBound,
+        intervalComponents: intervalComponents
       )
 
-      let queryInterval = startDate ... endDate
-      
-      let queryHandler: StatisticsHandler = { query, statistics, error in
+      @Sendable func handle(
+        _ query: HKStatisticsCollectionQuery,
+        collection: HKStatisticsCollection?,
+        error: Error?,
+        continuation: CheckedContinuation<[VitalStatistics], Error>
+      ) {
         healthKitStore.stop(query)
 
-        guard let statistics = statistics else {
+        guard let collection = collection else {
           precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
 
           switch (error as? HKError)?.code {
           case .errorNoData:
-            handler(.success([]))
+            continuation.resume(returning: [])
           default:
-            handler(.failure(error!))
+            continuation.resume(throwing: error!)
           }
 
           return
@@ -303,7 +316,7 @@ struct StatisticsQueryDependencies {
         // would have been matched by the HKStatisticsCollectionQuery.
         let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
           let sources = sources?.map { $0.bundleIdentifier } ?? []
-          let values: [HKStatistics] = statistics.statistics().filter { entry in
+          let values: [HKStatistics] = collection.statistics().filter { entry in
             // We perform a HKStatisticsCollectionQuery w/o strictStartDate and strictEndDate in
             // order to have aggregates matching numbers in the Health app.
             //
@@ -316,7 +329,19 @@ struct StatisticsQueryDependencies {
             // These unwanted stat points must be explicitly discarded, since they are not backed by
             // the complete set of samples within their representing time interval (as they are
             // rightfully excluded by the query interval we specified).
-            queryInterval.contains(entry.startDate) && queryInterval.contains(entry.endDate)
+            //
+            // Since both `queryInterval` and HKStatistics start..<end are end-exclusive, we only
+            // need to test the start to filter out said unwanted entries.
+            //
+            // e.g., Given queryInterval = 23-02-03T01:00 ..< 23-02-04T01:00
+            //        statistics[0]: 23-02-03T00:00 ..< 23-02-03T01:00 ❌
+            //        statistics[1]: 23-02-03T01:00 ..< 23-02-03T02:00 ✅
+            //        statistics[2]: 23-02-03T02:00 ..< 23-02-03T03:00 ✅
+            //        ...
+            //       statistics[23]: 23-02-03T23:00 ..< 23-02-04T00:00 ✅
+            //       statistics[24]: 23-02-04T00:00 ..< 23-02-04T01:00 ✅
+            //       statistics[25]: 23-02-04T01:00 ..< 23-02-04T02:00 ❌
+            queryInterval.contains(entry.startDate)
           }
 
           do {
@@ -324,63 +349,25 @@ struct StatisticsQueryDependencies {
               try VitalStatistics(statistics: statistics, type: type, sources: sources)
             }
 
-            handler(.success(vitalStatistics))
+            continuation.resume(returning: vitalStatistics)
           } catch let error {
-            handler(.failure(error))
+            continuation.resume(throwing: error)
           }
         }
 
         healthKitStore.execute(sourceQuery)
       }
-      
-      query.initialResultsHandler = queryHandler
-      healthKitStore.execute(query)
-      
-    } executeDaySummaryQuery: { type, date, calendar in
 
-      // %@ <= %K AND %K < %@
-      // Exclusive end as per Apple documentation
-      // https://developer.apple.com/documentation/healthkit/hkquery/1614771-predicateforsampleswithstartdate#discussion
-      let nextDay = calendar.offset(date, byDays: 1)
-      let predicate = HKQuery.predicateForSamples(
-        withStart: calendar.startOfDay(date),
-        end: calendar.startOfDay(nextDay),
-        options: []
-      )
-
-      return try await withCheckedThrowingContinuation { continuation in
-        healthKitStore.execute(
-          HKStatisticsQuery(
-            quantityType: type,
-            quantitySamplePredicate: predicate,
-            options: type.idealStatisticalQueryOptions
-          ) { _, statistics, error in
-            guard let statistics = statistics else {
-              precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
-
-              switch (error as? HKError)?.code {
-              case .errorNoData:
-                continuation.resume(with: .success(nil))
-              default:
-                continuation.resume(with: .failure(error!))
-              }
-
-              return
-            }
-
-            do {
-              continuation.resume(
-                with: .success(try VitalStatistics(statistics: statistics, type: type, sources: []))
-              )
-            } catch let error {
-              continuation.resume(with: .failure(error))
-            }
+      return try await withTaskCancellationHandler {
+        return try await withCheckedThrowingContinuation { continuation in
+          query.initialResultsHandler = { query, collection, error in
+            handle(query, collection: collection, error: error, continuation: continuation)
           }
-        )
+          healthKitStore.execute(query)
+        }
+      } onCancel: {
+        healthKitStore.stop(query)
       }
-
-    } executeSampleQuery: { type, startDate, endDate in
-      try await querySample(healthKitStore: healthKitStore, type: type, startDate: startDate, endDate: endDate)
 
     } getFirstAndLastSampleTime: { type, start, end in
       @Sendable func makePredicate() -> NSPredicate {
