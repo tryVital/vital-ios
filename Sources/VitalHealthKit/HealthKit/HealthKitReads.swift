@@ -913,25 +913,13 @@ private func populateAnchorsForStatisticalQuery(
   let startDate = vitalCalendar.date(byAdding: .day, value: -21, to: statisticsQueryStartDate)!.dayStart
   let endDate = statisticsQueryStartDate.beginningHour
 
-  return try await withCheckedThrowingContinuation { continuation in
-    
-    let handler: HourlyStatisticsResultHandler = { result in
-      switch result {
-      case let .success(statistics):
-        let newAnchors = calculateIdsForAnchorsPopulation(
-          vitalStatistics: statistics,
-          date: endDate
-        )
+  let statistics = try await dependency.executeStatisticalQuery(type, startDate ..< endDate, .hourly)
+  let newAnchors = calculateIdsForAnchorsPopulation(
+    vitalStatistics: statistics,
+    date: endDate
+  )
 
-        continuation.resume(returning: newAnchors)
-
-      case let .failure(error):
-        continuation.resume(throwing: error)
-      }
-    }
-            
-    dependency.executeHourlyStatisticalQuery(type, startDate, endDate, handler)
-  }
+  return newAnchors
 }
 
 ///
@@ -993,39 +981,24 @@ func queryStatisticsSample(
   /// E.g. Anchor date is at 16:00. Another app (e.g. Garmin) inserts steps at 15:00. If we don't check at least 7 days
   /// before, we might run the risk of losing data inserted before the date anchor
   /// We might need to extend this value to a week.
-  let statisticsStarDate: Date
+  let statisticsStartDate: Date
   
   if isFirstTimeSycingType {
     /// If it's the first time, it will try to fetch 30 days worth of data (or whatever `withStart` is)
-    statisticsStarDate = newStartDate.dayStart
+    statisticsStartDate = newStartDate.dayStart
   } else {
     /// If it's not, we only check 7 days.
-    statisticsStarDate = Date.dateAgo(newStartDate, days: 7).dayStart
+    statisticsStartDate = Date.dateAgo(newStartDate, days: 7).dayStart
   }
   
-  let statisticsEndDate = newEndDate.nextHour
+  let queryInterval = statisticsStartDate ..< endDate
 
-  let (statistics, anchor): ([VitalStatistics], StoredAnchor) = try await withCheckedThrowingContinuation { continuation in
-
-    let handler: HourlyStatisticsResultHandler = { result in
-      switch result {
-      case let .success(statistics):
-        let payload = calculateIdsForAnchorsAndData(
-          vitalStatistics: statistics,
-          existingAnchors: vitalAnchors,
-          key: dependency.key(type),
-          date: newEndDate
-        )
-
-        continuation.resume(with: .success(payload))
-
-      case let .failure(error):
-        continuation.resume(with: .failure(error))
-      }
-    }
-    
-    dependency.executeHourlyStatisticalQuery(type, statisticsStarDate, statisticsEndDate, handler)
-  }
+  let (statistics, anchor) = calculateIdsForAnchorsAndData(
+    vitalStatistics: try await dependency.executeStatisticalQuery(type, queryInterval, .hourly),
+    existingAnchors: vitalAnchors,
+    key: dependency.key(type),
+    date: newEndDate
+  )
 
   let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
 
@@ -1075,63 +1048,70 @@ func queryActivityDaySummaries(
   endTime: Date,
   in calendar: GregorianCalendar
 ) async throws -> [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary] {
-  let datesToCompute = calendar.enumerate(
-    // System wall time can go backwards. Cap the start time just in case.
-    calendar.floatingDate(of: min(startTime, endTime)),
-    calendar.floatingDate(of: endTime)
+  // System wall time can go backwards. Cap the start time just in case.
+  let datesToCompute = calendar.floatingDate(of: min(startTime, endTime))
+    ... calendar.floatingDate(of: endTime)
+  let queryInterval = calendar.timeRange(of: datesToCompute)
+
+  logger?.info("""
+  [Day Summary] lastComputed = \(startTime, privacy: .public) now = \(endTime, privacy: .public)
+  datesToCompute = \(datesToCompute.lowerBound, privacy: .public) ... \(datesToCompute.upperBound, privacy: .public)
+  queryInterval = \(queryInterval.lowerBound, privacy: .public) ..< \(queryInterval.upperBound, privacy: .public)
+  """)
+
+  async let _activeEnergyBurnedSum = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+    queryInterval,
+    .daily
+  )
+  async let _basalEnergyBurnedSum = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned)!,
+    queryInterval,
+    .daily
+  )
+  async let _stepsSum = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .stepCount)!,
+    queryInterval,
+    .daily
+  )
+  async let _floorsClimbedSum = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .flightsClimbed)!,
+    queryInterval,
+    .daily
+  )
+  async let _distanceWalkingRunningSum = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+    queryInterval,
+    .daily
   )
 
-  logger?.info("[Day Summary] lastComputed = \(startTime, privacy: .public) now = \(endTime, privacy: .public) datesToCompute = \(datesToCompute, privacy: .public)")
-
-  return try await withThrowingTaskGroup(
-    of: ActivityPatch.DaySummary.self,
-    returning: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary].self
-  ) { group in
-    for date in datesToCompute {
-      group.addTask {
-        async let activeEnergyBurnedSum = dependencies.executeDaySummaryQuery(
-          HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
-          date,
-          calendar
-        )
-        async let basalEnergyBurnedSum = dependencies.executeDaySummaryQuery(
-          HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned)!,
-          date,
-          calendar
-        )
-        async let stepsSum = dependencies.executeDaySummaryQuery(
-          HKQuantityType.quantityType(forIdentifier: .stepCount)!,
-          date,
-          calendar
-        )
-        async let floorsClimbedSum = dependencies.executeDaySummaryQuery(
-          HKQuantityType.quantityType(forIdentifier: .flightsClimbed)!,
-          date,
-          calendar
-        )
-        async let distanceWalkingRunningSum = dependencies.executeDaySummaryQuery(
-          HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-          date,
-          calendar
-        )
-
-        return await ActivityPatch.DaySummary(
-          calendarDate: date,
-          activeEnergyBurnedSum: try activeEnergyBurnedSum?.value,
-          basalEnergyBurnedSum: try basalEnergyBurnedSum?.value,
-          stepsSum: try (stepsSum?.value).map(Int.init),
-          floorsClimbedSum: try (floorsClimbedSum?.value).map(Int.init),
-          distanceWalkingRunningSum: try distanceWalkingRunningSum?.value
-        )
+  func keyedByDate(_ statistics: [VitalStatistics]) -> [GregorianCalendar.FloatingDate: VitalStatistics] {
+    Dictionary(grouping: statistics) { calendar.floatingDate(of: $0.startDate) }
+      .mapValues { statistics in
+        assert(statistics.count == 1, "Expected statistical query to produce one stat per day. Found multiple stats per day.")
+        return statistics[0]
       }
-    }
-
-    return try await group.reduce(into: [:]) { results, summary in
-      if summary.isNotEmpty {
-        results[summary.calendarDate] = summary
-      }
-    }
   }
+
+  let activeEnergyBurnedSum = keyedByDate(try await _activeEnergyBurnedSum)
+  let basalEnergyBurnedSum = keyedByDate(try await _basalEnergyBurnedSum)
+  let stepsSum = keyedByDate(try await _stepsSum)
+  let floorsClimbedSum = keyedByDate(try await _floorsClimbedSum)
+  let distanceWalkingRunningSum = keyedByDate(try await _distanceWalkingRunningSum)
+
+  var result = [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]()
+  for date in calendar.enumerate(datesToCompute) {
+    // Round down all sums to match Apple Health app behaviour.
+    result[date] = ActivityPatch.DaySummary(
+      calendarDate: date,
+      activeEnergyBurnedSum: activeEnergyBurnedSum[date]?.value.rounded(.down),
+      basalEnergyBurnedSum: basalEnergyBurnedSum[date]?.value.rounded(.down),
+      stepsSum: (stepsSum[date]?.value.rounded(.down)).map(Int.init),
+      floorsClimbedSum: (floorsClimbedSum[date]?.value.rounded(.down)).map(Int.init),
+      distanceWalkingRunningSum: distanceWalkingRunningSum[date]?.value.rounded(.down)
+    )
+  }
+  return result
 }
 
 func querySample(

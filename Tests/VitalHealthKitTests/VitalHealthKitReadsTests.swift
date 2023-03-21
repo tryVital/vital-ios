@@ -200,26 +200,26 @@ class VitalHealthKitReadsTests: XCTestCase {
     let date = Date()
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
-    var dateRanges: [ClosedRange<Date>] = []
+    var dateRanges: [Range<Date>] = []
     
-    debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
+    debug.executeStatisticalQuery = { type, queryInterval, granularity in
       XCTAssertEqual(quantityType, type)
+      XCTAssertEqual(granularity, .hourly)
 
-      let range = queryStartDate ... queryEndDate
-      dateRanges.append(range)
+      dateRanges.append(queryInterval)
       
       if dateRanges.count == 1 {
-        XCTAssert(range.contains(startDate) == false)
-        XCTAssert(range.contains(endDate) == false)
+        XCTAssert(queryInterval.contains(startDate) == false)
+        XCTAssert(queryInterval.contains(endDate) == false)
       }
       
       if dateRanges.count == 2 {
-        XCTAssert(range.contains(startDate) == false)
-        XCTAssert(range.contains(endDate) == true)
+        XCTAssert(queryInterval.contains(startDate) == false)
+        XCTAssert(queryInterval.contains(endDate) == false)
       }
       
       let element = vitalStastics.removeFirst()
-      handler(.success(element))
+      return element
     }
 
     debug.getFirstAndLastSampleTime = { type, start, end in
@@ -283,24 +283,24 @@ class VitalHealthKitReadsTests: XCTestCase {
     let date = Date()
     let (startDate, endDate) = (Date.dateAgo(date, days: 30), date)
 
-    var dateRanges: [ClosedRange<Date>] = []
+    var dateRanges: [Range<Date>] = []
 
     debug.getFirstAndLastSampleTime = { type, start, end in
       XCTAssertEqual(quantityType, type)
       return nil
     }
     
-    debug.executeHourlyStatisticalQuery = { type, queryStartDate, queryEndDate, handler in
+    debug.executeStatisticalQuery = { type, queryInterval, granularity in
       XCTAssertEqual(quantityType, type)
+      XCTAssertEqual(granularity, .hourly)
 
-      let range = queryStartDate ... queryEndDate
+      XCTAssert(queryInterval.contains(startDate) == true)
+      XCTAssert(queryInterval.contains(endDate) == false)
       
-      XCTAssert(range.contains(startDate) == true)
-      XCTAssert(range.contains(endDate) == true)
-      
-      dateRanges.append(range)
+      dateRanges.append(queryInterval)
+
       let element = vitalStastics.removeFirst()
-      handler(.success(element))
+      return element
     }
     
     debug.isLegacyType = { type in

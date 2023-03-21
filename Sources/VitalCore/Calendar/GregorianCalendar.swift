@@ -12,14 +12,14 @@ public struct GregorianCalendar {
   }
 
   /// End inclusive
-  public func enumerate(_ lowerBound: FloatingDate, _ upperBound: FloatingDate) -> [FloatingDate] {
-    guard lowerBound != upperBound else {
+  public func enumerate(_ dateRange: ClosedRange<FloatingDate>) -> [FloatingDate] {
+    guard dateRange.lowerBound != dateRange.upperBound else {
       // range.lowerBound == range.upperBound
-      return [lowerBound]
+      return [dateRange.lowerBound]
     }
 
-    let endTime = startOfDay(upperBound)
-    var startTime = startOfDay(lowerBound)
+    let endTime = startOfDay(dateRange.upperBound)
+    var startTime = startOfDay(dateRange.lowerBound)
     precondition(startTime < endTime)
 
     var results = [FloatingDate]()
@@ -49,6 +49,15 @@ public struct GregorianCalendar {
       Self.invariantViolation()
     }
     return startOfDay
+  }
+
+  /// Return an end-exclusive UTC time range that would cover the given closed range of calendar dates with respect to `self`.
+  public func timeRange(of dateRange: ClosedRange<FloatingDate>) -> Range<Date> {
+    // Since we are returning an end-exclusive UTC time range, the upper bound is the first instant
+    // of the day after the end date.
+    let dayAfterEndDate = offset(dateRange.upperBound, byDays: 1)
+
+    return startOfDay(dateRange.lowerBound) ..< startOfDay(dayAfterEndDate)
   }
 
   public func offset(_ date: FloatingDate, byDays days: Int) -> FloatingDate {
