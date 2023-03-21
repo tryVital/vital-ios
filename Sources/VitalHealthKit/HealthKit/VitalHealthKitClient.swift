@@ -222,11 +222,11 @@ extension VitalHealthKitClient {
 
     let stream: AsyncStream<BackgroundDeliveryPayload>
 
-    if #available(iOS 15.0, *) {
-      stream = bundledBackgroundObservers(for: cleaned)
-    } else {
+//    if #available(iOS 15.0, *) {
+//      stream = bundledBackgroundObservers(for: cleaned)
+//    } else {
       stream = backgroundObservers(for: uniqueFlatenned)
-    }
+//    }
 
     self.backgroundDeliveryTask = Task(priority: .high) {
       for await payload in stream {
