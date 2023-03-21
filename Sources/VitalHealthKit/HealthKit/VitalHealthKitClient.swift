@@ -25,16 +25,20 @@ internal var logger: Logger? {
   }
   
   public static var shared: VitalHealthKitClient {
-    guard let value = client else {
-      let newClient = VitalHealthKitClient()
-      return newClient
+    clientInitLock.withLock {
+      guard let value = client else {
+        let newClient = VitalHealthKitClient()
+        Self.client = newClient
+        return newClient
+      }
+
+      return value
     }
-    
-    return value
   }
-  
+
+  private static let clientInitLock = NSLock()
   private static var client: VitalHealthKitClient?
-  
+
   private let store: VitalHealthKitStore
   private let storage: VitalHealthKitStorage
   private let secureStorage: VitalSecureStorage
@@ -68,8 +72,6 @@ internal var logger: Logger? {
     self._status = PassthroughSubject<Status, Never>()
     
     super.init()
-    
-    VitalHealthKitClient.client = self
   }
   
   /// Only use this method if you are working from Objc.
@@ -89,8 +91,12 @@ internal var logger: Logger? {
     )
   }
 
+  // IMPORTANT: The synchronous `configure(3)` is the preferred version over this async one.
+  //
+  // The async overload is still kept here for source compatibility, because Swift always ignores
+  // the non-async overload sharing the same method signature, even if the async version is
+  // deprecated.
   @_disfavoredOverload
-  @available(*, deprecated, message: "Remove the await keyword to use the non-async version of `configure`.")
   public static func configure(
     _ configuration: Configuration = .init()
   ) async {

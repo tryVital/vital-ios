@@ -111,14 +111,18 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   let userId: ProtectedBox<UUID>
   
   private static var client: VitalClient?
+  private static let clientInitLock = NSLock()
   
   public static var shared: VitalClient {
-    guard let value = client else {
-      let newClient = VitalClient()
-      return newClient
+    clientInitLock.withLock {
+      guard let value = client else {
+        let newClient = VitalClient()
+        Self.client = newClient
+        return newClient
+      }
+
+      return value
     }
-    
-    return value
   }
   
   /// Only use this method if you are working from Objc.
@@ -150,8 +154,12 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     )
   }
 
+  // IMPORTANT: The synchronous `configure(3)` is the preferred version over this async one.
+  //
+  // The async overload is still kept here for source compatibility, because Swift always ignores
+  // the non-async overload sharing the same method signature, even if the async version is
+  // deprecated.
   @_disfavoredOverload
-  @available(*, deprecated, message: "Remove the await keyword to use the non-async version of `configure`.")
   public static func configure(
     apiKey: String,
     environment: Environment,
@@ -214,8 +222,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.userId = userId
     
     super.init()
-    
-    VitalClient.client = self
   }
 
   /// **Synchronously** set the configuration and kick off the side effects.
@@ -290,7 +296,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   private func _setUserId(_ newUserId: UUID) async {
     if configuration.isNil() {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
-      fatalError("You need to call `VitalClient.configuration` before setting the `userId`")
+      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
     }
     
     let configuration = await configuration.get()
