@@ -124,6 +124,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       return value
     }
   }
+
+  // @testable
+  internal static func setClient(_ client: VitalClient?) {
+    clientInitLock.withLock { Self.client = client }
+  }
   
   /// Only use this method if you are working from Objc.
   /// Please use the async/await configure method when working from Swift.
