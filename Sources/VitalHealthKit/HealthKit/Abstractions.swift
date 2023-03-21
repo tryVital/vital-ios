@@ -214,6 +214,35 @@ extension VitalClientProtocol {
   }
 }
 
+enum VitalHealthKitError: Error {
+  case anchoredQueryInconsistency
+  case initialQueryAnchorLookupInconsistency
+}
+
+enum CheckInvalidatedStatisticsResult {
+  /// Discovered more samples that would together invalidate summaries or timeseries in the specified time range.
+  /// New anchor pointing to the last returned object is returned.
+  case discoveredNewSamples(Range<Date>, HKQueryAnchor)
+
+  /// No new samples were discovered, but the HKQueryAnchor should be moved.
+  /// e.g. discovered only deleted objects
+  case moveAnchor(HKQueryAnchor)
+
+  /// No new sample to pull; keep last recorded anchor.
+  case noNewSample
+
+  var queryAnchor: HKQueryAnchor? {
+    switch self {
+    case let .moveAnchor(anchor):
+      return anchor
+    case let .discoveredNewSamples(_, anchor):
+      return anchor
+    case .noNewSample:
+      return nil
+    }
+  }
+}
+
 struct StatisticsQueryDependencies {
   enum Granularity {
     case hourly
@@ -227,12 +256,30 @@ struct StatisticsQueryDependencies {
   var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity) async throws -> [VitalStatistics]
 
   var getFirstAndLastSampleTime: (HKQuantityType, Range<Date>) async throws -> Range<Date>?
+
+  /// Find the time range of statistics that is invalidated and needs to be recomputed, because
+  /// newer samples have been inserted within the said range and hence potentially changing the
+  /// statistical outcome.
+  ///
+  /// - parameters:
+  ///   - type: The sample type to inspect
+  ///   - minDate: The min datetime for samples to be considered in this process.
+  ///   - fromAnchor: The query anchor which the sample matching should start from.
+  var checkInvalidatedStatistics: (HKQuantityType, _ minDate: Date, _ fromAnchor: HKQueryAnchor) async throws -> CheckInvalidatedStatisticsResult
+
+  /// Find the initial HKQueryAnchor for a historical backfill starting at the given datetime.
+  ///
+  /// - parameters:
+  ///   - type: The sample type to inspect
+  ///   - backfillInterval: The min datetime for samples to be considered in this process.
+  var initialQueryAnchor: (HKQuantityType, _ backfillInterval: Range<Date>) async throws -> HKQueryAnchor?
   
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
   
   var vitalAnchorsForType: (HKQuantityType) -> [VitalAnchor]
   var storedDate: (HKQuantityType) -> Date?
+  var lastQueryAnchor: (HKQuantityType) -> HKQueryAnchor?
 
   var key: (HKQuantityType) -> String
 
@@ -241,6 +288,10 @@ struct StatisticsQueryDependencies {
       fatalError()
     } getFirstAndLastSampleTime: { _, _ in
       fatalError()
+    } checkInvalidatedStatistics: { _, _, _ in
+      fatalError()
+    } initialQueryAnchor: { _, _ in
+      fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
     } isLegacyType: { _ in
@@ -248,6 +299,8 @@ struct StatisticsQueryDependencies {
     } vitalAnchorsForType: { _ in
       fatalError()
     } storedDate: { _ in
+      fatalError()
+    } lastQueryAnchor: { _ in
       fatalError()
     } key: { _ in
       fatalError()
@@ -258,6 +311,45 @@ struct StatisticsQueryDependencies {
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage
   ) -> StatisticsQueryDependencies {
+
+    func mostRecentSampleStatistics(
+      for type: HKQuantityType,
+      queryInterval: Range<Date>
+    ) async throws -> HKStatistics? {
+      // If task is already cancelled, don't bother with starting the query.
+      try Task.checkCancellation()
+
+      return try await withCheckedThrowingContinuation { continuation in
+        healthKitStore.execute(
+          HKStatisticsQuery(
+            quantityType: type,
+            // start <= %K AND %K < end (end exclusive)
+            quantitySamplePredicate: HKQuery.predicateForSamples(
+              withStart: queryInterval.lowerBound,
+              end: queryInterval.upperBound,
+              options: []
+            ),
+            options: [.mostRecent]
+          ) { query, statistics, error in
+            guard let statistics = statistics else {
+              precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
+
+              switch (error as? HKError)?.code {
+              case .errorNoData:
+                continuation.resume(returning: nil)
+              default:
+                continuation.resume(throwing: error!)
+              }
+
+              return
+            }
+
+            continuation.resume(returning: statistics)
+          }
+        )
+      }
+    }
+
     return .init { type, queryInterval, granularity in
 
       // %@ <= %K AND %K < %@
@@ -371,48 +463,161 @@ struct StatisticsQueryDependencies {
 
     } getFirstAndLastSampleTime: { type, queryInterval in
 
-      // If task is already cancelled, don't bother with starting the query.
-      try Task.checkCancellation()
+      guard let statistics = try await mostRecentSampleStatistics(
+        for: type,
+        queryInterval: queryInterval
+      ) else { return nil }
 
-      return try await withCheckedThrowingContinuation { continuation in
-        healthKitStore.execute(
-          HKStatisticsQuery(
-            quantityType: type,
-            // start <= %K AND %K < end (end exclusive)
-            quantitySamplePredicate: HKQuery.predicateForSamples(
-              withStart: queryInterval.lowerBound,
-              end: queryInterval.upperBound,
-              options: []
-            ),
-            // We don't care about the actual aggregate results. Most Recent is picked here only
-            // because logically it does the least amount of work amongst all operator options.
-            options: [.mostRecent]
-          ) { query, statistics, error in
-            guard let statistics = statistics else {
-              precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
+      // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
+      // HKStatisticsQuery uses the earliest start date and the latest end date from all the
+      // samples matched by the predicate — this is the exact information we are looking for.
+      //
+      // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
+      // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
+      //
+      // Clamp it to our queryInterval still.
+      return (statistics.startDate ..< statistics.endDate)
+          .clamped(to: queryInterval)
 
-              switch (error as? HKError)?.code {
-              case .errorNoData:
-                continuation.resume(returning: nil)
-              default:
-                continuation.resume(throwing: error!)
+    } checkInvalidatedStatistics: { type, minDate, fromAnchor in
+
+      func nextBatch(from anchor: HKQueryAnchor, predicate: NSPredicate, limit: Int) async throws -> CheckInvalidatedStatisticsResult {
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
+          healthKitStore.execute(
+            HKAnchoredObjectQuery(
+              type: type,
+              predicate: predicate,
+              anchor: anchor,
+              limit: limit
+            ) { query, inserted, deleted, newAnchor, error in
+              if let error = error {
+                continuation.resume(throwing: error)
+                return
               }
 
+              // API promises non-nil value if error == nil.
+              guard
+                let inserted = inserted,
+                let deleted = deleted
+              else {
+                continuation.resume(throwing: VitalHealthKitError.anchoredQueryInconsistency)
+                return
+              }
+
+              // If both inserted & deleted are empty, logically speaking `newAnchor` would be nil
+              // as well. Use the last known anchor in this case.
+              let anchorToReturn = newAnchor ?? anchor
+
+              // No sample is included, that means at this time there is nothing more to loop
+              // through.
+              guard inserted.isNotEmpty else {
+                if deleted.isNotEmpty {
+                  continuation.resume(returning: .moveAnchor(anchorToReturn))
+                } else {
+                  continuation.resume(returning: .noNewSample)
+                }
+
+                return
+              }
+
+              var minStart = Date.distantFuture
+              var maxEnd = Date.distantPast
+
+              // Double check the invariant;
+              // we dont want to ever return distantPast ..< distantFuture.
+              precondition(inserted.isNotEmpty)
+
+              for sample in inserted {
+                minStart = min(sample.startDate, minStart)
+                maxEnd = max(sample.endDate, maxEnd)
+              }
+
+              continuation.resume(returning: .discoveredNewSamples(minStart ..< maxEnd, anchorToReturn))
+            }
+          )
+        }
+      }
+
+      let minDatePredicate = HKQuery.predicateForSamples(withStart: minDate, end: nil, options: [])
+
+      var lastAnchor: HKQueryAnchor = fromAnchor
+      var mergedRange: Range<Date>?
+
+      // Infinite loop to exhaust HKAnchoredObjectQuery (via nextBatch()) until it reports
+      // `.noNewSample`.
+      repeat {
+        /// Iteratively look through every 500 inserted/deleted objects of the sample type,
+        /// until the store runs out of any record (at this time). During the process, we
+        /// track the minimum startDate and the maximum endDate of all inserted samples.
+        ///
+        /// The resulting time range union is the timeseries statistics points that have to be
+        /// recomputed, since the inserted samples could potentially change the aggregate
+        /// results (sum/min/max/avg/etc) and hence invalidating any previously sent ones.
+        switch try await nextBatch(from: lastAnchor, predicate: minDatePredicate, limit: 500) {
+        case let .discoveredNewSamples(timeRange, newAnchor):
+          lastAnchor = newAnchor
+          mergedRange = mergedRange.map { $0.union(timeRange) } ?? timeRange
+
+        case let .moveAnchor(newAnchor):
+          lastAnchor = newAnchor
+
+        case .noNewSample:
+          guard let mergedRange = mergedRange else {
+            return fromAnchor != lastAnchor ? .moveAnchor(lastAnchor) : .noNewSample
+          }
+          return .discoveredNewSamples(mergedRange, lastAnchor)
+        }
+
+      } while true
+
+    } initialQueryAnchor: { type, backfillStartDate in
+
+      try Task.checkCancellation()
+
+      // Process:
+      // 1. Find the most recent sample using mostRecentSampleStatistics(2).
+      // 2. Use the sample's time interval to find a valid HKQueryAnchor.
+      //
+      // Given that HKAnchoredObjectQuery is a de facto append-only sample insertion log
+      // (rather than datetime based), any HKQueryAnchor we found is always guaranteed to be ordered
+      // before any future samples being inserted, and hence no risk for "missing" new sample
+      // in between this and a subsequent `checkInvalidatedStatistics(3)` call.
+
+      guard
+        let statistics = try await mostRecentSampleStatistics(
+          for: type,
+          queryInterval: backfillStartDate
+        ),
+        let mostRecentInterval = statistics.mostRecentQuantityDateInterval()
+      else { return nil }
+
+      return try await withCheckedThrowingContinuation { continuation in
+        let predicate = HKQuery.predicateForSamples(
+          withStart: mostRecentInterval.start,
+          end: mostRecentInterval.end,
+          options: []
+        )
+        healthKitStore.execute(
+          HKAnchoredObjectQuery(
+            type: type,
+            predicate: predicate,
+            anchor: nil,
+            limit: HKObjectQueryNoLimit
+          ) { _, _, _, anchor, error in
+            if let error = error {
+              continuation.resume(throwing: error)
               return
             }
 
-            // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
-            // HKStatisticsQuery uses the earliest start date and the latest end date from all the
-            // samples matched by the predicate — this is the exact information we are looking for.
-            //
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
-            //
-            // Clamp it to our queryInterval still.
-            continuation.resume(
-              returning: (statistics.startDate ..< statistics.endDate)
-                .clamped(to: queryInterval)
-            )
+            // We know for certain there is a most recent sample, so HKAnchoredObjectQuery should
+            // be able to return an HKQueryAnchor for it. Throw an inconsistency error if this
+            // invariant is violated.
+            if let anchor = anchor {
+              continuation.resume(returning: anchor)
+            } else {
+              continuation.resume(throwing: VitalHealthKitError.initialQueryAnchorLookupInconsistency)
+            }
           }
         )
       }
@@ -433,6 +638,10 @@ struct StatisticsQueryDependencies {
       let key = String(describing: type.self)
       return vitalStorage.read(key: key)?.date
       
+    } lastQueryAnchor: { type in
+      let key = String(describing: type.self)
+      return vitalStorage.read(key: key)?.anchor
+
     } key: { type in
       return String(describing: type.self)
     }

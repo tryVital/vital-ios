@@ -1,5 +1,11 @@
 import HealthKit
 import VitalCore
+import OSLog
+
+// TODO: Remove when static logger is merged
+enum VitalLogger {
+  static let healthKit = Logger(subsystem: "io.tryvital.vital-ios", category: "healthKit")
+}
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
 typealias AnchorQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
@@ -55,18 +61,18 @@ private func read(
       vitalStorage: vitalStorage
     )
     
-    let payload = try await queryStatisticsSample(
+    guard let (statistics, anchor) = try await queryStatisticsSample(
       dependency: dependencies,
       type: type,
       startDate: startDate,
       endDate: endDate
-    )
-    
-    let quantities: [QuantitySample] = payload.statistics.compactMap { value in
+    ) else { return ([], nil) }
+
+    let quantities: [QuantitySample] = statistics.compactMap { value in
       return QuantitySample(value, type)
     }
     
-    return (quantities, payload.anchor)
+    return (quantities, anchor)
   }
   
   var anchors: [StoredAnchor] = []
@@ -604,18 +610,18 @@ func handleActivity(
     type: HKQuantityType
   ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
 
-    let payload = try await queryStatisticsSample(
+    guard let (statistics, anchor) = try await queryStatisticsSample(
       dependency: dependencies,
       type: type,
       startDate: startDate,
       endDate: endDate
-    )
+    ) else { return ([], nil) }
 
-    let quantities: [QuantitySample] = payload.statistics.compactMap { value in
+    let quantities: [QuantitySample] = statistics.compactMap { value in
       return QuantitySample(value, type)
     }
 
-    return (quantities, payload.anchor)
+    return (quantities, anchor)
   }
 
   // - Hourly timeseries samples
@@ -842,167 +848,118 @@ private func query(
   }
 }
 
-func calculateIdsForAnchorsPopulation(
-  vitalStatistics: [VitalStatistics],
-  date: Date
-) -> [VitalAnchor] {
-  let cleanedStatistics = vitalStatistics.filter { statistic in
-    isValidStatistic(statistic)
-  }
-  
-  /// Generate new anchors based on the read statistics values
-  let newAnchors = cleanedStatistics.compactMap { statistics in
-    generateIdForAnchor(statistics).map(VitalAnchor.init(id:))
-  }
-  
-  let value = Set(newAnchors)
-  return Array(value)
-}
-
-func calculateIdsForAnchorsAndData(
-  vitalStatistics: [VitalStatistics],
-  existingAnchors: [VitalAnchor],
-  key: String,
-  date: Date
-) -> ([VitalStatistics], StoredAnchor) {
-  
-  /// Clean-up the values with zero
-  let cleanedStatistics = vitalStatistics.filter { statistic in
-    isValidStatistic(statistic)
-  }
-  
-  /// Generate new anchors based on the read statistics values
-  let newAnchors = cleanedStatistics.compactMap { statistics in
-    generateIdForAnchor(statistics).map(VitalAnchor.init(id:))
-  }
-    
-  /// There's a difference between what we want to send to the server, versus what we want to store
-  /// The ones to send, is the delta between the new versus the existing.
-  let toSendIds = anchorsToSend(old: existingAnchors, new: newAnchors)
-  
-  /// The ones we want store is a union of all ids.
-  let toStoreIds = anchorsToStore(old: existingAnchors, new: newAnchors)
-  
-  /// We can now filter the statistics that match the ids we want to send
-  let dataToSend: [VitalStatistics] = cleanedStatistics.filter { statistics in
-    guard let id = generateIdForAnchor(statistics) else {
-      return false
-    }
-    
-    return toSendIds.map(\.id).contains(id)
-  }
-  
-  let storedAnchor = StoredAnchor(
-    key: key,
-    anchor: nil,
-    date: date,
-    vitalAnchors: toStoreIds
-  )
-
-  return (dataToSend, storedAnchor)
-}
-
-
-/// TODO: To be Removed
-private func populateAnchorsForStatisticalQuery(
-  dependency: StatisticsQueryDependencies,
-  type: HKQuantityType,
-  statisticsQueryStartDate: Date
-) async throws -> [VitalAnchor] {
-    
-  let startDate = vitalCalendar.date(byAdding: .day, value: -21, to: statisticsQueryStartDate)!.dayStart
-  let endDate = statisticsQueryStartDate.beginningHour
-
-  let statistics = try await dependency.executeStatisticalQuery(type, startDate ..< endDate, .hourly)
-  let newAnchors = calculateIdsForAnchorsPopulation(
-    vitalStatistics: statistics,
-    date: endDate
-  )
-
-  return newAnchors
-}
-
-///
-///
-///                  `populateAnchorsForStatisticalQuery`
-///           |______________________________________________|
-///   `populateAnchorsStart`                          `lastSavedDate`
-///
-///                                                           <------------>
-///                                                              delta
-///
-///
-///                                         |_______________________________|
-///                                `statisticsStarDate`                  `nextHour`
-///
-///
-///  The goal with `populateAnchorsForStatisticalQuery` is to fill up our stored anchors.
-///  For a new user in the system, it's nil. And if they are indeed new, we won't do anything.
-///  We will only call `populateAnchorsForStatisticalQuery` for users still using `date anchors`.
-///  We then try to get data between `statisticsStarDate` and `nextHour`. If the mechanism
-///  is working as expected, most values are inside the `delta` range. However
-///  it's still possible to catch scatered values between `statisticsStarDate` and `nextHour`.
-///  This happens when a app syncs up with the HealthApp before the `lastSavedDate`.
-///
 func queryStatisticsSample(
   dependency: StatisticsQueryDependencies,
   type: HKQuantityType,
   startDate: Date,
   endDate: Date
-) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor) {
-  
-  let vitalAnchors: [VitalAnchor]
-  
-  let newStartDate = dependency.storedDate(type) ?? startDate
-  let newEndDate = endDate.nextHour
-  
-  let isFirstTimeSycingType = dependency.isFirstTimeSycingType(type)
-  let isLegacyType = dependency.isLegacyType(type)
-  
-    
-  ///  TODO: Remove this in the near future
-  /// <TO BE REMOVED>
-  if isLegacyType {
-    /// We will fill up 21 days worth of anchors
-    vitalAnchors = try await populateAnchorsForStatisticalQuery(
-      dependency: dependency,
-      type: type,
-      statisticsQueryStartDate: newStartDate
+) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor)? {
+  let shortenedTypeID = type.shortenedID
+
+  os_signpost(.begin, log: .default, name: "StatisticsSample", "type = %{public}@", shortenedTypeID)
+  defer { os_signpost(.end, log: .default, name: "StatisticsSample", "type = %{public}@", shortenedTypeID) }
+
+  func calculate(
+    _ queryInterval: Range<Date>,
+    storing newAnchor: HKQueryAnchor
+  ) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor) {
+    // Align both ends of the time interval to enclose the nearest whole UTC hour.
+    let alignedQueryInterval = queryInterval.aligningToWholeHours()
+
+    let statistics = try await dependency.executeStatisticalQuery(
+      type,
+      alignedQueryInterval,
+      .hourly
     )
-  } else {
-    vitalAnchors = dependency.vitalAnchorsForType(type)
+    let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
+
+    let storedAnchor = StoredAnchor(
+      key: dependency.key(type),
+      anchor: newAnchor,
+      date: alignedQueryInterval.upperBound,
+      vitalAnchors: nil
+    )
+
+    return (enrichedStatistics, storedAnchor)
   }
-  ///
-  /// </TO BE REMOVED>
-  ///
-  ///
-  
-  /// Because there are no anchors, we might miss data that was inserted before our "date anchor".
-  /// E.g. Anchor date is at 16:00. Another app (e.g. Garmin) inserts steps at 15:00. If we don't check at least 7 days
-  /// before, we might run the risk of losing data inserted before the date anchor
-  /// We might need to extend this value to a week.
-  let statisticsStartDate: Date
-  
-  if isFirstTimeSycingType {
-    /// If it's the first time, it will try to fetch 30 days worth of data (or whatever `withStart` is)
-    statisticsStartDate = newStartDate.dayStart
+
+  let previousQueryEndDate = dependency.storedDate(type)
+  let newEndDate = endDate.nextHour
+
+  if let lastAnchor = dependency.lastQueryAnchor(type) {
+    let lastAnchorHash = lastAnchor.hashForLog
+
+    // The minimum sample date when looking for the range of invalidated statistics
+    // and the accompanying HKQueryAnchor.
+    //
+    // The fishing net is deliberately (lastSync - 2days), so that the incremental daily stage
+    // can focus only on data inserted in the recent days. This proactively filters out any
+    // historical samples retrospectively written by other HealthKit apps beyond the past 2 days.
+    let minDateToCheck = Date.dateAgo(previousQueryEndDate ?? newEndDate, days: 2)
+
+    // Find the range of statistics invalidated by new samples since the last query anchor, that are
+    // later than the specified minimum sample matching date.
+    let testResult = try await dependency.checkInvalidatedStatistics(type, minDateToCheck, lastAnchor)
+
+    switch testResult {
+    case let .discoveredNewSamples(timeInterval, anchor):
+      VitalLogger.healthKit.info("[queryStatisticsSample][\(shortenedTypeID)] Statistics invalidated in \(timeInterval.lowerBound) ..< \(timeInterval.upperBound) since anchor \(lastAnchorHash); storing new anchor \(anchor.hashForLog)")
+
+      return try await calculate(timeInterval, storing: anchor)
+
+    case let .moveAnchor(anchor):
+      VitalLogger.healthKit.info("[queryStatisticsSample][\(shortenedTypeID)] No new sample since anchor \(lastAnchorHash); storing new anchor \(anchor.hashForLog)")
+
+      let storedAnchor = StoredAnchor(
+        key: dependency.key(type),
+        anchor: anchor,
+        date: newEndDate,
+        vitalAnchors: nil
+      )
+      return ([], storedAnchor)
+
+    case .noNewSample:
+      VitalLogger.healthKit.info("[queryStatisticsSample][\(shortenedTypeID)] No new sample since anchor \(lastAnchorHash)")
+      return nil
+    }
+
   } else {
-    /// If it's not, we only check 7 days.
-    statisticsStartDate = Date.dateAgo(newStartDate, days: 7).dayStart
+    let backfillInterval: Range<Date>
+
+    if let previousQueryEndDate = previousQueryEndDate {
+      // Possible scenarios:
+      // * Historical backfill found no sample, so we have a stored date but no query anchor.
+      // * First time syncing post SDK upgrade that uses `VitalAnchor` based change tracking.
+      //
+      // Either way, shorten the backfill interval to (previousQueryEndDate - 2days)
+      backfillInterval = Date.dateAgo(previousQueryEndDate, days: 2) ..< newEndDate
+    } else {
+      // No known stored record of this sample type having ever been synced.
+      // (including previous versions of SDKs with different delta tracking approaches)
+      //
+      // Backfill from `startDate`, which should be:
+      // * (today - numberOfDaysToBackFill) for VitalHealthKitClient.sync
+      // * the min query date for VitalHealthKitClient.read
+      backfillInterval = startDate ..< newEndDate
+    }
+
+    // Find the initial query anchor first, before we calculate the statistics.
+    guard let initialAnchor = try await dependency.initialQueryAnchor(type, backfillInterval) else {
+      VitalLogger.healthKit.info("[queryStatisticsSample][\(shortenedTypeID)] No sample found given backfill interval \(backfillInterval.lowerBound) ..< \(backfillInterval.upperBound)")
+      let storedAnchor = StoredAnchor(
+        key: dependency.key(type),
+        anchor: nil,
+        date: backfillInterval.upperBound,
+        vitalAnchors: nil
+      )
+      return ([], storedAnchor)
+    }
+
+    VitalLogger.healthKit.info("[queryStatisticsSample][\(shortenedTypeID)] Backfill \(backfillInterval.lowerBound) ..< \(backfillInterval.upperBound); storing new anchor \(initialAnchor.hashForLog)")
+
+    // Now compute the statistics
+    return try await calculate(backfillInterval, storing: initialAnchor)
   }
-  
-  let queryInterval = statisticsStartDate ..< endDate
-
-  let (statistics, anchor) = calculateIdsForAnchorsAndData(
-    vitalStatistics: try await dependency.executeStatisticalQuery(type, queryInterval, .hourly),
-    existingAnchors: vitalAnchors,
-    key: dependency.key(type),
-    date: newEndDate
-  )
-
-  let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
-
-  return (enrichedStatistics, anchor)
 }
 
 

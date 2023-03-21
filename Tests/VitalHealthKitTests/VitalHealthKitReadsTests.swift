@@ -252,7 +252,8 @@ class VitalHealthKitReadsTests: XCTestCase {
     }
     
     do {
-      let value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
+      let _value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
+      let value = try XCTUnwrap(_value)
       
       /// Only one element will be pushed to the server
       XCTAssert(value.statistics.count == 1)
@@ -329,7 +330,8 @@ class VitalHealthKitReadsTests: XCTestCase {
     }
 
     do {
-      let value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
+      let _value = try await queryStatisticsSample(dependency: debug, type: quantityType, startDate: startDate, endDate: endDate)
+      let value = try XCTUnwrap(_value)
       
       /// Only one element will be pushed to the server
       XCTAssert(value.statistics.count == 1)
