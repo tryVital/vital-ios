@@ -229,7 +229,23 @@ extension VitalHealthKitClient {
     }
 
     self.backgroundDeliveryTask = Task(priority: .high) {
-      for await payload in stream {
+      // 100ms
+      let throttledStream = stream.throttle(
+        minimumInterval: 100,
+        initial: [VitalResource: [BackgroundDeliveryPayload]](),
+        reducer: { [store, weak self] payloads, new in
+          guard let first = new.sampleTypes.first else {
+            return
+          }
+
+          let resource = store.toVitalResource(first)
+          payloads[resource, default: []].append(new)
+
+          self?.logger?.info("[BackgroundDelivery] Submitted \(resource.logDescription) to throttling given dequeued payload for \(new.sampleTypes, privacy: .public)")
+        }
+      )
+
+      for try await bundles in throttledStream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
         // HealthKit.
@@ -239,29 +255,21 @@ extension VitalHealthKitClient {
         // > launch your app using a backoff algorithm to increase the delay between attempts.
         try Task.checkCancellation()
 
-        // Task is not cancelled — we must call the HealthKit completion handler irrespective of
-        // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
-        // rule of HealthKit background delivery.
-        //
-        // Since we have fairly frequent delivery anyway, each of which will implicit retry from
-        // where the last sync has left off, this unconfigurable exponential backoff retry
-        // behaviour adds little to no value in maintaining data freshness.
-        //
-        // (except for the task cancellation redelivery expectation stated above).
-        defer { payload.completion() }
+        for (resource, payloads) in bundles {
+          logger?.info("[BackgroundDelivery][Throttled] Dequeued \(resource.logDescription) with \(payloads.count) payloads")
 
-        logger?.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
+          // Task is not cancelled — we must call the HealthKit completion handler irrespective of
+          // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
+          // rule of HealthKit background delivery.
+          //
+          // Since we have fairly frequent delivery anyway, each of which will implicit retry from
+          // where the last sync has left off, this unconfigurable exponential backoff retry
+          // behaviour adds little to no value in maintaining data freshness.
+          //
+          // (except for the task cancellation redelivery expectation stated above).
+          defer { payloads.forEach { $0.completion() } }
 
-        guard let first = payload.sampleTypes.first else {
-          continue
-        }
-
-        if payload.sampleTypes.count > 1 {
-        /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-          let resource = store.toVitalResource(first)
           await sync(payload: .resource(resource))
-        } else {
-          await sync(payload: .type(first))
         }
       }
     }
