@@ -641,7 +641,7 @@ func handleActivity(
     type: .quantityType(forIdentifier: .distanceWalkingRunning)!
   )
   
-  let (vo2Max, vo2MaxAnchor) = try await queryHourlyStatistics(
+  let (vo2Max, vo2MaxAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .vo2Max)!
   )
   
