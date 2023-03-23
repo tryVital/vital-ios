@@ -363,6 +363,14 @@ struct StatisticsQueryDependencies {
           query.initialResultsHandler = { query, collection, error in
             handle(query, collection: collection, error: error, continuation: continuation)
           }
+
+          // HealthKit raises an Objective-C exception if one attempts to execute a stopped query.
+          // So check cancellation proactively before we proceed.
+          guard Task.isCancelled == false else {
+            continuation.resume(throwing: CancellationError())
+            return
+          }
+
           healthKitStore.execute(query)
         }
       } onCancel: {
