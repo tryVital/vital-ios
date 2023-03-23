@@ -375,7 +375,7 @@ struct StatisticsQueryDependencies {
         HKQuery.predicateForSamples(withStart: start, end: end, options: [])
       }
 
-      async let _first: Date? = withCheckedThrowingContinuation { continuation in
+      async let _firstSample: HKSample? = withCheckedThrowingContinuation { continuation in
         healthKitStore.execute(
           HKSampleQuery(
             sampleType: type,
@@ -383,12 +383,12 @@ struct StatisticsQueryDependencies {
             limit: 1,
             sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: true)]
           ) { _, samples, error in
-            continuation.resume(returning: samples?.first?.startDate)
+            continuation.resume(returning: samples?.first)
           }
         )
       }
 
-      async let _last: Date? = withCheckedThrowingContinuation { continuation in
+      async let _lastSample: HKSample? = withCheckedThrowingContinuation { continuation in
         healthKitStore.execute(
           HKSampleQuery(
             sampleType: type,
@@ -396,26 +396,40 @@ struct StatisticsQueryDependencies {
             limit: 1,
             sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathEndDate, ascending: false)]
           ) { _, samples, error in
-            continuation.resume(returning: samples?.first?.endDate)
+            continuation.resume(returning: samples?.first)
           }
         )
       }
 
-      let first = try await _first
-      let last = try await _last
+      let firstSample = try await _firstSample
+      let lastSample = try await _lastSample
 
-      switch (first, last) {
+      switch (firstSample, lastSample) {
       case let (first?, last?):
-        precondition(first <= last, "Illogical query result from HKSampleQuery. [2]")
+        precondition(first.startDate <= last.endDate, "Illogical query result from HKSampleQuery. [2]")
 
         // Clamp to the given start..<end
         return (
-          first: max(first, start),
-          last: min(last, end)
+          first: max(first.startDate, start),
+          last: min(last.endDate, end)
         )
 
-      case (nil, _?), (_?, nil):
-        fatalError("Illogical query result from HKSampleQuery. [1]")
+      case let (nil, sample?), let (sample?, nil):
+        // This was originally a strong precondition failure, since logic dictates that, given the
+        // same sample time range predicate, if `firstSample` exists then `lastSample` must also
+        // exist, and vice versa. This invariant has also been upheld against various internal
+        // tester's fully populated HealthKit databases.
+        //
+        // But apparently this can happen in the wild, persumably an Apple SDK bug or a random blip.
+        // So downgrade to assertion failure so that it asserts only in debug builds.
+        // For release builds, we would take the start ..< end of the sample, which should still
+        // be a fair approximation.
+        assertionFailure("Illogical query result from HKSampleQuery. [1]")
+
+        return (
+          first: max(sample.startDate, start),
+          last: min(sample.endDate, end)
+        )
 
       case (nil, nil):
         return nil
