@@ -9,7 +9,7 @@ class VitalHealthKitStorageTests: XCTestCase {
   override func tearDown() {
     VitalHealthKitStorage(storage: .debug).remove(key: "key")
   }
-  
+
   func testAnchorStorage() throws {
     let storage = VitalHealthKitStorage(storage: .debug)
     let key = "key"
