@@ -226,7 +226,7 @@ struct StatisticsQueryDependencies {
   /// and the resulting statistics use end-exclusive time intervals as well.
   var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity) async throws -> [VitalStatistics]
 
-  var getFirstAndLastSampleTime: (HKQuantityType, Date, Date) async throws -> (first: Date, last: Date)?
+  var getFirstAndLastSampleTime: (HKQuantityType, Range<Date>) async throws -> Range<Date>?
   
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
@@ -239,7 +239,7 @@ struct StatisticsQueryDependencies {
   static var debug: StatisticsQueryDependencies {
     return .init { _, _, _ in
       fatalError()
-    } getFirstAndLastSampleTime: { _, _, _ in
+    } getFirstAndLastSampleTime: { _, _ in
       fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
@@ -377,70 +377,49 @@ struct StatisticsQueryDependencies {
         healthKitStore.stop(query)
       }
 
-    } getFirstAndLastSampleTime: { type, start, end in
-      @Sendable func makePredicate() -> NSPredicate {
-        // start <= %K AND %K < end (end exclusive)
-        HKQuery.predicateForSamples(withStart: start, end: end, options: [])
-      }
+    } getFirstAndLastSampleTime: { type, queryInterval in
 
-      async let _firstSample: HKSample? = withCheckedThrowingContinuation { continuation in
+      return try await withCheckedThrowingContinuation { continuation in
         healthKitStore.execute(
-          HKSampleQuery(
-            sampleType: type,
-            predicate: makePredicate(),
-            limit: 1,
-            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathStartDate, ascending: true)]
-          ) { _, samples, error in
-            continuation.resume(returning: samples?.first)
+          HKStatisticsQuery(
+            quantityType: type,
+            // start <= %K AND %K < end (end exclusive)
+            quantitySamplePredicate: HKQuery.predicateForSamples(
+              withStart: queryInterval.lowerBound,
+              end: queryInterval.upperBound,
+              options: []
+            ),
+            // We don't care about the actual aggregate results. Most Recent is picked here only
+            // because logically it does the least amount of work amongst all operator options.
+            options: [.mostRecent]
+          ) { query, statistics, error in
+            guard let statistics = statistics else {
+              precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
+
+              switch (error as? HKError)?.code {
+              case .errorNoData:
+                continuation.resume(returning: nil)
+              default:
+                continuation.resume(throwing: error!)
+              }
+
+              return
+            }
+
+            // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
+            // HKStatisticsQuery uses the earliest start date and the latest end date from all the
+            // samples matched by the predicate — this is the exact information we are looking for.
+            //
+            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
+            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
+            //
+            // Clamp it to our queryInterval still.
+            continuation.resume(
+              returning: (statistics.startDate ..< statistics.endDate)
+                .clamped(to: queryInterval)
+            )
           }
         )
-      }
-
-      async let _lastSample: HKSample? = withCheckedThrowingContinuation { continuation in
-        healthKitStore.execute(
-          HKSampleQuery(
-            sampleType: type,
-            predicate: makePredicate(),
-            limit: 1,
-            sortDescriptors: [NSSortDescriptor(key: HKPredicateKeyPathEndDate, ascending: false)]
-          ) { _, samples, error in
-            continuation.resume(returning: samples?.first)
-          }
-        )
-      }
-
-      let firstSample = try await _firstSample
-      let lastSample = try await _lastSample
-
-      switch (firstSample, lastSample) {
-      case let (first?, last?):
-        precondition(first.startDate <= last.endDate, "Illogical query result from HKSampleQuery. [2]")
-
-        // Clamp to the given start..<end
-        return (
-          first: max(first.startDate, start),
-          last: min(last.endDate, end)
-        )
-
-      case let (nil, sample?), let (sample?, nil):
-        // This was originally a strong precondition failure, since logic dictates that, given the
-        // same sample time range predicate, if `firstSample` exists then `lastSample` must also
-        // exist, and vice versa. This invariant has also been upheld against various internal
-        // tester's fully populated HealthKit databases.
-        //
-        // But apparently this can happen in the wild, persumably an Apple SDK bug or a random blip.
-        // So downgrade to assertion failure so that it asserts only in debug builds.
-        // For release builds, we would take the start ..< end of the sample, which should still
-        // be a fair approximation.
-        assertionFailure("Illogical query result from HKSampleQuery. [1]")
-
-        return (
-          first: max(sample.startDate, start),
-          last: min(sample.endDate, end)
-        )
-
-      case (nil, nil):
-        return nil
       }
 
     } isFirstTimeSycingType: { type in
