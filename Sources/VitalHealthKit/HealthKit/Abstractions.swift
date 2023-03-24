@@ -358,26 +358,21 @@ struct StatisticsQueryDependencies {
         healthKitStore.execute(sourceQuery)
       }
 
-      return try await withTaskCancellationHandler {
-        return try await withCheckedThrowingContinuation { continuation in
-          query.initialResultsHandler = { query, collection, error in
-            handle(query, collection: collection, error: error, continuation: continuation)
-          }
+      // If task is already cancelled, don't bother with starting the query.
+      try Task.checkCancellation()
 
-          // HealthKit raises an Objective-C exception if one attempts to execute a stopped query.
-          // So check cancellation proactively before we proceed.
-          guard Task.isCancelled == false else {
-            continuation.resume(throwing: CancellationError())
-            return
-          }
-
-          healthKitStore.execute(query)
+      return try await withCheckedThrowingContinuation { continuation in
+        query.initialResultsHandler = { query, collection, error in
+          handle(query, collection: collection, error: error, continuation: continuation)
         }
-      } onCancel: {
-        healthKitStore.stop(query)
+
+        healthKitStore.execute(query)
       }
 
     } getFirstAndLastSampleTime: { type, queryInterval in
+
+      // If task is already cancelled, don't bother with starting the query.
+      try Task.checkCancellation()
 
       return try await withCheckedThrowingContinuation { continuation in
         healthKitStore.execute(
