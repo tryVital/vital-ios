@@ -358,68 +358,54 @@ struct StatisticsQueryDependencies {
         healthKitStore.execute(sourceQuery)
       }
 
-      return try await withTaskCancellationHandler {
-        return try await withCheckedThrowingContinuation { continuation in
-          query.initialResultsHandler = { query, collection, error in
-            handle(query, collection: collection, error: error, continuation: continuation)
-          }
-
-          // HealthKit raises an Objective-C exception if one attempts to execute a stopped query.
-          // So check cancellation proactively before we proceed.
-          guard Task.isCancelled == false else {
-            continuation.resume(throwing: CancellationError())
-            return
-          }
-
-          healthKitStore.execute(query)
+      return try await healthKitStore.cancellableExecute { continuation in
+        query.initialResultsHandler = { query, collection, error in
+          handle(query, collection: collection, error: error, continuation: continuation)
         }
-      } onCancel: {
-        healthKitStore.stop(query)
+        return query
       }
 
     } getFirstAndLastSampleTime: { type, queryInterval in
 
-      return try await withCheckedThrowingContinuation { continuation in
-        healthKitStore.execute(
-          HKStatisticsQuery(
-            quantityType: type,
-            // start <= %K AND %K < end (end exclusive)
-            quantitySamplePredicate: HKQuery.predicateForSamples(
-              withStart: queryInterval.lowerBound,
-              end: queryInterval.upperBound,
-              options: []
-            ),
-            // We don't care about the actual aggregate results. Most Recent is picked here only
-            // because logically it does the least amount of work amongst all operator options.
-            options: [.mostRecent]
-          ) { query, statistics, error in
-            guard let statistics = statistics else {
-              precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
+      return try await healthKitStore.cancellableExecute { continuation in
+        HKStatisticsQuery(
+          quantityType: type,
+          // start <= %K AND %K < end (end exclusive)
+          quantitySamplePredicate: HKQuery.predicateForSamples(
+            withStart: queryInterval.lowerBound,
+            end: queryInterval.upperBound,
+            options: []
+          ),
+          // We don't care about the actual aggregate results. Most Recent is picked here only
+          // because logically it does the least amount of work amongst all operator options.
+          options: [.mostRecent]
+        ) { query, statistics, error in
+          guard let statistics = statistics else {
+            precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
 
-              switch (error as? HKError)?.code {
-              case .errorNoData:
-                continuation.resume(returning: nil)
-              default:
-                continuation.resume(throwing: error!)
-              }
-
-              return
+            switch (error as? HKError)?.code {
+            case .errorNoData:
+              continuation.resume(returning: nil)
+            default:
+              continuation.resume(throwing: error!)
             }
 
-            // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
-            // HKStatisticsQuery uses the earliest start date and the latest end date from all the
-            // samples matched by the predicate — this is the exact information we are looking for.
-            //
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
-            //
-            // Clamp it to our queryInterval still.
-            continuation.resume(
-              returning: (statistics.startDate ..< statistics.endDate)
-                .clamped(to: queryInterval)
-            )
+            return
           }
-        )
+
+          // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
+          // HKStatisticsQuery uses the earliest start date and the latest end date from all the
+          // samples matched by the predicate — this is the exact information we are looking for.
+          //
+          // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
+          // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
+          //
+          // Clamp it to our queryInterval still.
+          continuation.resume(
+            returning: (statistics.startDate ..< statistics.endDate)
+              .clamped(to: queryInterval)
+          )
+        }
       }
 
     } isFirstTimeSycingType: { type in
