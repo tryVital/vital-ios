@@ -1013,14 +1013,13 @@ func enrichWithDates(
   return try await withThrowingTaskGroup(of: VitalStatistics.self) { group in
     for entry in statistics {
       group.addTask {
-        let result = try await dependencies.getFirstAndLastSampleTime(
+        let sampleTimeRange = try await dependencies.getFirstAndLastSampleTime(
           entry.type,
-          entry.startDate,
-          entry.endDate
+          entry.startDate ..< entry.endDate
         )
 
-        if let (first, last) = result {
-          return entry.withSampleDates(first: first, last: last)
+        if let range = sampleTimeRange {
+          return entry.withSampleDates(first: range.lowerBound, last: range.upperBound)
         } else {
           return entry
         }

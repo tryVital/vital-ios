@@ -222,7 +222,7 @@ class VitalHealthKitReadsTests: XCTestCase {
       return element
     }
 
-    debug.getFirstAndLastSampleTime = { type, start, end in
+    debug.getFirstAndLastSampleTime = { type, _ in
       XCTAssertEqual(quantityType, type)
 
       return nil
@@ -285,7 +285,7 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [Range<Date>] = []
 
-    debug.getFirstAndLastSampleTime = { type, start, end in
+    debug.getFirstAndLastSampleTime = { type, _ in
       XCTAssertEqual(quantityType, type)
       return nil
     }
