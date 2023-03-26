@@ -17,3 +17,18 @@ extension Array where Element == HKSample {
     }
   }
 }
+
+extension Collection where Element: OptionalProtocol {
+  func filterNotNil() -> [Element.Wrapped] {
+    compactMap { $0.wrapped }
+  }
+}
+
+internal protocol OptionalProtocol {
+  associatedtype Wrapped
+  var wrapped: Wrapped? { get }
+}
+
+extension Optional: OptionalProtocol {
+  internal var wrapped: Wrapped? { self }
+}

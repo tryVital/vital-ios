@@ -420,15 +420,11 @@ public extension SleepPatch.Sleep {
 }
 
 extension WorkoutPatch.Workout {
-  public init?(sample: HKSample) {
-    guard let workout = sample as? HKWorkout else {
-      return nil
-    }
-        
+  public init(workout: HKWorkout) {
     self.init(
       id: workout.uuid,
-      startDate: sample.startDate,
-      endDate: sample.endDate,
+      startDate: workout.startDate,
+      endDate: workout.endDate,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,

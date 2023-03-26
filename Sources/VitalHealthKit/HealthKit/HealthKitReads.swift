@@ -707,38 +707,59 @@ func handleWorkouts(
     endDate: endDate
   )
   
-  let workouts = payload.sample.compactMap(WorkoutPatch.Workout.init)
   anchors.appendOptional(payload.anchor)
-  
-  var copies: [WorkoutPatch.Workout] = []
-  
-  for workout in workouts {
+
+  var workouts: [WorkoutPatch.Workout] = []
+  workouts.reserveCapacity(payload.sample.count)
+
+  for case let hkWorkout as HKWorkout in payload.sample {
+    var workout = WorkoutPatch.Workout(workout: hkWorkout)
+
+    // Match primarily using `workout = %@`, but add `OR device = %@` as a fallback.
+    //
+    // The fallback is particularly intended for workouts from background delivery, since by
+    // HealthKit design, the workout-sample associations are not saved as an atomic write
+    // transaction together with the HKWorkout.
+    //
+    // So us observing an HKWorkout does not imply whether the association saving has been completed
+    // or not. HealthKit could notify us immediately whilst the source app is still in the process
+    // of saving the associations. The hourly HKUpdateFrequency schedule probably would have mitigated
+    // this to some extent, but a fallback matching based on HKDevice is added either way as an
+    // insurance measure.
+    //
+    // P.S. Apple talked about this problem for HKWorkoutRoute specifically
+    // https://developer.apple.com/documentation/healthkit/workouts_and_activity_rings/reading_route_data
+    // But this is actually applicable to any workout->HKSample association.
+    //
+    // Fortunately for heart rate, the samples are written by the Watch itself as they arise before
+    // the app saves the HKWorkout, so the predicate below covers all bases for both historical
+    // backfill & background deliveries.
+    //
+    // But if we want to sync route data down the line, this likely won't not work as per Apple, and
+    // a new solution needs to be engineered.
+    let workoutPredicate = NSCompoundPredicate(
+      orPredicateWithSubpredicates: [
+        HKQuery.predicateForObjects(from: hkWorkout),
+        hkWorkout.device.map { HKQuery.predicateForObjects(from: [$0]) },
+      ].filterNotNil()
+    )
+
     let heartRate: [QuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .heartRate)!,
+      // We should still set the query datetime bound, which is responding quicker than using only
+      // a workout = %@ predicate. HealthKit probably did not index the relationship.
       startDate: workout.startDate,
-      endDate: workout.endDate
-    )
-      .filter(by: workout.sourceBundle)
-      .compactMap(QuantitySample.init)
-    
-    let respiratoryRate: [QuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .respiratoryRate)!,
-      startDate: workout.startDate,
-      endDate: workout.endDate
-    )
-      .filter(by: workout.sourceBundle)
-      .compactMap(QuantitySample.init)
-    
-    var copy = workout
-    copy.heartRate = heartRate
-    copy.respiratoryRate = respiratoryRate
-    
-    copies.append(copy)
+      endDate: workout.endDate,
+      predicate: workoutPredicate
+    ).compactMap(QuantitySample.init)
+
+    workout.heartRate = heartRate
+
+    workouts.append(workout)
   }
   
-  return (.init(workouts: copies), anchors)
+  return (.init(workouts: workouts), anchors)
 }
 
 
@@ -1120,6 +1141,7 @@ func querySample(
   startDate: Date? = nil,
   endDate: Date? = nil,
   ascending: Bool = true,
+  predicate: NSPredicate? = nil,
   options: HKQueryOptions = [.strictStartDate]
 ) async throws -> [HKSample] {
   
@@ -1135,20 +1157,23 @@ func querySample(
       
       continuation.resume(with: .success(samples ?? []))
     }
-    
-    let predicate = HKQuery.predicateForSamples(
-      withStart: startDate,
-      end: endDate,
-      options: options
-    )
-    
+
+    let subpredicates: [NSPredicate] = [
+      startDate != nil || endDate != nil
+        ? HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: options)
+        : nil,
+      predicate
+    ].filterNotNil()
+
     let sort = [
       NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
     ]
     
     let query = HKSampleQuery(
       sampleType: type,
-      predicate: predicate,
+      predicate: subpredicates.isEmpty == false
+        ? NSCompoundPredicate(andPredicateWithSubpredicates: subpredicates)
+        : nil,
       limit: limit,
       sortDescriptors: sort,
       resultsHandler: handler
