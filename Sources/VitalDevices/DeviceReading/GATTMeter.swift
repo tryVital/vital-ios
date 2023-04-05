@@ -56,6 +56,11 @@ internal class GATTMeter<Sample> {
           .listenForUpdates(on: measurementCharacteristic)
           .compactMap { $0.flatMap(self.parser) }
           .prefix(untilOutputFrom: racpSuccessOrFailure)
+          .handleEvents(
+            receiveOutput: { output in
+              print("@@@ measurement: \(output)")
+            }
+          )
           .collect()
           .handleEvents(
             receiveSubscription: { _ in
@@ -63,6 +68,11 @@ internal class GATTMeter<Sample> {
               peripheral
                 .listenForUpdates(on: RACPCharacteristic)
                 .map { $0.map(RACPResponse.init) ?? .invalidPayloadStructure }
+                .handleEvents(
+                  receiveOutput: { output in
+                    print("@@@ RACP: \(String(describing: output))")
+                  }
+                )
                 .subscribe(racpResponse)
                 .store(in: &cancellables)
 
