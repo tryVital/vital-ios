@@ -73,6 +73,10 @@ internal class GATTMeter<Sample> {
             },
             receiveCompletion: { _ in
               cancellables.forEach { $0.cancel() }
+
+              // Disconnect when we have done reading. Some devices rely on BLE disconnection as
+              // a cue to toast users with a "Transferred Completed" message.
+              self.manager.cancelPeripheralConnection(peripheral)
             },
             receiveCancel: {
               cancellables.forEach { $0.cancel() }

@@ -89,6 +89,15 @@ extension DeviceConnection {
       }
     }
 
+    var canPairAndRead: Bool {
+      switch self.status {
+      case .searching, .pairingFailed, .serverFailed, .serverSuccess, .found:
+          return scannedDevice != nil
+        default:
+          return false
+      }
+    }
+
     var deviceScanStatus: String? {
       switch scanSource {
       case .paired?:
@@ -185,14 +194,12 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       state.scannedDevice = device
       state.scanSource = source
       
-      let pairedSuccessfully = Effect<DeviceConnection.Action, Never>(value: DeviceConnection.Action.pairedSuccesfully(device))
-      
       let monitorDevice = env.deviceManager.monitorConnection(for: device).map(DeviceConnection.Action.scannedDeviceUpdate)
         .receive(on: env.mainQueue)
         .eraseToEffect()
         .cancellable(id: LongRunningScan())
       
-      return Effect.concatenate(pairedSuccessfully, monitorDevice)
+      return monitorDevice
       
     case let .newReading(dataPoints):
       state.status = .sendingToServer
@@ -355,6 +362,18 @@ extension DeviceConnection {
                 .background(Color(UIColor(red: 198/255, green: 246/255, blue: 213/255, alpha: 1.0)))
                 .cornerRadius(5.0)
             }
+
+            Button {
+              if let device = viewStore.scannedDevice {
+                viewStore.send(.pairDevice(device))
+              }
+            } label: {
+              Text("Pair & Read")
+            }
+            .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canPairAndRead == false))
+            .cornerRadius(8.0)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 32)
 
             Spacer(minLength: 15)
             
