@@ -205,11 +205,8 @@ extension VitalHealthKitClient {
     /// If it's already running, cancel it
     self.backgroundDeliveryTask?.cancel()
     
-    let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
-
-    let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
-    let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
-    let cleaned: Set<[HKSampleType]> = Set(common.filter { $0.isEmpty == false })
+    let sampleTypesToObserve = Set(resources.map(sampleTypesToTriggerSync(for:)))
+    let cleaned: Set<Set<HKSampleType>> = Set(sampleTypesToObserve.filter { $0.isEmpty == false })
 
     let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.flatMap { $0 })
 
@@ -283,7 +280,7 @@ extension VitalHealthKitClient {
 
   @available(iOS 15.0, *)
   private func bundledBackgroundObservers(
-    for typesBundle: Set<[HKSampleType]>
+    for typesBundle: Set<Set<HKSampleType>>
   ) -> AsyncStream<BackgroundDeliveryPayload> {
 
     return AsyncStream<BackgroundDeliveryPayload> { continuation in
