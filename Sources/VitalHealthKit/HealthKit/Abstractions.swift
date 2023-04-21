@@ -152,7 +152,6 @@ extension VitalHealthKitStore {
       return try await read(
         resource: actualResource,
         healthKitStore: store,
-        typeToResource: toVitalResource,
         vitalStorage: storage,
         startDate: startDate,
         endDate: endDate

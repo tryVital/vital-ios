@@ -31,40 +31,31 @@ func remapResource(
   }
 }
 
+func toHealthKitTypes(individualResource: VitalResource.Individual) -> HKSampleType {
+  switch individualResource {
+  case .steps:
+    return HKSampleType.quantityType(forIdentifier: .stepCount)!
+  case .activeEnergyBurned:
+    return HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!
+  case .basalEnergyBurned:
+    return HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!
+  case .floorsClimbed:
+    return HKSampleType.quantityType(forIdentifier: .flightsClimbed)!
+  case .distanceWalkingRunning:
+    return HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!
+  case .vo2Max:
+    return HKSampleType.quantityType(forIdentifier: .vo2Max)!
+  case .weight:
+    return HKSampleType.quantityType(forIdentifier: .bodyMass)!
+  case .bodyFat:
+    return HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!
+  }
+}
+
 func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   switch resource {
-    case .individual(.steps):
-      return [
-        HKSampleType.quantityType(forIdentifier: .stepCount)!,
-      ]
-    case .individual(.activeEnergyBurned):
-      return [
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-      ]
-    case .individual(.basalEnergyBurned):
-      return [
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-      ]
-    case .individual(.floorsClimbed):
-      return [
-        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-      ]
-    case .individual(.distanceWalkingRunning):
-      return [
-        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-      ]
-    case .individual(.vo2Max):
-      return [
-        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-      ]
-    case .individual(.weight):
-      return [
-        HKSampleType.quantityType(forIdentifier: .bodyMass)!,
-      ]
-    case .individual(.bodyFat):
-      return [
-        HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
-      ]
+    case let .individual(resource):
+      return [toHealthKitTypes(individualResource: resource)]
       
     case .profile:
       return [

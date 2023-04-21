@@ -22,11 +22,10 @@ struct VitalStatisticsError: Error {
   }
 }
 
-private func read(
-  type: HKSampleType,
+private func readIndividual(
+  _ resource: VitalResource.Individual,
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
-  typeToResource: ((HKSampleType) -> VitalResource),
   startDate: Date,
   endDate: Date
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
@@ -68,29 +67,20 @@ private func read(
     
     return (quantities, payload.anchor)
   }
-  
+
   var anchors: [StoredAnchor] = []
-  
-  switch type {
-    case
-      /// Activity
-      HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .stepCount)!,
-      HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-      HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
-      
-      let (values, anchor) = try await queryStatistics(type: type as! HKQuantityType)
+  let type = toHealthKitTypes(individualResource: resource) as! HKQuantityType
+
+  switch resource {
+    case .activeEnergyBurned, .basalEnergyBurned, .steps, .distanceWalkingRunning, .floorsClimbed:
+      let (values, anchor) = try await queryStatistics(type: type)
       let patch = ActivityPatch(sampleType: type, samples: values)
       
       anchors.appendOptional(anchor)
       
       return (ProcessedResourceData.summary(.activity(patch)), anchors)
       
-    case
-      /// Activity
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!:
-      
+    case .vo2Max:
       let (values, anchor) = try await queryQuantities(type: type)
       let patch = ActivityPatch(sampleType: type, samples: values)
       
@@ -98,56 +88,30 @@ private func read(
       
       return (ProcessedResourceData.summary(.activity(patch)), anchors)
       
-    case
-      /// Body
-      HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-      
+    case .bodyFat, .weight:
       let (values, anchor) = try await queryQuantities(type: type)
       let patch = BodyPatch(sampleType: type, samples: values)
       
       anchors.appendOptional(anchor)
       
       return (ProcessedResourceData.summary(.body(patch)), anchors)
-      
-    default:
-      return try await read(
-        resource: typeToResource(type),
-        healthKitStore: healthKitStore,
-        typeToResource: typeToResource,
-        vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
-      )
   }
 }
 
 func read(
   resource: VitalResource,
   healthKitStore: HKHealthStore,
-  typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
   switch resource {
-    case .individual:
-      
-      let types = toHealthKitTypes(resource: resource)
-      guard types.count == 1 else {
-        fatalError("Individual types should made up of a single type. \(resource) isn't. This is a developer error")
-      }
-      
-      guard let sampleType = types.first as? HKSampleType else {
-        fatalError("\(types) is not an HKSampleType")
-      }
-      
-      return try await read(
-        type: sampleType,
+    case let .individual(resource):
+      return try await readIndividual(
+        resource,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        typeToResource: typeToResource,
         startDate: startDate,
         endDate: endDate
       )
