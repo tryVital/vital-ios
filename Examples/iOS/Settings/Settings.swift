@@ -121,7 +121,11 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
           state.credentials.userId.isEmpty == false,
           let userId = UUID(uuidString: state.credentials.userId)
         {
-          await VitalClient.setUserId(userId)
+          do {
+            try VitalClient.setUserID(userId)
+          } catch let error {
+            print("Failed to set userID: \(error)")
+          }
         }
         
         return .nop

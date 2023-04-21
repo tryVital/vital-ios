@@ -23,6 +23,11 @@ struct VitalCoreSecurePayload: Codable {
   let environment: Environment
 }
 
+public enum VitalClientError: Error {
+  /// `VitalClient` has not been configured.
+  case notConfigured
+}
+
 public enum Environment: Equatable, Hashable, Codable {
   public enum Region: String, Equatable, Hashable, Codable {
     case eu
@@ -109,6 +114,16 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
   let userId: ProtectedBox<UUID>
+
+  /// Recursove lock to protect concurrent attempts to:
+  ///
+  /// 1. `configure(_:)`
+  /// 2. `setUserID(_:)`
+  /// 3. `cleanUp()`
+  /// 4. `automaticConfiguration()`
+  ///
+  /// These three all mutates the same set of states, so they should all be serialized.
+  let mutationLock = NSRecursiveLock()
   
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
@@ -187,6 +202,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+    shared.mutationLock.lock()
+    defer { shared.mutationLock.unlock() }
+
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
@@ -198,17 +216,14 @@ let user_secureStorageKey: String = "user_secureStorageKey"
           environment: payload.environment,
           configuration: payload.configuration
         )
+
+        if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+          /// 2) If and only if there's a `userId`, we set it.
+          try setUserID(userId)
+        }
       }
 
-      if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-        /// 2) If and only if there's a `userId`, we set it.
-        Task {
-          await setUserId(userId)
-          completion?()
-        }
-      } else {
-        completion?()
-      }
+      completion?()
     } catch let error {
       completion?()
       /// Bailout, there's nothing else to do here.
@@ -241,7 +256,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     apiVersion: String,
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) {
-    
+    mutationLock.lock()
+    defer { mutationLock.unlock() }
+
     var logger: Logger?
     
     if configuration.logsEnable {
@@ -298,14 +315,15 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.configuration.set(value: coreConfiguration)
   }
   
-  private func _setUserId(_ newUserId: UUID) async {
-    if configuration.isNil() {
+  private func _setUserId(_ newUserId: UUID) throws {
+    mutationLock.lock()
+    defer { mutationLock.unlock() }
+
+    guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
-      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
+      throw VitalClientError.notConfigured
     }
-    
-    let configuration = await configuration.get()
-    
+
     do {
       if
         let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
@@ -325,15 +343,23 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error, privacy: .public)")
     }
   }
-  
+
+  @available(*, deprecated, renamed:"setUserID(_:)")
   @objc public static func setUserId(_ newUserId: UUID) {
-    Task {
-      await setUserId(newUserId)
+    setUserId(newUserId)
+  }
+
+  @available(*, deprecated, message:"Use the non-asynchronous `setUserID(_:)` instead.")
+  public static func setUserId(_ newUserId: UUID) async {
+    do {
+      try setUserID(newUserId)
+    } catch {
+      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
     }
   }
 
-  public static func setUserId(_ newUserId: UUID) async {
-    await shared._setUserId(newUserId)
+  @objc public static func setUserID(_ newUserID: UUID) throws {
+    try shared._setUserId(newUserID)
   }
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
@@ -358,24 +384,36 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     
     storage.storeConnectedSource(for: userId, with: provider)
   }
-  
+
+  @available(*, deprecated, message:"Use the non-asynchronous `resetUser()` instead.")
   public func cleanUp() async {
-    /// Here we remove the following:
-    /// 1) Anchor values we are storing for each `HKSampleType`.
-    /// 2) Stage for each `HKSampleType`.
-    ///
-    /// We might be able to derive 2) from 1)?
-    ///
-    /// We need to check this first, otherwise it will suspend until a configuration is set
-    if self.configuration.isNil() == false {
-      await self.configuration.get().storage.clean()
+    self.reset()
+  }
+
+  /// If your application supports switching between users, `reset()` can be used to
+  /// stop any outstanding work, and erase up any persistent SDK state linked to the
+  /// current user.
+  ///
+  /// - postcondition: You must re-configure the SDK before setting the user ID again.
+  public func reset() {
+    mutationLock.withLock {
+      /// Here we remove the following:
+      /// 1) Anchor values we are storing for each `HKSampleType`.
+      /// 2) Stage for each `HKSampleType`.
+      ///
+      /// We might be able to derive 2) from 1)?
+      ///
+      /// We need to check this first, otherwise it will suspend until a configuration is set
+      if let configuration = self.configuration.value {
+        configuration.storage.clean()
+      }
+
+      self.secureStorage.clean(key: core_secureStorageKey)
+      self.secureStorage.clean(key: user_secureStorageKey)
+
+      self.userId.clean()
+      self.configuration.clean()
     }
-    
-    self.secureStorage.clean(key: core_secureStorageKey)
-    self.secureStorage.clean(key: user_secureStorageKey)
-    
-    self.userId.clean()
-    self.configuration.clean()
   }
 }
 

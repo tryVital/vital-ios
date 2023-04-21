@@ -46,8 +46,17 @@ internal var logger: Logger? {
   
   private let _status: PassthroughSubject<Status, Never>
   private var backgroundDeliveryTask: Task<Void, Error>? = nil
-  
   private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
+
+  /// Recursove lock to protect concurrent attempts to:
+  ///
+  /// 1. `configure(_:)`
+  /// 2. `cleanUp()`
+  /// 3. `automaticConfiguration()`
+  ///
+  /// These three all mutates the same set of states, so they should all be serialized.
+  private let mutationLock = NSRecursiveLock()
+
   let configuration: ProtectedBox<Configuration>
   
   public var status: AnyPublisher<Status, Never> {
@@ -111,6 +120,9 @@ internal var logger: Logger? {
 
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+    shared.mutationLock.lock()
+    defer { shared.mutationLock.unlock() }
+
     do {
       let secureStorage = self.shared.secureStorage
       guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
@@ -135,6 +147,9 @@ internal var logger: Logger? {
   func setConfiguration(
     configuration: Configuration
   ) {
+    mutationLock.lock()
+    defer { mutationLock.unlock() }
+
     if configuration.logsEnabled {
       self.logger = Logger(subsystem: "vital", category: "vital-healthkit-client")
     }
@@ -395,13 +410,27 @@ extension VitalHealthKitClient {
   }
   
   public func cleanUp() async {
-    await store.disableBackgroundDelivery()
-    backgroundDeliveryTask?.cancel()
-    
-    backgroundDeliveryEnabled.set(value: false)
-    
-    await VitalClient.shared.cleanUp()
-    self.secureStorage.clean(key: health_secureStorageKey)
+    self.reset()
+  }
+
+  /// If your application supports switching between users, `reset()` can be used to
+  /// stop any outstanding work, and erase up any persistent SDK state linked to the
+  /// current user.
+  ///
+  /// - postcondition: You must re-configure the SDK before setting the user ID again.
+  public func reset() {
+    mutationLock.withLock {
+      Task {
+        await store.disableBackgroundDelivery()
+      }
+
+      backgroundDeliveryTask?.cancel()
+
+      backgroundDeliveryEnabled.set(value: false)
+
+      VitalClient.shared.reset()
+      self.secureStorage.clean(key: health_secureStorageKey)
+    }
   }
   
   public enum SyncPayload {
