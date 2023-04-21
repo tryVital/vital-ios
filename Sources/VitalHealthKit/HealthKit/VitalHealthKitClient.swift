@@ -594,21 +594,10 @@ extension VitalHealthKitClient {
 extension VitalHealthKitClient {
   public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData? {
     let store = HKHealthStore()
-    
-    let hasAskedForPermission: (VitalResource) -> Bool = { resource in
-      return toHealthKitTypes(resource: resource)
-        .map { store.authorizationStatus(for: $0) != .notDetermined }
-        .reduce(true, { $0 && $1})
-    }
-    
-    let toVitalResource: (HKSampleType) -> VitalResource = { type in
-      return VitalHealthKitStore.sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
-    }
-    
+
     let (data, _): (ProcessedResourceData?, [StoredAnchor]) = try await VitalHealthKit.read(
       resource: resource,
       healthKitStore: store,
-      typeToResource: toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       startDate: startDate,
       endDate: endDate
