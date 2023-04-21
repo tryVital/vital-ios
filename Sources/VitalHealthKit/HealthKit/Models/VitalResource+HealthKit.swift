@@ -118,79 +118,87 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   }
 }
 
-func observedSampleTypes() -> [[HKSampleType]] {
-  return [
-    /// Profile
-    [
-      HKQuantityType.quantityType(forIdentifier: .height)!
-    ],
-    
-    
-    /// Body
-    [
-      HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!
-    ],
+/// This determines what data type change TRIGGERS a sync of the given `VitalResource`.
+///
+/// Not all types used in calculating a VitalResource have to be included here. Include only the
+/// primary "container"/session data type here.
+///
+/// For example, a workout session might embed heart rate and respiratory rate samples. But we
+/// need not require any insertion of these types to trigger HKWorkout sync, since generally speaking
+/// all the relevant HR/RR samples during the session would have already been written before the
+/// HKWorkout is eventually finalized and written. So we can simply fetch these samples w/o requiring
+/// observation to drive it.
+func sampleTypesToTriggerSync(for resource: VitalResource) -> Set<HKSampleType> {
+  switch resource {
+  case .individual(.steps):
+    return [HKSampleType.quantityType(forIdentifier: .stepCount)!]
 
-    /// Sleep
-    [
-      HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!]
-    ,
+  case .individual(.activeEnergyBurned):
+    return [HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!]
 
-    /// Activity
-    [
-      HKSampleType.quantityType(forIdentifier: .stepCount)!,
-      HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-      HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!
-    ],
-    
-    /// Workout
-    [
-      HKSampleType.workoutType()
-    ],
+  case .individual(.basalEnergyBurned):
+    return [HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!]
 
-    /// Vitals Glucose
-    [
-      HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
-    ],
+  case .individual(.floorsClimbed):
+    return [HKSampleType.quantityType(forIdentifier: .flightsClimbed)!]
 
-    /// Mindfuless Minutes
-    [
-      HKSampleType.categoryType(forIdentifier: .mindfulSession)!
-    ],
+  case .individual(.distanceWalkingRunning):
+    return [HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!]
 
-    /// Vitals BloodPressure
-    /// We only need to observe one, we know the other will be present. If we observe both,
-    /// we are triggering the observer twice.
-    //  HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-    [
+  case .individual(.vo2Max):
+    return [HKSampleType.quantityType(forIdentifier: .vo2Max)!]
+
+  case .individual(.weight):
+    return [HKSampleType.quantityType(forIdentifier: .bodyMass)!]
+
+  case .individual(.bodyFat):
+    return [HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!]
+
+  case .profile:
+    return [HKQuantityType.quantityType(forIdentifier: .height)!]
+
+  case .body:
+    return sampleTypesToTriggerSync(for: .individual(.bodyFat)) +
+    sampleTypesToTriggerSync(for: .individual(.weight))
+
+  case .sleep:
+    return [HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!]
+
+  case .activity:
+    return sampleTypesToTriggerSync(for: .individual(.steps)) +
+    sampleTypesToTriggerSync(for: .individual(.floorsClimbed)) +
+    sampleTypesToTriggerSync(for: .individual(.basalEnergyBurned)) +
+    sampleTypesToTriggerSync(for: .individual(.activeEnergyBurned)) +
+    sampleTypesToTriggerSync(for: .individual(.distanceWalkingRunning)) +
+    sampleTypesToTriggerSync(for: .individual(.vo2Max))
+
+  case .workout:
+    return [HKSampleType.workoutType()]
+
+  case .vitals(.glucose):
+    return [HKSampleType.quantityType(forIdentifier: .bloodGlucose)!]
+
+  case .vitals(.bloodPressure):
+    return [
+      HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
       HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
-    ],
-    
-    /// Vitals Heartrate
-    [
-      HKSampleType.quantityType(forIdentifier: .heartRate)!,
-    ],
-
-    /// Vitals HRV
-    [
-      HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!
-    ],
-    
-    /// Nutrition
-    [
-      HKSampleType.quantityType(forIdentifier: .dietaryWater)!,
-      HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!
-    ],
-
-    /// Mindfulness Minutes
-    [
-      HKSampleType.categoryType(forIdentifier: .mindfulSession)!
     ]
-  ]
+
+  case .vitals(.hearthRate):
+    return [HKSampleType.quantityType(forIdentifier: .heartRate)!]
+
+  case .nutrition(.water):
+    return [.quantityType(forIdentifier: .dietaryWater)!]
+
+  case .nutrition(.caffeine):
+    return [.quantityType(forIdentifier: .dietaryCaffeine)!]
+
+  case .vitals(.mindfulSession):
+    return [.categoryType(forIdentifier: .mindfulSession)!]
+
+  case .vitals(.heartRateVariability):
+    return [.quantityType(forIdentifier: .heartRateVariabilitySDNN)!]
+  }
 }
 
 func resourcesAskedForPermission(
