@@ -1,6 +1,36 @@
 import HealthKit
 import VitalCore
 
+func remapResource(
+  hasAskedForPermission: ((VitalResource) -> Bool),
+  resource: VitalResource
+) -> VitalResource {
+  switch resource {
+  case .individual(.bodyFat), .individual(.weight):
+    /// If the user has explicitly asked for Body permissions, then it's the resource is Body
+    if hasAskedForPermission(.body) {
+      return .body
+    } else {
+      /// If the user has given permissions to a single permission in the past (e.g. weight) we should
+      /// treat it as such
+      return resource
+    }
+
+  case
+      .individual(.steps), .individual(.activeEnergyBurned), .individual(.basalEnergyBurned),
+      .individual(.distanceWalkingRunning), .individual(.floorsClimbed), .individual(.vo2Max):
+
+      if hasAskedForPermission(.activity) {
+        return .activity
+      } else {
+        return resource
+      }
+
+  case .activity, .body, .profile, .workout, .sleep, .vitals, .nutrition:
+      return resource
+  }
+}
+
 func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
   switch resource {
     case .individual(.steps):
@@ -191,25 +221,4 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.categoryType(forIdentifier: .mindfulSession)!
     ]
   ]
-}
-
-func resourcesAskedForPermission(
-  store: VitalHealthKitStore
-) -> [VitalResource] {
-  
-  var resources: [VitalResource] = []
-  
-  for resource in VitalResource.all {
-    guard toHealthKitTypes(resource: resource).isEmpty == false else {
-      continue
-    }
-    
-    let hasAskedPermission = store.hasAskedForPermission(resource)
-    
-    if hasAskedPermission {
-      resources.append(resource)
-    }
-  }
-  
-  return resources
 }

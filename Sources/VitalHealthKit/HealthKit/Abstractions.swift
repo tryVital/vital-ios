@@ -7,7 +7,8 @@ struct VitalHealthKitStore {
   var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource]) async throws -> Void
   
   var hasAskedForPermission: (VitalResource) -> Bool
-  
+  var permittedResources: () -> Set<VitalResource>
+
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
@@ -98,7 +99,7 @@ extension VitalHealthKitStore {
         .map { store.authorizationStatus(for: $0) != .notDetermined }
         .reduce(true, { $0 && $1})
     }
-    
+
     let toVitalResource: (HKSampleType) -> VitalResource = { type in
       return sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
     }
@@ -122,6 +123,17 @@ extension VitalHealthKitStore {
       
     } hasAskedForPermission: { resource in
       return hasAskedForPermission(resource)
+    } permittedResources: {
+      Set(
+        VitalResource.all
+          .filter(hasAskedForPermission)
+          .map { resource in
+            remapResource(
+              hasAskedForPermission: hasAskedForPermission,
+              resource: resource
+            )
+          }
+      )
     } toVitalResource: { type in
       return toVitalResource(type)
     } writeInput: { (dataInput, startDate, endDate) in
@@ -132,8 +144,13 @@ extension VitalHealthKitStore {
         endDate: endDate
       )
     } readResource: { (resource, startDate, endDate, storage) in
-      try await read(
-        resource: resource,
+      let actualResource = remapResource(
+        hasAskedForPermission: hasAskedForPermission,
+        resource: resource
+      )
+
+      return try await read(
+        resource: actualResource,
         healthKitStore: store,
         typeToResource: toVitalResource,
         vitalStorage: storage,
@@ -158,6 +175,8 @@ extension VitalHealthKitStore {
       return
     } hasAskedForPermission: { _ in
       true
+    } permittedResources: {
+      []
     } toVitalResource: { sampleType in
       return .sleep
     } writeInput: { (dataInput, startDate, endDate) in
