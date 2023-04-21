@@ -289,9 +289,9 @@ extension VitalHealthKitClient {
     return AsyncStream<BackgroundDeliveryPayload> { continuation in
       var queries: [HKObserverQuery] = []
 
-      for types in typesBundle {
+      for typesToObserve in typesBundle {
 
-        let descriptors = types.map {
+        let descriptors = typesToObserve.map {
           HKQueryDescriptor(sampleType: $0, predicate: nil)
         }
 
@@ -311,8 +311,17 @@ extension VitalHealthKitClient {
 
           self?.logger?.info("[HealthKit] Notified changes in \(sampleTypes, privacy: .public)")
 
-          let payload = BackgroundDeliveryPayload(sampleTypes: sampleTypes, completion: handler)
-          continuation.yield(payload)
+          // It appears that the iOS 15+ HKObserverQuery might pass us `HKSampleType`s that is
+          // outside the conditions we specified via `descriptors`. Filter out any unsolicited types
+          // before proceeding.
+          let filteredSampleTypes = sampleTypes.intersection(typesToObserve)
+
+          if filteredSampleTypes.isEmpty {
+            handler()
+          } else {
+            let payload = BackgroundDeliveryPayload(sampleTypes: filteredSampleTypes, completion: handler)
+            continuation.yield(payload)
+          }
         }
 
         queries.append(query)
