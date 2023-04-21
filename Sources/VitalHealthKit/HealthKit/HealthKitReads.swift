@@ -11,6 +11,10 @@ typealias StatisticsHandler = (HKStatisticsCollectionQuery, HKStatisticsCollecti
 
 typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
 
+enum VitalHealthKitClientError: Error {
+  case invalidInterval(Date, Date, context: StaticString)
+}
+
 struct VitalStatisticsError: Error {
   let statistics: HKStatistics
 
@@ -950,15 +954,22 @@ func queryStatisticsSample(
   startDate: Date,
   endDate: Date
 ) async throws -> (statistics: [VitalStatistics], anchor: StoredAnchor) {
-  
+  guard startDate <= endDate else {
+    throw VitalHealthKitClientError.invalidInterval(startDate, endDate, context: #function)
+  }
+
   let vitalAnchors: [VitalAnchor]
   
-  let newStartDate = dependency.storedDate(type) ?? startDate
-  let newEndDate = endDate.nextHour
-  
+  var newStartDate = dependency.storedDate(type) ?? startDate
+  var newEndDate = endDate
+
+  // System wall clock could potentially roll backward/forward significantly,
+  // so let's sanitize any persisted dates before proceeding.
+  newStartDate = min(newStartDate, newEndDate)
+  newEndDate = max(newStartDate, newEndDate)
+
   let isFirstTimeSycingType = dependency.isFirstTimeSycingType(type)
   let isLegacyType = dependency.isLegacyType(type)
-  
     
   ///  TODO: Remove this in the near future
   /// <TO BE REMOVED>
@@ -988,10 +999,10 @@ func queryStatisticsSample(
     statisticsStartDate = newStartDate.dayStart
   } else {
     /// If it's not, we only check 7 days.
-    statisticsStartDate = Date.dateAgo(newStartDate, days: 7).dayStart
+    statisticsStartDate = Date.dateAgo(newStartDate, days: 7)
   }
-  
-  let queryInterval = statisticsStartDate ..< endDate
+
+  let queryInterval = statisticsStartDate ..< newEndDate
 
   let (statistics, anchor) = calculateIdsForAnchorsAndData(
     vitalStatistics: try await dependency.executeStatisticalQuery(type, queryInterval, .hourly),

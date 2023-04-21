@@ -11,9 +11,9 @@ extension Date {
   
   static func dateAgo(_ date: Date = .init(), days: Int) -> Date {
     let daysAgoDate = vitalCalendar.date(byAdding: .day, value: -abs(days), to: date)
-    let beginningOfTheDay = daysAgoDate?.dayStart
+    let beginningOfTheDay = daysAgoDate!.dayStart
     
-    return beginningOfTheDay ?? date
+    return beginningOfTheDay
   }
   
   var dateComponentsForActivityQuery: DateComponents {
