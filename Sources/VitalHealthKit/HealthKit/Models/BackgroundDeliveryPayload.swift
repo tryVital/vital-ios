@@ -1,6 +1,7 @@
 import HealthKit
+import VitalCore
 
 struct BackgroundDeliveryPayload {
-  let sampleTypes: Set<HKSampleType>
+  let resource: VitalResource
   let completion: () -> Void
 }

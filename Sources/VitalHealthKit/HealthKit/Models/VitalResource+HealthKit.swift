@@ -65,7 +65,6 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       ]
 
     case .body:
-      
       return toHealthKitTypes(resource: .individual(.bodyFat)) +
       toHealthKitTypes(resource: .individual(.weight))
       

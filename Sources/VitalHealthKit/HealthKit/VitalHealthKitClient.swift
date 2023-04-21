@@ -151,7 +151,7 @@ internal var logger: Logger? {
     if backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
       
-      let resources = Array(self.store.permittedResources())
+      let resources = self.store.permittedResources()
       checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
     }
   }
@@ -198,31 +198,36 @@ public extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   
-  private func checkBackgroundUpdates(isBackgroundEnabled: Bool, resources: [VitalResource]) {
+  private func checkBackgroundUpdates(isBackgroundEnabled: Bool, resources: Set<VitalResource>) {
     guard isBackgroundEnabled else { return }
     guard resources.isEmpty == false else { return }
     
     /// If it's already running, cancel it
     self.backgroundDeliveryTask?.cancel()
-    
-    let sampleTypesToObserve = Set(resources.map(sampleTypesToTriggerSync(for:)))
-    let cleaned: Set<Set<HKSampleType>> = Set(sampleTypesToObserve.filter { $0.isEmpty == false })
 
-    let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.flatMap { $0 })
+    let typesToObserveByResource = Dictionary(
+      resources
+        .map { ($0, sampleTypesToTriggerSync(for: $0)) }
+        .filter { _, types in types.isEmpty == false },
+      uniquingKeysWith: { $0 + $1 }
+    )
 
-    if uniqueFlatenned.isEmpty {
+    if typesToObserveByResource.isEmpty {
       logger?.info("Not observing any type")
+      return
     }
 
+    let typesToObserve = Set(typesToObserveByResource.values.flatMap { $0 })
+
     /// Enable background deliveries
-    enableBackgroundDelivery(for: uniqueFlatenned)
+    enableBackgroundDelivery(for: typesToObserve)
 
     let stream: AsyncStream<BackgroundDeliveryPayload>
 
     if #available(iOS 15.0, *) {
-      stream = bundledBackgroundObservers(for: cleaned)
+      stream = bundledBackgroundObservers(for: typesToObserveByResource)
     } else {
-      stream = backgroundObservers(for: uniqueFlatenned)
+      stream = backgroundObservers(for: typesToObserveByResource)
     }
 
     self.backgroundDeliveryTask = Task(priority: .high) {
@@ -247,19 +252,9 @@ extension VitalHealthKitClient {
         // (except for the task cancellation redelivery expectation stated above).
         defer { payload.completion() }
 
-        logger?.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
+        logger?.info("[BackgroundDelivery] Dequeued payload for \(payload.resource.logDescription, privacy: .public)")
 
-        guard let first = payload.sampleTypes.first else {
-          continue
-        }
-
-        if payload.sampleTypes.count > 1 {
-        /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-          let resource = store.toVitalResource(first)
-          await sync(payload: .resource(resource))
-        } else {
-          await sync(payload: .type(first))
-        }
+        await sync(payload: .resource(payload.resource))
       }
     }
   }
@@ -280,35 +275,30 @@ extension VitalHealthKitClient {
 
   @available(iOS 15.0, *)
   private func bundledBackgroundObservers(
-    for typesBundle: Set<Set<HKSampleType>>
+    for typesBundle: [VitalResource: Set<HKSampleType>]
   ) -> AsyncStream<BackgroundDeliveryPayload> {
 
     return AsyncStream<BackgroundDeliveryPayload> { continuation in
       var queries: [HKObserverQuery] = []
 
-      for types in typesBundle {
+      for (resource, types) in typesBundle {
 
         let descriptors = types.map {
           HKQueryDescriptor(sampleType: $0, predicate: nil)
         }
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { [weak self] query, sampleTypes, handler, error in
-          guard let sampleTypes = sampleTypes else {
-            self?.logger?.error("Failed to background deliver. Empty samples")
-            return
-          }
-
           guard error == nil else {
-            self?.logger?.error("Failed to background deliver for \(String(describing: sampleTypes), privacy: .public) with \(error, privacy: .public).")
+            self?.logger?.error("Failed to background deliver for \(resource.logDescription, privacy: .public) with \(error, privacy: .public).")
 
 
             ///  We need a better way to handle if a failure happens here.
             return
           }
 
-          self?.logger?.info("[HealthKit] Notified changes in \(sampleTypes, privacy: .public)")
+          self?.logger?.info("[HealthKit] Notified changes in \(resource.logDescription, privacy: .public) caused by \(String(describing: sampleTypes ?? []), privacy: .public)")
 
-          let payload = BackgroundDeliveryPayload(sampleTypes: sampleTypes, completion: handler)
+          let payload = BackgroundDeliveryPayload(resource: resource, completion: handler)
           continuation.yield(payload)
         }
 
@@ -326,14 +316,18 @@ extension VitalHealthKitClient {
   }
   
   private func backgroundObservers(
-    for sampleTypes: Set<HKSampleType>
+    for typesBundle: [VitalResource: Set<HKSampleType>]
   ) -> AsyncStream<BackgroundDeliveryPayload> {
     
     return AsyncStream<BackgroundDeliveryPayload> { continuation in
       
       var queries: [HKObserverQuery] = []
+
+      let resourceAndTypes = typesBundle.flatMap { resource, types in
+        types.map { (resource, $0) }
+      }
       
-      for sampleType in sampleTypes {
+      for (resource, sampleType) in resourceAndTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
           
           guard error == nil else {
@@ -343,9 +337,9 @@ extension VitalHealthKitClient {
             return
           }
 
-          self?.logger?.info("[HealthKit] Notified changes in \(sampleType, privacy: .public)")
+          self?.logger?.info("[HealthKit] Notified changes in \(sampleType, privacy: .public) caused by \(sampleType.identifier, privacy: .public)")
           
-          let payload = BackgroundDeliveryPayload(sampleTypes: Set([sampleType]), completion: handler)
+          let payload = BackgroundDeliveryPayload(resource: resource, completion: handler)
           continuation.yield(payload)
         }
         
@@ -402,18 +396,15 @@ extension VitalHealthKitClient {
   }
   
   public enum SyncPayload {
-    case type(HKSampleType)
     case resource(VitalResource)
     
     var isResource: Bool {
       switch self {
         case .resource:
           return true
-        case .type:
-          return false
       }
     }
-    
+
     var infix: String {
       if isResource {
         return ""
@@ -426,10 +417,6 @@ extension VitalHealthKitClient {
       switch self {
         case let .resource(resource):
           return resource.logDescription
-          
-        case let .type(type):
-          /// We know that if we are dealing with
-          return store.toVitalResource(type).logDescription
       }
     }
     
@@ -437,9 +424,6 @@ extension VitalHealthKitClient {
       switch self {
         case let .resource(resource):
           return resource
-          
-        case let .type(type):
-          return store.toVitalResource(type)
       }
     }
   }
@@ -556,7 +540,7 @@ extension VitalHealthKitClient {
         
         checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
-          resources: readResources
+          resources: Set(readResources)
         )
       }
       
