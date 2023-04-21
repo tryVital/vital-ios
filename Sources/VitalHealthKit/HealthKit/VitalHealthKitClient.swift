@@ -110,18 +110,18 @@ internal var logger: Logger? {
   }
 
   @objc(automaticConfigurationWithCompletion:)
-  public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+  public static func automaticConfiguration(completion: ((Error?) -> Void)? = nil) {
     do {
       let secureStorage = self.shared.secureStorage
       guard let payload: Configuration = try secureStorage.get(key: health_secureStorageKey) else {
-        completion?()
+        completion?(nil)
         return
       }
-      
+
       configure(payload)
       VitalClient.automaticConfiguration(completion: completion)
     } catch let error {
-      completion?()
+      completion?(error)
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
       shared.logger?.error("Failed to perform automatic configuration: \(error, privacy: .public)")
@@ -393,14 +393,21 @@ extension VitalHealthKitClient {
       _status.send(.syncingCompleted)
     }
   }
-  
+
+  @available(*, deprecated, renamed: "reset()")
   public func cleanUp() async {
-    await store.disableBackgroundDelivery()
+    self.reset()
+  }
+
+  public func reset() {
+    Task {
+      await store.disableBackgroundDelivery()
+    }
+
     backgroundDeliveryTask?.cancel()
-    
     backgroundDeliveryEnabled.set(value: false)
     
-    await VitalClient.shared.cleanUp()
+    VitalClient.shared.reset()
     self.secureStorage.clean(key: health_secureStorageKey)
   }
   

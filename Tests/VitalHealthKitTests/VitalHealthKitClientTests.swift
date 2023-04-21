@@ -17,7 +17,7 @@ class VitalHealthKitClientTests: XCTestCase {
   
   func testAskingForPermissionsContinuesWithoutAuthentication() async {
     
-    await VitalClient.shared.cleanUp()
+    VitalClient.shared.reset()
     let value = VitalHealthKitClient(store: .debug)
     
     _ = value.hasAskedForPermission(resource: .body)

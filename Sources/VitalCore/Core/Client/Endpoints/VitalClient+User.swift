@@ -44,7 +44,7 @@ public extension VitalClient.User {
     let value = try await configuration.apiClient.send(request).value
     
     if setUserIdOnSuccess {
-      await VitalClient.setUserId(value.userId)
+      try VitalClient.setUserID(value.userId)
     }
     
     return value

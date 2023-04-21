@@ -23,6 +23,10 @@ struct VitalCoreSecurePayload: Codable {
   let environment: Environment
 }
 
+public enum VitalClientError: Error {
+  case notConfigured
+}
+
 public enum Environment: Equatable, Hashable, Codable {
   public enum Region: String, Equatable, Hashable, Codable {
     case eu
@@ -186,7 +190,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
   
   @objc(automaticConfigurationWithCompletion:)
-  public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+  public static func automaticConfiguration(completion: ((Error?) -> Void)? = nil) {
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
@@ -198,19 +202,16 @@ let user_secureStorageKey: String = "user_secureStorageKey"
           environment: payload.environment,
           configuration: payload.configuration
         )
+
+        if let userID: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+          /// 2) If and only if there's a `userId`, we set it.
+          try setUserID(userID)
+        }
       }
 
-      if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-        /// 2) If and only if there's a `userId`, we set it.
-        Task {
-          await setUserId(userId)
-          completion?()
-        }
-      } else {
-        completion?()
-      }
+      completion?(nil)
     } catch let error {
-      completion?()
+      completion?(error)
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
       shared.configuration.value?.logger?.error("Failed to perform automatic configuration: \(error, privacy: .public)")
@@ -298,14 +299,12 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.configuration.set(value: coreConfiguration)
   }
   
-  private func _setUserId(_ newUserId: UUID) async {
-    if configuration.isNil() {
+  private func _setUserId(_ newUserId: UUID) throws {
+    guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
-      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
+      throw VitalClientError.notConfigured
     }
-    
-    let configuration = await configuration.get()
-    
+
     do {
       if
         let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
@@ -326,14 +325,22 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
   }
   
+  @objc public static func setUserID(_ newUserId: UUID) throws {
+    try shared._setUserId(newUserId)
+  }
+
+  @available(*, deprecated, message:"Use the non-asynchronous `setUserID(_:)`.")
   @objc public static func setUserId(_ newUserId: UUID) {
-    Task {
-      await setUserId(newUserId)
+    do {
+      try shared._setUserId(newUserId)
+    } catch {
+      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
     }
   }
 
+  @available(*, deprecated, message:"Use the non-asynchronous `setUserID(_:)`.")
   public static func setUserId(_ newUserId: UUID) async {
-    await shared._setUserId(newUserId)
+    try? shared._setUserId(newUserId)
   }
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
@@ -358,8 +365,13 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     
     storage.storeConnectedSource(for: userId, with: provider)
   }
-  
+
+  @available(*, deprecated, renamed: "reset()")
   public func cleanUp() async {
+    self.reset()
+  }
+
+  public func reset() {
     /// Here we remove the following:
     /// 1) Anchor values we are storing for each `HKSampleType`.
     /// 2) Stage for each `HKSampleType`.
@@ -367,10 +379,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     /// We might be able to derive 2) from 1)?
     ///
     /// We need to check this first, otherwise it will suspend until a configuration is set
-    if self.configuration.isNil() == false {
-      await self.configuration.get().storage.clean()
+    if let configuration = self.configuration.value {
+      configuration.storage.clean()
     }
-    
+
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
     

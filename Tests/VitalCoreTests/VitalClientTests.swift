@@ -14,12 +14,16 @@ class VitalClientTests: XCTestCase {
   lazy var client = VitalClient(secureStorage: secureStorage)
 
   override func setUp() async throws {
-    await VitalClient.shared.cleanUp()
+    VitalClient.shared.reset()
     VitalClient.setClient(client)
   }
   
   func testInitSetsSharedInstance() throws {
     XCTAssertTrue(client === VitalClient.shared)
+  }
+
+  func testSetUserIDThrowsErrorBeforeSDKHasBeenConfigured() throws {
+    XCTAssertThrowsError(try VitalClient.setUserID(userId))
   }
   
   func testStorageAndCleanUp() async throws {
@@ -39,7 +43,7 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    try VitalClient.setUserID(userId)
     
     let securePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
     let storedUserId: UUID? = try? secureStorage.get(key: user_secureStorageKey)
@@ -54,7 +58,7 @@ class VitalClientTests: XCTestCase {
       storage.isConnectedSourceStored(for: userId, with: provider)
     )
     
-    await VitalClient.shared.cleanUp()
+    VitalClient.shared.reset()
     
     let inMemoryStoredUser = VitalClient.shared.userId.isNil()
     let inMemoryStoredConfiguration = VitalClient.shared.configuration.isNil()
@@ -75,7 +79,7 @@ class VitalClientTests: XCTestCase {
   
   func testAutoUserIdConfiguration() async {
     let _: Void = await withCheckedContinuation { continuation in
-      VitalClient.automaticConfiguration {
+      VitalClient.automaticConfiguration { _ in
         continuation.resume(returning: ())
       }
     }
@@ -101,7 +105,7 @@ class VitalClientTests: XCTestCase {
     VitalClient.setClient(newClient)
 
     let _: Void = await withCheckedContinuation { continuation in
-      VitalClient.automaticConfiguration {
+      VitalClient.automaticConfiguration { _ in
         continuation.resume(returning: ())
       }
     }
@@ -113,7 +117,7 @@ class VitalClientTests: XCTestCase {
     XCTAssertFalse(nonNilConfiguration)
   }
   
-  func testStorageIsCleanedUpOnUserIdChange() async {
+  func testStorageIsCleanedUpOnUserIdChange() async throws {
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
     
@@ -126,15 +130,15 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    try VitalClient.setUserID(userId)
     
-    await VitalClient.setUserId(UUID())
+    try VitalClient.setUserID(UUID())
     
     let isConnected = storage.isConnectedSourceStored(for: userId, with: provider)
     XCTAssertFalse(isConnected)
   }
   
-  func testProviderIsStored() async {
+  func testProviderIsStored() async throws {
     let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
 
@@ -147,7 +151,7 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    try VitalClient.setUserID(userId)
     
     let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)
     XCTAssertTrue(isConnected)
