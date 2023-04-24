@@ -201,18 +201,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
         if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
           /// 2) If and only if there's a `userId`, we set it.
-          Task {
-            await setUserId(userId)
-            completion?()
-          }
-        } else {
-          completion?()
+          shared._setUserId(userId)
         }
-      } else {
-        /// If we failed to recover a configuration, don't bother with recovering the user ID,
-        /// since`setUserId(_:)` will fail anyway .
-        completion?()
       }
+
+      completion?()
     } catch let error {
       completion?()
       /// Bailout, there's nothing else to do here.
@@ -302,14 +295,12 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.configuration.set(value: coreConfiguration)
   }
   
-  private func _setUserId(_ newUserId: UUID) async {
-    if configuration.isNil() {
+  private func _setUserId(_ newUserId: UUID) {
+    guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
       fatalError("You need to call `VitalClient.configure` before setting the `userId`")
     }
-    
-    let configuration = await configuration.get()
-    
+
     do {
       if
         let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
@@ -331,13 +322,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
   
   @objc public static func setUserId(_ newUserId: UUID) {
-    Task {
-      await setUserId(newUserId)
-    }
+    shared._setUserId(newUserId)
   }
 
   public static func setUserId(_ newUserId: UUID) async {
-    await shared._setUserId(newUserId)
+    shared._setUserId(newUserId)
   }
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
