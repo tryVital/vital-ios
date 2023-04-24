@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name = 'VitalCore'
-    s.version = '0.9.4'
+    s.version = '0.9.5'
     s.license = 'AGPL v3.0'
     s.summary = 'The official Swift Library for Vital API, HealthKit and Devices'
     s.homepage = 'https://github.com/tryVital/vital-ios'
