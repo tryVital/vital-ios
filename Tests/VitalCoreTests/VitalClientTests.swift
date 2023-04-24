@@ -72,31 +72,31 @@ class VitalClientTests: XCTestCase {
       storage.isConnectedSourceStored(for: userId, with: provider)
     )
   }
-  
+
   func testAutoUserIdConfiguration() async {
     let _: Void = await withCheckedContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
     }
-    
+
     let nilConfiguration = VitalClient.shared.configuration.isNil()
     let nilUserId = VitalClient.shared.userId.isNil()
-    
+
     XCTAssertTrue(nilUserId)
     XCTAssertTrue(nilConfiguration)
-    
+
     let securePayload = VitalCoreSecurePayload(
       configuration: .init(),
       apiVersion: apiVersion,
       apiKey: apiKey,
       environment: environment
     )
-    
+
     let secureStorage = VitalSecureStorage(keychain: .debug)
     try! secureStorage.set(value: userId, key: user_secureStorageKey)
     try! secureStorage.set(value: securePayload, key: core_secureStorageKey)
-    
+
     let newClient = VitalClient(secureStorage: secureStorage)
     VitalClient.setClient(newClient)
 
@@ -105,12 +105,40 @@ class VitalClientTests: XCTestCase {
         continuation.resume(returning: ())
       }
     }
-    
+
     let nonNilConfiguration = VitalClient.shared.configuration.isNil()
     let nonNilUserId = VitalClient.shared.userId.isNil()
-    
+
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
+  }
+
+  func testAutoConfigurationDoesNotFailWithUserIdWithoutConfiguration() async {
+    let _: Void = await withCheckedContinuation { continuation in
+      VitalClient.automaticConfiguration {
+        continuation.resume(returning: ())
+      }
+    }
+
+    XCTAssertNil(VitalClient.shared.configuration.value)
+    XCTAssertNil(VitalClient.shared.userId.value)
+
+    // TEST: Set userId only. `automaticConfiguration` should skip setting it,
+    // since a configuration is not present.
+    let secureStorage = VitalSecureStorage(keychain: .debug)
+    try! secureStorage.set(value: userId, key: user_secureStorageKey)
+
+    let newClient = VitalClient(secureStorage: secureStorage)
+    VitalClient.setClient(newClient)
+
+    let _: Void = await withCheckedContinuation { continuation in
+      VitalClient.automaticConfiguration {
+        continuation.resume(returning: ())
+      }
+    }
+
+    XCTAssertNil(VitalClient.shared.configuration.value)
+    XCTAssertNil(VitalClient.shared.userId.value)
   }
   
   func testStorageIsCleanedUpOnUserIdChange() async {
