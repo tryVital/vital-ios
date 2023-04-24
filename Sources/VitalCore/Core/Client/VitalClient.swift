@@ -198,15 +198,19 @@ let user_secureStorageKey: String = "user_secureStorageKey"
           environment: payload.environment,
           configuration: payload.configuration
         )
-      }
 
-      if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-        /// 2) If and only if there's a `userId`, we set it.
-        Task {
-          await setUserId(userId)
+        if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+          /// 2) If and only if there's a `userId`, we set it.
+          Task {
+            await setUserId(userId)
+            completion?()
+          }
+        } else {
           completion?()
         }
       } else {
+        /// If we failed to recover a configuration, don't bother with recovering the user ID,
+        /// since`setUserId(_:)` will fail anyway .
         completion?()
       }
     } catch let error {
