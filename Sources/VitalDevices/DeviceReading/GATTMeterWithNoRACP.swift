@@ -118,7 +118,13 @@ internal class GATTMeterWithNoRACP<Sample> {
   }
 
   func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
-    _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
+    _pair(device: device)
+      .first()
+      .flatMapLatest { (peripheral, measurementCharacteristic) in
+        // Enable indications on the characteristic to force a pairing session
+        peripheral.setNotifyValue(true, for: measurementCharacteristic)
+      }
+      .eraseToAnyPublisher()
   }
 
   private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, CBCharacteristic), Error> {
@@ -156,8 +162,11 @@ internal class GATTMeterWithNoRACP<Sample> {
           // Unlike a BLE device with RACP support, we do not want to enable BLE notification here.
           // This is because some RACP-less devices may use the enablement as a signal to
           // start sending records unilaterally, and a lot of them discards the records afterwards.
+          // In some cases, they also initiate pairing only when the BLE Central attempts to
+          // enable indication on a characteristic.
           //
-          // So we would pretend here that a successful discovery is a successful "pairing".
+          // Only enable indications when the SDK user explicitly requests a pairing via `pair()`,
+          // or when we start reading the records via `read()`.
           return (peripheral, measurementCharacteristic)
         }
         .eraseToAnyPublisher()
