@@ -80,7 +80,7 @@ internal class GATTMeterWithNoRACP<Sample> {
             // Then we start a timeout publisher with `self.waitForNextValueTimeout`.
             // - If the timeout is reached, we emit `StreamValue.waitDidTimeout`.
             // - If the next sample is emitted before the timeout, this publisher would be cancelled
-            //   by `switchToLatest()` and is a no-op.
+            //   by `flatMapLatest` and therefore is a no-op.
             Empty(completeImmediately: false, outputType: StreamValue<Sample>.self, failureType: Error.self)
               .timeout(.milliseconds(Int(self.waitForNextValueTimeout * 1000)), scheduler: self.queue)
               .replaceEmpty(with: StreamValue.waitForNextValueTimedOut)
