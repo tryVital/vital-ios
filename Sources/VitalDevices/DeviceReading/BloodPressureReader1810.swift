@@ -5,7 +5,7 @@ public protocol BloodPressureReadable: DevicePairable {
   func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error>
 }
 
-class BloodPressureReader1810: GATTMeter<BloodPressureSample>, BloodPressureReadable {
+class BloodPressureReader1810: GATTMeterWithNoRACP<BloodPressureSample>, BloodPressureReadable {
   init(
     manager: CentralManager = .live(),
     queue: DispatchQueue
@@ -14,6 +14,7 @@ class BloodPressureReader1810: GATTMeter<BloodPressureSample>, BloodPressureRead
       manager: manager,
       queue: queue,
       serviceID: CBUUID(string: "1810".fullUUID),
+      // Blood Pressure Measurement characteristic
       measurementCharacteristicID: CBUUID(string: "2A35".fullUUID),
       parser: toBloodPressureReading(data:)
     )

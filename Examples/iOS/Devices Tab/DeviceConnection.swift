@@ -54,12 +54,14 @@ extension DeviceConnection {
     enum Status: String {
       case notSetup = "Missing credentials. Visit settings tab."
       case found = "Found device"
+      case pairing = "Pairing with device..."
       case paired = "Device paired"
       case creatingConnectedSource = "Creating a Connected Source via API..."
       case searching = "Searching..."
       case pairingFailed = "Pairing failed"
       case readingFailed = "Reading failed"
       case sendingToServer = "Sending to server..."
+      case deviceNoData = "Device reported no data"
       case serverFailed = "Sending to server failed"
       case connectedSourceCreationFailed = "Failed to create Connected Source for the device"
       case noneFound = "None found"
@@ -119,9 +121,7 @@ extension DeviceConnection {
     case createConnectedSource
     case startScanning
     case scannedDevice(ScannedDevice, ScanSource)
-    
-    case scannedDeviceUpdate(Bool)
-    
+
     case newReading([Reading])
     case readingSentToServer(Reading)
     case failedSentToServer(String)
@@ -146,8 +146,8 @@ extension DeviceConnection {
 
 let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.Action, DeviceConnection.Environment> { state, action, env in
   struct LongRunningReads: Hashable {}
-  struct LongRunningScan: Hashable {}
-  
+  struct DeviceScanning: Hashable {}
+
   switch action {
     case let .readingSentToServer(reading):
       state.status = .serverSuccess
@@ -188,18 +188,14 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         .map { DeviceConnection.Action.scannedDevice($0, .scanned) }
         .receive(on: env.mainQueue)
         .eraseToEffect()
+        .cancellable(id: DeviceScanning())
       
     case let .scannedDevice(device, source):
       state.status = .found
       state.scannedDevice = device
       state.scanSource = source
-      
-      let monitorDevice = env.deviceManager.monitorConnection(for: device).map(DeviceConnection.Action.scannedDeviceUpdate)
-        .receive(on: env.mainQueue)
-        .eraseToEffect()
-        .cancellable(id: LongRunningScan())
-      
-      return monitorDevice
+
+      return .none
       
     case let .newReading(dataPoints):
       state.status = .sendingToServer
@@ -210,10 +206,12 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       state.readings = unique
       
       guard let scannedDevice = state.scannedDevice else {
+        state.status = .noneFound
         return .none
       }
       
       guard let dataPoint = dataPoints.first else {
+        state.status = .deviceNoData
         return .none
       }
       
@@ -308,6 +306,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       
       
     case let .pairDevice(device):
+      state.status = .pairing
+
       let reader: DevicePairable
       
       if device.deviceModel.kind == .bloodPressure {
@@ -315,19 +315,16 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       } else {
         reader = env.deviceManager.glucoseMeter(for: device, queue: env.mainQueue)
       }
-      
-      return reader.pair(device: device)
-        .map { _ in DeviceConnection.Action.pairedSuccesfully(device) }
-        .catch { error in Just(DeviceConnection.Action.pairingFailed(error.localizedDescription))}
-        .receive(on: env.mainQueue)
-        .eraseToEffect()
-      
-    case let .scannedDeviceUpdate(isConnected):
-      if isConnected == false {
-        return .init(value: .startScanning)
-      } else {
-        return .none
-      }
+
+      return Effect.concatenate(
+        Effect.cancel(ids: [LongRunningReads(), DeviceScanning()]),
+        reader.pair(device: device)
+          .map { _ in DeviceConnection.Action.pairedSuccesfully(device) }
+          .catch { error in Just(DeviceConnection.Action.pairingFailed(error.localizedDescription))}
+          .receive(on: env.mainQueue)
+          .eraseToEffect()
+      )
+
 
     case .dismissErrorAlert:
       state.alertText = nil
