@@ -206,6 +206,16 @@ extension Settings {
                 .onTapGesture {
                   viewStore.send(.setEnvironment(.production(.us)))
                 }
+
+              Row(title: "Dev - EU", isSelected: viewStore.credentials.environment == .dev(.eu))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.dev(.eu)))
+                }
+
+              Row(title: "Dev - US", isSelected: viewStore.credentials.environment == .dev(.us))
+                .onTapGesture {
+                  viewStore.send(.setEnvironment(.dev(.us)))
+                }
             }, footer: {
               VStack(spacing: 5) {
                 Button("Generate userId", action: {
