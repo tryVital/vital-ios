@@ -29,7 +29,7 @@ internal class GATTMeter<Sample> {
   }
 
   func read(device: ScannedDevice) -> AnyPublisher<[Sample], Error> {
-    return _pair(device: device).flatMapLatest { (peripheral, characteristics) -> AnyPublisher<[Sample], Error> in
+    return _connect(device: device) { (peripheral, characteristics) -> AnyPublisher<[Sample], Error> in
         guard
           let measurementCharacteristic = characteristics.first(where: { $0.uuid == self.measurementCharacteristicID }),
           let RACPCharacteristic = characteristics.first(where: { $0.uuid == self.racpCharacteristicID })
@@ -87,10 +87,13 @@ internal class GATTMeter<Sample> {
   }
 
   func pair(device: ScannedDevice) -> AnyPublisher<Void, Error> {
-    _pair(device: device).map { _ in ()}.eraseToAnyPublisher()
+    _connect(device: device, then: { _, _ in Just(()).setFailureType(to: Error.self) })
   }
 
-  private func _pair(device: ScannedDevice) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
+  private func _connect<P>(
+    device: ScannedDevice,
+    then action: @escaping (Peripheral, [CBCharacteristic]) -> P
+  ) -> AnyPublisher<P.Output, Error> where P: Publisher, P.Failure == Error {
     let isOn = manager
       .didUpdateState
       .prepend(manager.state)
@@ -99,14 +102,14 @@ internal class GATTMeter<Sample> {
       .mapError { _ -> Error in }
 
     return isOn
-      .flatMap { _ in self._connectAndDiscoverCharacteristics(for: device) }
-      .eraseToAnyPublisher()
+      .flatMapLatest { _ in self._connectAndDiscoverCharacteristics(for: device, then: action) }
   }
 
-  private func _connectAndDiscoverCharacteristics(
-    for device: ScannedDevice
-  ) -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> {
-    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<(Peripheral, [CBCharacteristic]), Error> in
+  private func _connectAndDiscoverCharacteristics<P>(
+    for device: ScannedDevice,
+    then action: @escaping (Peripheral, [CBCharacteristic]) -> P
+  ) -> AnyPublisher<P.Output, Error> where P: Publisher, P.Failure == Error {
+    return manager.connect(device.peripheral).flatMapLatest { peripheral -> AnyPublisher<P.Output, Error> in
       peripheral.discoverServices([self.serviceID])
         .flatMapLatest { services -> AnyPublisher<[CBCharacteristic], Error> in
           guard services.isEmpty == false else {
@@ -129,6 +132,13 @@ internal class GATTMeter<Sample> {
           }
           .eraseToAnyPublisher()
         }
+        // Take the first valid set of characteristics emitted, and stop the service discovery.
+        //
+        // This cannot be placed on the outer `.connect()` chain.
+        // `first()` cancels its upstream subscription, which means it will cancel `connect()`.
+        // `connect()` cancels the CBPeripheral connection when it catches a cancellation.
+        .first()
+        .flatMapLatest { action($0.0, $0.1) }
     }
     .eraseToAnyPublisher()
   }
