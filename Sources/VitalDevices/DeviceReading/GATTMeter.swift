@@ -57,6 +57,7 @@ internal class GATTMeter<Sample> {
           .compactMap { $0.flatMap(self.parser) }
           .prefix(untilOutputFrom: racpSuccessOrFailure)
           .collect()
+          .timeout(30.0, scheduler: DispatchQueue.main)
           .handleEvents(
             receiveSubscription: { _ in
               // (2) We then start listening for RACP response indication
