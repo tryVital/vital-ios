@@ -59,6 +59,7 @@ extension DeviceConnection {
       case creatingConnectedSource = "Creating a Connected Source via API..."
       case searching = "Searching..."
       case pairingFailed = "Pairing failed"
+      case reading = "Reading data..."
       case readingFailed = "Reading failed"
       case sendingToServer = "Sending to server..."
       case deviceNoData = "Device reported no data"
@@ -70,6 +71,7 @@ extension DeviceConnection {
     
     let device: DeviceModel
     var status: Status
+    var hasPairedSuccessfully = false
     var scannedDevice: ScannedDevice?
     var scanSource: ScanSource?
 
@@ -91,10 +93,19 @@ extension DeviceConnection {
       }
     }
 
-    var canPairAndRead: Bool {
+    var canPair: Bool {
       switch self.status {
       case .searching, .pairingFailed, .serverFailed, .serverSuccess, .found:
-          return scannedDevice != nil
+          return scannedDevice != nil && hasPairedSuccessfully == false
+        default:
+          return false
+      }
+    }
+
+    var canRead: Bool {
+      switch self.status {
+      case .paired, .readingFailed, .serverSuccess, .serverFailed, .deviceNoData:
+          return scannedDevice != nil && hasPairedSuccessfully == true
         default:
           return false
       }
@@ -122,6 +133,7 @@ extension DeviceConnection {
     case startScanning
     case scannedDevice(ScannedDevice, ScanSource)
 
+    case startReading(ScannedDevice)
     case newReading([Reading])
     case readingSentToServer(Reading)
     case failedSentToServer(String)
@@ -265,6 +277,34 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       state.status = .connectedSourceCreationFailed
       state.alertText = reason
       return .none
+
+    case let .startReading(scannedDevice):
+      state.status = .reading
+
+      let publisher: AnyPublisher<[Reading], Error>
+
+      if scannedDevice.deviceModel.kind == .bloodPressure {
+        let reader = env.deviceManager.bloodPressureReader(for: scannedDevice, queue: env.mainQueue)
+
+        publisher = reader.read(device: scannedDevice)
+          .map { $0.map(Reading.bloodPressure) }
+          .eraseToAnyPublisher()
+
+      } else {
+        let reader = env.deviceManager.glucoseMeter(for: scannedDevice, queue: env.mainQueue)
+
+        publisher = reader.read(device: scannedDevice)
+          .map { $0.map(Reading.glucose) }
+          .eraseToAnyPublisher()
+      }
+
+      return publisher
+        .map(DeviceConnection.Action.newReading)
+        .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
+        .receive(on: env.mainQueue)
+        .eraseToEffect()
+        .cancellable(id: LongRunningReads())
+
       
     case let .readingFailed(reason):
       state.status = .readingFailed
@@ -279,31 +319,8 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
     case let .pairedSuccesfully(scannedDevice):
       state.status = .paired
       state.scannedDevice = scannedDevice
-      
-      let publisher: AnyPublisher<[Reading], Error>
-      
-      if scannedDevice.deviceModel.kind == .bloodPressure {
-        let reader = env.deviceManager.bloodPressureReader(for: scannedDevice, queue: env.mainQueue)
-        
-        publisher = reader.read(device: scannedDevice)
-          .map { $0.map(Reading.bloodPressure) }
-          .eraseToAnyPublisher()
-        
-      } else {
-        let reader = env.deviceManager.glucoseMeter(for: scannedDevice, queue: env.mainQueue)
-        
-        publisher = reader.read(device: scannedDevice)
-          .map { $0.map(Reading.glucose) }
-          .eraseToAnyPublisher()
-      }
-      
-      return publisher
-        .map(DeviceConnection.Action.newReading)
-        .catch { error in Just(DeviceConnection.Action.readingFailed(error.localizedDescription))}
-        .receive(on: env.mainQueue)
-        .eraseToEffect()
-        .cancellable(id: LongRunningReads())
-      
+      state.hasPairedSuccessfully = true
+      return .none
       
     case let .pairDevice(device):
       state.status = .pairing
@@ -360,15 +377,28 @@ extension DeviceConnection {
                 .cornerRadius(5.0)
             }
 
-            Button {
-              if let device = viewStore.scannedDevice {
-                viewStore.send(.pairDevice(device))
+            HStack {
+              Button {
+                if let device = viewStore.scannedDevice {
+                  viewStore.send(.pairDevice(device))
+                }
+              } label: {
+                Text(viewStore.hasPairedSuccessfully ? "Paired" : "Pair")
               }
-            } label: {
-              Text("Pair & Read")
+              .disabled(viewStore.canPair == false)
+              .cornerRadius(8.0)
+
+              Button {
+                if let device = viewStore.scannedDevice {
+                  viewStore.send(.startReading(device))
+                }
+              } label: {
+                Text("Read")
+              }
+              .disabled(viewStore.canRead == false)
+              .cornerRadius(8.0)
             }
-            .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canPairAndRead == false))
-            .cornerRadius(8.0)
+            .buttonStyle(RegularButtonStyle())
             .padding(.vertical, 8)
             .padding(.horizontal, 32)
 
