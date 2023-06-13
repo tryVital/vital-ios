@@ -105,7 +105,7 @@ extension DeviceConnection {
     var canRead: Bool {
       switch self.status {
       case .paired, .readingFailed, .serverSuccess, .serverFailed, .deviceNoData:
-          return scannedDevice != nil
+          return scannedDevice != nil && hasPairedSuccessfully == true
         default:
           return false
       }
