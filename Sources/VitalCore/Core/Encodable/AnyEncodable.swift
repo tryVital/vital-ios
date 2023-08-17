@@ -1,3 +1,5 @@
+import Foundation
+
 public struct VitalAnyEncodable: Encodable {
   private let encode: (Encoder) throws -> Void
   
@@ -9,6 +11,11 @@ public struct VitalAnyEncodable: Encodable {
   
   public func encode(to encoder: Encoder) throws {
     try encode(encoder)
+  }
+
+  public var dictionary: [String: AnyHashable]? {
+    guard let data = try? JSONEncoder().encode(self) else { return nil }
+    return (try? JSONSerialization.jsonObject(with: data, options: .allowFragments)).flatMap { $0 as? [String: AnyHashable] }
   }
 }
 
