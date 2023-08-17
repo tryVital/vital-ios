@@ -1043,7 +1043,7 @@ func enrichWithDates(
 
 /// We compute one summary per quantity type for the calendar day in the
 /// **CURRENT DEVICE TIME ZONE**. After all, a (floating) day cannot be
-/// projected into into UTC time without a time zone, and the user intuition is
+/// projected into UTC time without a time zone, and the user intuition is
 /// to see numbers and time that align to their perception of time.
 ///
 /// (where the device time zone is the closest approximation)

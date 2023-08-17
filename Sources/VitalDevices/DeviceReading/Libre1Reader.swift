@@ -43,7 +43,7 @@ public class Libre1Reader {
   }
 }
 
-public struct Libre1Read: Equatable {
+public struct Libre1Read: Equatable, Encodable {
   public let samples: [QuantitySample]
   public let sensor: Libre1Sensor
   
@@ -53,8 +53,8 @@ public struct Libre1Read: Equatable {
   }
 }
 
-public struct Libre1Sensor: Equatable {
-  public enum State: Equatable   {
+public struct Libre1Sensor: Equatable, Encodable {
+  public enum State: String, Equatable, Encodable   {
     case unknown
     case notActivated
     case warmingUp
@@ -94,5 +94,12 @@ public struct Libre1Sensor: Equatable {
     self.maxLife = sensor.maxLife
     self.age = sensor.age
     self.state = State(sensor.state)
+  }
+
+  public init(serial: String, maxLife: Int, age: Int, state: State) {
+    self.serial = serial
+    self.maxLife = maxLife
+    self.age = age
+    self.state = state
   }
 }

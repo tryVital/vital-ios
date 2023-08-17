@@ -49,5 +49,8 @@ let package = Package(
     .testTarget(
       name: "VitalCoreTests",
       dependencies: ["VitalCore", "Mocker"]),
+    .testTarget(
+      name: "VitalDevicesTests",
+      dependencies: ["VitalDevices"]),
   ]
 )
