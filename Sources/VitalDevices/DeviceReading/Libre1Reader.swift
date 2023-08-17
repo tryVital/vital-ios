@@ -54,7 +54,7 @@ public struct Libre1Read: Equatable, Encodable {
 }
 
 public struct Libre1Sensor: Equatable, Encodable {
-  public enum State: String, Equatable, Encodable   {
+  public enum State: String, RawRepresentable, Equatable, Encodable   {
     case unknown
     case notActivated
     case warmingUp
