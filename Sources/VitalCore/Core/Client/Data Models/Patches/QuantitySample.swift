@@ -11,7 +11,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
   public var type: String?
   public var unit: String
   
-  private var metadata: VitalAnyEncodable?
+  public var metadata: VitalAnyEncodable?
   
   public init(
     id: String? = nil,
