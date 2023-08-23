@@ -253,22 +253,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       apiKey: apiKey
     )
     
-    let apiClient = APIClient(baseURL: URL(string: environment.host)!) { configuration in
-      configuration.delegate = apiClientDelegate
-      
-      updateAPIClientConfiguration(&configuration)
-      
-      let encoder = JSONEncoder()
-      encoder.dateEncodingStrategy = .iso8601
-      encoder.keyEncodingStrategy = .convertToSnakeCase
-      
-      let decoder = JSONDecoder()
-      decoder.keyDecodingStrategy = .convertFromSnakeCase
-      decoder.dateDecodingStrategy = .iso8601
-      
-      configuration.encoder = encoder
-      configuration.decoder = decoder
-    }
+    let apiClient = makeClient(environment: environment, delegate: apiClientDelegate)
     
     let securePayload = VitalCoreSecurePayload(
       configuration: configuration,

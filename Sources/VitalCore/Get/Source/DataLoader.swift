@@ -6,6 +6,9 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // A simple URLSession wrapper adding async/await APIs compatible with older platforms.
 final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDelegate, @unchecked Sendable {
@@ -31,8 +34,13 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
   func startDataTask(_ task: URLSessionDataTask, session: URLSession, delegate: URLSessionDataDelegate?) async throws -> Response<Data> {
     try await withTaskCancellationHandler(operation: {
       try await withUnsafeThrowingContinuation { continuation in
+        let id = beginBackgroundTask(expirationHandler: { [weak task] in task?.cancel() })
+
         let handler = DataTaskHandler(delegate: delegate)
-        handler.completion = continuation.resume(with:)
+        handler.completion = { result in
+          continuation.resume(with: result)
+          endBackgroundTask(id: id)
+        }
         self.handlers[task] = handler
         
         task.resume()
@@ -390,3 +398,12 @@ private final class TaskHandlersDictionary {
   }
 }
 
+private func beginBackgroundTask(expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
+  return UIApplication.shared.beginBackgroundTask(withName: nil, expirationHandler: expirationHandler)
+}
+
+private func endBackgroundTask(id: UIBackgroundTaskIdentifier) {
+  if id != .invalid {
+    UIApplication.shared.endBackgroundTask(id)
+  }
+}
