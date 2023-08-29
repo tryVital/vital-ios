@@ -10,4 +10,6 @@ enum DataSource: String, CaseIterable {
   case suunto = "com.sports-tracker.suunto.iphone"
   case xiaomi = "com.xiaomi.miwatch.pro"
   case muse = "com.interaxon.muse"
+  case biostrap = "com.biostrap.Biostrap"
+  case cardiomood = "com.corsanohealth.cardiomood"
 }
