@@ -226,8 +226,6 @@ struct StatisticsQueryDependencies {
   /// and the resulting statistics use end-exclusive time intervals as well.
   var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity) async throws -> [VitalStatistics]
 
-  var getFirstAndLastSampleTime: (HKQuantityType, Range<Date>) async throws -> Range<Date>?
-  
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
   
@@ -238,8 +236,6 @@ struct StatisticsQueryDependencies {
 
   static var debug: StatisticsQueryDependencies {
     return .init { _, _, _ in
-      fatalError()
-    } getFirstAndLastSampleTime: { _, _ in
       fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
@@ -312,50 +308,43 @@ struct StatisticsQueryDependencies {
           return
         }
 
-        // HKSourceQuery should report the set of sources of all the samples that
-        // would have been matched by the HKStatisticsCollectionQuery.
-        let sourceQuery = HKSourceQuery(sampleType: type, samplePredicate: predicate) { _, sources, _ in
-          let sources = sources?.map { $0.bundleIdentifier } ?? []
-          let values: [HKStatistics] = collection.statistics().filter { entry in
-            // We perform a HKStatisticsCollectionQuery w/o strictStartDate and strictEndDate in
-            // order to have aggregates matching numbers in the Health app.
-            //
-            // However, a caveat is that HealthKit can often return incomplete statistics point
-            // outside the query interval we specified. While including samples astriding the
-            // bounds would desirably contribute to stat points we are interested in, as a byproduct,
-            // of the bucketing process (in our case, hourly buckets), HealthKit would also create
-            // stat points from the unwanted portion of these samples.
-            //
-            // These unwanted stat points must be explicitly discarded, since they are not backed by
-            // the complete set of samples within their representing time interval (as they are
-            // rightfully excluded by the query interval we specified).
-            //
-            // Since both `queryInterval` and HKStatistics start..<end are end-exclusive, we only
-            // need to test the start to filter out said unwanted entries.
-            //
-            // e.g., Given queryInterval = 23-02-03T01:00 ..< 23-02-04T01:00
-            //        statistics[0]: 23-02-03T00:00 ..< 23-02-03T01:00 ❌
-            //        statistics[1]: 23-02-03T01:00 ..< 23-02-03T02:00 ✅
-            //        statistics[2]: 23-02-03T02:00 ..< 23-02-03T03:00 ✅
-            //        ...
-            //       statistics[23]: 23-02-03T23:00 ..< 23-02-04T00:00 ✅
-            //       statistics[24]: 23-02-04T00:00 ..< 23-02-04T01:00 ✅
-            //       statistics[25]: 23-02-04T01:00 ..< 23-02-04T02:00 ❌
-            queryInterval.contains(entry.startDate)
-          }
-
-          do {
-            let vitalStatistics = try values.map { statistics in
-              try VitalStatistics(statistics: statistics, type: type)
-            }
-
-            continuation.resume(returning: vitalStatistics)
-          } catch let error {
-            continuation.resume(throwing: error)
-          }
+        let values: [HKStatistics] = collection.statistics().filter { entry in
+          // We perform a HKStatisticsCollectionQuery w/o strictStartDate and strictEndDate in
+          // order to have aggregates matching numbers in the Health app.
+          //
+          // However, a caveat is that HealthKit can often return incomplete statistics point
+          // outside the query interval we specified. While including samples astriding the
+          // bounds would desirably contribute to stat points we are interested in, as a byproduct,
+          // of the bucketing process (in our case, hourly buckets), HealthKit would also create
+          // stat points from the unwanted portion of these samples.
+          //
+          // These unwanted stat points must be explicitly discarded, since they are not backed by
+          // the complete set of samples within their representing time interval (as they are
+          // rightfully excluded by the query interval we specified).
+          //
+          // Since both `queryInterval` and HKStatistics start..<end are end-exclusive, we only
+          // need to test the start to filter out said unwanted entries.
+          //
+          // e.g., Given queryInterval = 23-02-03T01:00 ..< 23-02-04T01:00
+          //        statistics[0]: 23-02-03T00:00 ..< 23-02-03T01:00 ❌
+          //        statistics[1]: 23-02-03T01:00 ..< 23-02-03T02:00 ✅
+          //        statistics[2]: 23-02-03T02:00 ..< 23-02-03T03:00 ✅
+          //        ...
+          //       statistics[23]: 23-02-03T23:00 ..< 23-02-04T00:00 ✅
+          //       statistics[24]: 23-02-04T00:00 ..< 23-02-04T01:00 ✅
+          //       statistics[25]: 23-02-04T01:00 ..< 23-02-04T02:00 ❌
+          queryInterval.contains(entry.startDate)
         }
 
-        healthKitStore.execute(sourceQuery)
+        do {
+          let vitalStatistics = try values.map { statistics in
+            try VitalStatistics(statistics: statistics, type: type)
+          }
+
+          continuation.resume(returning: vitalStatistics)
+        } catch let error {
+          continuation.resume(throwing: error)
+        }
       }
 
       // If task is already cancelled, don't bother with starting the query.
@@ -367,54 +356,6 @@ struct StatisticsQueryDependencies {
         }
 
         healthKitStore.execute(query)
-      }
-
-    } getFirstAndLastSampleTime: { type, queryInterval in
-
-      // If task is already cancelled, don't bother with starting the query.
-      try Task.checkCancellation()
-
-      return try await withCheckedThrowingContinuation { continuation in
-        healthKitStore.execute(
-          HKStatisticsQuery(
-            quantityType: type,
-            // start <= %K AND %K < end (end exclusive)
-            quantitySamplePredicate: HKQuery.predicateForSamples(
-              withStart: queryInterval.lowerBound,
-              end: queryInterval.upperBound,
-              options: []
-            ),
-            // We don't care about the actual aggregate results. Most Recent is picked here only
-            // because logically it does the least amount of work amongst all operator options.
-            options: [.mostRecent]
-          ) { query, statistics, error in
-            guard let statistics = statistics else {
-              precondition(error != nil, "HKStatisticsQuery returns neither a result nor an error.")
-
-              switch (error as? HKError)?.code {
-              case .errorNoData:
-                continuation.resume(returning: nil)
-              default:
-                continuation.resume(throwing: error!)
-              }
-
-              return
-            }
-
-            // Unlike those from the HKStatisticsCollectionQuery, the single statistics from
-            // HKStatisticsQuery uses the earliest start date and the latest end date from all the
-            // samples matched by the predicate — this is the exact information we are looking for.
-            //
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615351-startdate
-            // https://developer.apple.com/documentation/healthkit/hkstatistics/1615067-enddate
-            //
-            // Clamp it to our queryInterval still.
-            continuation.resume(
-              returning: (statistics.startDate ..< statistics.endDate)
-                .clamped(to: queryInterval)
-            )
-          }
-        )
       }
 
     } isFirstTimeSycingType: { type in

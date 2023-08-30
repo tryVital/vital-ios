@@ -221,12 +221,6 @@ class VitalHealthKitReadsTests: XCTestCase {
       let element = vitalStastics.removeFirst()
       return element
     }
-
-    debug.getFirstAndLastSampleTime = { type, _ in
-      XCTAssertEqual(quantityType, type)
-
-      return nil
-    }
     
     debug.isLegacyType = { type in
       XCTAssertEqual(quantityType, type)
@@ -285,11 +279,6 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [Range<Date>] = []
 
-    debug.getFirstAndLastSampleTime = { type, _ in
-      XCTAssertEqual(quantityType, type)
-      return nil
-    }
-    
     debug.executeStatisticalQuery = { type, queryInterval, granularity in
       XCTAssertEqual(quantityType, type)
       XCTAssertEqual(granularity, .hourly)
