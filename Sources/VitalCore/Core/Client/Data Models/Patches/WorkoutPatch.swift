@@ -13,7 +13,11 @@ public struct WorkoutPatch: Equatable, Encodable {
     
     public var heartRate: [QuantitySample] = []
     public var respiratoryRate: [QuantitySample] = []
-    
+
+    public var sourceType: SourceType {
+      return .infer(sourceBundle: sourceBundle, productType: productType)
+    }
+
     public init(
       id: UUID? = nil,
       startDate: Date,

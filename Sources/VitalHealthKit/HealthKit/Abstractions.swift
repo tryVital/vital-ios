@@ -346,7 +346,7 @@ struct StatisticsQueryDependencies {
 
           do {
             let vitalStatistics = try values.map { statistics in
-              try VitalStatistics(statistics: statistics, type: type, sources: sources)
+              try VitalStatistics(statistics: statistics, type: type)
             }
 
             continuation.resume(returning: vitalStatistics)

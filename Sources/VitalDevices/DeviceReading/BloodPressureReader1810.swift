@@ -63,7 +63,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
       value: SFloat.read(data: pulseBytes),
       startDate: date,
       endDate: date,
-      type: "cuff",
+      type: .cuff,
       unit: "bpm"
     )
   } else {
@@ -75,7 +75,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
     value: SFloat.read(data: systolicBytes),
     startDate: date,
     endDate: date,
-    type: "cuff",
+    type: .cuff,
     unit: units
   )
   let diastolicSample = QuantitySample(
@@ -83,7 +83,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
     value: SFloat.read(data: diastolicBytes),
     startDate: date,
     endDate: date,
-    type: "cuff",
+    type: .cuff,
     unit: units
   )
   
