@@ -96,7 +96,7 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
     value: value,
     startDate: date,
     endDate: date,
-    type: "fingerprick",
+    type: .fingerprick,
     unit: unit,
     metadata: VitalAnyEncodable(
       ["ble_time_offset": bleTimeOffset]

@@ -185,12 +185,12 @@ class VitalHealthKitReadsTests: XCTestCase {
     let key = "key"
     var vitalStastics: [[VitalStatistics]] = [
       [
-        .init(value: 10, type: type, startDate: Date(), endDate: Date(), sources: []),
-        .init(value: 20, type: type, startDate: Date(), endDate: Date(), sources: []),
-        .init(value: 30, type: type, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 10, type: type, startDate: Date(), endDate: Date()),
+        .init(value: 20, type: type, startDate: Date(), endDate: Date()),
+        .init(value: 30, type: type, startDate: Date(), endDate: Date())
       ],
       [
-        .init(value: 5, type: type, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 5, type: type, startDate: Date(), endDate: Date())
       ]
     ]
     
@@ -273,7 +273,7 @@ class VitalHealthKitReadsTests: XCTestCase {
     let key = "key"
     var vitalStastics: [[VitalStatistics]] = [
       [
-        .init(value: 5, type: type, startDate: Date(), endDate: Date(), sources: [])
+        .init(value: 5, type: type, startDate: Date(), endDate: Date())
       ]
     ]
     

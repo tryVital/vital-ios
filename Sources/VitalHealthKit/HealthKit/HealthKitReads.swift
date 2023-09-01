@@ -1014,34 +1014,7 @@ func queryStatisticsSample(
     date: newEndDate
   )
 
-  let enrichedStatistics = try await enrichWithDates(dependencies: dependency, statistics: statistics)
-
-  return (enrichedStatistics, anchor)
-}
-
-
-func enrichWithDates(
-  dependencies: StatisticsQueryDependencies,
-  statistics: [VitalStatistics]
-) async throws -> [VitalStatistics] {
-  return try await withThrowingTaskGroup(of: VitalStatistics.self) { group in
-    for entry in statistics {
-      group.addTask {
-        let sampleTimeRange = try await dependencies.getFirstAndLastSampleTime(
-          entry.type,
-          entry.startDate ..< entry.endDate
-        )
-
-        if let range = sampleTimeRange {
-          return entry.withSampleDates(first: range.lowerBound, last: range.upperBound)
-        } else {
-          return entry
-        }
-      }
-    }
-
-    return try await group.reduce(into: []) { $0.append($1) }
-  }
+  return (statistics, anchor)
 }
 
 /// We compute one summary per quantity type for the calendar day in the

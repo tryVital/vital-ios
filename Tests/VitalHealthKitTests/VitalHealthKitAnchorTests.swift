@@ -9,12 +9,12 @@ class VitalHealthKitAnchorTests: XCTestCase {
   func testAnchorsPopulation() {
     let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let input: [VitalStatistics] = [
-      .init(value: 1, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 2, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 3, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 4, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 4, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 0, type: type, startDate: Date(), endDate: Date(), sources: [])
+      .init(value: 1, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 2, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 3, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 4, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 4, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 0, type: type, startDate: Date(), endDate: Date())
     ]
     
     let values = calculateIdsForAnchorsPopulation(vitalStatistics: input, date: Date())
@@ -37,8 +37,8 @@ class VitalHealthKitAnchorTests: XCTestCase {
     ]
     
     let new: [VitalStatistics] = [
-      .init(value: 5, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 0, type: type, startDate: Date(), endDate: Date(), sources: [])
+      .init(value: 5, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 0, type: type, startDate: Date(), endDate: Date())
     ]
     
     let values = calculateIdsForAnchorsAndData(vitalStatistics: new, existingAnchors: existing, key: key, date: Date())
@@ -53,8 +53,8 @@ class VitalHealthKitAnchorTests: XCTestCase {
     ]
     
     let new: [VitalStatistics] = [
-      .init(value: 1, type: type, startDate: Date(), endDate: Date(), sources: []),
-      .init(value: 2, type: type, startDate: Date(), endDate: Date(), sources: [])
+      .init(value: 1, type: type, startDate: Date(), endDate: Date()),
+      .init(value: 2, type: type, startDate: Date(), endDate: Date())
     ]
     
     let values = calculateIdsForAnchorsAndData(vitalStatistics: new, existingAnchors: existing, key: key, date: Date())

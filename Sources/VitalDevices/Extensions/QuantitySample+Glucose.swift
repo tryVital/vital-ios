@@ -44,7 +44,7 @@ extension QuantitySample {
       value: glucose.valueUnit,
       startDate: glucose.date,
       endDate: glucose.date,
-      type: "automatic",
+      type: .manualScan,
       unit: "mmol/L",
       metadata: FreestyleLibreGlucoseDigest(glucose: glucose)
         .eraseToAnyEncodable()

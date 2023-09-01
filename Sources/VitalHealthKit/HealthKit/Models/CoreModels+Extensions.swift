@@ -149,7 +149,7 @@ extension QuantitySample {
       endDate: sample.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
       productType: value.sourceRevision.productType,
-      type: "automatic",
+      type: nil,
       unit: sample.sampleType.toUnitStringRepresentation
     )
   }
@@ -160,7 +160,7 @@ func isValidStatistic(_ statistics: VitalStatistics) -> Bool {
 }
 
 func generateIdForAnchor(_ statistics: VitalStatistics) -> String? {
-  let id = "\(statistics.startDate)-\(statistics.endDate)-\(statistics.type)-\(statistics.value)-\(statistics.sourcesValue)"
+  let id = "\(statistics.startDate)-\(statistics.endDate)-\(statistics.type)-\(statistics.value)"
   return id.sha256()
 }
 
@@ -182,24 +182,17 @@ extension QuantitySample {
     else {
       return nil
     }
-    
-    let metadata = VitalAnyEncodable(
-      [
-        "firstSampleDate": statistics.firstSampleDate,
-        "lastSampleDate": statistics.lastSampleDate
-      ]
-    )
-    
+
     self.init(
       id: idString,
       value: statistics.value,
       startDate: statistics.startDate,
       endDate: statistics.endDate,
-      sourceBundle: statistics.sourcesValue,
-      productType: "n/a",
-      type: "automatic",
+      sourceBundle: nil,
+      productType: nil,
+      type: nil,
       unit: sampleType.toUnitStringRepresentation,
-      metadata: metadata
+      metadata: nil
     )
   }
 }
@@ -448,7 +441,7 @@ extension QuantitySample {
       endDate: categorySample.endDate,
       sourceBundle: categorySample.sourceRevision.source.bundleIdentifier,
       productType: categorySample.sourceRevision.productType,
-      type: "automatic",
+      type: nil,
       unit: "stage"
     )
   }
@@ -468,7 +461,7 @@ extension QuantitySample {
       endDate: sample.endDate,
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
-      type: "automatic",
+      type: nil,
       unit: "minute"
     )
   }

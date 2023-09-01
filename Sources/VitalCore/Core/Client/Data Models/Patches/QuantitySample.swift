@@ -8,11 +8,21 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
   public var endDate: Date
   public var sourceBundle: String?
   public var productType: String?
-  public var type: String?
+  public var type: SourceType?
   public var unit: String
   
   public var metadata: VitalAnyEncodable?
-  
+
+  public var sourceType: SourceType {
+    switch type {
+    case .unknown?, nil:
+      return .infer(sourceBundle: sourceBundle, productType: productType)
+
+    case let type?:
+      return type
+    }
+  }
+
   public init(
     id: String? = nil,
     value: Double,
@@ -20,7 +30,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     endDate: Date,
     sourceBundle: String? = nil,
     productType: String? = nil,
-    type: String? = nil,
+    type: SourceType? = nil,
     unit: String,
     metadata: VitalAnyEncodable? = nil
   ) {
@@ -41,7 +51,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     date: Date,
     sourceBundle: String? = nil,
     productType: String? = nil,
-    type: String? = nil,
+    type: SourceType? = nil,
     unit: String,
     metadata: VitalAnyEncodable? = nil
   ) {

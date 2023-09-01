@@ -30,6 +30,10 @@ public struct SleepPatch: Equatable, Encodable {
     public var wristTemperature: [QuantitySample] = []
 
     public var sleepStages: SleepStages = .init()
+
+    public var sourceType: SourceType {
+      return .infer(sourceBundle: sourceBundle, productType: productType)
+    }
     
     public init(
       id: UUID? = nil,
