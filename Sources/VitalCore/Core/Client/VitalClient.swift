@@ -1,7 +1,7 @@
 import Foundation
 import os.log
 
-let sdk_version = "0.9.9"
+let sdk_version = "0.10.0"
 
 struct Credentials: Equatable, Hashable {
   let apiKey: String
