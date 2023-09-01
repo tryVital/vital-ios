@@ -26,7 +26,7 @@ extension SourceType {
       if productType.starts(with: "watch") {
         return .watch
       }
-      if productType.starts(with: "phone") {
+      if productType.starts(with: "iphone") {
         return .phone
       }
       return .unknown
