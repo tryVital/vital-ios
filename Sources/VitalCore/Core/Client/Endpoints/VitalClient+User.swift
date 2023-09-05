@@ -16,7 +16,7 @@ public extension VitalClient {
 public extension VitalClient.User {
 
   func userConnectedSources() async throws -> [Provider] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let path = "/\(configuration.apiVersion)/\(path)/providers/\(userId)"
@@ -61,7 +61,7 @@ public extension VitalClient.User {
   }
   
   func deregisterProvider(provider: Provider.Slug) async throws -> Void {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let path = "/\(configuration.apiVersion)/\(path)/\(userId)/\(provider.rawValue)"

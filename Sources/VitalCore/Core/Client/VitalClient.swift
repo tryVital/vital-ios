@@ -14,6 +14,8 @@ struct VitalCoreConfiguration {
   let apiClient: APIClient
   let environment: Environment
   let storage: VitalCoreStorage
+  let authMode: VitalClient.AuthMode
+  let jwtAuth: VitalJWTAuth
 }
 
 struct VitalCoreSecurePayload: Codable {
@@ -108,7 +110,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
-  let userId: ProtectedBox<UUID>
+
+  // @testable
+  internal let apiKeyModeUserId: ProtectedBox<UUID>
   
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
@@ -145,6 +149,28 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     configure(apiKey: apiKey, environment: environment, configuration: .init(logsEnable: isLogsEnable))
   }
 
+  /// Configure the SDK in User JWT mode (No API Key).
+  ///
+  /// In this mode, your app requests a Vital Sign-In Token **through your backend service**, typically at the same time when
+  /// your user sign-ins with your backend service. This allows your backend service to keep the API Key as a private secret.
+  public static func configure(
+    environment: Environment,
+    configuration: Configuration = .init(authMode: .userJwt)
+  ) {
+    precondition(configuration.authMode == .userJwt)
+
+    self.shared.setConfiguration(
+      apiKey: "",
+      environment: environment,
+      configuration: configuration,
+      storage: .init(storage: .live),
+      apiVersion: "v2"
+    )
+  }
+
+  /// Configure the SDK in the legacy API Key mode.
+  ///
+  /// API Key mode will continue to be supported. But users should plan to migrate to the User JWT mode.
   public static func configure(
     apiKey: String,
     environment: Environment,
@@ -180,7 +206,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
 
   public static var isConfigured: Bool {
-    guard !(self.shared.userId.isNil()) else { return false }
+    guard !(self.shared.apiKeyModeUserId.isNil()) else { return false }
     guard !(self.shared.configuration.isNil()) else { return false }
     return true
   }
@@ -192,16 +218,28 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       /// because the latter depends on the former. If we don't do this, the app crash.
       if let payload: VitalCoreSecurePayload = try shared.secureStorage.get(key: core_secureStorageKey) {
         
-        /// 1) Set the configuration
-        configure(
-          apiKey: payload.apiKey,
-          environment: payload.environment,
-          configuration: payload.configuration
-        )
+        switch payload.configuration.authMode {
+        case .apiKey:
+          /// 1) Set the configuration
+          configure(
+            apiKey: payload.apiKey,
+            environment: payload.environment,
+            configuration: payload.configuration
+          )
 
-        if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
-          /// 2) If and only if there's a `userId`, we set it.
-          shared._setUserId(userId)
+          if let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey) {
+            /// 2) If and only if there's a `userId`, we set it.
+            shared._setUserId(userId)
+          }
+
+        case .userJwt:
+          configure(
+            environment: payload.environment,
+            configuration: payload.configuration
+          )
+
+          // VitalJWTAuth self-manages its state persistence, including user ID.
+          break
         }
       }
 
@@ -221,7 +259,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   ) {
     self.secureStorage = secureStorage
     self.configuration = configuration
-    self.userId = userId
+    self.apiKeyModeUserId = userId
     
     super.init()
   }
@@ -246,13 +284,22 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
     
     logger?.info("VitalClient setup for environment \(String(describing: environment), privacy: .public)")
-    
+
+    let authStrategy: VitalClientAuthStrategy
+
+    switch configuration.authMode {
+    case .apiKey:
+      authStrategy = .apiKey(apiKey)
+    case .userJwt:
+      authStrategy = .jwt(VitalJWTAuth.live)
+    }
+
     let apiClientDelegate = VitalClientDelegate(
       environment: environment,
       logger: logger,
-      apiKey: apiKey
+      authStrategy: authStrategy
     )
-    
+
     let apiClient = makeClient(environment: environment, delegate: apiClientDelegate)
     
     let securePayload = VitalCoreSecurePayload(
@@ -274,16 +321,32 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       apiVersion: apiVersion,
       apiClient: apiClient,
       environment: environment,
-      storage: storage
+      storage: storage,
+      authMode: configuration.authMode,
+      jwtAuth: VitalJWTAuth.live
     )
     
     self.configuration.set(value: coreConfiguration)
   }
-  
+
+  public func signIn(_ rawToken: String) async throws {
+    let configuration = await configuration.get()
+
+    guard configuration.authMode == .userJwt else {
+      fatalError("signIn(_:) is incompatible with Vital SDK in Legacy API Key mode")
+    }
+
+    try await configuration.jwtAuth.signIn(rawToken)
+  }
+
   private func _setUserId(_ newUserId: UUID) {
     guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
       fatalError("You need to call `VitalClient.configure` before setting the `userId`")
+    }
+
+    guard configuration.authMode == .apiKey else {
+      fatalError("setUserId(_:) is incompatible with Vital SDK in User JWT mode")
     }
 
     do {
@@ -296,7 +359,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       configuration.logger?.info("We weren't able to get the stored userId VitalCoreSecurePayload: \(error, privacy: .public)")
     }
     
-    self.userId.set(value: newUserId)
+    self.apiKeyModeUserId.set(value: newUserId)
     
     do {
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
@@ -305,17 +368,34 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       configuration.logger?.info("We weren't able to securely store VitalCoreSecurePayload: \(error, privacy: .public)")
     }
   }
-  
-  @objc public static func setUserId(_ newUserId: UUID) {
+
+  @objc(signInWithToken:completion:)
+  public static func objc_signIn(_ rawToken: String, completion: @escaping (Error?) -> Void) {
+    Task {
+      do {
+        try await shared.signIn(rawToken)
+        completion(nil)
+      } catch let error {
+        completion(error)
+      }
+    }
+  }
+
+  @nonobjc public static func signIn(_ rawToken: String) async throws {
+    try await shared.signIn(rawToken)
+  }
+
+  @objc(setUserId:) public static func objc_setUserId(_ newUserId: UUID) {
     shared._setUserId(newUserId)
   }
 
-  public static func setUserId(_ newUserId: UUID) async {
+  @nonobjc public static func setUserId(_ newUserId: UUID) async {
     shared._setUserId(newUserId)
   }
+
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
-    let userId = await userId.get()
+    let userId = try await getUserId()
     let storage = await configuration.get().storage
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
@@ -327,7 +407,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
   
   public func checkConnectedSource(for provider: Provider.Slug) async throws {
-    let userId = await userId.get()
+    let userId = try await getUserId()
     let storage = await configuration.get().storage
     
     if try await isUserConnected(to: provider) == false {
@@ -352,19 +432,40 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
     
-    self.userId.clean()
+    self.apiKeyModeUserId.clean()
     self.configuration.clean()
+  }
+
+  internal func getUserId() async throws -> String {
+    let configuration = await configuration.get()
+    switch configuration.authMode {
+    case .apiKey:
+      return await apiKeyModeUserId.get().uuidString
+
+    case .userJwt:
+      // In User JWT mode, we need not wait for user ID to be set.
+      // VitalUserJWT will lazy load the authenticated user from Keychain on first access.
+      return try await configuration.jwtAuth.userContext().userId
+    }
   }
 }
 
 public extension VitalClient {
+  enum AuthMode: String, Codable {
+    case apiKey
+    case userJwt
+  }
+
   struct Configuration: Codable {
     public let logsEnable: Bool
+    public let authMode: AuthMode
     
     public init(
-      logsEnable: Bool = false
+      logsEnable: Bool = false,
+      authMode: AuthMode = .apiKey
     ) {
       self.logsEnable = logsEnable
+      self.authMode = authMode
     }
   }
 }

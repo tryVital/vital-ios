@@ -1,23 +1,37 @@
 import Foundation
 import os.log
 
+enum VitalClientAuthStrategy {
+  case apiKey(String)
+  case jwt(VitalJWTAuth)
+}
+
 class VitalClientDelegate: APIClientDelegate {
   private let environment: Environment
   private let logger: Logger?
-  private let apiKey: String
+  private let authStrategy: VitalClientAuthStrategy
 
   init(
     environment: Environment,
     logger: Logger? = nil,
-    apiKey: String
+    authStrategy: VitalClientAuthStrategy
   ) {
     self.environment = environment
     self.logger = logger
-    self.apiKey = apiKey
+    self.authStrategy = authStrategy
   }
   
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
-    request.setValue(apiKey, forHTTPHeaderField: "x-vital-api-key")
+
+    switch authStrategy {
+    case let .apiKey(apiKey):
+      request.setValue(apiKey, forHTTPHeaderField: "x-vital-api-key")
+
+    case let .jwt(auth):
+      let accessToken = try await auth.withAccessToken { $0 }
+      request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "authorization")
+    }
+
     request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
 
     let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary"]))
@@ -30,15 +44,22 @@ class VitalClientDelegate: APIClientDelegate {
   }
   
   func client(_ client: APIClient, shouldRetry task: URLSessionTask, error: Error, attempts: Int) async throws -> Bool {
-    guard case .unacceptableStatusCode(401) = error as? APIError else {
+    guard
+      attempts <= 3,
+      case .unacceptableStatusCode(401) = error as? APIError
+    else { return false }
+    
+    switch authStrategy {
+    case .apiKey:
+      // API Key revoked
       return false
+
+    case let .jwt(auth):
+      try await auth.refreshToken()
+      return true
     }
-    
-    self.logger?.info("Retrying after error: \(error, privacy: .public)")
-    
-    return true
   }
-  
+
   func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) throws {
     if (200..<300).contains(response.statusCode) {
      return

@@ -36,7 +36,7 @@ public extension VitalClient.TimeSeries {
     provider: Provider.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let taggedPayload = TaggedPayload(
@@ -46,7 +46,7 @@ public extension VitalClient.TimeSeries {
       data: VitalAnyEncodable(timeSeriesData.payload)
     )
     
-    let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId.uuidString)
+    let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId)
     let request: Request<Void> = .init(path: fullPath, method: .post, body: taggedPayload)
     
     configuration.logger?.info("Posting TimeSeries data for: \(timeSeriesData.name, privacy: .public)")
@@ -60,13 +60,13 @@ public extension VitalClient.TimeSeries {
     provider: Provider.Slug? = nil
   ) async throws -> [TimeSeriesDataPoint] {
     
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     let path = resource.toPath
     
-    let fullPath = await makePath(for: path, userId: userId.uuidString)
+    let fullPath = await makePath(for: path, userId: userId)
     
     let request: Request<[TimeSeriesDataPoint]> = .init(path: fullPath, method: .get, query: query)
     
@@ -80,10 +80,10 @@ public extension VitalClient.TimeSeries {
     provider: Provider.Slug? = nil
   ) async throws -> [BloodPressureDataPoint] {
     
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
-    let path = await makePath(for: "blood_pressure", userId: userId.uuidString)
+    let path = await makePath(for: "blood_pressure", userId: userId)
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
     let request: Request<[BloodPressureDataPoint]> = .init(path: path, method: .get, query: query)

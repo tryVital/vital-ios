@@ -2,8 +2,8 @@ import SwiftUI
 import HealthKit
 
 public struct VitalBackStorage {
-  public var isConnectedSourceStored: (UUID, Provider.Slug) -> Bool
-  public var storeConnectedSource: (UUID, Provider.Slug) -> Void
+  public var isConnectedSourceStored: (String, Provider.Slug) -> Bool
+  public var storeConnectedSource: (String, Provider.Slug) -> Void
   
   public var flagResource: (VitalResource) -> Void
   public var isResourceFlagged: (VitalResource) -> Bool
@@ -25,8 +25,8 @@ public struct VitalBackStorage {
     let defaultValue: [String: String] = [:]
     userDefaults.register(defaults: defaultValue)
     
-    let generateKey: (UUID, Provider.Slug) -> String = { userId, provider in
-      return "\(userId.uuidString)-\(provider.rawValue)"
+    let generateKey: (String, Provider.Slug) -> String = { userId, provider in
+      return "\(userId)-\(provider.rawValue)"
     }
     
     return .init { userId, provider in
@@ -65,8 +65,8 @@ public struct VitalBackStorage {
 
     var dateStorage: [String: Double] = [:]
 
-    let generateKey: (UUID, Provider.Slug) -> String = { userId, provider in
-      return "\(userId.uuidString)-\(provider.rawValue)"
+    let generateKey: (String, Provider.Slug) -> String = { userId, provider in
+      return "\(userId)-\(provider.rawValue)"
     }
     
     return .init { userId, provider in
@@ -104,11 +104,11 @@ class VitalCoreStorage {
     self.storage = storage
   }
   
-  func storeConnectedSource(for userId: UUID, with provider: Provider.Slug) {
+  func storeConnectedSource(for userId: String, with provider: Provider.Slug) {
     storage.storeConnectedSource(userId, provider)
   }
   
-  func isConnectedSourceStored(for userId: UUID, with provider: Provider.Slug) -> Bool {
+  func isConnectedSourceStored(for userId: String, with provider: Provider.Slug) -> Bool {
     return storage.isConnectedSourceStored(userId, provider)
   }
   

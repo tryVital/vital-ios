@@ -42,7 +42,7 @@ public extension VitalClient.Link {
     redirectURL: String?
   ) async throws -> String {
     
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let path = "/\(configuration.apiVersion)/\(path)/token"
@@ -54,7 +54,7 @@ public extension VitalClient.Link {
   }
   
   func createConnectedSource(
-    _ userId: UUID,
+    _ userId: String,
     provider: Provider.Slug
   ) async throws -> Void {
     
@@ -84,7 +84,7 @@ public extension VitalClient.Link {
   func createConnectedSource(
     for provider: Provider.Slug
   ) async throws -> Void {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     try await createConnectedSource(userId, provider: provider)
   }
   
