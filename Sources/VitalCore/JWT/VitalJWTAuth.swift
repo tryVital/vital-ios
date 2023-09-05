@@ -1,7 +1,9 @@
 import Foundation
 
-public enum VitalJWTAuthError: Error {
+public enum VitalJWTAuthError: Error, Hashable {
   case notSignedIn
+  case reauthenticationNeeded
+  case tokenRefreshFailure
 }
 
 internal struct VitalJWTAuthNeedsRefresh: Error {}
@@ -63,17 +65,52 @@ internal actor VitalJWTAuth {
     try await withTaskCancellationHandler {
       try Task.checkCancellation()
 
-      guard parkingLot.setEnabled(true) else {
+      guard parkingLot.tryTo(.enable) else {
         // Another task has started the refresh flow.
         // Join the ParkingLot to wait for the token refresh completion.
         try await parkingLot.parkIfNeeded()
         return
       }
 
-      // TODO: Perform the token refresh API call
+      defer { _ = parkingLot.tryTo(.disable) }
+
+      guard let record = try getRecord() else {
+        throw VitalJWTAuthError.notSignedIn
+      }
+
+      var components = URLComponents(string: "https://securetoken.googleapis.com/v1/token")!
+      components.queryItems = [URLQueryItem(name: "key", value: record.publicApiKey)]
+      var request = URLRequest(url: components.url!)
+
+      request.httpMethod = "POST"
+      request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+      let encodedToken = record.refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+      request.httpBody = "grant_type=refresh_token&refresh_token=\(encodedToken)".data(using: .utf8)
+
+      let (data, response) = try await session.data(for: request)
+      let httpResponse = response as! HTTPURLResponse
+
+      switch httpResponse.statusCode {
+      case 200 ... 299:
+        let decoder = JSONDecoder()
+        let refreshResponse = try decoder.decode(FirebaseTokenRefreshResponse.self, from: data)
+
+        var newRecord = record
+        newRecord.refreshToken = refreshResponse.refreshToken
+        newRecord.accessToken = refreshResponse.idToken
+        newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn) ?? 3600)
+
+        try setRecord(newRecord)
+
+      case 401:
+        throw VitalJWTAuthError.reauthenticationNeeded
+
+      default:
+        throw VitalJWTAuthError.tokenRefreshFailure
+      }
 
     } onCancel: {
-      _ = parkingLot.setEnabled(false)
+      _ = parkingLot.tryTo(.disable)
     }
   }
 
@@ -102,12 +139,24 @@ private struct VitalJWTAuthRecord: Codable {
   let userId: String
   let teamId: String
   let publicApiKey: String
-  let accessToken: String
-  let refreshToken: String
-  let expiry: Date
+  var accessToken: String
+  var refreshToken: String
+  var expiry: Date
 
   func isExpired(now: Date = Date()) -> Bool {
     expiry <= now
+  }
+}
+
+private struct FirebaseTokenRefreshResponse: Codable {
+  let expiresIn: String
+  let refreshToken: String
+  let idToken: String
+
+  enum CodingKeys: String, CodingKey {
+    case expiresIn = "expires_in"
+    case refreshToken = "refresh_token"
+    case idToken = "id_token"
   }
 }
 
@@ -118,21 +167,26 @@ private final class ParkingLot: @unchecked Sendable {
     case disabled
   }
 
+  enum Action {
+    case enable
+    case disable
+  }
+
   private var state: State = .disabled
   private var lock = NSLock()
 
-  func setEnabled(_ enabled: Bool) -> Bool {
+  func tryTo(_ action: Action) -> Bool {
     let (callersToRelease, hasTransitioned): ([CheckedContinuation<Void, Never>], Bool) = lock.withLock {
-      switch (self.state, enabled) {
-      case (.disabled, true):
+      switch (self.state, action) {
+      case (.disabled, .enable):
         self.state = .mustPark()
         return ([], true)
 
-      case (let .mustPark(parked), false):
+      case (let .mustPark(parked), .disable):
         self.state = .disabled
         return (Array(parked.values), true)
 
-      case (.mustPark, true), (.disabled, false):
+      case (.mustPark, .enable), (.disabled, .disable):
         return ([], false)
       }
     }
