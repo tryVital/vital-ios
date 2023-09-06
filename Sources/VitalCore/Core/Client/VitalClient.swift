@@ -25,7 +25,7 @@ struct VitalCoreSecurePayload: Codable {
   let environment: Environment
 }
 
-public enum Environment: Equatable, Hashable, Codable {
+public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
   public enum Region: String, Equatable, Hashable, Codable {
     case eu
     case us
@@ -43,7 +43,11 @@ public enum Environment: Equatable, Hashable, Codable {
   case dev(Region)
   case sandbox(Region)
   case production(Region)
-  
+
+#if DEBUG
+  case local(Region)
+#endif
+
   init?(environment: String, region: String) {
     switch(environment, region) {
       case ("production", "us"):
@@ -56,8 +60,14 @@ public enum Environment: Equatable, Hashable, Codable {
         self = .sandbox(.eu)
       case ("dev", "us"):
         self = .dev(.us)
-      case ("dev", "eu"):
-        self = .dev(.eu)
+    case ("dev", "eu"):
+      self = .dev(.eu)
+#if DEBUG
+    case ("local", "eu"):
+      self = .local(.eu)
+    case ("local", "eu"):
+      self = .local(.eu)
+#endif
       case (_, _):
         return nil
     }
@@ -77,6 +87,10 @@ public enum Environment: Equatable, Hashable, Codable {
         return "https://api.eu.tryvital.io"
       case .production(.us):
         return "https://api.tryvital.io"
+      #if DEBUG
+      case .local:
+        return "http://localhost:8000"
+      #endif
     }
   }
   
@@ -88,6 +102,10 @@ public enum Environment: Equatable, Hashable, Codable {
         return "sandbox"
       case .production:
         return "production"
+#if DEBUG
+      case .local:
+        return "local"
+#endif
     }
   }
   
@@ -99,7 +117,15 @@ public enum Environment: Equatable, Hashable, Codable {
         return region
       case .production(let region):
         return region
+#if DEBUG
+      case .local(let region):
+        return region
+#endif
     }
+  }
+
+  public var description: String {
+    "\(name) - \(region.name)"
   }
 }
 

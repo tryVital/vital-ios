@@ -25,6 +25,7 @@ extension Settings {
     
     @BindableState var credentials: Credentials = .init()
     var status: Status = .start
+    var alert: ComposableArchitecture.AlertState<Action>?
     
     var canSave: Bool {
       return credentials.apiKey.isEmpty == false &&
@@ -43,9 +44,10 @@ extension Settings {
     case setup
     case genetareUserId
     case successfulGenerateUserId(UUID)
-    case failedGeneratedUserId
+    case failedGeneratedUserId(String)
     case setEnvironment(VitalCore.Environment)
     case nop
+    case dismissAlert
   }
   
   class Environment {
@@ -58,12 +60,25 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case .nop:
       return .none
+
+    case .dismissAlert:
+      state.alert = nil
+      return .none
       
     case let .setEnvironment(environment):
       state.credentials.environment = environment
       return .none
       
-    case .failedGeneratedUserId:
+    case let .failedGeneratedUserId(error):
+      state.alert = AlertState<Settings.Action> {
+        TextState("Error")
+      } actions: {
+        ButtonState(role: ButtonStateRole.cancel, action: .send(nil)) {
+          TextState("OK")
+        }
+      } message: {
+        TextState("Failed to create user: \(error)")
+      }
       return .none
       
     case let .successfulGenerateUserId(userId):
@@ -71,6 +86,8 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       return .init(value: .save)
       
     case .genetareUserId:
+      state.credentials.userId = ""
+
       let date = Date()
       let string = DateFormatter().string(from: date).replacingOccurrences(of: " ", with: "_")
       
@@ -86,7 +103,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         return .successfulGenerateUserId(result.userId)
       }
       .catch { error in
-        return Just(Settings.Action.failedGeneratedUserId)
+        return Just(Settings.Action.failedGeneratedUserId(String(describing: error)))
       }
       .receive(on: DispatchQueue.main)
       .eraseToEffect()
@@ -111,7 +128,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
           await VitalHealthKitClient.configure(
             .init(
               backgroundDeliveryEnabled: true,
-              numberOfDaysToBackFill: 120,
+              numberOfDaysToBackFill: 30,
               logsEnabled: true
             )
           )
@@ -187,35 +204,16 @@ extension Settings {
             }
             
             Section(content: {
-              Row(title: "Sandbox - EU", isSelected: viewStore.credentials.environment == .sandbox(.eu))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.sandbox(.eu)))
-                }
-              
-              Row(title: "Sandbox - US", isSelected: viewStore.credentials.environment == .sandbox(.us))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.sandbox(.us)))
-                }
-              
-              Row(title: "Production - EU", isSelected: viewStore.credentials.environment == .production(.eu))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.production(.eu)))
-                }
-              
-              Row(title: "Production - US", isSelected: viewStore.credentials.environment == .production(.us))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.production(.us)))
-                }
-
-              Row(title: "Dev - EU", isSelected: viewStore.credentials.environment == .dev(.eu))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.dev(.eu)))
-                }
-
-              Row(title: "Dev - US", isSelected: viewStore.credentials.environment == .dev(.us))
-                .onTapGesture {
-                  viewStore.send(.setEnvironment(.dev(.us)))
-                }
+              makeRow(.sandbox(.eu), viewStore: viewStore)
+              makeRow(.sandbox(.us), viewStore: viewStore)
+              makeRow(.production(.eu), viewStore: viewStore)
+              makeRow(.production(.us), viewStore: viewStore)
+              makeRow(.dev(.eu), viewStore: viewStore)
+              makeRow(.dev(.us), viewStore: viewStore)
+#if DEBUG
+              makeRow(.local(.eu), viewStore: viewStore)
+              makeRow(.local(.us), viewStore: viewStore)
+#endif
             }, footer: {
               VStack(spacing: 5) {
                 Button("Generate userId", action: {
@@ -240,9 +238,15 @@ extension Settings {
           .onAppear {
             UIScrollView.appearance().keyboardDismissMode = .onDrag
           }
+          .alert(store.scope(state: \.alert), dismiss: .dismissAlert)
           .navigationBarTitle(Text("Settings"), displayMode: .large)
         }
       }
+    }
+
+    func makeRow(_ environment: VitalCore.Environment, viewStore: ViewStore<State, Action>) -> some View {
+      Row(title: "\(environment)", isSelected: viewStore.credentials.environment == environment)
+        .onTapGesture { viewStore.send(.setEnvironment(environment)) }
     }
   }
 }
@@ -265,7 +269,7 @@ extension Settings {
               .foregroundColor(.accentColor)
           }
         }
-        .padding([.top, .bottom], 15)
+        .padding([.top, .bottom], 8)
         .contentShape(Rectangle())
       }
     }
