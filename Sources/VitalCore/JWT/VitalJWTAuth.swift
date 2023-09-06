@@ -30,13 +30,12 @@ internal actor VitalJWTAuth {
     self.session = URLSession(configuration: .ephemeral)
   }
 
-  func signIn(_ token: String) async throws {
+  func signIn(with signInToken: VitalSignInToken) async throws {
     guard try getRecord() == nil else {
       // Already signed-in
       return
     }
 
-    let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
 
     var components = URLComponents(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken")!
@@ -284,8 +283,34 @@ private func padBase64(_ string: any StringProtocol) -> String {
 internal struct VitalSignInTokenClaims: Decodable {
   let userId: String
   let teamId: String
+  let environment: Environment
 
-  enum CodingKeys: String, CodingKey {
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.userId = try container.decode(String.self, forKey: .userId)
+    self.teamId = try container.decode(String.self, forKey: .teamId)
+
+    let issuer = try container.decode(String.self, forKey: .issuer)
+
+    // e.g. id-signer-{env}-{region}@vital-id-{env}-{region}.iam.gserviceaccount.com
+    let matches = try NSRegularExpression(pattern: "^id-signer-([a-z]+)-([a-z]+)@vital-id-[a-z]+-[a-z]+.iam.gserviceaccount.com$")
+    guard
+      let result = matches.firstMatch(in: issuer, range: NSRange(issuer.startIndex ..< issuer.endIndex, in: issuer)),
+      let environmentRange = Range(result.range(at: 1), in: issuer),
+      let regionRange = Range(result.range(at: 2), in: issuer),
+      let environment = Environment(
+        environment: String(issuer[environmentRange]),
+        region: String(issuer[regionRange])
+      )
+    else {
+      throw DecodingError.dataCorrupted(.init(codingPath: [CodingKeys.issuer], debugDescription: "invalid issuer"))
+    }
+
+    self.environment = environment
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case issuer = "iss"
     case userId = "uid"
     case teamId = "tenant_id"
   }
