@@ -4,32 +4,34 @@ import HealthKit
 import VitalCore
 
 struct HealthKitExample: View {
+  @State var permissions: [VitalResource: Bool] = [:]
+
   var body: some View {
     NavigationView {
       Form {
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
 
-            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession])
+            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession], permissions: $permissions)
             
-            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water])
+            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water], permissions: $permissions)
 
-            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
+            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine], permissions: $permissions)
 
             
-            makePermissionRow("Profile", resources: [.profile])
+            makePermissionRow("Profile", resources: [.profile], permissions: $permissions)
             
-            makePermissionRow("Body", resources: [.body])
+            makePermissionRow("Body", resources: [.body], permissions: $permissions)
             
-            makePermissionRow("Sleep", resources: [.sleep])
+            makePermissionRow("Sleep", resources: [.sleep], permissions: $permissions)
             
-            makePermissionRow("Activity", resources: [.activity])
+            makePermissionRow("Activity", resources: [.activity], permissions: $permissions)
             
-            makePermissionRow("Workout", resources: [.workout])
+            makePermissionRow("Workout", resources: [.workout], permissions: $permissions)
             
-            makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)])
+            makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)], permissions: $permissions)
 
-            makePermissionRow("Weight", resources: [.individual(.weight)])
+            makePermissionRow("Weight", resources: [.individual(.weight)], permissions: $permissions)
 
           }
           .buttonStyle(PlainButtonStyle())
@@ -57,23 +59,39 @@ struct HealthKitExample: View {
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
+      .onAppear {
+        permissions = Dictionary(
+          uniqueKeysWithValues: VitalResource.all.map {
+            ($0, VitalHealthKitClient.shared.hasAskedForPermission(resource: $0))
+          }
+        )
+      }
     }
   }
 }
 
-@ViewBuilder func makePermissionRow(_ text: String, resources: [VitalResource], writeResources: [WritableVitalResource] = []) -> some View {
+@ViewBuilder func makePermissionRow(
+  _ text: String,
+  resources: [VitalResource],
+  writeResources: [WritableVitalResource] = [],
+  permissions: Binding<[VitalResource: Bool]>
+) -> some View {
   HStack {
     Text(text)
     Spacer()
     
-    if VitalHealthKitClient.shared.hasAskedForPermission(resource: resources[0]) {
+    if resources.allSatisfy({ permissions.wrappedValue[$0] == true }) {
       Button("Permission requested") {}
         .disabled(true)
         .buttonStyle(PermissionStyle())
     } else {
       Button("Request Permission") {
-        Task {
+        Task { @MainActor in
           await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
+
+          for resource in resources {
+            permissions.wrappedValue[resource] = true
+          }
         }
       }
       .buttonStyle(PermissionStyle())
