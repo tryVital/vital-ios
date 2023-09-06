@@ -153,7 +153,7 @@ extension DevicesExample {
         ) {
           HStack {
             LazyImage(source: url(for: device), resizingMode: .aspectFit)
-              .frame(width: 100, height: 100, alignment: .leading)
+              .frame(width: 50, height: 50, alignment: .leading)
             
             VStack(alignment: .leading) {
               Text("\(device.name)")
@@ -163,8 +163,6 @@ extension DevicesExample {
                 .font(.subheadline)
                 .foregroundColor(.gray)
             }
-            
-            Spacer()
           }
         }
       }
@@ -191,7 +189,7 @@ extension DevicesExample {
         ) {
           HStack {
             LazyImage(source: url(for: device), resizingMode: .aspectFit)
-              .frame(width: 100, height: 100, alignment: .leading)
+              .frame(width: 50, height: 50, alignment: .leading)
             
             VStack(alignment: .leading) {
               Text("\(device.name)")
