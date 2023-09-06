@@ -22,7 +22,7 @@ public extension VitalClient.Summary {
     provider: Provider.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
         
     let taggedPayload = TaggedPayload(
@@ -45,7 +45,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [SleepSummary] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -63,7 +63,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -81,7 +81,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [SleepSummary] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -99,7 +99,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [ActivitySummary] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -117,7 +117,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -135,7 +135,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [WorkoutSummary] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -153,7 +153,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -171,7 +171,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [BodySummary] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
@@ -189,7 +189,7 @@ public extension VitalClient.Summary {
     endDate: Date? = nil,
     provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
-    let userId = await self.client.userId.get()
+    let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"

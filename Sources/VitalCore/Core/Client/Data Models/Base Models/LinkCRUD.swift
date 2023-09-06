@@ -1,22 +1,22 @@
 import Foundation
 
 public struct CreateConnectionSourceRequest: Encodable {
-  public let userId: UUID
+  public let userId: String
   public let providerId: String?
   
-  public init(userId: UUID, providerId: String? = nil) {
+  public init(userId: String, providerId: String? = nil) {
     self.userId = userId
     self.providerId = providerId
   }
 }
 
 struct CreateLinkRequest: Encodable {
-  let userId: UUID
+  let userId: String
   let provider: String?
   let redirectUrl: String?
   
   init(
-    userId: UUID,
+    userId: String,
     provider: String?,
     redirectUrl: String?
   ) {

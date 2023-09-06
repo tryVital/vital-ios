@@ -4,7 +4,7 @@ import Mocker
 @testable import VitalCore
 
 let environment = Environment.sandbox(.us)
-let userId = UUID()
+let userId = UUID().uuidString
 let apiKey = UUID().uuidString
 let apiVersion = "2.0"
 let provider = Provider.Slug.strava
@@ -39,10 +39,10 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    await VitalClient.setUserId(UUID(uuidString: userId)!)
     
     let securePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
-    let storedUserId: UUID? = try? secureStorage.get(key: user_secureStorageKey)
+    let storedUserId: String? = try? secureStorage.get(key: user_secureStorageKey)
     
     XCTAssertEqual(securePayload?.configuration.logsEnable, false)
     XCTAssertEqual(securePayload?.apiVersion, apiVersion)
@@ -55,12 +55,9 @@ class VitalClientTests: XCTestCase {
     )
     
     await VitalClient.shared.cleanUp()
-    
-    let inMemoryStoredUser = VitalClient.shared.userId.isNil()
-    let inMemoryStoredConfiguration = VitalClient.shared.configuration.isNil()
-    
-    XCTAssertTrue(inMemoryStoredUser)
-    XCTAssertTrue(inMemoryStoredConfiguration)
+
+    XCTAssertTrue(VitalClient.shared.apiKeyModeUserId.isNil())
+    XCTAssertTrue(VitalClient.shared.configuration.isNil())
     
     let nilSecurePayload: VitalCoreSecurePayload? = try? secureStorage.get(key: core_secureStorageKey)
     let nilStoredUserId: UUID? = try? secureStorage.get(key: user_secureStorageKey)
@@ -81,7 +78,7 @@ class VitalClientTests: XCTestCase {
     }
 
     let nilConfiguration = VitalClient.shared.configuration.isNil()
-    let nilUserId = VitalClient.shared.userId.isNil()
+    let nilUserId = VitalClient.shared.apiKeyModeUserId.isNil()
 
     XCTAssertTrue(nilUserId)
     XCTAssertTrue(nilConfiguration)
@@ -107,7 +104,7 @@ class VitalClientTests: XCTestCase {
     }
 
     let nonNilConfiguration = VitalClient.shared.configuration.isNil()
-    let nonNilUserId = VitalClient.shared.userId.isNil()
+    let nonNilUserId = VitalClient.shared.apiKeyModeUserId.isNil()
 
     XCTAssertFalse(nonNilUserId)
     XCTAssertFalse(nonNilConfiguration)
@@ -121,7 +118,7 @@ class VitalClientTests: XCTestCase {
     }
 
     XCTAssertNil(VitalClient.shared.configuration.value)
-    XCTAssertNil(VitalClient.shared.userId.value)
+    XCTAssertNil(VitalClient.shared.apiKeyModeUserId.value)
 
     // TEST: Set userId only. `automaticConfiguration` should skip setting it,
     // since a configuration is not present.
@@ -138,7 +135,7 @@ class VitalClientTests: XCTestCase {
     }
 
     XCTAssertNil(VitalClient.shared.configuration.value)
-    XCTAssertNil(VitalClient.shared.userId.value)
+    XCTAssertNil(VitalClient.shared.apiKeyModeUserId.value)
   }
   
   func testStorageIsCleanedUpOnUserIdChange() async {
@@ -154,7 +151,7 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    await VitalClient.setUserId(UUID(uuidString: userId)!)
     
     await VitalClient.setUserId(UUID())
     
@@ -175,7 +172,7 @@ class VitalClientTests: XCTestCase {
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
     
-    await VitalClient.setUserId(userId)
+    await VitalClient.setUserId(UUID(uuidString: userId)!)
     
     let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)
     XCTAssertTrue(isConnected)

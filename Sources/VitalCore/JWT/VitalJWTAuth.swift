@@ -6,9 +6,15 @@ public enum VitalJWTAuthError: Error, Hashable {
   case tokenRefreshFailure
 }
 
+internal struct VitalJWTAuthUserContext {
+  let userId: String
+  let teamId: String
+}
+
 internal struct VitalJWTAuthNeedsRefresh: Error {}
 
 internal actor VitalJWTAuth {
+  internal static let live = VitalJWTAuth()
   private static let keychainKey = "vital_jwt_auth"
 
   private let storage: VitalSecureStorage
@@ -74,6 +80,11 @@ internal actor VitalJWTAuth {
     try setRecord(nil)
   }
 
+  func userContext() throws -> VitalJWTAuthUserContext {
+    guard let record = try getRecord() else { throw VitalJWTAuthError.notSignedIn }
+    return VitalJWTAuthUserContext(userId: record.userId, teamId: record.teamId)
+  }
+
   /// If the action encounters 401 Unauthorized, throw `VitalJWTAuthNeedsRefresh` to initiate
   /// the token refresh flow.
   func withAccessToken<Result>(action: (String) async throws -> Result) async throws -> Result {
@@ -103,7 +114,7 @@ internal actor VitalJWTAuth {
   }
 
   /// Start a token refresh flow, or wait for the started flow to complete.
-  private func refreshToken() async throws {
+  func refreshToken() async throws {
     try await withTaskCancellationHandler {
       try Task.checkCancellation()
 
