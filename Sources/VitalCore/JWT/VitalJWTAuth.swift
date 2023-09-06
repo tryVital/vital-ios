@@ -17,6 +17,11 @@ internal actor VitalJWTAuth {
   internal static let live = VitalJWTAuth()
   private static let keychainKey = "vital_jwt_auth"
 
+  nonisolated var currentUserId: String? {
+    let record: VitalJWTAuthRecord? = try? storage.get(key: Self.keychainKey)
+    return record?.userId
+  }
+
   private let storage: VitalSecureStorage
   private let session: URLSession
 

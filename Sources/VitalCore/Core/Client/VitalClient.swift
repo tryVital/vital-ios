@@ -13,7 +13,7 @@ struct VitalCoreConfiguration {
   let apiClient: APIClient
   let environment: Environment
   let storage: VitalCoreStorage
-  let authMode: ClientAuthMode
+  let authMode: VitalClient.AuthMode
   let jwtAuth: VitalJWTAuth
 }
 
@@ -55,11 +55,6 @@ enum ConfigurationStrategy: Hashable, Codable {
       return environment
     }
   }
-}
-
-enum ClientAuthMode: String, Codable {
-  case apiKey
-  case userJwt
 }
 
 public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
@@ -273,10 +268,39 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     )
   }
 
-  public static var isConfigured: Bool {
-    guard !(self.shared.apiKeyModeUserId.isNil()) else { return false }
-    guard !(self.shared.configuration.isNil()) else { return false }
-    return true
+  public static var status: Status {
+    var status = Status()
+
+    if let configuration = self.shared.configuration.value {
+      status.insert(.configured)
+
+      switch configuration.authMode {
+      case .apiKey:
+        if self.shared.apiKeyModeUserId.value != nil {
+          status.insert(.signedIn)
+        }
+
+      case .userJwt:
+        if configuration.jwtAuth.currentUserId != nil {
+          status.insert(.signedIn)
+        }
+      }
+    }
+
+    return status
+  }
+
+  public static var currentUserId: String? {
+    if let configuration = self.shared.configuration.value {
+      switch configuration.authMode {
+      case .apiKey:
+        return self.shared.apiKeyModeUserId.value?.uuidString
+      case .userJwt:
+        return configuration.jwtAuth.currentUserId
+      }
+    } else {
+      return nil
+    }
   }
   
   @objc(automaticConfigurationWithCompletion:)
@@ -343,7 +367,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     
     VitalLogger.core.info("VitalClient setup for environment \(String(describing: strategy.environment), privacy: .public)")
 
-    let authMode: ClientAuthMode
+    let authMode: VitalClient.AuthMode
     let authStrategy: VitalClientAuthStrategy
     let actualEnvironment: Environment
 
@@ -503,6 +527,22 @@ public extension VitalClient {
     ) {
       self.logsEnable = logsEnable
       self.localDebug = localDebug
+    }
+  }
+
+  enum AuthMode: String, Codable {
+    case apiKey
+    case userJwt
+  }
+
+  struct Status: OptionSet {
+    public static let configured = Status(rawValue: 1)
+    public static let signedIn = Status(rawValue: 1 << 1)
+
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+      self.rawValue = rawValue
     }
   }
 }

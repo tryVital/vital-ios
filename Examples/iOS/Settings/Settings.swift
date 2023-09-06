@@ -9,9 +9,26 @@ import Combine
 enum Settings {}
 
 extension Settings {
+  enum AuthMode: String, Hashable, Codable, Identifiable {
+    case apiKey
+    case userJWTDemo
+
+    var id: AuthMode { self }
+
+    var configureActionTitle: String {
+      switch self {
+      case .apiKey:
+        return "Configure SDK"
+      case .userJWTDemo:
+        return "Sign-in with Vital Token"
+      }
+    }
+  }
+
   struct Credentials: Equatable, Codable {
     var apiKey: String = ""
     var userId: String = ""
+    var authMode: AuthMode = .apiKey
     
     var environment: VitalCore.Environment = .sandbox(.us)
   }
@@ -23,25 +40,37 @@ extension Settings {
       case saved
     }
     
-    @BindableState var credentials: Credentials = .init()
+    @BindingState var credentials: Credentials = .init()
+
+    var sdkUserId: String? = nil
+    var sdkIsConfigured: Bool = false
+
     var status: Status = .start
-    var alert: ComposableArchitecture.AlertState<Action>?
-    
-    var canSave: Bool {
-      return credentials.apiKey.isEmpty == false &&
+    @BindingState var alert: ComposableArchitecture.AlertState<Action>?
+
+    var hasValidAPIKey: Bool {
+      credentials.apiKey.isEmpty == false
+    }
+
+    var hasValidUserId: Bool {
       UUID(uuidString: credentials.userId) != nil
     }
     
+    var canConfigureSDK: Bool {
+      hasValidAPIKey && hasValidUserId && sdkIsConfigured == false
+    }
+
     var canGenerateUserId: Bool {
-      return credentials.apiKey.isEmpty == false
+      hasValidAPIKey && credentials.userId.isEmpty
     }
   }
   
   enum Action: BindableAction, Equatable {
     case binding(BindingAction<State>)
     case start
-    case save
-    case setup
+    case configureSDK
+    case resetSDK
+    case didResetSDK
     case genetareUserId
     case successfulGenerateUserId(UUID)
     case failedGeneratedUserId(String)
@@ -56,6 +85,22 @@ extension Settings {
 }
 
 let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environment> { state, action, _ in
+  func saveCredentials(in state: Settings.State) {
+    guard state.hasValidAPIKey || state.hasValidUserId else { return }
+    let value = try? JSONEncoder().encode(state.credentials)
+    UserDefaults.standard.setValue(value, forKey: "credentials")
+  }
+
+  defer {
+    switch action {
+    case .configureSDK, .genetareUserId, .failedGeneratedUserId, .start, .didResetSDK:
+      state.sdkIsConfigured = VitalClient.status.contains(.configured)
+      state.sdkUserId = VitalClient.currentUserId
+    default:
+      break
+    }
+  }
+
   switch action {
       
     case .nop:
@@ -67,6 +112,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case let .setEnvironment(environment):
       state.credentials.environment = environment
+      saveCredentials(in: state)
       return .none
       
     case let .failedGeneratedUserId(error):
@@ -83,9 +129,14 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
     case let .successfulGenerateUserId(userId):
       state.credentials.userId = userId.uuidString
-      return .init(value: .save)
+      saveCredentials(in: state)
+      return .none
       
     case .genetareUserId:
+      guard state.canGenerateUserId else {
+        return .none
+      }
+
       state.credentials.userId = ""
 
       let date = Date()
@@ -93,37 +144,52 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       
       let clientUserId = "user_generated_demo_\(date)"
       let payload = CreateUserRequest(clientUserId: clientUserId)
+      let credentials = state.credentials
       
       let effect = Effect<CreateUserResponse, Error>.task {
-        let userResponse = try await VitalClient.shared.user.create(clientUserId: clientUserId)
+        try await VitalClient.configure(apiKey: credentials.apiKey, environment: credentials.environment)
+        let userResponse = try await VitalClient.shared.user.create(clientUserId: clientUserId, setUserIdOnSuccess: false)
         return userResponse
       }
       
-      let outcome: Effect<Settings.Action, Never> = effect.map { (result: CreateUserResponse) -> Settings.Action in
+      return effect.map { (result: CreateUserResponse) -> Settings.Action in
         return .successfulGenerateUserId(result.userId)
-      }
-      .catch { error in
-        return Just(Settings.Action.failedGeneratedUserId(String(describing: error)))
-      }
-      .receive(on: DispatchQueue.main)
-      .eraseToEffect()
-      
-      let setup: Effect<Settings.Action, Never> = .init(value: .setup).receive(on: DispatchQueue.main).eraseToEffect()
-      return Effect.concatenate(setup, outcome)
+        }
+        .catch { error in
+          return Just(Settings.Action.failedGeneratedUserId(String(describing: error)))
+        }
+        .receive(on: DispatchQueue.main)
+        .eraseToEffect()
       
     case .binding:
+      saveCredentials(in: state)
       return .none
       
-    case .setup:
+    case .configureSDK:
       let effect = Effect<Settings.Action, Never>.task {[state] in
-        if
-          state.credentials.apiKey.isEmpty == false
-        {
-          await VitalClient.configure(
-            apiKey: state.credentials.apiKey,
-            environment: state.credentials.environment,
-            configuration: .init(logsEnable: true)
-          )
+        if state.canConfigureSDK {
+          var configuration = VitalClient.Configuration()
+          configuration.logsEnable = true
+
+          if case .local = state.credentials.environment {
+            configuration.localDebug = true
+          }
+
+          switch state.credentials.authMode {
+          case .apiKey:
+            await VitalClient.configure(
+              apiKey: state.credentials.apiKey,
+              environment: state.credentials.environment,
+              configuration: configuration
+            )
+
+          case .userJWTDemo:
+            try await VitalClient.signIn(
+              // TODO: How do we generate sign-in token client-side?
+              withRawToken: "",
+              configuration: configuration
+            )
+          }
           
           await VitalHealthKitClient.configure(
             .init(
@@ -142,11 +208,31 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         }
         
         return .nop
+      } catch: { error in
+        let alert = AlertState<Settings.Action> {
+          TextState("SDK Error")
+        } actions: {
+          ButtonState(role: ButtonStateRole.cancel, action: .send(nil)) {
+            TextState("OK")
+          }
+        } message: {
+          TextState("\(String(describing: error))")
+        }
+        return .binding(BindingAction.set(\.$alert, alert))
       }
             
       return effect
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
+
+    case .resetSDK:
+      return .task {
+        await VitalHealthKitClient.shared.cleanUp()
+        return .didResetSDK
+      }
+
+    case .didResetSDK:
+      return .none
       
     case .start:
       if
@@ -155,19 +241,10 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       {
         state.credentials = decoded
       }
-      
-      return .init(value: .setup)
-      
-    case .save:
-      if
-        state.credentials.apiKey.isEmpty == false,
-        state.credentials.userId.isEmpty == false
-      {
-        let value = try? JSONEncoder().encode(state.credentials)
-        UserDefaults.standard.setValue(value, forKey: "credentials")
-      }
-      
-      return .init(value: .setup)
+
+      // NOTE: We use automaticConfiguration(), so we need not repeatedly configure the SDK
+      // every time the app (re-)launches.
+      return .none
   }
 }
   .binding()
@@ -177,63 +254,109 @@ extension Settings {
     
     let store: Store<State, Action>
     @FocusState private var activeKeyboard: Bool
-    
+
+    static let allEnviornments: [VitalCore.Environment] = [
+      .sandbox(.eu),
+      .sandbox(.us),
+      .production(.eu),
+      .production(.us),
+      .dev(.eu),
+      .dev(.us),
+      .local(.eu),
+      .local(.us),
+    ]
     
     var body: some View {
       WithViewStore(self.store) { viewStore in
         NavigationView {
           Form {
-            
-            Section("Configuration") {
-              
+            Section("SDK State") {
               HStack {
-                Text("API Key")
-                  .fontWeight(.bold)
-                TextField("API Key", text: viewStore.binding(\.$credentials.apiKey))
-                  .disableAutocorrection(true)
-                  .focused($activeKeyboard)
+                Text("Status")
+                Spacer()
+                Text(viewStore.sdkIsConfigured ? "Configured" : "nil")
+                  .foregroundColor(Color.secondary)
               }
-                            
+
               HStack {
-                Text("User ID (UUID-4)")
-                  .fontWeight(.bold)
-                TextField("User ID (UUID-4)", text: viewStore.binding(\.$credentials.userId))
-                  .disableAutocorrection(true)
-                  .focused($activeKeyboard)
+                Text("User ID")
+                Spacer()
+                Text(viewStore.sdkUserId ?? "nil")
+                  .lineLimit(1)
+                  .foregroundColor(Color.secondary)
               }
             }
             
-            Section(content: {
-              makeRow(.sandbox(.eu), viewStore: viewStore)
-              makeRow(.sandbox(.us), viewStore: viewStore)
-              makeRow(.production(.eu), viewStore: viewStore)
-              makeRow(.production(.us), viewStore: viewStore)
-              makeRow(.dev(.eu), viewStore: viewStore)
-              makeRow(.dev(.us), viewStore: viewStore)
-#if DEBUG
-              makeRow(.local(.eu), viewStore: viewStore)
-              makeRow(.local(.us), viewStore: viewStore)
-#endif
-            }, footer: {
-              VStack(spacing: 5) {
-                Button("Generate userId", action: {
-                  viewStore.send(.genetareUserId)
-                })
-                .disabled(viewStore.canGenerateUserId == false)
-                .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canGenerateUserId == false))
-                .cornerRadius(5.0)
-                .padding([.bottom], 10)
-                
-                Button("Save", action: {
-                  self.activeKeyboard = false
-                  viewStore.send(.save)
-                })
-                .disabled(viewStore.canSave == false)
-                .buttonStyle(RegularButtonStyle(isDisabled: viewStore.canSave == false))
-                .cornerRadius(5.0)
-                .padding([.bottom], 20)
+            Section {
+              VStack(alignment: .leading) {
+                HStack {
+                  Text("API Key")
+                    .fontWeight(.semibold)
+                    .font(.footnote)
+                  Spacer()
+                  InputValidityIndicator(isValid: viewStore.hasValidAPIKey)
+                }
+
+                TextField("API Key", text: viewStore.binding(\.$credentials.apiKey))
+                  .foregroundColor(Color.secondary)
+                  .disableAutocorrection(true)
+                  .focused($activeKeyboard)
+                  .disabled(viewStore.sdkIsConfigured)
               }
-            })
+
+              VStack(alignment: .leading) {
+                HStack {
+                  Text("User ID (UUID-4)")
+                    .fontWeight(.semibold)
+                    .font(.footnote)
+                  Spacer()
+                  InputValidityIndicator(isValid: viewStore.hasValidUserId)
+                }
+
+                TextField("User ID (UUID-4)", text: viewStore.binding(\.$credentials.userId))
+                  .foregroundColor(Color.secondary)
+                  .disableAutocorrection(true)
+                  .focused($activeKeyboard)
+                  .disabled(viewStore.sdkIsConfigured)
+              }
+
+              Picker("Environment", selection: viewStore.binding(\.$credentials.environment)) {
+                ForEach(Self.allEnviornments, id: \.self) { environment in
+                  Text(String(describing: environment)).tag(environment)
+                }
+              }
+              .disabled(viewStore.sdkIsConfigured)
+
+              Picker("Auth", selection: viewStore.binding(\.$credentials.authMode)) {
+                Text("API Key").tag(AuthMode.apiKey)
+                Text("Sign-In Token Demo").tag(AuthMode.userJWTDemo)
+              }
+              .disabled(viewStore.sdkIsConfigured)
+            } header: {
+              Text("Configuration")
+            } footer: {
+              configurationFooter(viewStore)
+            }
+
+            Section("Actions") {
+              Button("Generate User ID", action: {
+                self.activeKeyboard = false
+                viewStore.send(.genetareUserId)
+              })
+              .disabled(viewStore.canGenerateUserId == false)
+
+              Button(viewStore.credentials.authMode.configureActionTitle, action: {
+                self.activeKeyboard = false
+                viewStore.send(.configureSDK)
+              })
+              .disabled(viewStore.canConfigureSDK == false)
+
+              Button("Reset SDK", action: {
+                self.activeKeyboard = false
+                viewStore.send(.resetSDK)
+              })
+              .disabled(viewStore.sdkIsConfigured == false)
+            }
           }
           .onAppear {
             UIScrollView.appearance().keyboardDismissMode = .onDrag
@@ -244,33 +367,39 @@ extension Settings {
       }
     }
 
-    func makeRow(_ environment: VitalCore.Environment, viewStore: ViewStore<State, Action>) -> some View {
-      Row(title: "\(environment)", isSelected: viewStore.credentials.environment == environment)
-        .onTapGesture { viewStore.send(.setEnvironment(environment)) }
+    @ViewBuilder func configurationFooter(_ viewStore: ViewStore<State, Action>) -> some View {
+      if viewStore.sdkIsConfigured {
+        Text("The configuration is locked. Reset SDK to unlock.")
+          .font(.footnote)
+      }
+
+      if viewStore.credentials.authMode == .userJWTDemo {
+        HStack(alignment: .firstTextBaseline) {
+          Image(systemName: "info.circle")
+          Text("""
+          API Key should be a server-side secret when you use Sign-In Token.
+          The demo app uses it to generate Sign-In Token only for illustration.
+          """)
+        }
+      }
     }
   }
 }
 
 
 extension Settings {
-    struct Row: View {
-      
-      let title: String
-      let isSelected: Bool
-      
-      var body: some View {
-        HStack(spacing: 10) {
-          Text(title).font(.callout)
-          Spacer()
-          if isSelected {
-            Image(systemName: "checkmark.circle")
-              .resizable()
-              .frame(width: 15, height: 15)
-              .foregroundColor(.accentColor)
-          }
-        }
-        .padding([.top, .bottom], 8)
-        .contentShape(Rectangle())
+  struct InputValidityIndicator: View {
+    let isValid: Bool
+    var body: some View {
+      if isValid {
+        Image(systemName: "checkmark.circle.fill")
+          .foregroundColor(Color.green)
+          .imageScale(.small)
+      } else {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .foregroundColor(Color.red)
+          .imageScale(.small)
       }
     }
+  }
 }
