@@ -8,16 +8,13 @@ enum VitalClientAuthStrategy {
 
 class VitalClientDelegate: APIClientDelegate {
   private let environment: Environment
-  private let logger: Logger?
   private let authStrategy: VitalClientAuthStrategy
 
   init(
     environment: Environment,
-    logger: Logger? = nil,
     authStrategy: VitalClientAuthStrategy
   ) {
     self.environment = environment
-    self.logger = logger
     self.authStrategy = authStrategy
   }
   
@@ -72,7 +69,7 @@ class VitalClientDelegate: APIClientDelegate {
       payload: data
     )
         
-    self.logger?.error("Failed request with error: \(networkError, privacy: .public)")
+    VitalLogger.core.error("Failed request with error: \(networkError, privacy: .public)")
     throw networkError
   }
 }

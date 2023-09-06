@@ -1050,7 +1050,7 @@ func queryActivityDaySummaries(
     ... calendar.floatingDate(of: endTime)
   let queryInterval = calendar.timeRange(of: datesToCompute)
 
-  logger?.info("""
+  VitalLogger.healthKit.info("""
   [Day Summary] lastComputed = \(startTime, privacy: .public) now = \(endTime, privacy: .public)
   datesToCompute = \(datesToCompute.lowerBound, privacy: .public) ... \(datesToCompute.upperBound, privacy: .public)
   queryInterval = \(queryInterval.lowerBound, privacy: .public) ..< \(queryInterval.upperBound, privacy: .public)
