@@ -88,14 +88,6 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
 
   Reducer { state, action, environment in
     switch action {
-      
-      case .settings(.setup), .settings(.save):
-//        if VitalClient.isSetup {
-//          return Effect<AppAction, Never>(value: AppAction.linkCreation(.startTimer))
-//        }
-//
-        return .none
-        
       case let .callback(url):
         return Effect<AppAction, Never>(value: AppAction.linkCreation(.callback(url)))
         

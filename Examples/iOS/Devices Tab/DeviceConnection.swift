@@ -170,7 +170,7 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       let brand = state.device.brand
 
       return Effect<DeviceConnection.Action, Never>.task {
-        guard await VitalClient.isConfigured else {
+        guard VitalClient.status.contains([.configured, .signedIn]) else {
           return DeviceConnection.Action.connectedSourceCreationFailure("Vital SDK has not been configured.")
         }
 
