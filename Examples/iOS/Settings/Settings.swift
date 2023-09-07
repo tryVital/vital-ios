@@ -147,8 +147,8 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       let credentials = state.credentials
       
       let effect = Effect<CreateUserResponse, Error>.task {
-        try await VitalClient.configure(apiKey: credentials.apiKey, environment: credentials.environment)
-        let userResponse = try await VitalClient.shared.user.create(clientUserId: clientUserId, setUserIdOnSuccess: false)
+        let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
+        let userResponse = try await controlPlane.createUser(clientUserId: clientUserId)
         return userResponse
       }
       
@@ -166,6 +166,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       return .none
       
     case .configureSDK:
+      let credentials = state.credentials
       let effect = Effect<Settings.Action, Never>.task {[state] in
         if state.canConfigureSDK {
           var configuration = VitalClient.Configuration()
@@ -184,9 +185,11 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             )
 
           case .userJWTDemo:
+            let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
+            let tokenCreationResponse = try await controlPlane.createSignInToken(userId: UUID(uuidString: credentials.userId)!)
+
             try await VitalClient.signIn(
-              // TODO: How do we generate sign-in token client-side?
-              withRawToken: "",
+              withRawToken: tokenCreationResponse.signInToken,
               configuration: configuration
             )
           }
