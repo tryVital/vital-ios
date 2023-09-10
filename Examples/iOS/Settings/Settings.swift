@@ -1,7 +1,7 @@
 import SwiftUI
 import VitalHealthKit
 import VitalDevices
-import VitalCore
+@_spi(VitalTesting) import VitalCore
 import ComposableArchitecture
 import NukeUI
 import Combine
@@ -184,6 +184,9 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
               configuration: configuration
             )
 
+            let userId = UUID(uuidString: state.credentials.userId)!
+            await VitalClient.setUserId(userId)
+
           case .userJWTDemo:
             let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
             let tokenCreationResponse = try await controlPlane.createSignInToken(userId: UUID(uuidString: credentials.userId)!)
@@ -201,13 +204,6 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
               logsEnabled: true
             )
           )
-        }
-        
-        if
-          state.credentials.userId.isEmpty == false,
-          let userId = UUID(uuidString: state.credentials.userId)
-        {
-          await VitalClient.setUserId(userId)
         }
         
         return .nop
@@ -359,6 +355,15 @@ extension Settings {
                 viewStore.send(.resetSDK)
               })
               .disabled(viewStore.sdkIsConfigured == false)
+
+              if viewStore.credentials.authMode == .userJWTDemo {
+                Button("Force Token Refresh", action: {
+                  Task {
+                    try await VitalClient.forceRefreshToken()
+                  }
+                })
+                .disabled(viewStore.sdkIsConfigured == false)
+              }
             }
           }
           .onAppear {
