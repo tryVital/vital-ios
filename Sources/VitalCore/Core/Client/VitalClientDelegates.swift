@@ -62,13 +62,8 @@ class VitalClientDelegate: APIClientDelegate {
      return
     }
     
-    let networkError = NetworkError(
-      url: response.url,
-      headers: response.allHeaderFields,
-      statusCode: response.statusCode,
-      payload: data
-    )
-        
+    let networkError = NetworkError(response: response, data: data)
+
     VitalLogger.core.error("Failed request with error: \(networkError, privacy: .public)")
     throw networkError
   }
@@ -84,13 +79,7 @@ class VitalBaseClientDelegate: APIClientDelegate {
       return
     }
     
-    let networkError = NetworkError(
-      url: response.url,
-      headers: response.allHeaderFields,
-      statusCode: response.statusCode,
-      payload: data
-    )
-    
+    let networkError = NetworkError(response: response, data: data)
     throw networkError
   }
 }
