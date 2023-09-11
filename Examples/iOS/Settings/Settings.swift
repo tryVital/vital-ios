@@ -70,6 +70,7 @@ extension Settings {
     case start
     case configureSDK
     case resetSDK
+    case didConfigureSDK
     case didResetSDK
     case genetareUserId
     case successfulGenerateUserId(UUID)
@@ -93,7 +94,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
 
   defer {
     switch action {
-    case .configureSDK, .genetareUserId, .failedGeneratedUserId, .start, .didResetSDK:
+    case .configureSDK, .genetareUserId, .failedGeneratedUserId, .start, .didResetSDK, .didConfigureSDK:
       state.sdkIsConfigured = VitalClient.status.contains(.configured)
       state.sdkUserId = VitalClient.currentUserId
     default:
@@ -206,7 +207,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
           )
         }
         
-        return .nop
+        return .didConfigureSDK
       } catch: { error in
         let alert = AlertState<Settings.Action> {
           TextState("SDK Error")
@@ -230,7 +231,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         return .didResetSDK
       }
 
-    case .didResetSDK:
+    case .didResetSDK, .didConfigureSDK:
       return .none
       
     case .start:

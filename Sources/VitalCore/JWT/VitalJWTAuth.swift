@@ -1,9 +1,19 @@
 import Foundation
 
+public enum VitalJWTSignInError: Error, Hashable {
+  case alreadySignedIn
+  case invalidSignInToken
+}
+
 public enum VitalJWTAuthError: Error, Hashable {
+  /// There is no active SDK sign-in.
   case notSignedIn
-  case reauthenticationNeeded
-  case tokenRefreshFailure
+
+  /// The user is no longer valid, and the SDK has been reset automatically.
+  case invalidUser
+
+  /// The refresh token is invalid, and the user must be signed in again with a new Vital Sign-In Token.
+  case needsReauthentication
 }
 
 internal struct VitalJWTAuthUserContext {
@@ -36,12 +46,20 @@ internal actor VitalJWTAuth {
   }
 
   func signIn(with signInToken: VitalSignInToken) async throws {
-    guard try getRecord() == nil else {
-      // Already signed-in
-      return
-    }
-
+    let record = try getRecord()
     let claims = try signInToken.unverifiedClaims()
+
+    if let record = record {
+      if record.pendingReauthentication {
+        // Check that we are reauthenticating the current user.
+        if claims.teamId != record.teamId || claims.userId != record.userId || claims.environment != record.environment {
+          throw VitalJWTSignInError.invalidSignInToken
+        }
+      } else {
+        // No reauthentication request and already signed-in - Abort.
+        throw VitalJWTSignInError.alreadySignedIn
+      }
+    }
 
     var components = URLComponents(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken")!
     components.queryItems = [URLQueryItem(name: "key", value: signInToken.publicKey)]
@@ -62,6 +80,7 @@ internal actor VitalJWTAuth {
       let exchangeResponse = try decoder.decode(FirebaseTokenExchangeResponse.self, from: data)
 
       let record = VitalJWTAuthRecord(
+        environment: claims.environment,
         userId: claims.userId,
         teamId: claims.teamId,
         gcipTenantId: claims.gcipTenantId,
@@ -77,11 +96,11 @@ internal actor VitalJWTAuth {
 
     case 401:
       VitalLogger.core.info("sign-in failed (401)")
-      throw VitalJWTAuthError.reauthenticationNeeded
+      throw VitalJWTSignInError.invalidSignInToken
 
     default:
       VitalLogger.core.info("sign-in failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
-      throw VitalJWTAuthError.tokenRefreshFailure
+      throw NetworkError(response: httpResponse, data: data)
     }
   }
 
@@ -140,6 +159,10 @@ internal actor VitalJWTAuth {
         throw VitalJWTAuthError.notSignedIn
       }
 
+      if record.pendingReauthentication {
+        throw VitalJWTAuthError.needsReauthentication
+      }
+
       var components = URLComponents(string: "https://securetoken.googleapis.com/v1/token")!
       components.queryItems = [URLQueryItem(name: "key", value: record.publicApiKey)]
       var request = URLRequest(url: components.url!)
@@ -165,13 +188,27 @@ internal actor VitalJWTAuth {
         try setRecord(newRecord)
         VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn, privacy: .public)")
 
-      case 401:
-        VitalLogger.core.info("refresh failed (401)")
-        throw VitalJWTAuthError.reauthenticationNeeded
-
       default:
+        if
+          (400...499).contains(httpResponse.statusCode),
+          let response = try? JSONDecoder().decode(FirebaseTokenRefreshError.self, from: data)
+        {
+          if response.isInvalidUser {
+            try setRecord(nil)
+            throw VitalJWTAuthError.invalidUser
+          }
+
+          if response.needsReauthentication {
+            var record = record
+            record.pendingReauthentication = true
+            try setRecord(record)
+
+            throw VitalJWTAuthError.needsReauthentication
+          }
+        }
+
         VitalLogger.core.info("refresh failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
-        throw VitalJWTAuthError.tokenRefreshFailure
+        throw NetworkError(response: httpResponse, data: data)
       }
 
     } onCancel: {
@@ -185,9 +222,15 @@ internal actor VitalJWTAuth {
     }
 
     // Backfill from keychain
-    let record: VitalJWTAuthRecord? = try storage.get(key: Self.keychainKey)
-    self.cachedRecord = record
-    return record
+    do {
+      let record: VitalJWTAuthRecord? = try storage.get(key: Self.keychainKey)
+      self.cachedRecord = record
+      return record
+    } catch is DecodingError {
+      VitalLogger.core.error("auto signout: failed to decode keychain auth record")
+      try? setRecord(nil)
+      return nil
+    }
   }
 
   private func setRecord(_ record: VitalJWTAuthRecord?) throws {
@@ -201,6 +244,7 @@ internal actor VitalJWTAuth {
 }
 
 private struct VitalJWTAuthRecord: Codable {
+  let environment: Environment
   let userId: String
   let teamId: String
   let gcipTenantId: String
@@ -208,6 +252,7 @@ private struct VitalJWTAuthRecord: Codable {
   var accessToken: String
   var refreshToken: String
   var expiry: Date
+  var pendingReauthentication = false
 
   func isExpired(now: Date = Date()) -> Bool {
     expiry <= now
@@ -223,6 +268,23 @@ private struct FirebaseTokenRefreshResponse: Decodable {
     case expiresIn = "expires_in"
     case refreshToken = "refresh_token"
     case idToken = "id_token"
+  }
+}
+
+private struct FirebaseTokenRefreshErrorResponse: Decodable {
+  let error: FirebaseTokenRefreshError
+}
+
+private struct FirebaseTokenRefreshError: Decodable {
+  let message: String
+  let status: String
+
+  var isInvalidUser: Bool {
+    ["USER_DISABLED", "USER_NOT_FOUND"].contains(message)
+  }
+
+  var needsReauthentication: Bool {
+    ["TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN"].contains(message)
   }
 }
 
@@ -303,7 +365,7 @@ internal struct VitalSignInTokenClaims: Decodable {
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.userId = try container.decode(String.self, forKey: .userId)
-    self.gcipTenantId = try container.decode(String.self, forKey: .tenantId)
+    self.gcipTenantId = try container.decode(String.self, forKey: .gcipTenantId)
     let innerClaims = try container.decode(InnerClaims.self, forKey: .claims)
     self.teamId = innerClaims.vital_team_id
 
@@ -334,7 +396,7 @@ internal struct VitalSignInTokenClaims: Decodable {
     case issuer = "iss"
     case userId = "uid"
     case claims = "claims"
-    case tenantId = "tenant_id"
+    case gcipTenantId = "tenant_id"
   }
 }
 
