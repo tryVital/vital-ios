@@ -30,9 +30,12 @@ func url(for device: DeviceModel) -> URL {
     case "Freestyle Libre 1":
       image = "https://storage.googleapis.com/vital-assets/libre1.png"
 
+    case "OneTouch Verio Reflect":
+      image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
+
     case "Vital BLE Simulator":
       image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
-      
+
     default:
       fatalError("Device not supported")
   }

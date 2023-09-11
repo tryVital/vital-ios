@@ -15,6 +15,8 @@ public extension DevicesManager {
     switch device.deviceModel.brand {
       case .accuChek, .contour:
         return GlucoseMeter1808(manager: manager, queue: queue)
+    case .oneTouch:
+      return VerioGlucoseMeter(manager: manager, queue: queue)
       default:
         fatalError("\(device.deviceModel.brand) not supported")
     }
