@@ -219,18 +219,21 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   ) async throws {
     let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
+    let jwtAuth = VitalJWTAuth.live
 
+    try await jwtAuth.signIn(with: signInToken)
+
+    // Configure the SDK only if we have signed in successfully.
     self.shared.setConfiguration(
       strategy: .jwt(claims.environment),
       configuration: configuration,
       storage: .init(storage: .live),
-      apiVersion: "v2"
+      apiVersion: "v2",
+      jwtAuth: jwtAuth
     )
 
     let configuration = await shared.configuration.get()
     precondition(configuration.authMode == .userJwt)
-
-    try await configuration.jwtAuth.signIn(with: signInToken)
   }
 
   /// Configure the SDK in the legacy API Key mode.
@@ -362,6 +365,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     configuration: Configuration,
     storage: VitalCoreStorage,
     apiVersion: String,
+    jwtAuth: VitalJWTAuth = .live,
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) {
     
@@ -383,7 +387,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       authMode = .apiKey
 
     case .jwt:
-      authStrategy = .jwt(VitalJWTAuth.live)
+      authStrategy = .jwt(jwtAuth)
       authMode = .userJwt
     }
 
@@ -428,7 +432,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
 
     guard configuration.authMode == .apiKey else {
-      fatalError("setUserId(_:) is incompatible with Vital SDK in User JWT mode")
+      VitalLogger.core.error("VitalClient.setUserId(_:) is ignored when the SDK is configured by a Vital Sign-In Token.")
+      return
     }
 
     do {
@@ -458,7 +463,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   @nonobjc public static func setUserId(_ newUserId: UUID) async {
     shared._setUserId(newUserId)
   }
-
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
     let userId = try await getUserId()
@@ -513,6 +517,15 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       // VitalUserJWT will lazy load the authenticated user from Keychain on first access.
       return try await configuration.jwtAuth.userContext().userId
     }
+  }
+}
+
+extension VitalClient {
+  @_spi(VitalTesting) public static func forceRefreshToken() async throws {
+    let configuration = await shared.configuration.get()
+    precondition(configuration.authMode == .userJwt)
+
+    try await configuration.jwtAuth.refreshToken()
   }
 }
 

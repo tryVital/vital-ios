@@ -50,7 +50,7 @@ internal actor VitalJWTAuth {
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.httpBody = try JSONEncoder().encode(
-      FirebaseTokenExchangeRequest(token: signInToken.userToken, tenantId: claims.teamId)
+      FirebaseTokenExchangeRequest(token: signInToken.userToken, tenantId: claims.gcipTenantId)
     )
 
     let (data, response) = try await session.data(for: request)
@@ -64,6 +64,7 @@ internal actor VitalJWTAuth {
       let record = VitalJWTAuthRecord(
         userId: claims.userId,
         teamId: claims.teamId,
+        gcipTenantId: claims.gcipTenantId,
         publicApiKey: signInToken.publicKey,
         accessToken: exchangeResponse.idToken,
         refreshToken: exchangeResponse.refreshToken,
@@ -72,10 +73,14 @@ internal actor VitalJWTAuth {
 
       try setRecord(record)
 
+      VitalLogger.core.info("sign-in success; expiresIn = \(exchangeResponse.expiresIn, privacy: .public)")
+
     case 401:
+      VitalLogger.core.info("sign-in failed (401)")
       throw VitalJWTAuthError.reauthenticationNeeded
 
     default:
+      VitalLogger.core.info("sign-in failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
       throw VitalJWTAuthError.tokenRefreshFailure
     }
   }
@@ -158,11 +163,14 @@ internal actor VitalJWTAuth {
         newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn) ?? 3600)
 
         try setRecord(newRecord)
+        VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn, privacy: .public)")
 
       case 401:
+        VitalLogger.core.info("refresh failed (401)")
         throw VitalJWTAuthError.reauthenticationNeeded
 
       default:
+        VitalLogger.core.info("refresh failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
         throw VitalJWTAuthError.tokenRefreshFailure
       }
 
@@ -195,6 +203,7 @@ internal actor VitalJWTAuth {
 private struct VitalJWTAuthRecord: Codable {
   let userId: String
   let teamId: String
+  let gcipTenantId: String
   let publicApiKey: String
   var accessToken: String
   var refreshToken: String
@@ -288,12 +297,15 @@ private func padBase64(_ string: any StringProtocol) -> String {
 internal struct VitalSignInTokenClaims: Decodable {
   let userId: String
   let teamId: String
+  let gcipTenantId: String
   let environment: Environment
 
   init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.userId = try container.decode(String.self, forKey: .userId)
-    self.teamId = try container.decode(String.self, forKey: .teamId)
+    self.gcipTenantId = try container.decode(String.self, forKey: .tenantId)
+    let innerClaims = try container.decode(InnerClaims.self, forKey: .claims)
+    self.teamId = innerClaims.vital_team_id
 
     let issuer = try container.decode(String.self, forKey: .issuer)
 
@@ -314,10 +326,15 @@ internal struct VitalSignInTokenClaims: Decodable {
     self.environment = environment
   }
 
+  private struct InnerClaims: Decodable {
+    let vital_team_id: String
+  }
+
   private enum CodingKeys: String, CodingKey {
     case issuer = "iss"
     case userId = "uid"
-    case teamId = "tenant_id"
+    case claims = "claims"
+    case tenantId = "tenant_id"
   }
 }
 
