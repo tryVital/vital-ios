@@ -29,13 +29,21 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
 
   func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
     return _connect(device: device) { (peripheral, command, notification) -> AnyPublisher<[QuantitySample], Error> in
+
       let incomingData = peripheral
         .listenForUpdates(on: notification)
         .compactMap { $0 }
         .print("Data")
         .multicast(subject: PassthroughSubject())
 
-      let output = PassthroughSubject<[QuantitySample], Error>()
+      let output = PassthroughSubject<QuantitySample, Error>()
+
+      var cancellables = Set<AnyCancellable>()
+
+      typealias Metadata = (timeOffset: Int, highestRecordNumber: Int, numberOfRecords: Int)
+      var timeOffset: Int?
+      var highestRecordNumber: Int?
+      var numberOfRecords: Int?
 
       func sendCommand(_ data: Data, to peripheral: Peripheral) -> AnyPublisher<Data, Error> {
         incomingData
@@ -46,6 +54,8 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
           .first()
           .onStart(
             peripheral.writeValue(packet(data), for: command, type: .withoutResponse)
+              .ignoreOutput()
+              .print("Send command")
           )
           .eraseToAnyPublisher()
       }
@@ -56,21 +66,50 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
           .eraseToAnyPublisher()
       }
 
-      var cancellables = Set<AnyCancellable>()
+      func getRecord(at index: Int, from peripheral: Peripheral) -> AnyPublisher<Data, Error> {
+        // Little endian
+        return sendCommand(Data([0xB3, UInt8(index & 0xFF), UInt8((index >> 8) & 0xFF)]), to: peripheral)
+      }
+
+      func withCheckedMetadata<P>(_ action: @escaping (Metadata) -> P) -> AnyPublisher<Never, Error> where P: Publisher, P.Failure == Error {
+        Deferred {
+          guard
+            let timeOffset = timeOffset,
+            let highestRecordNumber = highestRecordNumber,
+            let numberOfRecords = numberOfRecords
+          else {
+            return Result<Metadata, Error>.failure(
+              VerioError("expected all 3 metadata fields having been read; found some missing")
+            ).publisher
+          }
+
+          guard numberOfRecords > 0 else {
+            return Result<Metadata, Error>.failure(
+              VerioError("no record available")
+            ).publisher
+          }
+
+          return Result<Metadata, Error>.success((timeOffset, highestRecordNumber, numberOfRecords)).publisher
+        }
+        .flatMap(action)
+        .ignoreOutput()
+        .eraseToAnyPublisher()
+      }
 
       // (1) We first start listening for incoming notifications
       return incomingData
         .compactMap { _ -> [QuantitySample]? in nil }
-        .merge(with: output)
+        .merge(with: output.collect())
         .handleEvents(
           receiveSubscription: { _ in incomingData.connect().store(in: &cancellables) },
           receiveCompletion: { _ in cancellables.forEach { $0.cancel() } },
           receiveCancel: { cancellables.forEach { $0.cancel() } }
         )
         .onStart(
-          Publishers.Sequence(sequence: [
+          concat(
             sendCommand(Data([0x20, 0x02]), to: peripheral)
               .tryMap { try parser($0, timeOffsetParser(_:)) }
+              .handleEvents(receiveOutput: { timeOffset = $0 })
               .print("Read RTC")
               .ignoreOutput()
               .eraseToAnyPublisher(),
@@ -79,6 +118,7 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
               .eraseToAnyPublisher(),
             sendCommand(Data([0x0A, 0x02, 0x06]), to: peripheral)
               .tryMap { try parser($0, highestRecordNumberParser(_:)) }
+              .handleEvents(receiveOutput: { highestRecordNumber = $0 })
               .print("T counter")
               .ignoreOutput()
               .eraseToAnyPublisher(),
@@ -87,14 +127,36 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
               .eraseToAnyPublisher(),
             sendCommand(Data([0x27, 0x00]), to: peripheral)
               .tryMap { try parser($0, numberOfRecordsParser(_:)) }
+              .handleEvents(receiveOutput: { numberOfRecords = $0 })
               .print("R counter")
               .ignoreOutput()
               .eraseToAnyPublisher(),
             sendResponseAck(to: peripheral)
               .print("R counter ACK")
               .eraseToAnyPublisher(),
-          ])
-          .flatMap(maxPublishers: .max(1)) { publisher in publisher }
+            withCheckedMetadata { metadata in
+              // Max 16 entries?
+              let requestRange = metadata.highestRecordNumber - min(metadata.numberOfRecords - 1, 15) ... metadata.highestRecordNumber
+
+              return Publishers.Sequence<ClosedRange<Int>, Error>(sequence: requestRange)
+                .flatMap(maxPublishers: .max(1)) { index in
+                  concat(
+                    getRecord(at: index, from: peripheral)
+                      .tryMap { try parser($0) { try recordParser($0, timeOffset: metadata.timeOffset) } }
+                      .handleEvents(receiveOutput: { output.send($0) })
+                      .print("Get Record at \(index)")
+                      .ignoreOutput()
+                      .eraseToAnyPublisher(),
+                    sendResponseAck(to: peripheral)
+                      .print("Get Record at \(index) ACK")
+                      .eraseToAnyPublisher()
+                  )
+                }
+                .handleEvents(
+                  receiveCompletion: { _ in output.send(completion: .finished) }
+                )
+            }
+          )
         )
     }
   }
@@ -103,6 +165,9 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
     _connect(device: device) { (peripheral, command, notification) in
       return Just(()).setFailureType(to: Error.self)
     }
+    // Delay completion for 1 second since Verio seem to be non-responsive if we do
+    // pair() -> read() in a row with little to no time in between.
+    .delay(for: .seconds(1), scheduler: self.queue)
     .eraseToAnyPublisher()
   }
 
@@ -166,20 +231,34 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
 
 private let verioBaseTime = 946684799
 
-// positive: ahead of UTC
-// negative: behind UTC
-//
-// returns: time offset in seconds (integer)
+// estimated time zone offset in seconds (integer)
 private func timeOffsetParser(_ data: Data) throws -> Int {
   guard data.count == 4 else {
     throw VerioError("RTC should be 4 bytes")
   }
 
   // NOTE: little endian
-  let rtc = Int32(data[3]) << 24 | Int32(data[2]) << 16 | Int32(data[1]) << 8 | Int32(data[0])
+  let rtc = Int32(littleEndian: data[0...3])
   let timeInEpoch = Date(timeIntervalSince1970: Double(Int(rtc) + verioBaseTime))
+  let offset = Int(Date().timeIntervalSince(timeInEpoch))
 
-  return Int(Date().timeIntervalSince(timeInEpoch))
+  let tolerance = -300 ... 300
+
+  // RTC: floating time but expressed in terms of Unix time
+  // Date(): reasonably synchronized UTC time
+
+  // Align to the closest xx:00 hour time zone
+  if tolerance.contains(offset % 3600) {
+    return offset / 3600 * 3600
+  }
+
+  // Align to the closest xx:30 hour time zone
+  if tolerance.contains(offset % 1800) {
+    return offset / 1800 * 1800
+  }
+
+  // Align to the closest xx:15 / xx:45 hour time zone
+  return offset / 900 * 900
 }
 
 private func highestRecordNumberParser(_ data: Data) throws -> Int {
@@ -188,7 +267,7 @@ private func highestRecordNumberParser(_ data: Data) throws -> Int {
   }
 
   // NOTE: little endian
-  return Int(Int32(data[3]) << 24 | Int32(data[2]) << 16 | Int32(data[1]) << 8 | Int32(data[0]))
+  return Int(Int32(littleEndian: data[0...3]))
 }
 
 private func numberOfRecordsParser(_ data: Data) throws -> Int {
@@ -198,6 +277,34 @@ private func numberOfRecordsParser(_ data: Data) throws -> Int {
 
   // NOTE: little endian
   return Int(Int16(data[1]) << 8 | Int16(data[0]))
+}
+
+private func recordParser(_ data: Data, timeOffset: Int) throws -> QuantitySample {
+  print("payload: \(data.hex)")
+
+  guard data.count == 11 else {
+    throw VerioError("Record should be 11 bytes")
+  }
+
+  guard data[6] == 0 && data[8] == 0 && data[9] == 0 && data[10] == 0 else {
+    throw VerioError("Invalid record [1]")
+  }
+
+  // Byte 7 might be unit indicator
+  // But [4...5] is always in mg/dL even on mmol/L models
+
+  let time = Int(Int32(littleEndian: data[0...3])) + verioBaseTime
+  let mgdl = Int16(littleEndian: data[4...5])
+
+  // TODO: Ehm, is this timestamp stable?
+  return QuantitySample(
+    value: Double(mgdl),
+    date: Date(timeIntervalSince1970: Double(time)),
+    unit: "mg/dL",
+    metadata: VitalAnyEncodable([
+      "timezone_offset": timeOffset
+    ])
+  )
 }
 
 private func parser<T>(_ data: Data, _ processResult: (Data) throws -> T) throws -> T {
@@ -223,10 +330,11 @@ private func parser<T>(_ data: Data, _ processResult: (Data) throws -> T) throws
 }
 
 extension Publisher {
-  func onStart<P>(_ publisher: P) -> AnyPublisher<Self.Output, Self.Failure> where P: Publisher {
+  func onStart<P>(_ publisher: P) -> AnyPublisher<Self.Output, Self.Failure> where P: Publisher, P.Failure == Self.Failure {
     return Deferred {
       var cancellables = Set<AnyCancellable>()
       var hasStarted = false
+      let errorInjector = PassthroughSubject<Self.Output, Self.Failure>()
 
       return handleEvents(
         receiveCompletion: { _ in
@@ -240,10 +348,18 @@ extension Publisher {
           hasStarted = true
 
           publisher
-            .sink { _ in } receiveValue: { _ in }
+            .handleEvents(receiveCancel: { errorInjector.send(completion: .finished) })
+            .sink { completion in
+              if case let .failure(error) = completion {
+                errorInjector.send(completion: .failure(error))
+              } else {
+                errorInjector.send(completion: .finished)
+              }
+            } receiveValue: { _ in }
             .store(in: &cancellables)
         }
       )
+      .merge(with: errorInjector)
     }
     .eraseToAnyPublisher()
   }
@@ -301,4 +417,21 @@ internal func crc16ccitt(_ data: Data, skipLastTwo: Bool = false, skipFirst: Boo
 
 extension Data {
   var hex: String { map { String(format:"%02x", $0) }.joined(separator: " ") }
+}
+
+extension FixedWidthInteger {
+  init(littleEndian data: Data) {
+    let bytes = Self.bitWidth / 8
+    precondition(data.count == bytes)
+    self = 0
+    for index in 0 ..< bytes {
+      self |= Self(data[data.startIndex + index]) << (index * 8)
+    }
+  }
+}
+
+func concat(_ publishers: AnyPublisher<Never, Error>...) -> AnyPublisher<Never, Error> {
+  Publishers.Sequence(sequence: publishers)
+    .flatMap(maxPublishers: .max(1)) { $0 }
+    .eraseToAnyPublisher()
 }
