@@ -64,6 +64,7 @@ public enum NutritionData: Equatable, Encodable {
 
 public enum TimeSeriesData: Equatable, Encodable {
   case glucose([QuantitySample])
+  case bloodOxygen([QuantitySample])
   case bloodPressure([BloodPressureSample])
   case heartRate([QuantitySample])
   case heartRateVariability([QuantitySample])
@@ -75,6 +76,8 @@ public enum TimeSeriesData: Equatable, Encodable {
     switch self {
       case let .glucose(dataPoints):
         return dataPoints
+      case let .bloodOxygen(samples):
+        return samples
       case let .bloodPressure(dataPoints):
         return dataPoints
       case let .heartRate(dataPoints):
@@ -91,6 +94,8 @@ public enum TimeSeriesData: Equatable, Encodable {
   public var shouldSkipPost: Bool {
     switch self {
       case let .glucose(samples):
+        return samples.isEmpty
+      case let .bloodOxygen(samples):
         return samples.isEmpty
       case let .bloodPressure(samples):
         return samples.isEmpty
@@ -109,6 +114,8 @@ public enum TimeSeriesData: Equatable, Encodable {
     switch self {
       case .bloodPressure:
         return "blood_pressure"
+      case .bloodOxygen:
+        return "blood_oxygen"
       case .glucose:
         return "glucose"
       case .heartRate:
