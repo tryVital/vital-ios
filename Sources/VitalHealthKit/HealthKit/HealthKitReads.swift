@@ -208,7 +208,18 @@ func read(
       )
       
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
-      
+
+    case .vitals(.bloodOxygen):
+      let payload = try await handleTimeSeries(
+        type: .quantityType(forIdentifier: .oxygenSaturation)!,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: startDate,
+        endDate: endDate
+      )
+
+      return (.timeSeries(.bloodOxygen(payload.samples)), payload.anchors)
+
     case .vitals(.glucose):
       let payload = try await handleTimeSeries(
         type: .quantityType(forIdentifier: .bloodGlucose)!,

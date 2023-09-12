@@ -680,7 +680,7 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
       let newSamples = average(samples, calendar: calendar)
       return .timeSeries(.heartRate(newSamples))
       
-    case .timeSeries(.bloodPressure), .timeSeries(.glucose), .timeSeries(.nutrition), .timeSeries(.mindfulSession), .timeSeries(.heartRateVariability):
+    case .timeSeries:
       return data
   }
 }

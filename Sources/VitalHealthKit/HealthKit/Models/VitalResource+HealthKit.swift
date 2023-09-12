@@ -35,6 +35,10 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
       ]
+    case .vitals(.bloodOxygen):
+      return [
+        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
+      ]
       
     case .profile:
       return [
@@ -156,6 +160,12 @@ func observedSampleTypes() -> [[HKSampleType]] {
     [
       HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
     ],
+
+    /// Vitals Blood Oxygen
+    [
+      HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!
+    ],
+
 
     /// Mindfuless Minutes
     [

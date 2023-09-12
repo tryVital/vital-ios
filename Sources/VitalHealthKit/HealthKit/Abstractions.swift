@@ -64,6 +64,9 @@ extension VitalHealthKitStore {
         
       case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
         return .vitals(.glucose)
+
+      case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
+        return .vitals(.bloodOxygen)
         
       case
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
