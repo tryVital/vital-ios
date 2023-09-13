@@ -1,7 +1,7 @@
 import Foundation
 import os.log
 
-let sdk_version = "0.10.1"
+let sdk_version = "0.10.2"
 
 struct Credentials: Equatable, Hashable {
   let apiKey: String
@@ -375,11 +375,15 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     let authStrategy: VitalClientAuthStrategy
     let actualEnvironment: Environment
 
+#if DEBUG
     if configuration.localDebug {
       actualEnvironment = .local(strategy.environment.region)
     } else {
       actualEnvironment = strategy.environment
     }
+#else
+    actualEnvironment = strategy.environment
+#endif
 
     switch strategy {
     case let .apiKey(key, _):
