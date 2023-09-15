@@ -4,6 +4,7 @@ public enum Brand: String, Encodable, Equatable {
   case contour
   case beurer
   case libre
+  case oneTouch
   
   public var name: String {
     switch self {
@@ -17,6 +18,8 @@ public enum Brand: String, Encodable, Equatable {
         return "Beurer"
       case .libre:
         return "FreeStyle Libre"
+      case .oneTouch:
+        return "OneTouch"
     }
   }
 }

@@ -8,6 +8,12 @@ public extension DevicesManager {
   static func devices(for brand: Brand) -> [DeviceModel] {
     return [
       .init(
+        id: "onetouch_verio_reflect",
+        name: "OneTouch Verio Reflect",
+        brand: .oneTouch,
+        kind: .glucoseMeter
+      ),
+      .init(
         id: "omron_m4",
         name: "Omron Intelli IT M4",
         brand: .omron,
@@ -84,33 +90,55 @@ public extension DevicesManager {
         return ["contour"]
       case "beurer":
         return ["Beuerer", "BC","bc"]
+      case "onetouch_verio_reflect":
+        return ["OneTouch"]
       default:
         return []
     }
   }
-  
+
   static func service(for brand: Brand) -> CBUUID {
     let id: String
-    
+
     switch brand {
       case .omron, .beurer:
         id = "1810"
       case .accuChek, .contour:
         id = "1808"
+      case .oneTouch:
+        return VerioGlucoseMeter.serviceID
       case .libre:
-        fatalError("No service for Libre")
+        fatalError("No GATT service for \(brand)")
     }
-    
+
+    return CBUUID(string: id.fullUUID)
+  }
+
+  static func advertisementService(for brand: Brand) -> CBUUID? {
+    let id: String
+
+    switch brand {
+      case .omron, .beurer:
+        id = "1810"
+      case .accuChek, .contour:
+        id = "1808"
+      case .oneTouch:
+        return nil
+      case .libre:
+        fatalError("No GATT service for \(brand)")
+    }
+
     return CBUUID(string: id.fullUUID)
   }
   
   static func brands() -> [Brand] {
     return [
+      .oneTouch,
       .omron,
       .accuChek,
       .contour,
       .beurer,
-      .libre
+      .libre,
     ]
   }
   
@@ -126,6 +154,9 @@ public extension DevicesManager {
         return .beurer
       case .libre:
         return .libre
+    case .oneTouch:
+      // TODO:
+      return .accuchekBLE
     }
   }
 }

@@ -36,10 +36,10 @@ public class DevicesManager {
     manager: CentralManager,
     deviceModel: DeviceModel
   ) -> AnyPublisher<ScannedDevice, Never> {
-    let service = Self.service(for: deviceModel.brand)
+    let service = Self.advertisementService(for: deviceModel.brand)
 
     return manager
-      .scanForPeripherals(withServices: [service])
+      .scanForPeripherals(withServices: service.map { [$0] })
       .compactMap { peripheralDiscover in
         Self.suitableScannedDevice(from: peripheralDiscover.peripheral, for: deviceModel)
       }
