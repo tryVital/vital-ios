@@ -155,8 +155,7 @@ public extension DevicesManager {
       case .libre:
         return .libre
     case .oneTouch:
-      // TODO:
-      return .accuchekBLE
+      return .oneTouchBLE
     }
   }
 }
