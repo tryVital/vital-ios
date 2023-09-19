@@ -17,6 +17,7 @@ public struct Provider: Equatable {
     case beurerBLE
     case beurer
     case omronBLE
+    case oneTouchBLE
     case accuchekBLE
     case contourBLE
     case appleHealthKit
@@ -47,6 +48,7 @@ public struct Provider: Equatable {
       case .beurerBLE: return "beurer_ble"
       case .beurer: return "beurer_api"
       case .omronBLE: return "omron_ble"
+      case .oneTouchBLE: return "onetouch_ble"
       case .accuchekBLE: return "accuchek_ble"
       case .contourBLE: return "contour_ble"
       case .appleHealthKit: return "apple_health_kit"
@@ -79,6 +81,7 @@ public struct Provider: Equatable {
       case "beurer_ble": self = .beurerBLE
       case "beurer_api": self = .beurer
       case "omron_ble": self = .omronBLE
+      case "onetouch_ble": self = .oneTouchBLE
       case "accuchek_ble": self = .accuchekBLE
       case "contour_ble": self = .contourBLE
       case "apple_health_kit": self = .appleHealthKit

@@ -31,7 +31,7 @@ func url(for device: DeviceModel) -> URL {
       image = "https://storage.googleapis.com/vital-assets/libre1.png"
 
     case "OneTouch Verio Reflect":
-      image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
+      image = "https://storage.googleapis.com/vital-assets/onetouch_verio_reflect.png"
 
     case "Vital BLE Simulator":
       image = "https://storage.googleapis.com/vital-assets/accu_check_active.png"
