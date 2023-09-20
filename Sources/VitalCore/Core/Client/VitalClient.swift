@@ -175,7 +175,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
 
-  private static var signInTokenFetcher: (@Sendable (_ vitalUserId: String) async -> String?)? = nil
+  private static var reauthHandler: ReauthenticationHandler? = nil
   private static var reauthenticationMonitor: Task<Void, Never>? = nil
 
   public static var shared: VitalClient {
@@ -284,11 +284,13 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       case .apiKey:
         if self.shared.apiKeyModeUserId.value != nil {
           status.insert(.signedIn)
+          status.insert(.useApiKey)
         }
 
       case .userJwt:
         if configuration.jwtAuth.currentUserId != nil {
           status.insert(.signedIn)
+          status.insert(.useSignInToken)
         }
       }
     }
@@ -376,10 +378,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   /// However, Vital still recommends setting up `observeReauthenticationRequest`, so that
   /// the SDK can recover in event of a necessitated token revocation (announced by Vital, or requested by you).
   ///
-  /// - warning: The supplied `signInTokenFetcher` is retained until the process is terminated, or until you explicitly clear it.
+  /// - warning: The supplied `reauthHandler` is retained until the process is terminated, or until you explicitly clear it.
   /// - precondition: SDK has been configured.
   public static func observeReauthenticationRequest(
-    _ signInTokenFetcher: (@Sendable (_ vitalUserId: String) async -> String?)?
+    _ handler: ReauthenticationHandler?
   ) {
     guard Self.status.contains(.configured) else {
       fatalError("You need to configure the SDK with `VitalClient.configure` before using `observeReauthenticationRequest`")
@@ -387,9 +389,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
     // Reuse the client init lock for mutual exclusion of reauthentication monitor setup.
     clientInitLock.withLock {
-      Self.signInTokenFetcher = signInTokenFetcher
+      Self.reauthHandler = handler
 
-      switch (Self.reauthenticationMonitor, signInTokenFetcher) {
+      switch (Self.reauthenticationMonitor, handler) {
       case (nil, .some):
         // Start a reauth monitor
         Self.reauthenticationMonitor = Task {
@@ -399,21 +401,20 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
           func tryToReauthenticate(context: StaticString) async {
             if
-              let fetcher = clientInitLock.withLock({ Self.signInTokenFetcher }),
+              let handler = clientInitLock.withLock({ Self.reauthHandler }),
               let userId = VitalClient.currentUserId
             {
               do {
                 VitalLogger.core.info("reauth[\(context)] started")
 
-                guard let signInToken = await fetcher(userId) else {
-                  VitalLogger.core.info("reauth[\(context)] skipped by host")
-                  return
-                }
-
+                let signInToken = try await handler.signInTokenProvider(userId)
                 try await VitalClient.signIn(withRawToken: signInToken)
 
+                await handler.outcome(.success(()))
                 VitalLogger.core.info("reauth[\(context)] completed")
+
               } catch let error {
+                await handler.outcome(.failure(error))
                 VitalLogger.core.error("reauth[\(context)] failed: \(error)")
               }
             }
@@ -438,6 +439,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       case (let monitor?, nil):
         // Stop the reauth monitor.
         monitor.cancel()
+        Self.reauthenticationMonitor = nil
 
       case (nil, nil), (.some, .some):
         // No-op
@@ -601,8 +603,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     /// We might be able to derive 2) from 1)?
     ///
     /// We need to check this first, otherwise it will suspend until a configuration is set
-    if self.configuration.isNil() == false {
-      await self.configuration.get().storage.clean()
+    if let configuration = self.configuration.value {
+      configuration.storage.clean()
+      try? await configuration.jwtAuth.signOut()
     }
     
     self.secureStorage.clean(key: core_secureStorageKey)
@@ -657,11 +660,26 @@ public extension VitalClient {
   struct Status: OptionSet {
     public static let configured = Status(rawValue: 1)
     public static let signedIn = Status(rawValue: 1 << 1)
+    public static let useApiKey = Status(rawValue: 1 << 2)
+    public static let useSignInToken = Status(rawValue: 1 << 3)
 
     public let rawValue: Int
 
     public init(rawValue: Int) {
       self.rawValue = rawValue
+    }
+  }
+
+  struct ReauthenticationHandler {
+    public var signInTokenProvider: @Sendable (_ vitalUserId: String) async throws -> String
+    public var outcome: @MainActor (Result<Void, Error>) -> Void
+
+    public init(
+      signInTokenProvider: @Sendable @escaping (_: String) async throws -> String,
+      outcome: @MainActor @escaping (Result<Void, Error>) -> Void
+    ) {
+      self.signInTokenProvider = signInTokenProvider
+      self.outcome = outcome
     }
   }
 }

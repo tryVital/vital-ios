@@ -44,6 +44,7 @@ extension Settings {
 
     var sdkUserId: String? = nil
     var sdkIsConfigured: Bool = false
+    var hasSetupReauthObserver: Bool = false
 
     var status: Status = .start
     @BindingState var alert: ComposableArchitecture.AlertState<Action>?
@@ -72,10 +73,12 @@ extension Settings {
     case resetSDK
     case didConfigureSDK
     case didResetSDK
+    case didReauth(AlertState<Settings.Action>?)
     case genetareUserId
     case successfulGenerateUserId(UUID)
     case failedGeneratedUserId(String)
     case setEnvironment(VitalCore.Environment)
+    case simulateReauthFlow(success: Bool)
     case nop
     case dismissAlert
   }
@@ -93,10 +96,22 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
   }
 
   defer {
+    /// Sync with SDK API if necessary
     switch action {
-    case .configureSDK, .genetareUserId, .failedGeneratedUserId, .start, .didResetSDK, .didConfigureSDK:
-      state.sdkIsConfigured = VitalClient.status.contains(.configured)
+    case .configureSDK, .genetareUserId, .failedGeneratedUserId, .start, .didResetSDK, .didConfigureSDK, .didReauth:
+      let status = VitalClient.status
+      state.sdkIsConfigured = status.contains(.configured)
       state.sdkUserId = VitalClient.currentUserId
+
+      if status.contains(.useSignInToken) {
+        state.credentials.authMode = .userJWTDemo
+        saveCredentials(in: state)
+      }
+      if status.contains(.useApiKey) {
+        state.credentials.authMode = .apiKey
+        saveCredentials(in: state)
+      }
+
     default:
       break
     }
@@ -231,8 +246,88 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         return .didResetSDK
       }
 
+    case let .simulateReauthFlow(simulateSuccess):
+      guard state.hasSetupReauthObserver == false else { return .none }
+      state.hasSetupReauthObserver = true
+
+      let controlPlane = VitalClient.controlPlane(
+        apiKey: state.credentials.apiKey,
+        environment: state.credentials.environment
+      )
+
+      let didReauth = PassthroughSubject<Result<Void, Error>, Never>()
+
+      func startObservingReauth() {
+        VitalClient.observeReauthenticationRequest(
+          VitalClient.ReauthenticationHandler(
+            signInTokenProvider: { vitalUserId in
+              print("[demo app] received reauth request")
+
+              /// Customer app should call their own backend service to retrieve Vital Sign-In Token.
+              ///
+              /// The Example app emulates this flow by calling Vital Server API directly using
+              /// the API Key.
+              ///
+              if simulateSuccess {
+                let tokenCreationResponse = try await controlPlane.createSignInToken(
+                  userId: UUID(uuidString: vitalUserId)!
+                )
+                return tokenCreationResponse.signInToken
+
+              } else {
+                print("[demo app] simulating failed signInTokenProvider")
+                struct SimulatedError: Error {}
+                throw SimulatedError()
+              }
+
+            },
+            outcome: { result in
+              didReauth.send(result)
+            }
+          )
+        )
+      }
+
+      return didReauth
+      .handleEvents(
+        receiveRequest: { demand in
+          precondition(demand == .unlimited)
+          startObservingReauth()
+        }
+      )
+      .eraseToEffect { result in
+        let alert: AlertState<Settings.Action>
+        switch result {
+        case .success:
+          alert = AlertState<Settings.Action> {
+            TextState("Reauth success")
+          } actions: {
+            ButtonState(role: ButtonStateRole.cancel, action: .send(nil)) {
+              TextState("OK")
+            }
+          } message: { TextState("Reauth has been successful.") }
+        case let .failure(error):
+          alert = AlertState<Settings.Action> {
+            TextState("Reauth failed")
+          } actions: {
+            ButtonState(role: ButtonStateRole.cancel, action: .send(nil)) {
+              TextState("OK")
+            }
+          } message: { TextState("\(String(describing: error))") }
+        }
+        return .didReauth(alert)
+      }
+      .cancellable(id: "didReauthPublisher")
+
     case .didResetSDK, .didConfigureSDK:
       return .none
+
+    case let .didReauth(alert):
+      state.alert = alert
+      state.hasSetupReauthObserver = false
+      VitalClient.observeReauthenticationRequest(nil)
+
+      return Effect.cancel(id: "didReauthPublisher")
       
     case .start:
       if
@@ -363,6 +458,23 @@ extension Settings {
                     try await VitalClient.forceRefreshToken()
                   }
                 })
+                .disabled(viewStore.sdkIsConfigured == false)
+              }
+            }
+
+            Section("Reauth (Migration) Simulation") {
+              if viewStore.hasSetupReauthObserver {
+                Text("Reauth handler is active...")
+              } else {
+                Button(
+                  "Simulate Success",
+                  action: { viewStore.send(.simulateReauthFlow(success: true)) }
+                )
+                .disabled(viewStore.sdkIsConfigured == false)
+                Button(
+                  "Simulate Failure",
+                  action: { viewStore.send(.simulateReauthFlow(success: false)) }
+                )
                 .disabled(viewStore.sdkIsConfigured == false)
               }
             }
