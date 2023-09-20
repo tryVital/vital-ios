@@ -32,17 +32,31 @@ internal actor VitalJWTAuth {
     return record?.userId
   }
 
+  nonisolated var needsReauthentication: Bool {
+    let record: VitalJWTAuthRecord? = try? storage.get(key: Self.keychainKey)
+    return record?.pendingReauthentication ?? false
+  }
+
   private let storage: VitalSecureStorage
   private let session: URLSession
 
   private let parkingLot = ParkingLot()
   private var cachedRecord: VitalJWTAuthRecord? = nil
 
+  internal let reauthenticationRequests: AsyncStream<Void>
+  private let reauthenticationRequestContinuation: AsyncStream<Void>.Continuation
+
   init(
     storage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
   ) {
     self.storage = storage
     self.session = URLSession(configuration: .ephemeral)
+
+    var continuation: AsyncStream<Void>.Continuation!
+    let reauthenticationRequests = AsyncStream { continuation = $0 }
+
+    self.reauthenticationRequests = reauthenticationRequests
+    self.reauthenticationRequestContinuation = continuation
   }
 
   func signIn(with signInToken: VitalSignInToken) async throws {
@@ -203,6 +217,7 @@ internal actor VitalJWTAuth {
             record.pendingReauthentication = true
             try setRecord(record)
 
+            reauthenticationRequestContinuation.yield()
             throw VitalJWTAuthError.needsReauthentication
           }
         }

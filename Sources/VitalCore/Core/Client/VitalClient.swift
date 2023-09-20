@@ -174,7 +174,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
-  
+
+  private static var signInTokenFetcher: (@Sendable (_ vitalUserId: String) async -> String?)? = nil
+  private static var reauthenticationMonitor: Task<Void, Never>? = nil
+
   public static var shared: VitalClient {
     clientInitLock.withLock {
       guard let value = client else {
@@ -308,6 +311,12 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+    // If the SDK has been configured, skip automaticConfiguration.
+    guard VitalClient.status.contains(.configured) == false else {
+      completion?()
+      return
+    }
+
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
@@ -341,6 +350,99 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
       VitalLogger.core.error("Failed to perform automatic configuration: \(error, privacy: .public)")
+    }
+  }
+
+  /// Observe reauthentication requests, and respond to these requests by asynchronously fetching
+  /// a new Vital Sign-In Token through your backend service.
+  ///
+  /// There are two scenarios where a reauthentication request may arise:
+  ///
+  /// **Migration from API Key mode**:
+  ///
+  /// An existing user in API Key mode has launched your app for the first time, after the app was upgraded to a new release that
+  /// has adopted Vital Sign-In Token.
+  ///
+  /// After you setup `observeReauthenticationRequest`, the Vital SDK would automatically trigger it once to migrate the
+  /// said user from API Key mode to Vital Sign-In Token mode.
+  ///
+  /// **Refresh Token invalidation**:
+  ///
+  /// Typically, reauthentication request would not arise due to refresh token invalidation.
+  ///
+  /// Vital's identity broker guarantees that the underlying refresh token is not invalidated, unless the user is disabled or deleted, or
+  /// Vital explicitly revokes the refresh tokens (which we typically would not do so).
+  ///
+  /// However, Vital still recommends setting up `observeReauthenticationRequest`, so that
+  /// the SDK can recover in event of a necessitated token revocation (announced by Vital, or requested by you).
+  ///
+  /// - warning: The supplied `signInTokenFetcher` is retained until the process is terminated, or until you explicitly clear it.
+  /// - precondition: SDK has been configured.
+  public static func observeReauthenticationRequest(
+    _ signInTokenFetcher: (@Sendable (_ vitalUserId: String) async -> String?)?
+  ) {
+    guard Self.status.contains(.configured) else {
+      fatalError("You need to configure the SDK with `VitalClient.configure` before using `observeReauthenticationRequest`")
+    }
+
+    // Reuse the client init lock for mutual exclusion of reauthentication monitor setup.
+    clientInitLock.withLock {
+      Self.signInTokenFetcher = signInTokenFetcher
+
+      switch (Self.reauthenticationMonitor, signInTokenFetcher) {
+      case (nil, .some):
+        // Start a reauth monitor
+        Self.reauthenticationMonitor = Task {
+          // Check if we are in API Key mode
+          // Perform a one-off migration to Vital Sign-In Token if needed.
+          let configuration = await VitalClient.shared.configuration.get()
+
+          func tryToReauthenticate(context: StaticString) async {
+            if
+              let fetcher = clientInitLock.withLock({ Self.signInTokenFetcher }),
+              let userId = VitalClient.currentUserId
+            {
+              do {
+                VitalLogger.core.info("reauth[\(context)] started")
+
+                guard let signInToken = await fetcher(userId) else {
+                  VitalLogger.core.info("reauth[\(context)] skipped by host")
+                  return
+                }
+
+                try await VitalClient.signIn(withRawToken: signInToken)
+
+                VitalLogger.core.info("reauth[\(context)] completed")
+              } catch let error {
+                VitalLogger.core.error("reauth[\(context)] failed: \(error)")
+              }
+            }
+          }
+
+          if configuration.authMode == .apiKey {
+            await tryToReauthenticate(context: "api-key-migration")
+          }
+
+          if VitalJWTAuth.live.needsReauthentication {
+            await tryToReauthenticate(context: "app-launch")
+          }
+
+          // Observe reauthentication requests from VitalJWTAuth.
+          for await _ in VitalJWTAuth.live.reauthenticationRequests {
+            // Double check that we still in fact needs to reauth.
+            guard VitalJWTAuth.live.needsReauthentication else { continue }
+            await tryToReauthenticate(context: "on-demand")
+          }
+        }
+
+      case (let monitor?, nil):
+        // Stop the reauth monitor.
+        monitor.cancel()
+
+      case (nil, nil), (.some, .some):
+        // No-op
+        break
+      }
     }
   }
   
