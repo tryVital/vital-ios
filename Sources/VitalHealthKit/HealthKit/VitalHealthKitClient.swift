@@ -41,7 +41,7 @@ let health_secureStorageKey: String = "health_secureStorageKey"
   private let vitalClient: VitalClientProtocol
   
   private let _status: PassthroughSubject<Status, Never>
-  private var backgroundDeliveryTask: Task<Void, Error>? = nil
+  private var backgroundDeliveryTask: BackgroundDeliveryTask? = nil
   
   private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
   let configuration: ProtectedBox<Configuration>
@@ -140,9 +140,8 @@ let health_secureStorageKey: String = "health_secureStorageKey"
     
     if backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
-      
-      let resources = resourcesAskedForPermission(store: self.store)
-      checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled, resources: resources)
+
+      checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled)
     }
   }
 }
@@ -184,16 +183,27 @@ public extension VitalHealthKitClient {
       self.mode = mode
     }
   }
+
+  private struct BackgroundDeliveryTask {
+    let task: Task<Void, Error>
+    let resources: Set<VitalResource>
+  }
 }
 
 extension VitalHealthKitClient {
   
-  private func checkBackgroundUpdates(isBackgroundEnabled: Bool, resources: [VitalResource]) {
+  private func checkBackgroundUpdates(isBackgroundEnabled: Bool) {
     guard isBackgroundEnabled else { return }
-    guard resources.isEmpty == false else { return }
+
+    let resources = Set(resourcesAskedForPermission(store: self.store))
+    let currentTask = self.backgroundDeliveryTask
+
+    // Reconfigure the task only if the set of resources has changed, or we have not configured it
+    // before.
+    guard resources != currentTask?.resources else { return }
     
     /// If it's already running, cancel it
-    self.backgroundDeliveryTask?.cancel()
+    currentTask?.task.cancel()
     
     let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
 
@@ -218,7 +228,7 @@ extension VitalHealthKitClient {
       stream = backgroundObservers(for: uniqueFlatenned)
     }
 
-    self.backgroundDeliveryTask = Task(priority: .high) {
+    let task = Task(priority: .high) {
       for await payload in stream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
@@ -255,11 +265,13 @@ extension VitalHealthKitClient {
         }
       }
     }
+
+    self.backgroundDeliveryTask = BackgroundDeliveryTask(task: task, resources: Set(resources))
   }
   
   private func enableBackgroundDelivery(for sampleTypes: Set<HKSampleType>) {
     for sampleType in sampleTypes {
-      store.enableBackgroundDelivery(sampleType, .hourly) { [weak self] success, failure in
+      store.enableBackgroundDelivery(sampleType, .hourly) { success, failure in
         
         guard failure == nil && success else {
           VitalLogger.healthKit.error("Failed to enable background delivery for type: \(sampleType.identifier, privacy: .public). Did you enable \"Background Delivery\" in Capabilities?")
@@ -285,7 +297,7 @@ extension VitalHealthKitClient {
           HKQueryDescriptor(sampleType: $0, predicate: nil)
         }
 
-        let query = HKObserverQuery(queryDescriptors: descriptors) { [weak self] query, sampleTypes, handler, error in
+        let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
           guard let sampleTypes = sampleTypes else {
             VitalLogger.healthKit.error("Failed to background deliver. Empty samples")
             return
@@ -335,7 +347,7 @@ extension VitalHealthKitClient {
       var queries: [HKObserverQuery] = []
       
       for sampleType in sampleTypes {
-        let query = HKObserverQuery(sampleType: sampleType, predicate: nil) {[weak self] query, handler, error in
+        let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { query, handler, error in
           
           guard error == nil else {
             VitalLogger.healthKit.error("Failed to background deliver for \(sampleType.identifier, privacy: .public).")
@@ -394,7 +406,8 @@ extension VitalHealthKitClient {
   
   public func cleanUp() async {
     await store.disableBackgroundDelivery()
-    backgroundDeliveryTask?.cancel()
+    backgroundDeliveryTask?.task.cancel()
+    backgroundDeliveryTask = nil
     
     backgroundDeliveryEnabled.set(value: false)
     
@@ -556,8 +569,7 @@ extension VitalHealthKitClient {
         let configuration = await configuration.get()
         
         checkBackgroundUpdates(
-          isBackgroundEnabled: configuration.backgroundDeliveryEnabled,
-          resources: readResources
+          isBackgroundEnabled: configuration.backgroundDeliveryEnabled
         )
       }
       
