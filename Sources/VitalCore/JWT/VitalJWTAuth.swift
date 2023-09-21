@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 public enum VitalJWTSignInError: Error, Hashable {
   case alreadySignedIn
@@ -32,11 +33,19 @@ internal actor VitalJWTAuth {
     return record?.userId
   }
 
+  nonisolated var pendingReauthentication: Bool {
+    let record: VitalJWTAuthRecord? = try? storage.get(key: Self.keychainKey)
+    return record?.pendingReauthentication ?? false
+  }
+
   private let storage: VitalSecureStorage
   private let session: URLSession
 
   private let parkingLot = ParkingLot()
   private var cachedRecord: VitalJWTAuthRecord? = nil
+
+  // Moments where it would materially affect `VitalClient.Type.status`.
+  internal nonisolated let statusDidChange = PassthroughSubject<Void, Never>()
 
   init(
     storage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
@@ -234,7 +243,11 @@ internal actor VitalJWTAuth {
   }
 
   private func setRecord(_ record: VitalJWTAuthRecord?) throws {
-    defer { self.cachedRecord = record }
+    defer {
+      self.cachedRecord = record
+      statusDidChange.send(())
+    }
+
     if let record = record {
       try storage.set(value: record, key: Self.keychainKey)
     } else {

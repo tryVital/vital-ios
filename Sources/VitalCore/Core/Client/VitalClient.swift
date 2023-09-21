@@ -1,5 +1,6 @@
 import Foundation
 import os.log
+import Combine
 
 let sdk_version = "0.10.2"
 
@@ -14,7 +15,6 @@ struct VitalCoreConfiguration {
   let environment: Environment
   let storage: VitalCoreStorage
   let authMode: VitalClient.AuthMode
-  let jwtAuth: VitalJWTAuth
 }
 
 struct VitalClientRestorationState: Codable {
@@ -168,6 +168,10 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
+  let jwtAuth: VitalJWTAuth
+
+  // Moments that would materially affect `VitalClient.Type.status`.
+  let statusDidChange = PassthroughSubject<Void, Never>()
 
   // @testable
   internal let apiKeyModeUserId: ProtectedBox<UUID>
@@ -281,16 +285,36 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       case .apiKey:
         if self.shared.apiKeyModeUserId.value != nil {
           status.insert(.signedIn)
+          status.insert(.useApiKey)
         }
 
       case .userJwt:
-        if configuration.jwtAuth.currentUserId != nil {
+        if shared.jwtAuth.currentUserId != nil {
           status.insert(.signedIn)
+          status.insert(.useSignInToken)
+
+          if shared.jwtAuth.pendingReauthentication {
+            status.insert(.pendingReauthentication)
+          }
         }
       }
     }
 
     return status
+  }
+
+  public static var statusDidChange: AnyPublisher<Void, Never> {
+    Publishers.Merge(shared.statusDidChange, shared.jwtAuth.statusDidChange)
+      .eraseToAnyPublisher()
+  }
+
+  public static var statuses: AsyncStream<VitalClient.Status> {
+    AsyncStream<VitalClient.Status> { continuation in
+      let cancellable = statusDidChange.sink(
+        receiveValue: { continuation.yield(VitalClient.status) }
+      )
+      continuation.onTermination = { _ in cancellable.cancel() }
+    }
   }
 
   public static var currentUserId: String? {
@@ -299,7 +323,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       case .apiKey:
         return self.shared.apiKeyModeUserId.value?.uuidString
       case .userJwt:
-        return configuration.jwtAuth.currentUserId
+        return self.shared.jwtAuth.currentUserId
       }
     } else {
       return nil
@@ -347,11 +371,13 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   init(
     secureStorage: VitalSecureStorage = .init(keychain: .live),
     configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
-    userId: ProtectedBox<UUID> = .init()
+    userId: ProtectedBox<UUID> = .init(),
+    jwtAuth: VitalJWTAuth = .live
   ) {
     self.secureStorage = secureStorage
     self.configuration = configuration
     self.apiKeyModeUserId = userId
+    self.jwtAuth = jwtAuth
     
     super.init()
   }
@@ -422,11 +448,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       apiClient: apiClient,
       environment: actualEnvironment,
       storage: storage,
-      authMode: authMode,
-      jwtAuth: VitalJWTAuth.live
+      authMode: authMode
     )
     
     self.configuration.set(value: coreConfiguration)
+    statusDidChange.send(())
   }
 
   private func _setUserId(_ newUserId: UUID) {
@@ -451,6 +477,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     }
     
     self.apiKeyModeUserId.set(value: newUserId)
+    statusDidChange.send(())
     
     do {
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
@@ -499,15 +526,18 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     /// We might be able to derive 2) from 1)?
     ///
     /// We need to check this first, otherwise it will suspend until a configuration is set
-    if self.configuration.isNil() == false {
-      await self.configuration.get().storage.clean()
+    if let configuration = self.configuration.value {
+      configuration.storage.clean()
+      try? await jwtAuth.signOut()
     }
-    
+
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
     
     self.apiKeyModeUserId.clean()
     self.configuration.clean()
+
+    statusDidChange.send(())
   }
 
   internal func getUserId() async throws -> String {
@@ -519,7 +549,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     case .userJwt:
       // In User JWT mode, we need not wait for user ID to be set.
       // VitalUserJWT will lazy load the authenticated user from Keychain on first access.
-      return try await configuration.jwtAuth.userContext().userId
+      return try await jwtAuth.userContext().userId
     }
   }
 }
@@ -529,7 +559,7 @@ extension VitalClient {
     let configuration = await shared.configuration.get()
     precondition(configuration.authMode == .userJwt)
 
-    try await configuration.jwtAuth.refreshToken()
+    try await shared.jwtAuth.refreshToken()
   }
 }
 
@@ -553,8 +583,30 @@ public extension VitalClient {
   }
 
   struct Status: OptionSet {
+    /// The SDK has been configured, either through `VitalClient.Type.configure` for the first time,
+    /// or through `VitalClient.Type.automaticConfiguration()` where the last auto-saved
+    /// configuration has been restored.
     public static let configured = Status(rawValue: 1)
+
+    /// The SDK has an active sign-in.
     public static let signedIn = Status(rawValue: 1 << 1)
+
+    /// The active sign-in was done through an explicitly set target User ID, paired with a Vital API Key.
+    /// (through `VitalClient.Type.setUserId(_:)`)
+    ///
+    /// Not recommended for production apps.
+    public static let useApiKey = Status(rawValue: 1 << 2)
+
+    /// The active sign-in is done through a Vital Sign-In Token via `VitalClient.Type.signIn`.
+    public static let useSignInToken = Status(rawValue: 1 << 3)
+
+    /// A Vital Sign-In Token sign-in session that is currently on hold, requiring re-authentication using
+    /// a new Vital Sign-In Token issued for the same user.
+    ///
+    /// This generally should not happen, as Vital's identity broker guarantees only to revoke auth
+    /// refresh tokens when a user is explicitly deleted, disabled or have their tokens explicitly
+    /// revoked.
+    public static let pendingReauthentication = Status(rawValue: 1 << 4)
 
     public let rawValue: Int
 
