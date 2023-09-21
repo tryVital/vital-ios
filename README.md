@@ -4,7 +4,35 @@ The official Swift Library for Vital API, HealthKit and Devices
 
 ## Install
 
-We currently support SPM.
+We support Swift Package Manager and CocoaPods.
+
+### Swift Package Manager
+
+Add the vital-ios package to your Package.swift.
+
+```swift
+.package(url: "https://github.com/tryvital/vital-ios", from: "0.10.2"),
+```
+
+Then add the Vital iOS library products you need to your app and/or library targets:
+
+```swift
+.target(name: "AppTarget", dependencies: [
+    .product(name: "VitalCore", package: "vital-ios"),
+    .product(name: "VitalDevices", package: "vital-ios"),
+    .product(name: "VitalHealthKit", package: "vital-ios"),
+]),
+```
+
+### CocoaPods
+
+Add the Vital iOS library products you need to your Podfile:
+
+```
+pod "VitalCore", "~> 0.10.2"
+pod "VitalDevices", "~> 0.10.2"
+pod "VitalHealthKit", "~> 0.10.2"
+```
 
 ## Documentation
 
