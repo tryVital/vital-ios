@@ -32,14 +32,29 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
   }()
   
   func startDataTask(_ task: URLSessionDataTask, session: URLSession, delegate: URLSessionDataDelegate?) async throws -> Response<Data> {
-    try await withTaskCancellationHandler(operation: {
+    let taskId = ProtectedBox<UIBackgroundTaskIdentifier>(value: nil)
+
+    @Sendable func endTask() {
+      if let taskId = taskId.clean() {
+        endBackgroundTask(id: taskId)
+      }
+    }
+
+    let id = beginBackgroundTask(expirationHandler: { [weak task] in
+      task?.cancel()
+      // We must mark the task to end synchronously in the expiration handler.
+      endTask()
+    })
+    taskId.set(value: id)
+
+    defer { endTask() }
+
+    return try await withTaskCancellationHandler(operation: {
       try await withUnsafeThrowingContinuation { continuation in
-        let id = beginBackgroundTask(expirationHandler: { [weak task] in task?.cancel() })
 
         let handler = DataTaskHandler(delegate: delegate)
         handler.completion = { result in
           continuation.resume(with: result)
-          endBackgroundTask(id: id)
         }
         self.handlers[task] = handler
         
@@ -47,6 +62,7 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
       }
     }, onCancel: {
       task.cancel()
+      endTask()
     })
   }
   

@@ -48,7 +48,7 @@ public final class ProtectedBox<T>: @unchecked Sendable {
       }
     }
   }
-  
+
   public func set(value: T) {
     let continuationsToCall: [CheckedContinuation<T, Never>] = lock.withLock {
       defer {
@@ -65,14 +65,18 @@ public final class ProtectedBox<T>: @unchecked Sendable {
 
     continuationsToCall.forEach { $0.resume(returning: value) }
   }
-  
-  public func clean() {
-    lock.withLock {
+
+  @discardableResult
+  public func clean() -> T? {
+    return lock.withLock {
       switch self.state {
-      case .ready:
+      case let .ready(oldValue):
         self.state = .awaiting([])
+        return oldValue
+
       case let .awaiting(contiunations):
         self.state = .awaiting(contiunations)
+        return nil
       }
     }
   }
