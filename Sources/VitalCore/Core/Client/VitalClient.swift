@@ -17,7 +17,7 @@ struct VitalCoreConfiguration {
   let authMode: VitalClient.AuthMode
 }
 
-struct VitalClientRestorationState: Codable {
+struct VitalClientRestorationState: Equatable, Codable {
   let configuration: VitalClient.Configuration
   let apiVersion: String
 
@@ -564,16 +564,22 @@ extension VitalClient {
 }
 
 public extension VitalClient {
-  struct Configuration: Codable {
+  struct Configuration: Equatable, Codable {
     public var logsEnable: Bool
     public var localDebug: Bool
-    
+
     public init(
       logsEnable: Bool = false,
       localDebug: Bool = false
     ) {
       self.logsEnable = logsEnable
       self.localDebug = localDebug
+    }
+
+    public init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: Self.CodingKeys.self)
+      self.logsEnable = try container.decodeIfPresent(Bool.self, forKey: .logsEnable) ?? false
+      self.localDebug = try container.decodeIfPresent(Bool.self, forKey: .localDebug) ?? false
     }
   }
 
