@@ -224,4 +224,56 @@ class VitalClientTests: XCTestCase {
     let isConnected = try! await VitalClient.shared.isUserConnected(to: provider)
     XCTAssertTrue(isConnected)
   }
+
+  func testConfigurationBackwardCompatibility() throws {
+    let decoder = JSONDecoder()
+
+    let payload = """
+    {"logsEnable": true}
+    """
+    let config = try decoder.decode(VitalClient.Configuration.self, from: payload.data(using: .utf8)!)
+    XCTAssertTrue(config.logsEnable)
+    XCTAssertFalse(config.localDebug)
+
+    let payload2 = """
+    {"logsEnable": true, "localDebug": true}
+    """
+    let config2 = try decoder.decode(VitalClient.Configuration.self, from: payload2.data(using: .utf8)!)
+    XCTAssertTrue(config2.logsEnable)
+    XCTAssertTrue(config2.localDebug)
+  }
+
+  func testRestorationStateBackwardCompatibility() throws {
+    let decoder = JSONDecoder()
+
+    let payload = """
+    {"configuration": {"logsEnable": true}, "apiVersion": "v2", "apiKey": "1234", "environment": {"dev": {"_0": "us"}}}
+    """
+    let state = try decoder.decode(VitalClientRestorationState.self, from: payload.data(using: .utf8)!)
+    XCTAssertEqual(
+      state,
+      VitalClientRestorationState(configuration: .init(logsEnable: true), apiVersion: "v2", apiKey: "1234", environment: .dev(.us), strategy: nil)
+    )
+    XCTAssertEqual(try state.resolveStrategy(), .apiKey("1234", .dev(.us)))
+
+    let payload2 = """
+    {"configuration": {"logsEnable": true}, "apiVersion": "v2", "apiKey": "", "environment": null, "strategy": {"apiKey": {"_0": "2345", "_1": {"dev": {"_0": "eu"}}}}}
+    """
+    let state2 = try decoder.decode(VitalClientRestorationState.self, from: payload2.data(using: .utf8)!)
+    XCTAssertEqual(
+      state2,
+      VitalClientRestorationState(configuration: .init(logsEnable: true), apiVersion: "v2", apiKey: "", environment: nil, strategy: .apiKey("2345", .dev(.eu)))
+    )
+    XCTAssertEqual(try state2.resolveStrategy(), .apiKey("2345", .dev(.eu)))
+
+    let payload3 = """
+    {"configuration": {"logsEnable": true}, "apiVersion": "v2", "apiKey": "", "environment": null, "strategy": {"jwt": {"_0": {"sandbox": {"_0": "eu"}}}}}
+    """
+    let state3 = try decoder.decode(VitalClientRestorationState.self, from: payload3.data(using: .utf8)!)
+    XCTAssertEqual(
+      state3,
+      VitalClientRestorationState(configuration: .init(logsEnable: true), apiVersion: "v2", apiKey: "", environment: nil, strategy: .jwt(.sandbox(.eu)))
+    )
+    XCTAssertEqual(try state3.resolveStrategy(), .jwt(.sandbox(.eu)))
+  }
 }
