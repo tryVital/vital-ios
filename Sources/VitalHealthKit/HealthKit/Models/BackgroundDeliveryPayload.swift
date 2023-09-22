@@ -2,5 +2,10 @@ import HealthKit
 
 struct BackgroundDeliveryPayload {
   let sampleTypes: Set<HKSampleType>
-  let completion: () -> Void
+  let completion: (Completion) -> Void
+
+  enum Completion {
+    case cancelled
+    case completed
+  }
 }
