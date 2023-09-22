@@ -2,6 +2,7 @@ import HealthKit
 import Combine
 import os.log
 import VitalCore
+import UIKit
 
 public enum PermissionOutcome: Equatable {
   case success
@@ -187,6 +188,12 @@ public extension VitalHealthKitClient {
   private struct BackgroundDeliveryTask {
     let task: Task<Void, Error>
     let resources: Set<VitalResource>
+    let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
+
+    func cancel() {
+      streamContinuation.finish()
+      task.cancel()
+    }
   }
 }
 
@@ -203,8 +210,8 @@ extension VitalHealthKitClient {
     guard resources != currentTask?.resources else { return }
     
     /// If it's already running, cancel it
-    currentTask?.task.cancel()
-    
+    currentTask?.cancel()
+
     let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
 
     let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
@@ -221,14 +228,43 @@ extension VitalHealthKitClient {
     enableBackgroundDelivery(for: uniqueFlatenned)
 
     let stream: AsyncStream<BackgroundDeliveryPayload>
+    let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
     if #available(iOS 15.0, *) {
-      stream = bundledBackgroundObservers(for: cleaned)
+      (stream, streamContinuation) = bundledBackgroundObservers(for: cleaned)
     } else {
-      stream = backgroundObservers(for: uniqueFlatenned)
+      (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
     }
 
     let task = Task(priority: .high) {
+      /// Detect if we have ever had performed an initial sync.
+      /// If we never did, start a background task and runs the initial sync first.
+      /// This ensures that `syncData` is called on all VitalResources at least once.
+      ///
+      /// We would defer consuming `stream` until all the initial sync are completed.
+      let unflaggedResources = resources.filter { storage.readFlag(for: $0) == false }
+
+      if unflaggedResources.isEmpty == false {
+        VitalLogger.healthKit.info("[historical-bgtask] Started for \(unflaggedResources, privacy: .public)")
+
+        let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
+        osBackgroundTask.start("vital-historical-stage", expiration: {})
+        defer {
+          osBackgroundTask.endIfNeeded()
+          VitalLogger.healthKit.info("[historical-bgtask] Ended")
+        }
+
+        try await withTaskCancellationHandler {
+
+          for resource in unflaggedResources {
+            try Task.checkCancellation()
+            await sync(payload: .resource(resource))
+          }
+
+        } onCancel: { osBackgroundTask.endIfNeeded() }
+
+      }
+
       for await payload in stream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
@@ -237,7 +273,10 @@ extension VitalHealthKitClient {
         // > https://developer.apple.com/documentation/healthkit/hkhealthstore/1614175-enablebackgrounddelivery#3801028
         // > If you don’t call the update’s completion handler, HealthKit continues to attempt to
         // > launch your app using a backoff algorithm to increase the delay between attempts.
-        try Task.checkCancellation()
+        if Task.isCancelled {
+          payload.completion(.cancelled)
+          continue
+        }
 
         // Task is not cancelled — we must call the HealthKit completion handler irrespective of
         // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
@@ -248,7 +287,7 @@ extension VitalHealthKitClient {
         // behaviour adds little to no value in maintaining data freshness.
         //
         // (except for the task cancellation redelivery expectation stated above).
-        defer { payload.completion() }
+        defer { payload.completion(.completed) }
 
         VitalLogger.healthKit.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes, privacy: .public)")
 
@@ -266,12 +305,16 @@ extension VitalHealthKitClient {
       }
     }
 
-    self.backgroundDeliveryTask = BackgroundDeliveryTask(task: task, resources: Set(resources))
+    self.backgroundDeliveryTask = BackgroundDeliveryTask(
+      task: task,
+      resources: Set(resources),
+      streamContinuation: streamContinuation
+    )
   }
   
   private func enableBackgroundDelivery(for sampleTypes: Set<HKSampleType>) {
     for sampleType in sampleTypes {
-      store.enableBackgroundDelivery(sampleType, .hourly) { success, failure in
+      store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
         
         guard failure == nil && success else {
           VitalLogger.healthKit.error("Failed to enable background delivery for type: \(sampleType.identifier, privacy: .public). Did you enable \"Background Delivery\" in Capabilities?")
@@ -286,9 +329,13 @@ extension VitalHealthKitClient {
   @available(iOS 15.0, *)
   private func bundledBackgroundObservers(
     for typesBundle: Set<[HKSampleType]>
-  ) -> AsyncStream<BackgroundDeliveryPayload> {
+  ) -> (AsyncStream<BackgroundDeliveryPayload>, AsyncStream<BackgroundDeliveryPayload>.Continuation) {
 
-    return AsyncStream<BackgroundDeliveryPayload> { continuation in
+    var _continuation: AsyncStream<BackgroundDeliveryPayload>.Continuation!
+
+    let stream = AsyncStream<BackgroundDeliveryPayload> { continuation in
+      _continuation = continuation
+
       var queries: [HKObserverQuery] = []
 
       for typesToObserve in typesBundle {
@@ -320,7 +367,14 @@ extension VitalHealthKitClient {
           if filteredSampleTypes.isEmpty {
             handler()
           } else {
-            let payload = BackgroundDeliveryPayload(sampleTypes: filteredSampleTypes, completion: handler)
+            let payload = BackgroundDeliveryPayload(
+              sampleTypes: filteredSampleTypes,
+              completion: { completion in
+                if completion == .completed {
+                  handler()
+                }
+              }
+            )
             continuation.yield(payload)
           }
         }
@@ -336,14 +390,18 @@ extension VitalHealthKitClient {
         }
       }
     }
+
+    return (stream, _continuation)
   }
   
   private func backgroundObservers(
     for sampleTypes: Set<HKSampleType>
-  ) -> AsyncStream<BackgroundDeliveryPayload> {
-    
-    return AsyncStream<BackgroundDeliveryPayload> { continuation in
-      
+  ) -> (AsyncStream<BackgroundDeliveryPayload>, AsyncStream<BackgroundDeliveryPayload>.Continuation) {
+    var _continuation: AsyncStream<BackgroundDeliveryPayload>.Continuation!
+
+    let stream = AsyncStream<BackgroundDeliveryPayload> { continuation in
+      _continuation = continuation
+
       var queries: [HKObserverQuery] = []
       
       for sampleType in sampleTypes {
@@ -358,7 +416,14 @@ extension VitalHealthKitClient {
 
           VitalLogger.healthKit.info("[HealthKit] Notified changes in \(sampleType, privacy: .public)")
           
-          let payload = BackgroundDeliveryPayload(sampleTypes: Set([sampleType]), completion: handler)
+          let payload = BackgroundDeliveryPayload(
+            sampleTypes: Set([sampleType]),
+            completion: { completion in
+              if completion == .completed {
+                handler()
+              }
+            }
+          )
           continuation.yield(payload)
         }
         
@@ -373,6 +438,8 @@ extension VitalHealthKitClient {
         }
       }
     }
+
+    return (stream, _continuation)
   }
   
   private func calculateStage(
@@ -475,6 +542,12 @@ extension VitalHealthKitClient {
     do {
       // Signal syncing (so the consumer can convey it to the user)
       _status.send(.syncing(resource))
+
+      let stage = calculateStage(
+        resource: payload.resource(store: store),
+        startDate: startDate,
+        endDate: endDate
+      )
       
       // Fetch from HealthKit
       let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
@@ -485,20 +558,17 @@ extension VitalHealthKitClient {
         endDate,
         storage
       )
-      
-      let stage = calculateStage(
-        resource: payload.resource(store: store),
-        startDate: startDate,
-        endDate: endDate
-      )
 
       guard let data = data, data.shouldSkipPost == false else {
         /// If there's no data, independently of the stage, we won't send it.
         /// Currently the server is returning 4XX when sending an empty payload.
         /// More context on VIT-2232.
 
+        // TODO: We should post something anyway so that backend can emit a historical event.
+
         /// If it's historical, we store the entity and bailout
         if stage.isDaily == false {
+          storage.storeFlag(for: resource)
           entitiesToStore.forEach(storage.store(entity:))
         }
 
@@ -694,5 +764,21 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
       
     case .timeSeries:
       return data
+  }
+}
+
+extension ProtectedBox<UIBackgroundTaskIdentifier> {
+  func start(_ name: String, expiration: @escaping () -> Void) {
+    let taskId = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+      expiration()
+      self?.endIfNeeded()
+    }
+    set(value: taskId)
+  }
+
+  func endIfNeeded() {
+    if let taskId = clean() {
+      UIApplication.shared.endBackgroundTask(taskId)
+    }
   }
 }

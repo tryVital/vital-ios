@@ -32,22 +32,9 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
   }()
   
   func startDataTask(_ task: URLSessionDataTask, session: URLSession, delegate: URLSessionDataDelegate?) async throws -> Response<Data> {
-    let taskId = ProtectedBox<UIBackgroundTaskIdentifier>(value: nil)
-
-    @Sendable func endTask() {
-      if let taskId = taskId.clean() {
-        endBackgroundTask(id: taskId)
-      }
-    }
-
-    let id = beginBackgroundTask(expirationHandler: { [weak task] in
-      task?.cancel()
-      // We must mark the task to end synchronously in the expiration handler.
-      endTask()
-    })
-    taskId.set(value: id)
-
-    defer { endTask() }
+    let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>(value: nil)
+    osBackgroundTask.start("vital-request", expiration: { [weak task] in task?.cancel() })
+    defer { osBackgroundTask.endIfNeeded() }
 
     return try await withTaskCancellationHandler(operation: {
       try await withUnsafeThrowingContinuation { continuation in
@@ -62,7 +49,7 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
       }
     }, onCancel: {
       task.cancel()
-      endTask()
+      osBackgroundTask.endIfNeeded()
     })
   }
   
@@ -411,15 +398,5 @@ private final class TaskHandlersDictionary {
       defer { lock.unlock() }
       handlers[task] = newValue
     }
-  }
-}
-
-private func beginBackgroundTask(expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
-  return UIApplication.shared.beginBackgroundTask(withName: nil, expirationHandler: expirationHandler)
-}
-
-private func endBackgroundTask(id: UIBackgroundTaskIdentifier) {
-  if id != .invalid {
-    UIApplication.shared.endBackgroundTask(id)
   }
 }

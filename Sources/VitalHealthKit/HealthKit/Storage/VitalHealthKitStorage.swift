@@ -10,6 +10,8 @@ class VitalHealthKitStorage {
 
   private let flag = "vital_anchor_"
 
+  private let initialSyncDone = "initial_sync_done"
+
   private let storage: VitalBackStorage
   
   init(storage: VitalBackStorage) {
@@ -22,6 +24,14 @@ class VitalHealthKitStorage {
   
   func readFlag(for resource: VitalResource) -> Bool {
     return storage.isResourceFlagged(resource)
+  }
+
+  func setCompletedInitialSync() {
+    storage.store(Data([0x01]), initialSyncDone)
+  }
+
+  func hasCompletedInitalSync() -> Bool {
+    return storage.read(initialSyncDone) == Data([0x01])
   }
   
   func isLegacyType(for key: String) -> Bool {
