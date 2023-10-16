@@ -417,16 +417,29 @@ extension WorkoutPatch.Workout {
     guard let workout = sample as? HKWorkout else {
       return nil
     }
-        
+
+    var ascentElevation: Double? = nil
+    if let ascentElevationQuantity = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
+      ascentElevation = ascentElevationQuantity.doubleValue(for: .meter())
+    }
+
+    var descentElevation: Double? = nil
+    if let descentElevationQuantity = workout.metadata?[HKMetadataKeyElevationDescended] as? HKQuantity {
+      descentElevation = descentElevationQuantity.doubleValue(for: .meter())
+    }
+
     self.init(
       id: workout.uuid,
       startDate: sample.startDate,
       endDate: sample.endDate,
+      movingTime: workout.duration,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,
       calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
-      distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0
+      distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0, 
+      ascentElevation: ascentElevation,
+      descentElevation: descentElevation
     )
   }
 }
