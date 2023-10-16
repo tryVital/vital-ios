@@ -440,7 +440,6 @@ extension WorkoutPatch.Workout {
       distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0, 
       ascentElevation: ascentElevation,
       descentElevation: descentElevation
-
     )
   }
 }
