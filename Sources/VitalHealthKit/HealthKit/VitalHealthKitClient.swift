@@ -724,11 +724,13 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
           id: workout.id,
           startDate: workout.startDate,
           endDate: workout.endDate,
+          movingTime: workout.movingTime,
           sourceBundle: workout.sourceBundle,
           productType: workout.productType,
           sport: workout.sport,
           calories: workout.calories,
           distance: workout.distance,
+          elevation: workout.elevation,
           heartRate: average(workout.heartRate, calendar: calendar),
           respiratoryRate: average(workout.respiratoryRate, calendar: calendar)
         )
