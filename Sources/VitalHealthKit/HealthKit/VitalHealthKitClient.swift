@@ -730,7 +730,8 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
           sport: workout.sport,
           calories: workout.calories,
           distance: workout.distance,
-          elevation: workout.elevation,
+          ascentElevation: workout.ascentElevation,
+          descentElevation: workout.descentElevation,
           heartRate: average(workout.heartRate, calendar: calendar),
           respiratoryRate: average(workout.respiratoryRate, calendar: calendar)
         )

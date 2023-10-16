@@ -418,9 +418,14 @@ extension WorkoutPatch.Workout {
       return nil
     }
 
-    var elevation: Double? = nil
-    if let elevationQuantity = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
-      elevation = elevationQuantity.doubleValue(for: .meter())
+    var ascentElevation: Double? = nil
+    if let ascentElevationQuantity = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
+      ascentElevation = ascentElevationQuantity.doubleValue(for: .meter())
+    }
+
+    var descentElevation: Double? = nil
+    if let descentElevationQuantity = workout.metadata?[HKMetadataKeyElevationDescended] as? HKQuantity {
+      descentElevation = descentElevationQuantity.doubleValue(for: .meter())
     }
 
     self.init(
@@ -433,7 +438,9 @@ extension WorkoutPatch.Workout {
       sport: workout.workoutActivityType.toString,
       calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
       distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0, 
-      elevation: elevation
+      ascentElevation: ascentElevation,
+      descentElevation: descentElevation
+
     )
   }
 }

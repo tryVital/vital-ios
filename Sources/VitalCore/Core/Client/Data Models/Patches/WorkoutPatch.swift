@@ -12,7 +12,8 @@ public struct WorkoutPatch: Equatable, Encodable {
     public let sport: String
     public let calories: Double
     public let distance: Double
-    public let elevation: Double?
+    public let ascentElevation: Double?
+    public let descentElevation: Double?
 
     public var heartRate: [QuantitySample] = []
     public var respiratoryRate: [QuantitySample] = []
@@ -31,7 +32,8 @@ public struct WorkoutPatch: Equatable, Encodable {
       sport: String,
       calories: Double,
       distance: Double,
-      elevation: Double?,
+      ascentElevation: Double?,
+      descentElevation: Double?,
       heartRate: [QuantitySample] = [],
       respiratoryRate: [QuantitySample] = []
     ) {
@@ -44,7 +46,8 @@ public struct WorkoutPatch: Equatable, Encodable {
       self.sport = sport
       self.calories = calories
       self.distance = distance
-      self.elevation = elevation
+      self.ascentElevation = ascentElevation
+      self.descentElevation = descentElevation
       self.heartRate = heartRate
       self.respiratoryRate = respiratoryRate
     }
