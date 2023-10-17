@@ -18,20 +18,35 @@ struct VitalStatistics {
     self.endDate = endDate
   }
     
-  init(statistics: HKStatistics, type: HKQuantityType) throws {
+  init(statistics: HKStatistics, type: HKQuantityType, options: HKStatisticsOptions?) throws {
     let unit = type.toHealthKitUnits
 
-    guard
-      type.is(compatibleWith: unit),
-      let quantity = type.idealStatisticalQuantity(from: statistics)
-    else { throw VitalStatisticsError(statistics: statistics) }
-    
-    let value = quantity.doubleValue(for: unit)
-    self.init(
-      value: value,
-      type: type,
-      startDate: statistics.startDate,
-      endDate: statistics.endDate
-    )
+    if 
+      let options = options,
+      let quantity = quantity(for: statistics, with: options)
+    {
+      let value = quantity.doubleValue(for: unit)
+      self.init(
+        value: value,
+        type: type,
+        startDate: statistics.startDate,
+        endDate: statistics.endDate
+      )
+    } else {
+      guard
+        type.is(compatibleWith: unit),
+        let quantity = type.idealStatisticalQuantity(from: statistics)
+      else {
+        throw VitalStatisticsError(statistics: statistics)
+      }
+
+      let value = quantity.doubleValue(for: unit)
+      self.init(
+        value: value,
+        type: type,
+        startDate: statistics.startDate,
+        endDate: statistics.endDate
+      )
+    }
   }
 }

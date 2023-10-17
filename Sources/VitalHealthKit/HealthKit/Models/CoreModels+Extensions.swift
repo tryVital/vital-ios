@@ -376,6 +376,19 @@ extension HKSampleType {
   }
 }
 
+func quantity(for statistics: HKStatistics, with options: HKStatisticsOptions) -> HKQuantity? {
+  switch options {
+    case .discreteMax:
+      return statistics.maximumQuantity()
+    case .discreteAverage:
+      return statistics.averageQuantity()
+    case .discreteMin:
+      return statistics.minimumQuantity()
+    default:
+      return nil
+  }
+}
+
 extension ProfilePatch.BiologicalSex {
   init(healthKitSex: HKBiologicalSex) {
     switch healthKitSex {
@@ -443,7 +456,6 @@ extension WorkoutPatch.Workout {
     )
   }
 }
-
 
 extension QuantitySample {
   public init(categorySample: HKCategorySample) {
