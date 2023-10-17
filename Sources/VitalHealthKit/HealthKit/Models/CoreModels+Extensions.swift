@@ -376,7 +376,12 @@ extension HKSampleType {
   }
 }
 
-func quantity(for statistics: HKStatistics, with options: HKStatisticsOptions) -> HKQuantity? {
+func quantity(for statistics: HKStatistics, with options: HKStatisticsOptions?, type: HKQuantityType) -> HKQuantity? {
+
+  guard let options = options else {
+    return type.idealStatisticalQuantity(from: statistics)
+  }
+
   switch options {
     case .discreteMax:
       return statistics.maximumQuantity()
@@ -385,7 +390,7 @@ func quantity(for statistics: HKStatistics, with options: HKStatisticsOptions) -
     case .discreteMin:
       return statistics.minimumQuantity()
     default:
-      return nil
+      return type.idealStatisticalQuantity(from: statistics)
   }
 }
 
