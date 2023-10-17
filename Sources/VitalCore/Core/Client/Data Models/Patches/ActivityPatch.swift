@@ -50,14 +50,35 @@ public struct ActivityPatch: Equatable, Encodable {
     public var medium: Double?
     public var high: Double?
 
+    public var maxHR: Int?
+    public var minHR: Int?
+    public var averageHR: Int?
+    public var restingHR: Int?
+
     public var isNotEmpty: Bool {
       activeEnergyBurnedSum != nil || basalEnergyBurnedSum != nil ||
       stepsSum != nil || floorsClimbedSum != nil ||
       distanceWalkingRunningSum != nil || vo2Max != nil ||
-      low != nil || medium != nil || high != nil
+      low != nil || medium != nil || high != nil || maxHR != nil || 
+      minHR != nil || averageHR != nil || restingHR != nil
     }
 
-    public init(calendarDate: GregorianCalendar.FloatingDate, activeEnergyBurnedSum: Double? = nil, basalEnergyBurnedSum: Double? = nil, stepsSum: Int? = nil, floorsClimbedSum: Int? = nil, distanceWalkingRunningSum: Double? = nil, vo2Max: Double? = nil, low: Double? = nil, medium: Double? = nil, high: Double? = nil) {
+    public init(
+      calendarDate: GregorianCalendar.FloatingDate,
+      activeEnergyBurnedSum: Double? = nil,
+      basalEnergyBurnedSum: Double? = nil,
+      stepsSum: Int? = nil,
+      floorsClimbedSum: Int? = nil,
+      distanceWalkingRunningSum: Double? = nil,
+      vo2Max: Double? = nil,
+      low: Double? = nil,
+      medium: Double? = nil,
+      high: Double? = nil,
+      maxHR: Int? = nil,
+      minHR: Int? = nil,
+      averageHR: Int? = nil,
+      restingHR: Int? = nil
+    ) {
       self.calendarDate = calendarDate
       self.activeEnergyBurnedSum = activeEnergyBurnedSum
       self.basalEnergyBurnedSum = basalEnergyBurnedSum
@@ -68,6 +89,10 @@ public struct ActivityPatch: Equatable, Encodable {
       self.low = low
       self.medium = medium
       self.high = high
+      self.maxHR = maxHR
+      self.minHR = minHR
+      self.averageHR = averageHR
+      self.restingHR = restingHR
     }
   }
   

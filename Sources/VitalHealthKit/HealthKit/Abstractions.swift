@@ -227,7 +227,7 @@ struct StatisticsQueryDependencies {
   ///
   /// Note that the time interval `Range<Date>` is end exclusive. This is because both the HealthKit query predicate
   /// and the resulting statistics use end-exclusive time intervals as well.
-  var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity) async throws -> [VitalStatistics]
+  var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity, HKStatisticsOptions?) async throws -> [VitalStatistics]
 
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
@@ -238,7 +238,7 @@ struct StatisticsQueryDependencies {
   var key: (HKQuantityType) -> String
 
   static var debug: StatisticsQueryDependencies {
-    return .init { _, _, _ in
+    return .init { _, _, _, _ in
       fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
@@ -257,7 +257,7 @@ struct StatisticsQueryDependencies {
     healthKitStore: HKHealthStore,
     vitalStorage: VitalHealthKitStorage
   ) -> StatisticsQueryDependencies {
-    return .init { type, queryInterval, granularity in
+    return .init { type, queryInterval, granularity, options in
 
       // %@ <= %K AND %K < %@
       // Exclusive end as per Apple documentation
@@ -285,7 +285,7 @@ struct StatisticsQueryDependencies {
       let query = HKStatisticsCollectionQuery(
         quantityType: type,
         quantitySamplePredicate: predicate,
-        options: type.idealStatisticalQueryOptions,
+        options: options ?? type.idealStatisticalQueryOptions,
         anchorDate: queryInterval.lowerBound,
         intervalComponents: intervalComponents
       )
@@ -341,7 +341,7 @@ struct StatisticsQueryDependencies {
 
         do {
           let vitalStatistics = try values.map { statistics in
-            try VitalStatistics(statistics: statistics, type: type)
+            try VitalStatistics(statistics: statistics, type: type, options: options)
           }
 
           continuation.resume(returning: vitalStatistics)

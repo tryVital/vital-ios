@@ -168,7 +168,6 @@ func read(
         return (nil, [])
       }
 
-      
     case .body:
       let payload = try await handleBody(
         healthKitStore: healthKitStore,
@@ -942,7 +941,7 @@ private func populateAnchorsForStatisticalQuery(
   let startDate = vitalCalendar.date(byAdding: .day, value: -21, to: statisticsQueryStartDate)!.dayStart
   let endDate = statisticsQueryStartDate.beginningHour
 
-  let statistics = try await dependency.executeStatisticalQuery(type, startDate ..< endDate, .hourly)
+  let statistics = try await dependency.executeStatisticalQuery(type, startDate ..< endDate, .hourly, nil)
   let newAnchors = calculateIdsForAnchorsPopulation(
     vitalStatistics: statistics,
     date: endDate
@@ -1030,7 +1029,7 @@ func queryStatisticsSample(
   let queryInterval = statisticsStartDate ..< newEndDate
 
   let (statistics, anchor) = calculateIdsForAnchorsAndData(
-    vitalStatistics: try await dependency.executeStatisticalQuery(type, queryInterval, .hourly),
+    vitalStatistics: try await dependency.executeStatisticalQuery(type, queryInterval, .hourly, nil),
     existingAnchors: vitalAnchors,
     key: dependency.key(type),
     date: newEndDate
@@ -1070,27 +1069,59 @@ func queryActivityDaySummaries(
   async let _activeEnergyBurnedSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
     queryInterval,
-    .daily
+    .daily,
+    nil
   )
   async let _basalEnergyBurnedSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .basalEnergyBurned)!,
     queryInterval,
-    .daily
+    .daily,
+    nil
   )
   async let _stepsSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .stepCount)!,
     queryInterval,
-    .daily
+    .daily,
+    nil
   )
   async let _floorsClimbedSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .flightsClimbed)!,
     queryInterval,
-    .daily
+    .daily,
+    nil
   )
   async let _distanceWalkingRunningSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!,
     queryInterval,
-    .daily
+    .daily,
+    nil
+  )
+  async let _maxHeartRate = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+    queryInterval,
+    .daily,
+    .discreteMax
+  )
+
+  async let _minHeartRate = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+    queryInterval,
+    .daily,
+    .discreteMin
+  )
+
+  async let _averageHeartRate = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+    queryInterval,
+    .daily,
+    .discreteAverage
+  )
+
+  async let _restingHeartRate = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .restingHeartRate)!,
+    queryInterval,
+    .daily,
+    nil
   )
 
   func keyedByDate(_ statistics: [VitalStatistics]) -> [GregorianCalendar.FloatingDate: VitalStatistics] {
@@ -1106,6 +1137,10 @@ func queryActivityDaySummaries(
   let stepsSum = keyedByDate(try await _stepsSum)
   let floorsClimbedSum = keyedByDate(try await _floorsClimbedSum)
   let distanceWalkingRunningSum = keyedByDate(try await _distanceWalkingRunningSum)
+  let maxHeartRate = keyedByDate(try await _maxHeartRate)
+  let minHeartRate = keyedByDate(try await _minHeartRate)
+  let averageHeartRate = keyedByDate(try await _averageHeartRate)
+  let restingHeartRate = keyedByDate(try await _restingHeartRate)
 
   var result = [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]()
   for date in calendar.enumerate(datesToCompute) {
@@ -1116,9 +1151,14 @@ func queryActivityDaySummaries(
       basalEnergyBurnedSum: basalEnergyBurnedSum[date]?.value.rounded(.down),
       stepsSum: (stepsSum[date]?.value.rounded(.down)).map(Int.init),
       floorsClimbedSum: (floorsClimbedSum[date]?.value.rounded(.down)).map(Int.init),
-      distanceWalkingRunningSum: distanceWalkingRunningSum[date]?.value.rounded(.down)
+      distanceWalkingRunningSum: distanceWalkingRunningSum[date]?.value.rounded(.down),
+      maxHR: (maxHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      minHR: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      averageHR: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      restingHR: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init)
     )
   }
+
   return result
 }
 

@@ -234,7 +234,7 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [Range<Date>] = []
     
-    debug.executeStatisticalQuery = { type, queryInterval, granularity in
+    debug.executeStatisticalQuery = { type, queryInterval, granularity, _ in
       XCTAssertEqual(quantityType, type)
       XCTAssertEqual(granularity, .hourly)
 
@@ -311,7 +311,7 @@ class VitalHealthKitReadsTests: XCTestCase {
 
     var dateRanges: [Range<Date>] = []
 
-    debug.executeStatisticalQuery = { type, queryInterval, granularity in
+    debug.executeStatisticalQuery = { type, queryInterval, granularity, _ in
       XCTAssertEqual(quantityType, type)
       XCTAssertEqual(granularity, .hourly)
 

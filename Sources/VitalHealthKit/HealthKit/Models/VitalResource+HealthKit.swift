@@ -70,13 +70,18 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       ] + temperature
       
     case .activity:
-      return toHealthKitTypes(resource: .individual(.steps)) +
+      let base = toHealthKitTypes(resource: .individual(.steps)) +
       toHealthKitTypes(resource: .individual(.floorsClimbed)) +
       toHealthKitTypes(resource: .individual(.basalEnergyBurned)) +
       toHealthKitTypes(resource: .individual(.activeEnergyBurned)) +
       toHealthKitTypes(resource: .individual(.distanceWalkingRunning)) +
       toHealthKitTypes(resource: .individual(.vo2Max))
-      
+
+      return base + [
+        HKSampleType.quantityType(forIdentifier: .heartRate)!,
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!
+      ]
+
     case .workout:
       return [
         HKSampleType.workoutType(),
