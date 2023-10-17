@@ -14,7 +14,8 @@ class StatisticalQueryTests: XCTestCase {
         _ = try await dependencies.executeStatisticalQuery(
           HKQuantityType.quantityType(forIdentifier: .stepCount)!,
           Date().addingTimeInterval(-86400) ..< Date(),
-          .daily
+          .daily,
+          nil
         )
 
         XCTFail("Unexpected return")
