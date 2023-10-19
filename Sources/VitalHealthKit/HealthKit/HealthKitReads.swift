@@ -1154,7 +1154,7 @@ func queryActivityDaySummaries(
       distanceWalkingRunningSum: distanceWalkingRunningSum[date]?.value.rounded(.down),
       maxHeartRate: (maxHeartRate[date]?.value.rounded(.down)).map(Int.init),
       minHeartRate: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      averageHeartRate: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      avgHeartRate: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
       restingHeartRate: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init)
     )
   }
