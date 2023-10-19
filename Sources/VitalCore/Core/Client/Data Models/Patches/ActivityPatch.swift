@@ -50,17 +50,17 @@ public struct ActivityPatch: Equatable, Encodable {
     public var medium: Double?
     public var high: Double?
 
-    public var maxHR: Int?
-    public var minHR: Int?
-    public var averageHR: Int?
-    public var restingHR: Int?
+    public var maxHeartRate: Int?
+    public var minHeartRate: Int?
+    public var averageHeartRate: Int?
+    public var restingHeartRate: Int?
 
     public var isNotEmpty: Bool {
       activeEnergyBurnedSum != nil || basalEnergyBurnedSum != nil ||
       stepsSum != nil || floorsClimbedSum != nil ||
       distanceWalkingRunningSum != nil || vo2Max != nil ||
-      low != nil || medium != nil || high != nil || maxHR != nil || 
-      minHR != nil || averageHR != nil || restingHR != nil
+      low != nil || medium != nil || high != nil || maxHeartRate != nil ||
+      minHeartRate != nil || averageHeartRate != nil || restingHeartRate != nil
     }
 
     public init(
@@ -74,10 +74,10 @@ public struct ActivityPatch: Equatable, Encodable {
       low: Double? = nil,
       medium: Double? = nil,
       high: Double? = nil,
-      maxHR: Int? = nil,
-      minHR: Int? = nil,
-      averageHR: Int? = nil,
-      restingHR: Int? = nil
+      maxHeartRate: Int? = nil,
+      minHeartRate: Int? = nil,
+      averageHeartRate: Int? = nil,
+      restingHeartRate: Int? = nil
     ) {
       self.calendarDate = calendarDate
       self.activeEnergyBurnedSum = activeEnergyBurnedSum
@@ -89,10 +89,10 @@ public struct ActivityPatch: Equatable, Encodable {
       self.low = low
       self.medium = medium
       self.high = high
-      self.maxHR = maxHR
-      self.minHR = minHR
-      self.averageHR = averageHR
-      self.restingHR = restingHR
+      self.maxHeartRate = maxHeartRate
+      self.minHeartRate = minHeartRate
+      self.averageHeartRate = averageHeartRate
+      self.restingHeartRate = restingHeartRate
     }
   }
   

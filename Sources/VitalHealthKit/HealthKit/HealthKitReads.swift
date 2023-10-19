@@ -1152,10 +1152,10 @@ func queryActivityDaySummaries(
       stepsSum: (stepsSum[date]?.value.rounded(.down)).map(Int.init),
       floorsClimbedSum: (floorsClimbedSum[date]?.value.rounded(.down)).map(Int.init),
       distanceWalkingRunningSum: distanceWalkingRunningSum[date]?.value.rounded(.down),
-      maxHR: (maxHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      minHR: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      averageHR: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      restingHR: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init)
+      maxHeartRate: (maxHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      minHeartRate: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      averageHeartRate: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      restingHeartRate: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init)
     )
   }
 
