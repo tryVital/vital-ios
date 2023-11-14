@@ -141,7 +141,15 @@ extension QuantitySample {
     guard let value = sample as? HKQuantitySample else {
       return nil
     }
-        
+
+    let unit = sample.sampleType.toHealthKitUnits
+    var doubleValue = value.quantity.doubleValue(for: unit)
+
+    if unit == HKUnit.percent() {
+      // Vital uses [0, 100[ instead of [0, 1[, so we need to scale up the percentage.
+      doubleValue = doubleValue * 100
+    }
+
     self.init(
       id: value.uuid.uuidString,
       value: value.quantity.doubleValue(for: sample.sampleType.toHealthKitUnits),
