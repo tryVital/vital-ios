@@ -360,8 +360,7 @@ internal struct VitalSignInToken: Hashable, Decodable {
 
 private func padBase64(_ string: any StringProtocol) -> String {
   let pad = string.count % 4
-  print(pad)
-  print(string)
+
   if pad == 0 {
     return String(string)
   } else {
