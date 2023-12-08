@@ -437,6 +437,7 @@ func handleSleep(
     endDate: endDate,
     extraPredicate: predicate
   )
+
   anchors.appendOptional(payload.anchor)
 
   /// An iPhone is capable of recording sleep. We can see it by looking at the bundle identifier + productType.
@@ -1326,7 +1327,7 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
     let bundleIdentifier = sample.sourceRevision.source.bundleIdentifier
     
     if bundleIdentifier.contains(DataSource.appleHealthKit.rawValue) {
-      
+
       /// Data generated from a watch can look like this `Optional("Watch4,4")`
       if let productType = sample.sourceRevision.productType {
         return productType.lowercased().contains("watch")
@@ -1344,11 +1345,21 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
 }
 
 private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSample] {
+  
   return samples.filter { sample in
-    let identifier = sample.sourceRevision.source.bundleIdentifier.lowercased()
-    
+    let identifier = sample.sourceRevision.source.bundleIdentifier
+
+    guard 
+      let wasUserEntered = sample.metadata?[HKMetadataKeyWasUserEntered] as? Bool,
+      wasUserEntered == false
+    else {
+      /// If it's manually entered, allow the sample
+      return true
+    }
+
+    // It wasn't user entered, so let's match it against the allowed bundle identifiers
     for dataSource in dataSources {
-      if identifier.contains(dataSource.rawValue.lowercased()) {
+      if identifier.contains(dataSource.rawValue) {
         return true
       }
     }
