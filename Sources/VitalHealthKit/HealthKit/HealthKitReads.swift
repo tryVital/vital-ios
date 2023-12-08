@@ -1345,10 +1345,10 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
 
 private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSample] {
   return samples.filter { sample in
-    let identifier = sample.sourceRevision.source.bundleIdentifier
+    let identifier = sample.sourceRevision.source.bundleIdentifier.lowercased()
     
     for dataSource in dataSources {
-      if identifier.contains(dataSource.rawValue) {
+      if identifier.contains(dataSource.rawValue.lowercased()) {
         return true
       }
     }
