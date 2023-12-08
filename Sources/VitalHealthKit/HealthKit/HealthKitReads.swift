@@ -1349,10 +1349,9 @@ private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSam
   return samples.filter { sample in
     let identifier = sample.sourceRevision.source.bundleIdentifier
 
-    guard 
+    if
       let wasUserEntered = sample.metadata?[HKMetadataKeyWasUserEntered] as? Bool,
-      wasUserEntered == false
-    else {
+      wasUserEntered == true {
       /// If it's manually entered, allow the sample
       return true
     }
