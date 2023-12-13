@@ -3,13 +3,16 @@ import Foundation
 public enum SimpleTimeSeriesResource {
   case glucose
   case heartRate
-  
+  case bloodOxygen
+
   var toPath: String {
     switch self {
       case .heartRate:
         return "heartrate"
       case .glucose:
         return "glucose"
+      case .bloodOxygen:
+        return "blood_oxygen"
     }
   }
 }
