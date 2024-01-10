@@ -2,8 +2,6 @@ import Foundation
 import os.log
 import Combine
 
-let sdk_version = "0.10.8"
-
 struct Credentials: Equatable, Hashable {
   let apiKey: String
   let environment: Environment
@@ -165,6 +163,7 @@ let core_secureStorageKey: String = "core_secureStorageKey"
 let user_secureStorageKey: String = "user_secureStorageKey"
 
 @objc public class VitalClient: NSObject {
+  public static let sdkVersion = "0.10.8"
   
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
