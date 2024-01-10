@@ -29,7 +29,7 @@ class VitalClientDelegate: APIClientDelegate {
       request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "authorization")
     }
 
-    request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
+    request.setValue(VitalClient.sdkVersion, forHTTPHeaderField: "x-vital-ios-sdk-version")
 
     let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary"]))
     
@@ -71,7 +71,7 @@ class VitalClientDelegate: APIClientDelegate {
 
 class VitalBaseClientDelegate: APIClientDelegate {
   func client(_ client: APIClient, willSendRequest request: inout URLRequest) async throws {
-    request.setValue(sdk_version, forHTTPHeaderField: "x-vital-ios-sdk-version")
+    request.setValue(VitalClient.sdkVersion, forHTTPHeaderField: "x-vital-ios-sdk-version")
   }
   
   func client(_ client: APIClient, validateResponse response: HTTPURLResponse, data: Data, task: URLSessionTask) throws {
