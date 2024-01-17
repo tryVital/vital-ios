@@ -11,7 +11,6 @@ struct VitalCoreConfiguration {
   let apiVersion: String
   let apiClient: APIClient
   let environment: Environment
-  let storage: VitalCoreStorage
   let authMode: VitalClient.AuthMode
 }
 
@@ -169,6 +168,9 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   let configuration: ProtectedBox<VitalCoreConfiguration>
   let jwtAuth: VitalJWTAuth
 
+  // @testable
+  internal var storage: VitalCoreStorage
+
   // Moments that would materially affect `VitalClient.Type.status`.
   let statusDidChange = PassthroughSubject<Void, Never>()
 
@@ -230,9 +232,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.shared.setConfiguration(
       strategy: .jwt(claims.environment),
       configuration: configuration,
-      storage: .init(storage: .live),
-      apiVersion: "v2",
-      jwtAuth: jwtAuth
+      apiVersion: "v2"
     )
 
     let configuration = await shared.configuration.get()
@@ -250,7 +250,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
-      storage: .init(storage: .live),
       apiVersion: "v2"
     )
   }
@@ -269,7 +268,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
-      storage: .init(storage: .live),
       apiVersion: "v2"
     )
   }
@@ -342,7 +340,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
         self.shared.setConfiguration(
           strategy: strategy,
           configuration: restorationState.configuration,
-          storage: .init(storage: .live),
           apiVersion: "v2"
         )
 
@@ -371,11 +368,13 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     secureStorage: VitalSecureStorage = .init(keychain: .live),
     configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
     userId: ProtectedBox<UUID> = .init(),
+    storage: VitalCoreStorage = .init(storage: .live),
     jwtAuth: VitalJWTAuth = .live
   ) {
     self.secureStorage = secureStorage
     self.configuration = configuration
     self.apiKeyModeUserId = userId
+    self.storage = storage
     self.jwtAuth = jwtAuth
     
     super.init()
@@ -388,9 +387,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   func setConfiguration(
     strategy: ConfigurationStrategy,
     configuration: Configuration,
-    storage: VitalCoreStorage,
     apiVersion: String,
-    jwtAuth: VitalJWTAuth = .live,
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) {
     
@@ -446,7 +443,6 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       apiVersion: apiVersion,
       apiClient: apiClient,
       environment: actualEnvironment,
-      storage: storage,
       authMode: authMode
     )
     
@@ -468,7 +464,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     do {
       if
         let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
-        configuration.storage.clean()
+        self.storage.clean()
       }
     }
     catch {
@@ -496,7 +492,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
     let userId = try await getUserId()
-    let storage = await configuration.get().storage
+    let storage = self.storage
     
     guard storage.isConnectedSourceStored(for: userId, with: provider) == false else {
       return true
@@ -508,7 +504,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   public func checkConnectedSource(for provider: Provider.Slug) async throws {
     let userId = try await getUserId()
-    let storage = await configuration.get().storage
+    let storage = self.storage
     
     if try await isUserConnected(to: provider) == false {
       try await self.link.createConnectedSource(userId, provider: provider)
@@ -525,10 +521,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     /// We might be able to derive 2) from 1)?
     ///
     /// We need to check this first, otherwise it will suspend until a configuration is set
-    if let configuration = self.configuration.value {
-      configuration.storage.clean()
-      try? await jwtAuth.signOut()
-    }
+    self.storage.clean()
+    try? await self.jwtAuth.signOut()
 
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)

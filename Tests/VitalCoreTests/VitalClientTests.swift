@@ -10,8 +10,9 @@ let apiVersion = "2.0"
 let provider = Provider.Slug.strava
 
 class VitalClientTests: XCTestCase {
+  let storage = VitalCoreStorage(storage: .debug)
   let secureStorage = VitalSecureStorage(keychain: .debug)
-  lazy var client = VitalClient(secureStorage: secureStorage)
+  lazy var client = VitalClient(secureStorage: secureStorage, storage: storage)
 
   override func setUp() async throws {
     await VitalClient.shared.cleanUp()
@@ -23,7 +24,6 @@ class VitalClientTests: XCTestCase {
   }
   
   func testStorageAndCleanUp() async throws {
-    let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
 
     /// Ideally we would call `VitalClient.configure(...)`
@@ -33,7 +33,6 @@ class VitalClientTests: XCTestCase {
     client.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: .init(logsEnable: false),
-      storage: storage,
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
@@ -188,13 +187,11 @@ class VitalClientTests: XCTestCase {
   }
   
   func testStorageIsCleanedUpOnUserIdChange() async {
-    let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
     
     client.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: .init(logsEnable: false),
-      storage: storage,
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
@@ -208,13 +205,11 @@ class VitalClientTests: XCTestCase {
   }
   
   func testProviderIsStored() async {
-    let storage = VitalCoreStorage(storage: .debug)
     storage.storeConnectedSource(for: userId, with: provider)
 
     client.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: .init(logsEnable: false),
-      storage: storage,
       apiVersion: apiVersion,
       updateAPIClientConfiguration: makeMockApiClient(configuration:)
     )
