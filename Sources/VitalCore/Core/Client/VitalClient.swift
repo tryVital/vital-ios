@@ -179,9 +179,20 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
-  
+  private static let automaticConfigurationLock = NSLock()
+
   public static var shared: VitalClient {
-    clientInitLock.withLock {
+    let sharedClient = sharedNoAutoConfig
+
+    // Try to auto-configure the SDK whenever a customer gets a reference to `VitalClient`.
+    // This is a no-op when the SDK is in a configured state.
+    automaticConfiguration()
+
+    return sharedClient
+  }
+
+  internal static var sharedNoAutoConfig: VitalClient {
+    let sharedClient = clientInitLock.withLock {
       guard let value = client else {
         let newClient = VitalClient()
         Self.client = newClient
@@ -190,6 +201,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
       return value
     }
+
+    return sharedClient
   }
 
   // @testable
@@ -307,6 +320,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
   public static var statuses: AsyncStream<VitalClient.Status> {
     AsyncStream<VitalClient.Status> { continuation in
+      continuation.yield(VitalClient.status)
+
       let cancellable = statusDidChange.sink(
         receiveValue: { continuation.yield(VitalClient.status) }
       )
@@ -329,15 +344,27 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
+    defer { completion?() }
+
+    let client = sharedNoAutoConfig
+
+    // Already configured; skip automatic configuration.
+    guard client.configuration.isNil() else {
+      return
+    }
+
+    automaticConfigurationLock.lock()
+    defer { automaticConfigurationLock.unlock() }
+
     do {
       /// Order is important. `configure` should happen before `setUserId`,
       /// because the latter depends on the former. If we don't do this, the app crash.
-      if let restorationState: VitalClientRestorationState = try shared.secureStorage.get(key: core_secureStorageKey) {
+      if let restorationState: VitalClientRestorationState = try client.secureStorage.get(key: core_secureStorageKey) {
         
         let strategy = try restorationState.resolveStrategy()
 
         /// 1) Set the configuration
-        self.shared.setConfiguration(
+        client.setConfiguration(
           strategy: strategy,
           configuration: restorationState.configuration,
           apiVersion: "v2"
@@ -345,25 +372,23 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
         if
           case .apiKey = strategy,
-          let userId: UUID = try shared.secureStorage.get(key: user_secureStorageKey)
+          let userId: UUID = try client.secureStorage.get(key: user_secureStorageKey)
         {
           /// 2) If and only if there's a `userId`, we set it.
           ///
           /// Note that this is only applicable to the Legacy API Key mode.
           /// In User JWT mode, user ID is part of the JWT claims, and VitalJWTAuth is fully responsible for its persistence.
-          shared._setUserId(userId)
+          client._setUserId(userId)
         }
       }
 
-      completion?()
     } catch let error {
-      completion?()
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
       VitalLogger.core.error("Failed to perform automatic configuration: \(error, privacy: .public)")
     }
   }
-  
+
   init(
     secureStorage: VitalSecureStorage = .init(keychain: .live),
     configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
