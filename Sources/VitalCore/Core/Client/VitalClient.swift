@@ -162,7 +162,7 @@ let core_secureStorageKey: String = "core_secureStorageKey"
 let user_secureStorageKey: String = "user_secureStorageKey"
 
 @objc public class VitalClient: NSObject {
-  public static let sdkVersion = "0.10.9"
+  public static let sdkVersion = "0.10.10"
   
   private let secureStorage: VitalSecureStorage
   let configuration: ProtectedBox<VitalCoreConfiguration>
