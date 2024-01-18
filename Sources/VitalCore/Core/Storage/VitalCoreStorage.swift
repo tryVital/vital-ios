@@ -1,5 +1,4 @@
-import SwiftUI
-import HealthKit
+import Foundation
 
 public struct VitalBackStorage {
   public var isConnectedSourceStored: (String, Provider.Slug) -> Bool

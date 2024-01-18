@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 public struct Keychain {
   var set: (Data, String) -> Void
