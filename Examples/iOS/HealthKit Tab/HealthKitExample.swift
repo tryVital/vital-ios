@@ -5,6 +5,7 @@ import VitalCore
 
 struct HealthKitExample: View {
   @State var permissions: [VitalResource: Bool] = [:]
+  @State var pauseSync = VitalHealthKitClient.shared.pauseSynchronization
 
   var body: some View {
     NavigationView {
@@ -36,6 +37,8 @@ struct HealthKitExample: View {
           }
           .buttonStyle(PlainButtonStyle())
         }
+
+        Toggle(isOn: $pauseSync) { Text("Pause Synchronization") }
         
         Button("Add water 1L") {
           Task {
@@ -65,6 +68,9 @@ struct HealthKitExample: View {
             ($0, VitalHealthKitClient.shared.hasAskedForPermission(resource: $0))
           }
         )
+      }
+      .onChange(of: self.pauseSync) { pauseSync in
+        VitalHealthKitClient.shared.pauseSynchronization = pauseSync
       }
     }
   }

@@ -11,6 +11,7 @@ class VitalHealthKitStorage {
   private let flag = "vital_anchor_"
 
   private let initialSyncDone = "initial_sync_done"
+  private let pauseSync = "pause_sync"
 
   private let storage: VitalBackStorage
   
@@ -42,6 +43,15 @@ class VitalHealthKitStorage {
   func isFirstTimeSycingType(for key: String) -> Bool {
     let anchor = self.read(key: key)
     return anchor?.vitalAnchors == nil && anchor?.date == nil && anchor?.anchor == nil
+  }
+
+  func shouldPauseSynchronization() -> Bool {
+    // Default is nil; so this evaluate to false
+    return storage.read(pauseSync) == Data([0x01])
+  }
+
+  func setPauseSynchronization(_ newValue: Bool) {
+    storage.store(Data([newValue ? 0x01 : 0x0]), pauseSync)
   }
   
   func store(entity: StoredAnchor) {
