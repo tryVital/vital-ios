@@ -396,12 +396,6 @@ func handleBody(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!
   )
   
-  bodyFatPercentage = bodyFatPercentage.map {
-    var copy = $0
-    copy.value = $0.value * 100
-    return copy
-  }
-  
   anchors.appendOptional(bodyMassAnchor)
   anchors.appendOptional(bodyFatPercentageAnchor)
   
