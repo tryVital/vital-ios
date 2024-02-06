@@ -152,7 +152,7 @@ extension QuantitySample {
 
     self.init(
       id: value.uuid.uuidString,
-      value: value.quantity.doubleValue(for: sample.sampleType.toHealthKitUnits),
+      value: doubleValue,
       startDate: sample.startDate,
       endDate: sample.endDate,
       sourceBundle: value.sourceRevision.source.bundleIdentifier,
