@@ -528,6 +528,7 @@ extension VitalHealthKitClient {
   private func sync(
     payload: SyncPayload
   ) async {
+    guard self.pauseSynchronization == false else { return }
     
     let configuration = await configuration.get()
     let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
@@ -710,6 +711,24 @@ extension VitalHealthKitClient {
   public static func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
     let store = HKHealthStore()
     try await VitalHealthKit.write(healthKitStore: store, dataInput: input, startDate: startDate, endDate: endDate)
+  }
+}
+
+extension VitalHealthKitClient {
+  /// Pause all synchronization, both automatic syncs and any manual `syncData(_:)` calls.
+  ///
+  /// - note: When unpausing, a sync is automatically triggered on all previously asked-for resources.
+  public var pauseSynchronization: Bool {
+    get { self.storage.shouldPauseSynchronization() }
+    set {
+      let oldValue = self.storage.shouldPauseSynchronization()
+      self.storage.setPauseSynchronization(newValue)
+
+      // Auto-trigger an asynchronous sync when we un-pause.
+      if oldValue && !newValue {
+        self.syncData()
+      }
+    }
   }
 }
 
