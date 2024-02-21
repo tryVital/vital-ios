@@ -54,13 +54,14 @@ public struct ActivityPatch: Equatable, Encodable {
     public var minHeartRate: Int?
     public var avgHeartRate: Int?
     public var restingHeartRate: Int?
+    public var exerciseTime: Int?
 
     public var isNotEmpty: Bool {
       activeEnergyBurnedSum != nil || basalEnergyBurnedSum != nil ||
       stepsSum != nil || floorsClimbedSum != nil ||
       distanceWalkingRunningSum != nil || vo2Max != nil ||
       low != nil || medium != nil || high != nil || maxHeartRate != nil ||
-      minHeartRate != nil || avgHeartRate != nil || restingHeartRate != nil
+      minHeartRate != nil || avgHeartRate != nil || restingHeartRate != nil || exerciseTime != nil
     }
 
     public init(
@@ -77,7 +78,8 @@ public struct ActivityPatch: Equatable, Encodable {
       maxHeartRate: Int? = nil,
       minHeartRate: Int? = nil,
       avgHeartRate: Int? = nil,
-      restingHeartRate: Int? = nil
+      restingHeartRate: Int? = nil,
+      exerciseTime: Int? = nil
     ) {
       self.calendarDate = calendarDate
       self.activeEnergyBurnedSum = activeEnergyBurnedSum
@@ -93,6 +95,7 @@ public struct ActivityPatch: Equatable, Encodable {
       self.minHeartRate = minHeartRate
       self.avgHeartRate = avgHeartRate
       self.restingHeartRate = restingHeartRate
+      self.exerciseTime = exerciseTime
     }
   }
   

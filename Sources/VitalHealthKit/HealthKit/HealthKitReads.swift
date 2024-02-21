@@ -1119,6 +1119,13 @@ func queryActivityDaySummaries(
     nil
   )
 
+  async let _appleExerciseTime = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!,
+    queryInterval,
+    .daily,
+    nil
+  )
+
   func keyedByDate(_ statistics: [VitalStatistics]) -> [GregorianCalendar.FloatingDate: VitalStatistics] {
     Dictionary(grouping: statistics) { calendar.floatingDate(of: $0.startDate) }
       .mapValues { statistics in
@@ -1136,6 +1143,7 @@ func queryActivityDaySummaries(
   let minHeartRate = keyedByDate(try await _minHeartRate)
   let averageHeartRate = keyedByDate(try await _averageHeartRate)
   let restingHeartRate = keyedByDate(try await _restingHeartRate)
+  let appleExerciseTime = keyedByDate(try await _appleExerciseTime)
 
   var result = [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]()
   for date in calendar.enumerate(datesToCompute) {
@@ -1150,7 +1158,8 @@ func queryActivityDaySummaries(
       maxHeartRate: (maxHeartRate[date]?.value.rounded(.down)).map(Int.init),
       minHeartRate: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
       avgHeartRate: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      restingHeartRate: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init)
+      restingHeartRate: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init),
+      exerciseTime: (appleExerciseTime[date]?.value.rounded(.down)).map(Int.init)
     )
   }
 

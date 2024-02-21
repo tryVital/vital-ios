@@ -332,6 +332,10 @@ extension HKSampleType {
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
         return .millimeterOfMercury()
         
+      case
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
+        return .minute()
+
       default:
         fatalError("\(String(describing: self)) type not supported)")
     }
