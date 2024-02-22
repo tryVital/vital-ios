@@ -154,7 +154,8 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
       HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
       HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!
+      HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
     ],
     
     /// Workout
