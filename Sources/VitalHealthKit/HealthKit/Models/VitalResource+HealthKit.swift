@@ -79,7 +79,8 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
 
       return base + [
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
-        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
       ]
 
     case .workout:
@@ -153,7 +154,8 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
       HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
       HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!
+      HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
     ],
     
     /// Workout
