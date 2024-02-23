@@ -161,6 +161,9 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
 let core_secureStorageKey: String = "core_secureStorageKey"
 let user_secureStorageKey: String = "user_secureStorageKey"
 
+@_spi(VitalSDKInternals)
+public let health_secureStorageKey: String = "health_secureStorageKey"
+
 @objc public class VitalClient: NSObject {
   public static let sdkVersion = "0.11.1"
   
@@ -180,6 +183,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
   private static let automaticConfigurationLock = NSLock()
+  private var cancellables: Set<AnyCancellable> = []
 
   public static var shared: VitalClient {
     let sharedClient = sharedNoAutoConfig
@@ -196,6 +200,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       guard let value = client else {
         let newClient = VitalClient()
         Self.client = newClient
+        Self.bind(newClient, jwtAuth: VitalJWTAuth.live)
         return newClient
       }
 
@@ -314,8 +319,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
   }
 
   public static var statusDidChange: AnyPublisher<Void, Never> {
-    Publishers.Merge(shared.statusDidChange, shared.jwtAuth.statusDidChange)
-      .eraseToAnyPublisher()
+    shared.statusDidChange.eraseToAnyPublisher()
   }
 
   public static var statuses: AsyncStream<VitalClient.Status> {
@@ -386,6 +390,28 @@ let user_secureStorageKey: String = "user_secureStorageKey"
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
       VitalLogger.core.error("Failed to perform automatic configuration: \(error, privacy: .public)")
+    }
+  }
+
+  private static func bind(_ client: VitalClient, jwtAuth: VitalJWTAuth) {
+    // When JWT detects that a user has been deleted, automatically reset the SDK.
+    jwtAuth.statusDidChange
+      .filter { $0 == .userNoLongerValid }
+      .sink { _ in
+        Task {
+          await client.signOut()
+        }
+      }
+      .store(in: &client.cancellables)
+
+    // Asynchronously log Core SDK status changes
+    // NOTE: This must start async. Otherwise, `VitalClient.statuses` will access
+    // `VitalClient.shared` while the initialization lock is still held by the caller of
+    // `bind()`.
+    Task {
+      for await status in type(of: client).statuses {
+        VitalLogger.core.debug("status: \(status, privacy: .public)")
+      }
     }
   }
 
@@ -537,8 +563,13 @@ let user_secureStorageKey: String = "user_secureStorageKey"
     
     storage.storeConnectedSource(for: userId, with: provider)
   }
-  
+
+  @available(*, deprecated, message:"Renamed to `signOut()`.", renamed: "signOut")
   public func cleanUp() async {
+    await signOut()
+  }
+
+  public func signOut() async {
     /// Here we remove the following:
     /// 1) Anchor values we are storing for each `HKSampleType`.
     /// 2) Stage for each `HKSampleType`.
@@ -551,7 +582,8 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
-    
+    self.secureStorage.clean(key: health_secureStorageKey)
+
     self.apiKeyModeUserId.clean()
     self.configuration.clean()
 
@@ -606,7 +638,7 @@ public extension VitalClient {
     case userJwt
   }
 
-  struct Status: OptionSet {
+  struct Status: OptionSet, CustomStringConvertible {
     /// The SDK has been configured, either through `VitalClient.Type.configure` for the first time,
     /// or through `VitalClient.Type.automaticConfiguration()` where the last auto-saved
     /// configuration has been restored.
@@ -633,6 +665,31 @@ public extension VitalClient {
     public static let pendingReauthentication = Status(rawValue: 1 << 4)
 
     public let rawValue: Int
+
+    public var description: String {
+      var texts: [String] = []
+      if self.contains(.configured) {
+        texts.append("configured")
+      }
+      if self.contains(.signedIn) {
+        texts.append("signedIn")
+      }
+      if self.contains(.useApiKey) {
+        texts.append("useApiKey")
+      }
+      if self.contains(.useSignInToken) {
+        texts.append("useSignInToken")
+      }
+      if self.contains(.pendingReauthentication) {
+        texts.append("pendingReauthentication")
+      }
+
+      if texts.isEmpty {
+        return "<not configured>"
+      } else {
+        return texts.joined(separator: ",")
+      }
+    }
 
     public init(rawValue: Int) {
       self.rawValue = rawValue

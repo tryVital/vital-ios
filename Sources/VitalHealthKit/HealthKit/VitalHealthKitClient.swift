@@ -1,7 +1,7 @@
 import HealthKit
 import Combine
 import os.log
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 import UIKit
 
 public enum PermissionOutcome: Equatable {
@@ -9,8 +9,6 @@ public enum PermissionOutcome: Equatable {
   case failure(String)
   case healthKitNotAvailable
 }
-
-let health_secureStorageKey: String = "health_secureStorageKey"
 
 @objc public class VitalHealthKitClient: NSObject {
   public enum Status {
@@ -26,6 +24,7 @@ let health_secureStorageKey: String = "health_secureStorageKey"
       guard let value = client else {
         let newClient = VitalHealthKitClient()
         Self.client = newClient
+        Self.bind(newClient, core: VitalClient.shared)
         return newClient
       }
 
@@ -46,6 +45,10 @@ let health_secureStorageKey: String = "health_secureStorageKey"
   
   private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
   let configuration: ProtectedBox<Configuration>
+
+  private var isAutoSyncConfigured: Bool {
+    backgroundDeliveryEnabled.value ?? false
+  }
   
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
@@ -67,6 +70,16 @@ let health_secureStorageKey: String = "health_secureStorageKey"
     self._status = PassthroughSubject<Status, Never>()
     
     super.init()
+  }
+
+  private static func bind(_ client: VitalHealthKitClient, core: VitalClient) {
+    Task {
+      for await status in type(of: core).statuses {
+        if !status.contains(.signedIn) && client.isAutoSyncConfigured {
+          await client.resetAutoSync()
+        }
+      }
+    }
   }
   
   /// Only use this method if you are working from Objc.
@@ -470,16 +483,18 @@ extension VitalHealthKitClient {
       _status.send(.syncingCompleted)
     }
   }
-  
+
+  @available(*, deprecated, message: "Use `VitalClient.shared.signOut()`, which now resets both the Vital Core and Health SDKs.")
   public func cleanUp() async {
-    await store.disableBackgroundDelivery()
+    await VitalClient.shared.signOut()
+  }
+
+  private func resetAutoSync() async {
     backgroundDeliveryTask?.task.cancel()
     backgroundDeliveryTask = nil
-    
     backgroundDeliveryEnabled.set(value: false)
-    
-    await VitalClient.shared.cleanUp()
-    self.secureStorage.clean(key: health_secureStorageKey)
+
+    await store.disableBackgroundDelivery()
   }
   
   public enum SyncPayload {

@@ -24,6 +24,13 @@ internal struct VitalJWTAuthUserContext {
 
 internal struct VitalJWTAuthNeedsRefresh: Error {}
 
+internal enum VitalJWTAuthChangeReason {
+  case signingOut
+  case signedIn
+  case userNoLongerValid
+  case update
+}
+
 internal actor VitalJWTAuth {
   internal static let live = VitalJWTAuth()
   private static let keychainKey = "vital_jwt_auth"
@@ -45,7 +52,7 @@ internal actor VitalJWTAuth {
   private var cachedRecord: VitalJWTAuthRecord? = nil
 
   // Moments where it would materially affect `VitalClient.Type.status`.
-  internal nonisolated let statusDidChange = PassthroughSubject<Void, Never>()
+  internal nonisolated let statusDidChange = PassthroughSubject<VitalJWTAuthChangeReason, Never>()
 
   init(
     storage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
@@ -99,7 +106,7 @@ internal actor VitalJWTAuth {
         expiry: Date().addingTimeInterval(Double(exchangeResponse.expiresIn) ?? 3600)
      )
 
-      try setRecord(record)
+      try setRecord(record, reason: .signedIn)
 
       VitalLogger.core.info("sign-in success; expiresIn = \(exchangeResponse.expiresIn, privacy: .public)")
 
@@ -114,7 +121,7 @@ internal actor VitalJWTAuth {
   }
 
   func signOut() async throws {
-    try setRecord(nil)
+    try setRecord(nil, reason: .signingOut)
   }
 
   func userContext() throws -> VitalJWTAuthUserContext {
@@ -194,23 +201,23 @@ internal actor VitalJWTAuth {
         newRecord.accessToken = refreshResponse.idToken
         newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn) ?? 3600)
 
-        try setRecord(newRecord)
+        try setRecord(newRecord, reason: .update)
         VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn, privacy: .public)")
 
       default:
         if
           (400...499).contains(httpResponse.statusCode),
-          let response = try? JSONDecoder().decode(FirebaseTokenRefreshError.self, from: data)
+          let response = try? JSONDecoder().decode(FirebaseTokenRefreshErrorResponse.self, from: data)
         {
-          if response.isInvalidUser {
-            try setRecord(nil)
+          if response.error.isInvalidUser {
+            try setRecord(nil, reason: .userNoLongerValid)
             throw VitalJWTAuthError.invalidUser
           }
 
-          if response.needsReauthentication {
+          if response.error.needsReauthentication {
             var record = record
             record.pendingReauthentication = true
-            try setRecord(record)
+            try setRecord(record, reason: .update)
 
             throw VitalJWTAuthError.needsReauthentication
           }
@@ -237,22 +244,20 @@ internal actor VitalJWTAuth {
       return record
     } catch is DecodingError {
       VitalLogger.core.error("auto signout: failed to decode keychain auth record")
-      try? setRecord(nil)
+      try? setRecord(nil, reason: .userNoLongerValid)
       return nil
     }
   }
 
-  private func setRecord(_ record: VitalJWTAuthRecord?) throws {
-    defer {
-      self.cachedRecord = record
-      statusDidChange.send(())
-    }
-
+  private func setRecord(_ record: VitalJWTAuthRecord?, reason: VitalJWTAuthChangeReason) throws {
     if let record = record {
       try storage.set(value: record, key: Self.keychainKey)
     } else {
       storage.clean(key: Self.keychainKey)
     }
+
+    self.cachedRecord = record
+    statusDidChange.send(reason)
   }
 }
 

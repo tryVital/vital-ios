@@ -227,7 +227,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
 
     case .resetSDK:
       return .task {
-        await VitalHealthKitClient.shared.cleanUp()
+        await VitalClient.shared.signOut()
         return .didResetSDK
       }
 
