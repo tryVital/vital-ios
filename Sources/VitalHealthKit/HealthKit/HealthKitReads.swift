@@ -392,7 +392,7 @@ func handleBody(
     type: .quantityType(forIdentifier: .bodyMass)!
   )
   
-  var (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
+  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
     type: .quantityType(forIdentifier: .bodyFatPercentage)!
   )
   
