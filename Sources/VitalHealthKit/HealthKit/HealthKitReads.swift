@@ -93,7 +93,8 @@ private func read(
       
     case
       /// Activity
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+      HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
       
       let (values, anchor) = try await queryQuantities(type: type)
       let patch = ActivityPatch(sampleType: type, samples: values)
