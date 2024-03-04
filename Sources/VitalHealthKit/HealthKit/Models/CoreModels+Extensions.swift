@@ -268,6 +268,9 @@ extension HKSampleType {
 
       case HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!:
         return "g"
+
+      case HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!:
+        return "min"
         
       default:
         fatalError("\(String(describing: self)) type not supported)")
