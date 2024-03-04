@@ -87,9 +87,12 @@ extension HKSampleType {
         
       case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
         return .individual(.distanceWalkingRunning)
-        
+
       case HKSampleType.quantityType(forIdentifier: .vo2Max)!:
         return .individual(.vo2Max)
+
+      case HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
+        return .individual(.exerciseTime)
         
       default:
         fatalError("\(String(describing: self)) is not supported. This is a developer error")

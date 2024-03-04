@@ -27,6 +27,10 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
       return [
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       ]
+    case .individual(.exerciseTime):
+      return [
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
+      ]
     case .individual(.weight):
       return [
         HKSampleType.quantityType(forIdentifier: .bodyMass)!,

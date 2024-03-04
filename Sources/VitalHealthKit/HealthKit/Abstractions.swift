@@ -54,7 +54,8 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .stepCount)!,
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-        HKSampleType.quantityType(forIdentifier: .vo2Max)!:
+        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
         
         if hasAskedForPermission(.activity) {
           return .activity

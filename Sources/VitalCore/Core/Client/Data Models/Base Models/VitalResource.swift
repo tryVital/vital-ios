@@ -46,6 +46,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case floorsClimbed
     case distanceWalkingRunning
     case vo2Max
+    case exerciseTime
     
     case weight
     case bodyFat
@@ -64,6 +65,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
           return "distanceWalkingRunning"
         case .vo2Max:
           return "vo2Max"
+        case .exerciseTime:
+          return "exerciseTime"
         case .weight:
           return "weight"
         case .bodyFat:
