@@ -22,6 +22,7 @@ class SampleTypeTests: XCTestCase {
     for sampleType in VitalResource.all.flatMap(toHealthKitTypes(resource:)) {
       guard let sampleType = sampleType as? HKQuantityType else { continue }
       _ = sampleType.toHealthKitUnits
+      _ = sampleType.toUnitStringRepresentation
     }
   }
 
