@@ -185,6 +185,9 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   private static let automaticConfigurationLock = NSLock()
   private var cancellables: Set<AnyCancellable> = []
 
+  @_spi(VitalSDKInternals)
+  public let childSDKShouldReset = PassthroughSubject<Void, Never>()
+
   public static var shared: VitalClient {
     let sharedClient = sharedNoAutoConfig
 
@@ -587,6 +590,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     self.apiKeyModeUserId.clean()
     self.configuration.clean()
 
+    childSDKShouldReset.send(())
     statusDidChange.send(())
   }
 
