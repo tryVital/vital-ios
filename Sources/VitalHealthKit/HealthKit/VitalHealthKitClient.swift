@@ -42,7 +42,9 @@ public enum PermissionOutcome: Equatable {
   
   private let _status: PassthroughSubject<Status, Never>
   private var backgroundDeliveryTask: BackgroundDeliveryTask? = nil
-  
+
+  private var cancellables: Set<AnyCancellable> = []
+
   private let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
   let configuration: ProtectedBox<Configuration>
 
@@ -73,13 +75,13 @@ public enum PermissionOutcome: Equatable {
   }
 
   private static func bind(_ client: VitalHealthKitClient, core: VitalClient) {
-    Task {
-      for await status in type(of: core).statuses {
-        if !status.contains(.signedIn) && client.isAutoSyncConfigured {
+    core.childSDKShouldReset
+      .sink {
+        Task {
           await client.resetAutoSync()
         }
       }
-    }
+      .store(in: &client.cancellables)
   }
   
   /// Only use this method if you are working from Objc.
