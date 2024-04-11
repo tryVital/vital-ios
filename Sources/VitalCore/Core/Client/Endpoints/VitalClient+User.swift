@@ -30,6 +30,18 @@ public extension VitalClient.User {
     return providers
   }
   
+  func sdkStateSync(body: UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse {
+    let userId = try await self.client.getUserId()
+    let configuration = await self.client.configuration.get()
+    
+    let path = "/\(configuration.apiVersion)/\(path)/\(userId)/sdk_sync_state/apple_health_kit"
+    let request: Request<UserSDKSyncStateResponse> = .init(path: path, method: .post, body: body)
+    
+    let response = try await configuration.apiClient.send(request)
+    
+    return response.value
+  }
+  
   func create(
     _ payload: CreateUserRequest,
     setUserIdOnSuccess: Bool = true
