@@ -210,7 +210,7 @@ extension VitalClientProtocol {
     }
     sdkStateSync: {
       requestBody in
-      try await VitalClient.shared.user.userStatusSync(body: requestBody)
+      try await VitalClient.shared.user.sdkStateSync(body: requestBody)
     }
   }
   
