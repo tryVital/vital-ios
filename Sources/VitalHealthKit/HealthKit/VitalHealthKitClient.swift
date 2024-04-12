@@ -585,8 +585,8 @@ extension VitalHealthKitClient {
         return
       }
       
-      let startDateInBounds = statusResponse.requestStartDate ?? startDate;
-      let endDateInBounds = statusResponse.requestEndDate ?? endDate;
+      let startDateInBounds = statusResponse.requestStartDate ?? startDate
+      let endDateInBounds = statusResponse.requestEndDate ?? endDate
       
       // Fetch from HealthKit
       let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
