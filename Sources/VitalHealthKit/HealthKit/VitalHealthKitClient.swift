@@ -566,14 +566,35 @@ extension VitalHealthKitClient {
         startDate: startDate,
         endDate: endDate
       )
+      /// Make sure the user has a connected source set up
+      try await vitalClient.checkConnectedSource(.appleHealthKit)
+
+      // Sync sdk status
+      let body: UserSDKSyncStateBody
+      switch stage {
+      case .daily:
+        body = UserSDKSyncStateBody(stage: Stage.daily, tzinfo: TimeZone.current.identifier)
+      case let .historical(start, end):
+        body = UserSDKSyncStateBody(stage: Stage.historical, tzinfo: TimeZone.current.identifier, requestStartDate: start, requestEndDate: end)
+      }
+      let statusResponse = try await vitalClient.sdkStateSync(body)
+      
+      guard statusResponse.status == .active else {
+        VitalLogger.healthKit.info("Skipping. Connected source is \(statusResponse.status.rawValue, privacy: .public)")
+        _status.send(.nothingToSync(resource))
+        return
+      }
+      
+      let startDateInBounds = statusResponse.requestStartDate ?? startDate
+      let endDateInBounds = statusResponse.requestEndDate ?? endDate
       
       // Fetch from HealthKit
       let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
         resource,
-        startDate,
-        endDate,
+        startDateInBounds,
+        endDateInBounds,
         storage
       )
 
@@ -600,9 +621,6 @@ extension VitalHealthKitClient {
         VitalLogger.healthKit.info(
           "Automatic Mode. Posting data for stage \(stage, privacy: .public) \(infix, privacy: .public): \(description, privacy: .public)"
         )
-        
-        /// Make sure the user has a connected source set up
-        try await vitalClient.checkConnectedSource(.appleHealthKit)
         
         let transformedData = transform(data: data, calendar: vitalCalendar)
 

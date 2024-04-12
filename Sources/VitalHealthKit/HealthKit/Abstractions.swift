@@ -183,6 +183,7 @@ extension VitalHealthKitStore {
 struct VitalClientProtocol {
   var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone) async throws -> Void
   var checkConnectedSource: (Provider.Slug) async throws -> Void
+  var sdkStateSync: (UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse
 }
 
 extension VitalClientProtocol {
@@ -207,6 +208,10 @@ extension VitalClientProtocol {
     } checkConnectedSource: { provider in
       try await VitalClient.shared.checkConnectedSource(for: provider)
     }
+    sdkStateSync: {
+      requestBody in
+      try await VitalClient.shared.user.sdkStateSync(body: requestBody)
+    }
   }
   
   static var debug: VitalClientProtocol {
@@ -214,6 +219,10 @@ extension VitalClientProtocol {
       return ()
     } checkConnectedSource: { _ in
       return
+    }
+    sdkStateSync: {
+      _ in
+      return fatalError()
     }
   }
 }
