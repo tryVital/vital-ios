@@ -75,7 +75,7 @@ extension VitalHealthKitStore {
         return .vitals(.bloodPressure)
         
       case HKSampleType.quantityType(forIdentifier: .heartRate)!:
-        return .vitals(.hearthRate)
+        return .vitals(.heartRate)
 
       case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
         return .vitals(.heartRateVariability)

@@ -1,5 +1,8 @@
 import Foundation
 
+// String(describing: VitalResource.vitals(.hearthRate))
+private let heartRateFlagOldKey = "vitals(VitalCore.VitalResource.Vitals.hearthRate)"
+
 public struct VitalBackStorage {
   public var isConnectedSourceStored: (String, Provider.Slug) -> Bool
   public var storeConnectedSource: (String, Provider.Slug) -> Void
@@ -37,6 +40,11 @@ public struct VitalBackStorage {
     } flagResource: { resource in
       userDefaults.set(true, forKey: String(describing: resource))
     } isResourceFlagged: { resource in
+      if resource == .vitals(.heartRate) {
+        return userDefaults.bool(forKey: String(describing: resource))
+          || userDefaults.bool(forKey: heartRateFlagOldKey)
+      }
+
       return userDefaults.bool(forKey: String(describing: resource))
     } store: { data, key in
       userDefaults.set(data, forKey: key)

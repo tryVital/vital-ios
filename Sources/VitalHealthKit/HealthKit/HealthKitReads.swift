@@ -231,7 +231,7 @@ func read(
       
       return (.timeSeries(.glucose(payload.samples)), payload.anchors)
       
-    case .vitals(.hearthRate):
+    case .vitals(.heartRate):
       let payload = try await handleTimeSeries(
         type: .quantityType(forIdentifier: .heartRate)!,
         healthKitStore: healthKitStore,

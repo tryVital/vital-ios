@@ -3,7 +3,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case glucose
     case bloodPressure
     case bloodOxygen
-    case hearthRate
+    case heartRate
     case heartRateVariability
     case mindfulSession
     
@@ -15,13 +15,18 @@ public enum VitalResource: Equatable, Hashable, Codable {
           return "bloodPressure"
         case .bloodOxygen:
           return "bloodOxygen"
-        case .hearthRate:
-          return "hearthRate"
+        case .heartRate:
+          return "heartRate"
         case .heartRateVariability:
           return "heartRateVariability"
         case .mindfulSession:
           return "mindfulSession"
       }
+    }
+
+    @available(*, deprecated, renamed:"heartRate")
+    public static var hearthRate: Self {
+      return .heartRate
     }
   }
   
@@ -94,7 +99,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .vitals(.glucose),
     .vitals(.bloodPressure),
     .vitals(.bloodOxygen),
-    .vitals(.hearthRate),
+    .vitals(.heartRate),
     .vitals(.heartRateVariability),
     .vitals(.mindfulSession),
     
