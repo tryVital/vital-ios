@@ -5,7 +5,7 @@ import HealthKit
 @testable import VitalCore
 
 class VitalHealthKitAnchorTests: XCTestCase {
-    
+
   func testAnchorsPopulation() {
     let type = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     let input: [VitalStatistics] = [

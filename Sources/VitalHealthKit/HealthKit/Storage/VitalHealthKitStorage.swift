@@ -14,7 +14,7 @@ class VitalHealthKitStorage {
   private let pauseSync = "pause_sync"
 
   private let storage: VitalBackStorage
-  
+
   init(storage: VitalBackStorage) {
     self.storage = storage
   }

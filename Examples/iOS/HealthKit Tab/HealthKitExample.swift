@@ -30,9 +30,11 @@ struct HealthKitExample: View {
             
             makePermissionRow("Workout", resources: [.workout], permissions: $permissions)
             
-            makePermissionRow("HeartRate", resources: [.vitals(.hearthRate)], permissions: $permissions)
+            makePermissionRow("HeartRate", resources: [.vitals(.heartRate)], permissions: $permissions)
 
             makePermissionRow("Weight", resources: [.individual(.weight)], permissions: $permissions)
+
+            makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
 
           }
           .buttonStyle(PlainButtonStyle())

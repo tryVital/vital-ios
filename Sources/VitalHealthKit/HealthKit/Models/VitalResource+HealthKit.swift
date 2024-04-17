@@ -105,7 +105,7 @@ func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
       ]
       
-    case .vitals(.hearthRate):
+    case .vitals(.heartRate):
       return [
         HKSampleType.quantityType(forIdentifier: .heartRate)!
       ]
