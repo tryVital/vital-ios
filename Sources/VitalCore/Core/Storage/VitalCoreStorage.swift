@@ -5,8 +5,9 @@ private let heartRateFlagOldKey = "vitals(VitalCore.VitalResource.Vitals.hearthR
 
 public struct VitalBackStorage {
   public var isConnectedSourceStored: (String, Provider.Slug) -> Bool
-  public var storeConnectedSource: (String, Provider.Slug) -> Void
-  
+  public var storeConnectedSource: (String, Provider.Slug, Bool) -> Void
+  public var storedConnectedSources: (String) -> Set<Provider.Slug>
+
   public var flagResource: (VitalResource) -> Void
   public var isResourceFlagged: (VitalResource) -> Bool
   
@@ -34,9 +35,20 @@ public struct VitalBackStorage {
     return .init { userId, provider in
       let key = generateKey(userId, provider)
       return userDefaults.bool(forKey: key)
-    } storeConnectedSource: { userId, provider in
+    } storeConnectedSource: { userId, provider, newValue in
       let key = generateKey(userId, provider)
-      userDefaults.set(true, forKey: key)
+      userDefaults.set(newValue, forKey: key)
+    } storedConnectedSources: { userId in
+      let slugs = userDefaults.dictionaryRepresentation()
+        .compactMap { (key, value) -> Provider.Slug? in
+          guard key.hasPrefix(userId) && (value as? Bool) == true else { return nil }
+          let components = key.split(separator: "-")
+          guard components.count == 2 else { return nil }
+          return Provider.Slug(rawValue: String(components[1]))
+        }
+
+      return Set(slugs)
+
     } flagResource: { resource in
       userDefaults.set(true, forKey: String(describing: resource))
     } isResourceFlagged: { resource in
@@ -79,9 +91,20 @@ public struct VitalBackStorage {
     return .init { userId, provider in
       let key = generateKey(userId, provider)
       return storage[key] != nil
-    } storeConnectedSource: { userId, provider in
+    } storeConnectedSource: { userId, provider, newValue in
       let key = generateKey(userId, provider)
-      storage[key] = true
+      storage[key] = newValue
+    } storedConnectedSources: { userId in
+      let slugs = storage
+        .compactMap { (key, value) -> Provider.Slug? in
+          guard key.hasPrefix(userId) && value == true else { return nil }
+          let components = key.split(separator: "-")
+          guard components.count == 2 else { return nil }
+          return Provider.Slug(rawValue: String(components[1]))
+        }
+
+      return Set(slugs)
+
     } flagResource: { resource in
       storage[String(describing: resource)] = true
     } isResourceFlagged: { resource in
@@ -104,21 +127,38 @@ public struct VitalBackStorage {
   }
 }
 
-class VitalCoreStorage {
+@_spi(VitalSDKInternals)
+public class VitalCoreStorage {
+  public static let initialSyncDoneKey = "initial_sync_done"
+  private static let hasAskedHealthKitPermissionKey = "hasAskedHealthKitPermission"
+
   private let storage: VitalBackStorage
   
-  init(storage: VitalBackStorage) {
+  public init(storage: VitalBackStorage) {
     self.storage = storage
   }
-  
-  func storeConnectedSource(for userId: String, with provider: Provider.Slug) {
-    storage.storeConnectedSource(userId, provider)
+
+  func storedConnectedSources(for userId: String) -> Set<Provider.Slug> {
+    storage.storedConnectedSources(userId)
   }
-  
+
+  func storeConnectedSource(for userId: String, with provider: Provider.Slug, newValue: Bool = true) {
+    storage.storeConnectedSource(userId, provider, newValue)
+  }
+
   func isConnectedSourceStored(for userId: String, with provider: Provider.Slug) -> Bool {
     return storage.isConnectedSourceStored(userId, provider)
   }
-  
+
+  public func hasAskedHealthKitPermission() -> Bool {
+    return storage.read(Self.hasAskedHealthKitPermissionKey) == Data([0x01])
+      || storage.read(Self.initialSyncDoneKey) == Data([0x01])
+  }
+
+  public func setAskedHealthKitPermission(_ newValue: Bool) {
+    storage.store(Data([newValue ? 0x01 : 0x00]), Self.hasAskedHealthKitPermissionKey)
+  }
+
   func clean() -> Void {
     return storage.clean()
   }

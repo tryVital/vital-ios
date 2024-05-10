@@ -667,9 +667,10 @@ extension VitalHealthKitClient {
     guard store.isHealthDataAvailable() else {
       return .healthKitNotAvailable
     }
-    
+
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource)
+      vitalClient.storage.setAskedHealthKitPermission(true)
 
       if configuration.isNil() == false {
         let configuration = await configuration.get()
