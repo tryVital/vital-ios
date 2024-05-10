@@ -24,8 +24,8 @@ public enum DataInput {
   }
   
   var type: HKQuantityType {
-    let types = toHealthKitTypes(resource: resource)
-    guard let type = types.first as? HKQuantityType else {
+    let requirements = toHealthKitTypes(resource: resource)
+    guard requirements.isIndividualType, let type = requirements.required.first as? HKQuantityType else {
       fatalError("This is a developer error. No type for \(self)")
     }
     

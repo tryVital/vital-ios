@@ -227,7 +227,7 @@ extension VitalHealthKitClient {
     /// If it's already running, cancel it
     currentTask?.cancel()
 
-    let allowedSampleTypes = Set(resources.flatMap(toHealthKitTypes(resource:)))
+    let allowedSampleTypes = Set(resources.map(toHealthKitTypes(resource:)).flatMap { $0.required + $0.optional })
 
     let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
     let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
@@ -695,7 +695,8 @@ extension VitalHealthKitClient {
       return nil
     }
     
-    let dates: [Date] = toHealthKitTypes(resource: resource).map {
+    let requirements = toHealthKitTypes(resource: resource)
+    let dates: [Date] = (requirements.required + requirements.optional).map {
       String(describing: $0.self)
     }.compactMap { key in
       storage.read(key: key)?.date
@@ -711,20 +712,10 @@ extension VitalHealthKitClient {
   public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData? {
     let store = HKHealthStore()
     
-    let hasAskedForPermission: (VitalResource) -> Bool = { resource in
-      return toHealthKitTypes(resource: resource)
-        .map { store.authorizationStatus(for: $0) != .notDetermined }
-        .reduce(true, { $0 && $1})
-    }
-    
-    let toVitalResource: (HKSampleType) -> VitalResource = { type in
-      return VitalHealthKitStore.sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
-    }
-    
     let (data, _): (ProcessedResourceData?, [StoredAnchor]) = try await VitalHealthKit.read(
       resource: resource,
       healthKitStore: store,
-      typeToResource: toVitalResource,
+      typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       startDate: startDate,
       endDate: endDate

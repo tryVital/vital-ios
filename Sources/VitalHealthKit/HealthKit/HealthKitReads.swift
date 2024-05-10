@@ -139,13 +139,13 @@ func read(
   switch resource {
     case .individual:
       
-      let types = toHealthKitTypes(resource: resource)
-      guard types.count == 1 else {
+      let requirements = toHealthKitTypes(resource: resource)
+    guard requirements.isIndividualType else {
         fatalError("Individual types should made up of a single type. \(resource) isn't. This is a developer error")
       }
       
-      guard let sampleType = types.first as? HKSampleType else {
-        fatalError("\(types) is not an HKSampleType")
+      guard let sampleType = requirements.required.first as? HKSampleType else {
+        fatalError("\(requirements.required.first!) is not an HKSampleType")
       }
       
       return try await read(

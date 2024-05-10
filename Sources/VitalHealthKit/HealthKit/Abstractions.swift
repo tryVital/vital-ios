@@ -98,9 +98,8 @@ extension VitalHealthKitStore {
     let store = HKHealthStore()
     
     let hasAskedForPermission: (VitalResource) -> Bool = { resource in
-      return toHealthKitTypes(resource: resource)
-        .map { store.authorizationStatus(for: $0) != .notDetermined }
-        .reduce(true, { $0 && $1})
+      let requirements = toHealthKitTypes(resource: resource)
+      return requirements.isResourceActive { store.authorizationStatus(for: $0) != .notDetermined }
     }
     
     let toVitalResource: (HKSampleType) -> VitalResource = { type in
@@ -110,14 +109,19 @@ extension VitalHealthKitStore {
     return .init {
       HKHealthStore.isHealthDataAvailable()
     } requestReadWriteAuthorization: { readResources, writeResources in
-      let readTypes = readResources.flatMap(toHealthKitTypes)
+      let readTypes: [HKObjectType] = readResources
+        .map(toHealthKitTypes)
+        .flatMap { requirements in
+          requirements.required + requirements.optional
+        }
       let writeTypes: [HKSampleType] = writeResources
         .map(\.toResource)
-        .flatMap(toHealthKitTypes)
-        .compactMap { type in
-          type as? HKSampleType
+        .map(toHealthKitTypes)
+        .flatMap { requirements in
+          requirements.required + requirements.optional
         }
-      
+        .compactMap { $0 as? HKSampleType }
+
       if #available(iOS 15.0, *) {
         try await store.requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
       } else {
