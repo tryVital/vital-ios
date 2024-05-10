@@ -17,9 +17,11 @@ struct HealthKitObjectTypeRequirements {
   }
 
   func isResourceActive(_ query: (HKObjectType) -> Bool) -> Bool {
-    return self.required.allSatisfy(query) && (
-      self.optional.isEmpty || self.optional.contains(where: query)
-    )
+    if self.required.isEmpty {
+      return self.optional.contains(where: query)
+    } else {
+      return self.required.allSatisfy(query)
+    }
   }
 }
 
