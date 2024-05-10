@@ -1,134 +1,145 @@
 import HealthKit
 import VitalCore
 
-func toHealthKitTypes(resource: VitalResource) -> Set<HKObjectType> {
+struct HealthKitObjectTypeRequirements {
+  /// The required set of HKObjectTypes of a `VitalResource`.
+  ///
+  /// This must not change once the `VitalResource` is introduced, especially if
+  /// the `VitalResource` is a fully computed resource like `activity`.
+  let required: Set<HKObjectType>
+
+  /// An optional set of HKObjectTypes of a `VitalResource`.
+  /// New types can be added or removed from this list.
+  let optional: Set<HKObjectType>
+
+  var isIndividualType: Bool {
+    required.count == 1 && optional.isEmpty
+  }
+
+  func isResourceActive(_ query: (HKObjectType) -> Bool) -> Bool {
+    if self.required.isEmpty {
+      return self.optional.contains(where: query)
+    } else {
+      return self.required.allSatisfy(query)
+    }
+  }
+}
+
+private func single(_ type: HKObjectType) -> HealthKitObjectTypeRequirements {
+  return HealthKitObjectTypeRequirements(required: [type], optional: [])
+}
+
+func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirements {
   switch resource {
-    case .individual(.steps):
-      return [
-        HKSampleType.quantityType(forIdentifier: .stepCount)!,
-      ]
-    case .individual(.activeEnergyBurned):
-      return [
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-      ]
-    case .individual(.basalEnergyBurned):
-      return [
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-      ]
-    case .individual(.floorsClimbed):
-      return [
-        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-      ]
-    case .individual(.distanceWalkingRunning):
-      return [
-        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-      ]
-    case .individual(.vo2Max):
-      return [
-        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-      ]
-    case .individual(.exerciseTime):
-      return [
-        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
-      ]
-    case .individual(.weight):
-      return [
-        HKSampleType.quantityType(forIdentifier: .bodyMass)!,
-      ]
-    case .individual(.bodyFat):
-      return [
-        HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
-      ]
-    case .vitals(.bloodOxygen):
-      return [
-        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
-      ]
-      
-    case .profile:
-      return [
+  case .individual(.steps):
+    return single(HKSampleType.quantityType(forIdentifier: .stepCount)!)
+  case .individual(.activeEnergyBurned):
+    return single(HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!)
+  case .individual(.basalEnergyBurned):
+    return single(HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!)
+  case .individual(.floorsClimbed):
+    return single(HKSampleType.quantityType(forIdentifier: .flightsClimbed)!)
+  case .individual(.distanceWalkingRunning):
+    return single(HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!)
+  case .individual(.vo2Max):
+    return single(HKSampleType.quantityType(forIdentifier: .vo2Max)!)
+  case .individual(.exerciseTime):
+    return single(HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!)
+  case .individual(.weight):
+    return single(HKSampleType.quantityType(forIdentifier: .bodyMass)!)
+  case .individual(.bodyFat):
+    return single(HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!)
+  case .vitals(.bloodOxygen):
+    return single(HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!)
+
+  case .profile:
+    return HealthKitObjectTypeRequirements(
+      required: [],
+      optional: [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
         HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
         HKQuantityType.quantityType(forIdentifier: .height)!,
       ]
+    )
 
-    case .body:
-      
-      return toHealthKitTypes(resource: .individual(.bodyFat)) +
-      toHealthKitTypes(resource: .individual(.weight))
-      
-    case .sleep:
-      let temperature: Set<HKObjectType>
-      if #available(iOS 16.0, *) {
-        temperature = [HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!]
-      } else {
-        temperature = []
-      }
+  case .body:
+    return HealthKitObjectTypeRequirements(required: [], optional: [
+      HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
+      HKSampleType.quantityType(forIdentifier: .bodyMass)!,
+    ])
 
-      return [
+  case .sleep:
+    let temperature: Set<HKObjectType>
+    if #available(iOS 16.0, *) {
+      temperature = [HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!]
+    } else {
+      temperature = []
+    }
+
+    return HealthKitObjectTypeRequirements(
+      required: [
         HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
+      ],
+      optional: [
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
-        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!, 
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
       ] + temperature
-      
-    case .activity:
-      let base = toHealthKitTypes(resource: .individual(.steps)) +
-      toHealthKitTypes(resource: .individual(.floorsClimbed)) +
-      toHealthKitTypes(resource: .individual(.basalEnergyBurned)) +
-      toHealthKitTypes(resource: .individual(.activeEnergyBurned)) +
-      toHealthKitTypes(resource: .individual(.distanceWalkingRunning)) +
-      toHealthKitTypes(resource: .individual(.vo2Max))
+    )
 
-      return base + [
+  case .activity:
+
+    return HealthKitObjectTypeRequirements(
+      required: [], optional: [
+        HKSampleType.quantityType(forIdentifier: .stepCount)!,
+        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+        HKSampleType.quantityType(forIdentifier: .vo2Max)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
       ]
+    )
 
-    case .workout:
-      return [
-        HKSampleType.workoutType(),
+  case .workout:
+    return HealthKitObjectTypeRequirements(
+      required: [HKSampleType.workoutType()],
+      optional: [
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
       ]
-      
-    case .vitals(.glucose):
-      return [
-        HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
-      ]
-      
-    case .vitals(.bloodPressure):
-      return [
+    )
+
+  case .vitals(.glucose):
+    return single(HKSampleType.quantityType(forIdentifier: .bloodGlucose)!)
+
+  case .vitals(.bloodPressure):
+    return HealthKitObjectTypeRequirements(
+      required: [
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!
-      ]
-      
-    case .vitals(.heartRate):
-      return [
-        HKSampleType.quantityType(forIdentifier: .heartRate)!
-      ]
-      
-    case .nutrition(.water):
-      return [
-        .quantityType(forIdentifier: .dietaryWater)!
-      ]
+        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!,
+      ],
+      optional: []
+    )
 
-    case .nutrition(.caffeine):
-      return [
-        .quantityType(forIdentifier: .dietaryCaffeine)!
-      ]
+  case .vitals(.heartRate):
+    return single(HKSampleType.quantityType(forIdentifier: .heartRate)!)
 
-    case .vitals(.mindfulSession):
-      return [
-        .categoryType(forIdentifier: .mindfulSession)!
-      ]
+  case .nutrition(.water):
+    return single(.quantityType(forIdentifier: .dietaryWater)!)
 
-    case .vitals(.heartRateVariability):
-      return [
-        .quantityType(forIdentifier: .heartRateVariabilitySDNN)!
-      ]
+  case .nutrition(.caffeine):
+    return single(.quantityType(forIdentifier: .dietaryCaffeine)!)
+
+  case .vitals(.mindfulSession):
+    return single(.categoryType(forIdentifier: .mindfulSession)!)
+
+  case .vitals(.heartRateVariability):
+    return single(.quantityType(forIdentifier: .heartRateVariabilitySDNN)!)
   }
 }
 
@@ -221,9 +232,7 @@ func resourcesAskedForPermission(
   var resources: [VitalResource] = []
   
   for resource in VitalResource.all {
-    guard toHealthKitTypes(resource: resource).isEmpty == false else {
-      continue
-    }
+    let requirements = toHealthKitTypes(resource: resource)
     
     let hasAskedPermission = store.hasAskedForPermission(resource)
     

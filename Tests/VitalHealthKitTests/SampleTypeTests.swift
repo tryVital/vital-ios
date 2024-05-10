@@ -103,4 +103,95 @@ class SampleTypeTests: XCTestCase {
     }
   }
 
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_singleObjectType() {
+    let requirements = HealthKitObjectTypeRequirements(
+      required: [HKQuantityType(.appleExerciseTime)],
+      optional: []
+    )
+
+    // required[0] has been asked
+    XCTAssertTrue(requirements.isResourceActive { _ in true })
+
+    // required[0] has not been asked
+    XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
+
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_multipleRequiredObjectTypes() {
+    let requirements = HealthKitObjectTypeRequirements(
+      required: [
+        HKQuantityType(.appleExerciseTime),
+        HKQuantityType(.appleMoveTime),
+        HKQuantityType(.appleStandTime),
+      ],
+      optional: []
+    )
+
+    // All asked
+    XCTAssertTrue(requirements.isResourceActive { _ in true })
+
+    // All asked, except for .appleStandTime
+    XCTAssertFalse(requirements.isResourceActive { type in type != HKQuantityType(.appleStandTime) })
+
+    // All have not been asked
+    XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
+
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_SomeRequiredSomeOptionalTypes() {
+    let requirements = HealthKitObjectTypeRequirements(
+      required: [
+        HKQuantityType(.appleExerciseTime),
+        HKQuantityType(.appleMoveTime),
+      ],
+      optional: [
+        HKQuantityType(.appleStandTime),
+      ]
+    )
+
+    // All asked
+    XCTAssertTrue(requirements.isResourceActive { _ in true })
+
+    // Only appleExerciseTime has been asked
+    XCTAssertFalse(requirements.isResourceActive { type in type == HKQuantityType(.appleExerciseTime) })
+
+    // All except appleStandTime have been asked
+    XCTAssertTrue(requirements.isResourceActive { type in type != HKQuantityType(.appleStandTime) })
+
+    // All have not been asked
+    XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
+
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_noRequiredMultipleOptionalTypes() {
+    let requirements = HealthKitObjectTypeRequirements(
+      required: [],
+      optional: [
+        HKQuantityType(.appleExerciseTime),
+        HKQuantityType(.appleMoveTime),
+        HKQuantityType(.appleStandTime),
+      ]
+    )
+
+    // All asked
+    XCTAssertTrue(requirements.isResourceActive { _ in true })
+
+    // Only .appleStandTime has been asked
+    XCTAssertTrue(requirements.isResourceActive { type in type == HKQuantityType(.appleStandTime) })
+
+    // All have not been asked
+    XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
+
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_empty() {
+    let requirements = HealthKitObjectTypeRequirements(
+      required: [],
+      optional: []
+    )
+
+    XCTAssertFalse(requirements.isResourceActive { _ in true })
+    XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
 }
