@@ -202,7 +202,7 @@ public extension VitalHealthKitClient {
 
   private struct BackgroundDeliveryTask {
     let task: Task<Void, Error>
-    let resources: Set<VitalResource>
+    let resources: Set<RemappedVitalResource>
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
     func cancel() {
@@ -217,7 +217,10 @@ extension VitalHealthKitClient {
   private func checkBackgroundUpdates(isBackgroundEnabled: Bool) {
     guard isBackgroundEnabled else { return }
 
-    let resources = Set(resourcesAskedForPermission(store: self.store))
+    let resources = Set(
+      resourcesAskedForPermission(store: self.store)
+        .map(self.store.remapResource)
+    )
     let currentTask = self.backgroundDeliveryTask
 
     // Reconfigure the task only if the set of resources has changed, or we have not configured it
@@ -227,7 +230,11 @@ extension VitalHealthKitClient {
     /// If it's already running, cancel it
     currentTask?.cancel()
 
-    let allowedSampleTypes = Set(resources.map(toHealthKitTypes(resource:)).flatMap { $0.required + $0.optional })
+    let allowedSampleTypes = Set(
+      resources.lazy.map(\.wrapped)
+        .map(toHealthKitTypes(resource:))
+        .flatMap { $0.required + $0.optional }
+    )
 
     let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
     let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
@@ -257,7 +264,7 @@ extension VitalHealthKitClient {
       /// This ensures that `syncData` is called on all VitalResources at least once.
       ///
       /// We would defer consuming `stream` until all the initial sync are completed.
-      let unflaggedResources = resources.filter { storage.readFlag(for: $0) == false }
+      let unflaggedResources = resources.filter { storage.readFlag(for: $0.wrapped) == false }
 
       if unflaggedResources.isEmpty == false {
         VitalLogger.healthKit.info("[historical-bgtask] Started for \(unflaggedResources, privacy: .public)")
@@ -273,7 +280,7 @@ extension VitalHealthKitClient {
 
           for resource in unflaggedResources {
             try Task.checkCancellation()
-            await sync(payload: .resource(resource))
+            await sync(resource)
           }
 
         } onCancel: { osBackgroundTask.endIfNeeded() }
@@ -310,13 +317,9 @@ extension VitalHealthKitClient {
           continue
         }
 
-        if payload.sampleTypes.count > 1 {
         /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-          let resource = store.toVitalResource(first)
-          await sync(payload: .resource(resource))
-        } else {
-          await sync(payload: .type(first))
-        }
+        let resource = store.remapResource(store.toVitalResource(first))
+        await sync(resource)
       }
     }
 
@@ -473,13 +476,14 @@ extension VitalHealthKitClient {
   
   public func syncData() {
     let resources = resourcesAskedForPermission(store: store)
-    syncData(for: resources)
+    syncData(for: Array(resources))
   }
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
-      for resource in resources {
-        await sync(payload: .resource(resource))
+      let remappedResources = Set(resources.map(self.store.remapResource(_:)))
+      for resource in remappedResources {
+        await sync(resource)
       }
       
       _status.send(.syncingCompleted)
@@ -499,62 +503,18 @@ extension VitalHealthKitClient {
     await store.disableBackgroundDelivery()
   }
   
-  public enum SyncPayload {
-    case type(HKSampleType)
-    case resource(VitalResource)
-    
-    var isResource: Bool {
-      switch self {
-        case .resource:
-          return true
-        case .type:
-          return false
-      }
-    }
-    
-    var infix: String {
-      if isResource {
-        return ""
-      } else {
-        return "(via background delivery mechanism)"
-      }
-    }
-    
-    func description(store: VitalHealthKitStore) -> String {
-      switch self {
-        case let .resource(resource):
-          return resource.logDescription
-          
-        case let .type(type):
-          /// We know that if we are dealing with
-          return store.toVitalResource(type).logDescription
-      }
-    }
-    
-    func resource(store: VitalHealthKitStore) -> VitalResource {
-      switch self {
-        case let .resource(resource):
-          return resource
-          
-        case let .type(type):
-          return store.toVitalResource(type)
-      }
-    }
-  }
-  
-  private func sync(
-    payload: SyncPayload
-  ) async {
+  private func sync(_ resource: RemappedVitalResource) async {
     guard self.pauseSynchronization == false else { return }
-    
+
+    let resource = resource.wrapped
+
     let configuration = await configuration.get()
     let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
     let endDate: Date = Date()
     
-    let infix = payload.infix
-    let description = payload.description(store: store)
-    let resource = payload.resource(store: store)
-    
+    let infix = ""
+    let description = resource.logDescription
+
     VitalLogger.healthKit.info("Syncing HealthKit \(infix, privacy: .public): \(description, privacy: .public)")
     
     do {
@@ -562,7 +522,7 @@ extension VitalHealthKitClient {
       _status.send(.syncing(resource))
 
       let stage = calculateStage(
-        resource: payload.resource(store: store),
+        resource: resource,
         startDate: startDate,
         endDate: endDate
       )

@@ -227,17 +227,14 @@ func observedSampleTypes() -> [[HKSampleType]] {
 
 func resourcesAskedForPermission(
   store: VitalHealthKitStore
-) -> [VitalResource] {
-  
-  var resources: [VitalResource] = []
-  
+) -> Set<VitalResource> {
+
+  var resources: Set<VitalResource> = []
+
   for resource in VitalResource.all {
-    let requirements = toHealthKitTypes(resource: resource)
-    
     let hasAskedPermission = store.hasAskedForPermission(resource)
-    
     if hasAskedPermission {
-      resources.append(resource)
+      resources.insert(resource)
     }
   }
   
