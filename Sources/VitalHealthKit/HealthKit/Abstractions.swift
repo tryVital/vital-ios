@@ -1,6 +1,10 @@
 import HealthKit
 import VitalCore
 
+struct RemappedVitalResource: Hashable {
+  let wrapped: VitalResource
+}
+
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   
@@ -21,23 +25,45 @@ struct VitalHealthKitStore {
 }
 
 extension VitalHealthKitStore {
-  static func sampleTypeToVitalResource(
-    hasAskedForPermission: ((VitalResource) -> Bool),
-    type: HKSampleType
-  ) -> VitalResource {
+  func remapResource(_ resource: VitalResource) -> RemappedVitalResource {
+    // Remap individual resources to their composite version
+    switch resource {
+    case 
+        .individual(.bodyFat),
+        .individual(.weight):
+
+      if self.hasAskedForPermission(.body) {
+        return RemappedVitalResource(wrapped: .body)
+      }
+
+    case 
+        .individual(.activeEnergyBurned),
+        .individual(.basalEnergyBurned), 
+        .individual(.distanceWalkingRunning),
+        .individual(.exerciseTime), 
+        .individual(.floorsClimbed),
+        .individual(.steps),
+        .individual(.vo2Max):
+
+      if self.hasAskedForPermission(.activity) {
+        return RemappedVitalResource(wrapped: .activity)
+      }
+
+    default:
+      break
+    }
+
+    // No remapping
+    return RemappedVitalResource(wrapped: resource)
+  }
+
+  static func sampleTypeToVitalResource(type: HKSampleType) -> VitalResource {
     switch type {
       case
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
         HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-        
-        /// If the user has explicitly asked for Body permissions, then it's the resource is Body
-        if hasAskedForPermission(.body) {
-          return .body
-        } else {
-          /// If the user has given permissions to a single permission in the past (e.g. weight) we should
-          /// treat it as such
-          return type.toIndividualResource
-        }
+
+        return type.toIndividualResource
         
       case HKQuantityType.quantityType(forIdentifier: .height)!:
         return .profile
@@ -56,12 +82,8 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
-        
-        if hasAskedForPermission(.activity) {
-          return .activity
-        } else {
-          return type.toIndividualResource
-        }
+
+        return type.toIndividualResource
         
       case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
         return .vitals(.glucose)
@@ -103,7 +125,7 @@ extension VitalHealthKitStore {
     }
     
     let toVitalResource: (HKSampleType) -> VitalResource = { type in
-      return sampleTypeToVitalResource(hasAskedForPermission: hasAskedForPermission, type: type)
+      return sampleTypeToVitalResource(type: type)
     }
     
     return .init {

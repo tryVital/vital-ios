@@ -52,36 +52,26 @@ class SampleTypeTests: XCTestCase {
 
     Task {
       do {
-        for hasAskedForPermission in [true, false] {
-          for sampleType in observedSampleTypes().flatMap({ $0 }) {
-            let permission: (VitalResource) -> Bool = { _ in hasAskedForPermission }
+        for sampleType in observedSampleTypes().flatMap({ $0 }) {
+          let resource = VitalHealthKitStore.sampleTypeToVitalResource(type: sampleType)
 
-            let resource = VitalHealthKitStore.sampleTypeToVitalResource(
-              hasAskedForPermission: permission,
-              type: sampleType
+          do {
+            _ = try await read(
+              resource: resource,
+              healthKitStore: MockHealthStore(),
+              typeToResource: {
+                VitalHealthKitStore.sampleTypeToVitalResource(type: $0)
+              },
+              vitalStorage: .init(storage: .debug),
+              startDate: Date(),
+              endDate: Date()
             )
-
-            do {
-              _ = try await read(
-                resource: resource,
-                healthKitStore: MockHealthStore(),
-                typeToResource: {
-                  VitalHealthKitStore.sampleTypeToVitalResource(
-                    hasAskedForPermission: permission,
-                    type: $0
-                  )
-                },
-                vitalStorage: .init(storage: .debug),
-                startDate: Date(),
-                endDate: Date()
-              )
-            } catch let error {
-              switch error {
-              case is ExpectedError:
-                continue
-              default:
-                throw error
-              }
+          } catch let error {
+            switch error {
+            case is ExpectedError:
+              continue
+            default:
+              throw error
             }
           }
         }
