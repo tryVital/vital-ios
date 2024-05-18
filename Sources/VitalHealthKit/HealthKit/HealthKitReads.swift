@@ -33,7 +33,8 @@ func read(
   typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
   switch resource.wrapped {
@@ -77,7 +78,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: startDate,
-        endDate: endDate
+        endDate: endDate,
+        options: options
       )
       
       return (payload.activityPatch.map { .summary(.activity($0)) }, payload.anchors)
@@ -480,7 +482,8 @@ func handleActivity(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (activityPatch: ActivityPatch?, anchors: [StoredAnchor]) {
 
   let dependencies = StatisticsQueryDependencies.live(
@@ -634,7 +637,7 @@ func handleActivity(
     daySummaries = [:]
   }
 
-  let allSamples = ActivityPatch.Activity(
+  var allSamples = ActivityPatch.Activity(
     activeEnergyBurned: hourlyActiveEnergyBurned,
     basalEnergyBurned: hourlyBasalEnergyBurned,
     steps: hourlyStepCount,
@@ -642,6 +645,14 @@ func handleActivity(
     distanceWalkingRunning: hourlyDistanceWalkingRunning,
     vo2Max: rawVo2Max.quantities
   )
+
+  if options.perDeviceActivityTS {
+    allSamples.activeEnergyBurned += rawActiveEnergyBurned.quantities
+    allSamples.basalEnergyBurned += rawBasalEnergyBurned.quantities
+    allSamples.steps += rawStepCount.quantities
+    allSamples.floorsClimbed += rawFlightsClimbed.quantities
+    allSamples.distanceWalkingRunning += rawDistanceWalkingRunning.quantities
+  }
 
   let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: allSamples, in: deviceTimeZoneCalendar)
   

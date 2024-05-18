@@ -64,7 +64,8 @@ class SampleTypeTests: XCTestCase {
               },
               vitalStorage: .init(storage: .debug),
               startDate: Date(),
-              endDate: Date()
+              endDate: Date(),
+              options: ReadOptions()
             )
           } catch let error {
             switch error {
@@ -86,8 +87,12 @@ class SampleTypeTests: XCTestCase {
   }
 
   func test_all_quantity_sample_types_have_mapped_unit() async {
-    for sampleType in VitalResource.all.flatMap(toHealthKitTypes(resource:)) {
-      guard let sampleType = sampleType as? HKQuantityType else { continue }
+    let allQuantityTypes = VitalResource.all
+      .map(toHealthKitTypes(resource:))
+      .flatMap { $0.required + $0.optional }
+      .compactMap { $0 as? HKQuantityType }
+
+    for sampleType in allQuantityTypes {
       _ = sampleType.toHealthKitUnits
       _ = sampleType.toUnitStringRepresentation
     }

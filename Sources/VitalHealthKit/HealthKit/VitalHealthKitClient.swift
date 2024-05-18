@@ -559,7 +559,8 @@ extension VitalHealthKitClient {
         remappedResource,
         startDateInBounds,
         endDateInBounds,
-        storage
+        storage,
+        ReadOptions(perDeviceActivityTS: statusResponse.perDeviceActivityTS)
       )
 
       guard let data = data, data.shouldSkipPost == false else {
@@ -681,7 +682,8 @@ extension VitalHealthKitClient {
       typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       startDate: startDate,
-      endDate: endDate
+      endDate: endDate,
+      options: ReadOptions()
     )
 
     if let data = data {
