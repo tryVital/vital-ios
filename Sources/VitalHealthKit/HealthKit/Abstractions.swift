@@ -1,5 +1,5 @@
 import HealthKit
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 
 struct RemappedVitalResource: Hashable {
   let wrapped: VitalResource
@@ -207,6 +207,7 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
+  var storage: VitalCoreStorage
   var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone) async throws -> Void
   var checkConnectedSource: (Provider.Slug) async throws -> Void
   var sdkStateSync: (UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse
@@ -214,7 +215,7 @@ struct VitalClientProtocol {
 
 extension VitalClientProtocol {
   static var live: VitalClientProtocol {
-    .init { data, stage, provider, timeZone in
+    .init(storage: VitalClient.shared.storage) { data, stage, provider, timeZone in
       switch data {
         case let .summary(summaryData):
           try await VitalClient.shared.summary.post(
@@ -241,7 +242,7 @@ extension VitalClientProtocol {
   }
   
   static var debug: VitalClientProtocol {
-    .init { _,_,_,_ in
+    .init(storage: VitalCoreStorage(storage: .debug)) { _,_,_,_ in
       return ()
     } checkConnectedSource: { _ in
       return

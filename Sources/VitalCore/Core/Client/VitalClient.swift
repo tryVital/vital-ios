@@ -172,7 +172,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   let jwtAuth: VitalJWTAuth
 
   // @testable
-  internal var storage: VitalCoreStorage
+  @_spi(VitalSDKInternals)
+  public var storage: VitalCoreStorage
 
   // Moments that would materially affect `VitalClient.Type.status`.
   let statusDidChange = PassthroughSubject<Void, Never>()
@@ -258,6 +259,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
 
     let configuration = await shared.configuration.get()
     precondition(configuration.authMode == .userJwt)
+
+    await shared.checkHealthKitRegistration()
   }
 
   /// Configure the SDK in the legacy API Key mode.
@@ -515,14 +518,21 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       return
     }
 
+    let isSettingExistingUser: Bool
+
     do {
-      if
-        let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
+      let existingValue: UUID? = try secureStorage.get(key: user_secureStorageKey)
+
+      if existingValue != newUserId {
         self.storage.clean()
+        isSettingExistingUser = false
+      } else {
+        isSettingExistingUser = true
       }
-    }
-    catch {
-      VitalLogger.core.info("We weren't able to get the stored userId VitalClientRestorationState: \(error, privacy: .public)")
+
+    } catch {
+      VitalLogger.core.info("[APIKeyMode] Failed to restore known userId: \(error, privacy: .public)")
+      isSettingExistingUser = false
     }
     
     self.apiKeyModeUserId.set(value: newUserId)
@@ -532,7 +542,15 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
     }
     catch {
-      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error, privacy: .public)")
+      VitalLogger.core.info("[APIKeyMode] Failed to persist userId for auto-config: \(error, privacy: .public)")
+    }
+
+    if isSettingExistingUser == false {
+      VitalLogger.core.info("[APIKeyMode] Detected new user ID")
+
+      Task {
+        await checkHealthKitRegistration()
+      }
     }
   }
 
@@ -543,7 +561,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   @nonobjc public static func setUserId(_ newUserId: UUID) async {
     shared._setUserId(newUserId)
   }
-  
+
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
     let userId = try await getUserId()
     let storage = self.storage
@@ -573,6 +591,18 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   public func signOut() async {
+    let isHealthKitConnected = (try? await self.isUserConnected(to: .appleHealthKit)) ?? false
+    let deregistration = isHealthKitConnected
+      ? Task {
+        VitalLogger.core.info("[HealthKitDereg] attempt because signing out")
+        try await self.user.deregisterProvider(provider: .appleHealthKit)
+      }
+      : nil
+
+    // We attempt the HealthKit deregistration.
+    // But if it fails, we would proceed normally.
+    _ = await deregistration?.result
+
     /// Here we remove the following:
     /// 1) Anchor values we are storing for each `HKSampleType`.
     /// 2) Stage for each `HKSampleType`.
@@ -605,6 +635,20 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       // VitalUserJWT will lazy load the authenticated user from Keychain on first access.
       return try await jwtAuth.userContext().userId
     }
+  }
+
+  private func checkHealthKitRegistration() async {
+    let hasExistingHealthKitConnection = (try? await self.isUserConnected(to: .appleHealthKit)) ?? false
+    guard
+      hasExistingHealthKitConnection,
+      self.storage.hasAskedHealthKitPermission() == false
+    else { return }
+
+    VitalLogger.core.info("[HealthKitDereg] attempt because backend record found on sign-in")
+
+    // Try to deregister the existing connection.
+    // But let it be if it fails.
+    try? await self.user.deregisterProvider(provider: .appleHealthKit)
   }
 }
 

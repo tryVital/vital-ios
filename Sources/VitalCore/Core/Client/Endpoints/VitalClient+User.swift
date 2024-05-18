@@ -27,6 +27,17 @@ public extension VitalClient.User {
       Provider(name: $0.name, slug: $0.slug, logo: $0.logo)
     }
 
+    let backendSet = Set(response.value.providers.map(\.slug))
+    let localSet = self.client.storage.storedConnectedSources(for: userId)
+
+    backendSet.subtracting(localSet).forEach { slug in
+      self.client.storage.storeConnectedSource(for: userId, with: slug, newValue: true)
+    }
+
+    localSet.subtracting(backendSet).forEach { slug in
+      self.client.storage.storeConnectedSource(for: userId, with: slug, newValue: false)
+    }
+
     return providers
   }
   
@@ -80,6 +91,8 @@ public extension VitalClient.User {
     
     let request: Request<Void> = .init(path: path, method: .delete)
     try await configuration.apiClient.send(request)
+
+    self.client.storage.storeConnectedSource(for: userId, with: provider, newValue: false)
   }
 }
 
