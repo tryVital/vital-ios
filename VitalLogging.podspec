@@ -1,8 +1,8 @@
 Pod::Spec.new do |s|
-    s.name = 'VitalCore'
+    s.name = 'VitalLogging'
     s.version = '0.12.0-beta.2'
-    s.license = 'AGPL v3.0'
-    s.summary = 'The official Swift Library for Vital API, HealthKit and Devices'
+    s.license = 'Apache 2.0'
+    s.summary = 'Logging support for VitalCore'
     s.homepage = 'https://github.com/tryVital/vital-ios'
     s.authors = { 'Vital' => 'contact@tryVital.io' }
     s.source = { :git => 'https://github.com/tryVital/vital-ios.git', :tag => s.version }
@@ -11,10 +11,9 @@ Pod::Spec.new do |s|
 
     s.ios.deployment_target = '14.0'
     s.swift_versions = ['5']
-    s.source_files = 'Sources/VitalCore/**/*.swift'
+    s.source_files = 'Sources/VitalLogging/*.swift'
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
-
-    s.dependency 'VitalLogging', '~> 0.12.0-beta.2'
 end
+
 
