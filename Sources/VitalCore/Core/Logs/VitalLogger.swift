@@ -1,12 +1,12 @@
-import Logging
+import VitalLogging
 import Foundation
 
 public enum VitalLogger {
   public static let subsystem = "io.tryvital.vital-ios"
 
-  public static let core = Logging.Logger(label: Category.core.rawValue, factory: Self.logHandlerFactory)
-  public static let requests = Logging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
-  public static let healthKit = Logging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
+  public static let core = VitalLogging.Logger(label: Category.core.rawValue, factory: Self.logHandlerFactory)
+  public static let requests = VitalLogging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
+  public static let healthKit = VitalLogging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
 
   public enum Category: String {
     case core
@@ -15,7 +15,7 @@ public enum VitalLogger {
     case requestBody
   }
 
-  private static func logHandlerFactory(label: String) -> Logging.LogHandler {
+  private static func logHandlerFactory(label: String) -> VitalLogging.LogHandler {
     MultiplexLogHandler([
       StreamLogHandler.standardOutput(label: label),
       VitalPersistentLoggerWrapper(label: label),
@@ -24,26 +24,26 @@ public enum VitalLogger {
 }
 
 
-private struct VitalPersistentLoggerWrapper: Logging.LogHandler {
+private struct VitalPersistentLoggerWrapper: VitalLogging.LogHandler {
 
   var category: VitalLogger.Category
 
-  var metadata = Logging.Logger.Metadata()
-  var logLevel: Logging.Logger.Level = .info
+  var metadata = VitalLogging.Logger.Metadata()
+  var logLevel: VitalLogging.Logger.Level = .info
 
   init(label: String) {
     self.category = VitalLogger.Category(rawValue: label)!
   }
 
-  subscript(metadataKey metadataKey: String) -> Logging.Logger.Metadata.Value? {
+  subscript(metadataKey metadataKey: String) -> VitalLogging.Logger.Metadata.Value? {
       get { return self.metadata[metadataKey] }
       set { self.metadata[metadataKey] = newValue }
   }
 
   func log(
-    level: Logging.Logger.Level,
-    message: Logging.Logger.Message,
-    metadata: Logging.Logger.Metadata?,
+    level: VitalLogging.Logger.Level,
+    message: VitalLogging.Logger.Message,
+    metadata: VitalLogging.Logger.Metadata?,
     source: String,
     file: String,
     function: String,
