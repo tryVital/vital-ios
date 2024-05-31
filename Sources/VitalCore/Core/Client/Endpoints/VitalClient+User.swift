@@ -52,7 +52,7 @@ public extension VitalClient.User {
     let path = "/\(configuration.apiVersion)/\(path)/"
     let request: Request<CreateUserResponse> = .init(path: path, method: .post, body: payload)
     
-    VitalLogger.core.info("Creating Vital's userId for id: \(payload.clientUserId, privacy: .public)")
+    VitalLogger.core.info("Creating Vital's userId for id: \(payload.clientUserId)")
     let value = try await configuration.apiClient.send(request).value
     
     if setUserIdOnSuccess {

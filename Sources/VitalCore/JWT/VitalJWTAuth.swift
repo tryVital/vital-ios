@@ -108,14 +108,14 @@ internal actor VitalJWTAuth {
 
       try setRecord(record, reason: .signedIn)
 
-      VitalLogger.core.info("sign-in success; expiresIn = \(exchangeResponse.expiresIn, privacy: .public)")
+      VitalLogger.core.info("sign-in success; expiresIn = \(exchangeResponse.expiresIn)")
 
     case 401:
       VitalLogger.core.info("sign-in failed (401)")
       throw VitalJWTSignInError.invalidSignInToken
 
     default:
-      VitalLogger.core.info("sign-in failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
+      VitalLogger.core.info("sign-in failed (\(httpResponse.statusCode)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
       throw NetworkError(response: httpResponse, data: data)
     }
   }
@@ -202,7 +202,7 @@ internal actor VitalJWTAuth {
         newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn) ?? 3600)
 
         try setRecord(newRecord, reason: .update)
-        VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn, privacy: .public)")
+        VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn)")
 
       default:
         if
@@ -223,7 +223,7 @@ internal actor VitalJWTAuth {
           }
         }
 
-        VitalLogger.core.info("refresh failed (\(httpResponse.statusCode, privacy: .public)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
+        VitalLogger.core.info("refresh failed (\(httpResponse.statusCode)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
         throw NetworkError(response: httpResponse, data: data)
       }
 

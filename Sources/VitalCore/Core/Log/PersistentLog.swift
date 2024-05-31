@@ -5,19 +5,23 @@ import Darwin
 
 
 public final class VitalPersistentLogger: @unchecked Sendable {
-  private let requestLogQueue = DispatchQueue(label: "io.tryvital.PersistentLogger.requests", target: .global(qos: .userInitiated))
-  private let osLogDumpQueue = DispatchQueue(label: "io.tryvital.PersistentLogger.osLog", target: .global(qos: .userInitiated))
-  private var lastDump: [VitalLogger.Category: Date] = [:]
+
+  internal static let timeFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
 
   @_spi(VitalSDKInternals)
   public static var shared: VitalPersistentLogger? {
-    _lock.withLock {
-      if let logger = Self._shared {
-        return logger
-      } else {
-        return Self.checkEnabled(context: "defaults on first access")
-      }
+    guard let result = _lock.withLock({ Self.checkEnabled() }) else { return nil }
+
+    if result.created {
+      VitalLogger.core.info("[PersistentLog] state: enabled (on first access by persistent settings)")
     }
+
+    return result.logger
   }
 
   private static let _lock = NSLock()
@@ -34,38 +38,37 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   /// * `VitalHealthKitClient.Type.createLogArchive()` in the form of a file URL; or
   /// * `VitalHealthKitClient.Type.createAndShareLogArchive()` where the system share sheet is prompted with the log archive.
   ///
-  /// - warning: Avoid enabling this by default, especially in production.
+  /// - warning: This is not designed to be always-on logging. It should not be enabled in production except
+  /// for troubleshooting purposes.
   public static var isEnabled: Bool {
     get { UserDefaults.standard.bool(forKey: Self.userDefaultsKey) }
     set {
       _lock.withLock {
         UserDefaults.standard.set(newValue, forKey: Self.userDefaultsKey)
-        checkEnabled(context: "explicit enablement")
+        checkEnabled()
       }
+
+      VitalLogger.core.info("[PersistentLog] state: \(newValue ? "enabled" : "disabled")")
     }
   }
 
   @discardableResult
-  private static func checkEnabled(context: StaticString) -> VitalPersistentLogger? {
+  private static func checkEnabled() -> (logger: VitalPersistentLogger, created: Bool)? {
     switch (isEnabled, _shared) {
     case (false, nil):
       return nil
 
     case (false, .some):
       _shared = nil
-
-      VitalLogger.core.info("[PersistentLogger] disabled")
       return nil
 
     case (true, nil):
       let persistentLogger = VitalPersistentLogger()
       _shared = persistentLogger
-
-      VitalLogger.core.info("[PersistentLogger] enabled via \(context, privacy: .public)")
-      return persistentLogger
+      return (persistentLogger, true)
 
     case let (true, logger?):
-      return logger
+      return (logger, false)
     }
   }
 
@@ -102,66 +105,30 @@ public final class VitalPersistentLogger: @unchecked Sendable {
     return fileUrl
   }
 
-  @_spi(VitalSDKInternals)
-  public func dumpOSLog(_ category: VitalLogger.Category) {
-    if #available(iOS 15.0, *) {
-      osLogDumpQueue.async {
-        do {
-          let store = try OSLogStore(scope: .currentProcessIdentifier)
-
-          var lastDump = self.lastDump[category, default: .distantPast]
-          let position = store.position(date: lastDump)
-
-          let predicate = NSPredicate(format: "subsystem = %@ AND category = %@", VitalLogger.subsystem, category.rawValue)
-          let entries = try store.getEntries(at: position, matching: predicate)
-
-          let formatter = ISO8601DateFormatter()
-          formatter.formatOptions = [.withInternetDateTime]
-
-          self._log(category) { writeString, _ in
-            for entry in entries {
-              let level = (entry as? OSLogEntryLog)?.level ?? .undefined
-              writeString("\(level.name) \(formatter.string(from: entry.date)) \(entry.composedMessage)")
-
-              lastDump = entry.date
-            }
-          }
-
-          self.lastDump[category] = lastDump
-        } catch let error {
-          self._log(category) { writeString, _ in
-            writeString("<OSLogDump failure: \(error)>")
-          }
-        }
-      }
-    }
-  }
-
   func log<T>(_ request: Request<T>) {
-    requestLogQueue.async {
-      self._log(.requestBody) { writeString, writeData in
-        writeString("\(request.method.rawValue) \(request.url?.absoluteString ?? "UNKNOWN_URL")")
+    self.logSync(.requestBody) { writeString, writeData in
+      writeString(Self.timeFormatter.string(from: Date()))
+      writeString("\(request.method.rawValue) \(request.url?.absoluteString ?? "UNKNOWN_URL")")
 
-        if let body = request.body {
-          let encoder = JSONEncoder()
-          encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+      if let body = request.body {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
-          do {
-            let data = try encoder.encode(body)
-            writeString("uncompressed size: \(data.count) bytes")
-            writeData(data)
-          } catch let error {
-            writeString("<encoder failure: \(error)>")
-          }
+        do {
+          let data = try encoder.encode(body)
+          writeString("uncompressed size: \(data.count) bytes")
+          writeData(data)
+        } catch let error {
+          writeString("<encoder failure: \(error)>")
         }
-
-        // New line
-        writeString("")
       }
+
+      // New line
+      writeString("")
     }
   }
 
-  private func _log(_ category: VitalLogger.Category, _ message: @escaping ((String) -> Void, (Data) -> Void) throws -> Void) {
+  func logSync(_ category: VitalLogger.Category, _ message: @escaping ((String) -> Void, (Data) -> Void) throws -> Void) {
     do {
       let stream = OutputStream(url: dayURL(for: category), append: true)!
       stream.open()

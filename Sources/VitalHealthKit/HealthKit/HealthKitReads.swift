@@ -1057,9 +1057,9 @@ func queryActivityDaySummaries(
   let queryInterval = calendar.timeRange(of: datesToCompute)
 
   VitalLogger.healthKit.info("""
-  [Day Summary] lastComputed = \(startTime, privacy: .public) now = \(endTime, privacy: .public)
-  datesToCompute = \(datesToCompute.lowerBound, privacy: .public) ... \(datesToCompute.upperBound, privacy: .public)
-  queryInterval = \(queryInterval.lowerBound, privacy: .public) ..< \(queryInterval.upperBound, privacy: .public)
+  [Day Summary] lastComputed = \(startTime) now = \(endTime)
+  datesToCompute = \(datesToCompute.lowerBound) ... \(datesToCompute.upperBound)
+  queryInterval = \(queryInterval.lowerBound) ..< \(queryInterval.upperBound)
   """)
 
   async let _activeEnergyBurnedSum = dependencies.executeStatisticalQuery(

@@ -47,7 +47,7 @@ class VitalClientDelegate: APIClientDelegate {
     }
 
     let requestCopy = request
-    VitalLogger.requests.info("\(requestCopy.logPrefix, privacy: .public) (\(requestCopy.httpBody?.count ?? 0, privacy: .public) bytes)")
+    VitalLogger.requests.info("\(requestCopy.logPrefix) (\(requestCopy.httpBody?.count ?? 0) bytes)")
   }
   
   func client(_ client: APIClient, shouldRetry task: URLSessionTask, error: Error, attempts: Int) async throws -> Bool {
@@ -75,7 +75,7 @@ class VitalClientDelegate: APIClientDelegate {
     let networkError = NetworkError(response: response, data: data)
 
     let request = task.currentRequest ?? task.originalRequest
-    VitalLogger.requests.error("\(request?.logPrefix ?? "", privacy: .public) Error response: \(networkError.localizedDescription, privacy: .public)")
+    VitalLogger.requests.error("\(request?.logPrefix ?? "") Error response: \(networkError.localizedDescription)")
 
     throw networkError
   }

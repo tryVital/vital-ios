@@ -91,6 +91,13 @@ extension VitalHealthKitClient {
     return archiveUrl
   }
 
+  public static func clearLogs() throws {
+    guard let rootDirectoryURL = VitalPersistentLogger.shared?.directoryURL(for: nil) else { return }
+    if FileManager.default.fileExists(atPath: rootDirectoryURL.absoluteString) {
+      try FileManager.default.removeItem(at: rootDirectoryURL)
+    }
+  }
+
   @available(iOS 15.0, *)
   @discardableResult
   public static func logStateSnapshot() async throws -> URL {
@@ -134,7 +141,10 @@ extension VitalHealthKitClient {
         "CurrentUserId": userId,
         "CurrentSDKStatus": String(describing: sdkStatus),
       ] as [String: Any?],
-      "VitalHealthKitConfig": vitalHealthKitConfiguration.map(String.init(describing:)) ?? "nil",
+      "Health": [
+        "Config": vitalHealthKitConfiguration.map(String.init(describing:)) ?? "nil",
+        "PauseSynchronization": VitalHealthKitClient.shared.pauseSynchronization,
+      ],
     ]
 
     let healthStore = HKHealthStore()

@@ -20,6 +20,7 @@ let package = Package(
       targets: ["VitalCore"]),
   ],
   dependencies: [
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
     .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.3.0"),
     .package(url: "https://github.com/WeTransfer/Mocker.git", .upToNextMajor(from: "2.6.0")),
   ],
@@ -37,6 +38,7 @@ let package = Package(
     ),
     .target(
       name: "VitalCore",
+      dependencies: [.product(name: "Logging", package: "swift-log")],
       exclude: [
         "./Get/LICENSE",
         "./DataCompression/LICENSE",
