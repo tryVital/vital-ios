@@ -11,5 +11,6 @@ public enum VitalLogger {
     case core
     case requests
     case healthKit
+    case requestBody
   }
 }
