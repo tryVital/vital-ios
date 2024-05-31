@@ -102,13 +102,13 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   }
 
   @_spi(VitalSDKInternals)
-  public func dumpOSLog(_ category: VitalLogger.Category, since date: Date? = nil) {
+  public func dumpOSLog(_ category: VitalLogger.Category) {
     if #available(iOS 15.0, *) {
       queue.async {
         do {
           let store = try OSLogStore(scope: .currentProcessIdentifier)
 
-          var lastDump = min(self.lastDump[category, default: .distantPast], date ?? .distantPast)
+          var lastDump = self.lastDump[category, default: .distantPast]
           let position = store.position(date: lastDump)
 
           let predicate = NSPredicate(format: "subsystem = %@ AND category = %@", VitalLogger.subsystem, category.rawValue)
