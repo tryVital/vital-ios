@@ -6,7 +6,7 @@ import Darwin
 
 public final class VitalPersistentLogger: @unchecked Sendable {
   private let queue = DispatchQueue(label: "io.tryvital.PersistentLogger", target: .global(qos: .utility))
-  private var lastDump: Date = .distantPast
+  private var lastDump: [VitalLogger.Category: Date] = [:]
 
   @_spi(VitalSDKInternals)
   public static var shared: VitalPersistentLogger? {
@@ -108,7 +108,7 @@ public final class VitalPersistentLogger: @unchecked Sendable {
         do {
           let store = try OSLogStore(scope: .currentProcessIdentifier)
 
-          var lastDump = min(self.lastDump, date ?? .distantPast)
+          var lastDump = min(self.lastDump[category, default: .distantPast], date ?? .distantPast)
           let position = store.position(date: lastDump)
 
           let predicate = NSPredicate(format: "subsystem = %@ AND category = %@", VitalLogger.subsystem, category.rawValue)
@@ -126,7 +126,7 @@ public final class VitalPersistentLogger: @unchecked Sendable {
             }
           }
 
-          self.lastDump = lastDump
+          self.lastDump[category] = lastDump
         } catch let error {
           self._log(category) { writeString, _ in
             writeString("<OSLogDump failure: \(error)>")
