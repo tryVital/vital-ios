@@ -378,6 +378,11 @@ extension Settings {
               Button("Share Persistent Logs") {
                 VitalHealthKitClient.createAndShareLogArchive()
               }
+
+              Button("Reset Persistent Log") {
+                try! VitalHealthKitClient.clearLogs()
+              }
+              .disabled(!enablePersistentLogging)
             }
           }
           .onAppear {

@@ -230,7 +230,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     region: String,
     isLogsEnable: Bool
   ) {
-    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
 
     guard let environment = Environment(environment: environment, region: region) else {
       fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
@@ -249,7 +248,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws {
-    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
 
     let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
@@ -276,7 +274,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) {
-    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
 
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
@@ -296,7 +293,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) async {
-    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
 
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
@@ -365,7 +361,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     defer {
       completion?()
-      VitalPersistentLogger.shared?.dumpOSLog(.core)
     }
 
     let client = sharedNoAutoConfig
@@ -407,7 +402,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     } catch let error {
       /// Bailout, there's nothing else to do here.
       /// (But still try to log it if we have a logger around)
-      VitalLogger.core.error("Failed to perform automatic configuration: \(error, privacy: .public)")
+      VitalLogger.core.error("Failed to perform automatic configuration: \(error)")
     }
   }
 
@@ -428,7 +423,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     // `bind()`.
     Task {
       for await status in type(of: client).statuses {
-        VitalLogger.core.debug("status: \(status, privacy: .public)")
+        VitalLogger.core.debug("status: \(status)")
       }
     }
   }
@@ -460,7 +455,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     updateAPIClientConfiguration: (inout APIClient.Configuration) -> Void = { _ in }
   ) {
     
-    VitalLogger.core.info("VitalClient setup for environment \(String(describing: strategy.environment), privacy: .public)")
+    VitalLogger.core.info("VitalClient setup for environment \(String(describing: strategy.environment))")
 
     let authMode: VitalClient.AuthMode
     let authStrategy: VitalClientAuthStrategy
@@ -505,7 +500,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       try secureStorage.set(value: restorationState, key: core_secureStorageKey)
     }
     catch {
-      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error, privacy: .public)")
+      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error)")
     }
     
     let coreConfiguration = VitalCoreConfiguration(
@@ -520,7 +515,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   private func _setUserId(_ newUserId: UUID) {
-    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
 
     guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
@@ -539,7 +533,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       }
     }
     catch {
-      VitalLogger.core.info("We weren't able to get the stored userId VitalClientRestorationState: \(error, privacy: .public)")
+      VitalLogger.core.info("We weren't able to get the stored userId VitalClientRestorationState: \(error)")
     }
     
     self.apiKeyModeUserId.set(value: newUserId)
@@ -549,7 +543,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       try secureStorage.set(value: newUserId, key: user_secureStorageKey)
     }
     catch {
-      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error, privacy: .public)")
+      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error)")
     }
   }
 
