@@ -5,7 +5,8 @@ import Darwin
 
 
 public final class VitalPersistentLogger: @unchecked Sendable {
-  private let queue = DispatchQueue(label: "io.tryvital.PersistentLogger", target: .global(qos: .utility))
+  private let requestLogQueue = DispatchQueue(label: "io.tryvital.PersistentLogger.requests", target: .global(qos: .userInitiated))
+  private let osLogDumpQueue = DispatchQueue(label: "io.tryvital.PersistentLogger.osLog", target: .global(qos: .userInitiated))
   private var lastDump: [VitalLogger.Category: Date] = [:]
 
   @_spi(VitalSDKInternals)
@@ -104,7 +105,7 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   @_spi(VitalSDKInternals)
   public func dumpOSLog(_ category: VitalLogger.Category) {
     if #available(iOS 15.0, *) {
-      queue.async {
+      osLogDumpQueue.async {
         do {
           let store = try OSLogStore(scope: .currentProcessIdentifier)
 
@@ -137,8 +138,8 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   }
 
   func log<T>(_ request: Request<T>) {
-    queue.async {
-      self._log(.requests) { writeString, writeData in
+    requestLogQueue.async {
+      self._log(.requestBody) { writeString, writeData in
         writeString("\(request.method.rawValue) \(request.url?.absoluteString ?? "UNKNOWN_URL")")
 
         if let body = request.body {
