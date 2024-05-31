@@ -7,11 +7,12 @@ struct Credentials: Equatable, Hashable {
   let environment: Environment
 }
 
-struct VitalCoreConfiguration {
-  let apiVersion: String
+@_spi(VitalSDKInternals)
+public struct VitalCoreConfiguration {
+  public let apiVersion: String
   let apiClient: APIClient
-  let environment: Environment
-  let authMode: VitalClient.AuthMode
+  public let environment: Environment
+  public let authMode: VitalClient.AuthMode
 }
 
 struct VitalClientRestorationState: Equatable, Codable {
@@ -168,7 +169,10 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   public static let sdkVersion = "0.11.9"
   
   private let secureStorage: VitalSecureStorage
-  let configuration: ProtectedBox<VitalCoreConfiguration>
+
+  @_spi(VitalSDKInternals)
+  public let configuration: ProtectedBox<VitalCoreConfiguration>
+
   let jwtAuth: VitalJWTAuth
 
   // @testable
@@ -179,7 +183,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
 
   // @testable
   internal let apiKeyModeUserId: ProtectedBox<UUID>
-  
+
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
   private static let automaticConfigurationLock = NSLock()
@@ -226,6 +230,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     region: String,
     isLogsEnable: Bool
   ) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     guard let environment = Environment(environment: environment, region: region) else {
       fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
     }
@@ -243,6 +249,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
     let jwtAuth = VitalJWTAuth.live
@@ -268,6 +276,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
@@ -286,6 +296,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     environment: Environment,
     configuration: Configuration = .init()
   ) async {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     self.shared.setConfiguration(
       strategy: .apiKey(apiKey, environment),
       configuration: configuration,
@@ -351,7 +363,10 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
-    defer { completion?() }
+    defer {
+      completion?()
+      VitalPersistentLogger.shared?.dumpOSLog(.core)
+    }
 
     let client = sharedNoAutoConfig
 
@@ -505,6 +520,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   private func _setUserId(_ newUserId: UUID) {
+    defer { VitalPersistentLogger.shared?.dumpOSLog(.core) }
+
     guard let configuration = configuration.value else {
       /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
       fatalError("You need to call `VitalClient.configure` before setting the `userId`")

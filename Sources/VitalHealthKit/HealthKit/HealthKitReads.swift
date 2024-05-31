@@ -1493,8 +1493,11 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
     var totalGrouped: Double = 0
     var count = 0
   }
-  
-  var outcome: [QuantitySample] = ordered.reduce(into: Payload()) { payload, newValue in
+
+  let payload = Payload()
+  payload.samples.reserveCapacity(ordered.count)
+
+  var outcome: [QuantitySample] = ordered.reduce(into: payload) { payload, newValue in
     payload.count = payload.count + 1
     
     if let lastValue = payload.samples.last {
