@@ -10,6 +10,8 @@ struct ExampleApp: App {
       _ application: UIApplication,
       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
+      VitalLogger.stdOutEnabled = true
+
       VitalHealthKitClient.automaticConfiguration()
       return true
     }
