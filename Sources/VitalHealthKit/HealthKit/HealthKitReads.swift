@@ -13,6 +13,7 @@ typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> 
 
 enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
+  case invalidRemappedResource
 }
 
 struct VitalStatisticsError: Error {
@@ -26,109 +27,8 @@ struct VitalStatisticsError: Error {
   }
 }
 
-private func read(
-  type: HKSampleType,
-  healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
-  typeToResource: ((HKSampleType) -> VitalResource),
-  startDate: Date,
-  endDate: Date
-) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
-  func queryQuantities(
-    type: HKSampleType
-  ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
-    
-    let payload = try await query(
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      type: type,
-      startDate: startDate,
-      endDate: endDate
-    )
-    
-    let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
-    return (quantities, payload.anchor)
-  }
-  
-  func queryStatistics(
-    type: HKQuantityType
-  ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
-    
-    let dependencies = StatisticsQueryDependencies.live(
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage
-    )
-    
-    let payload = try await queryStatisticsSample(
-      dependency: dependencies,
-      type: type,
-      startDate: startDate,
-      endDate: endDate
-    )
-    
-    let quantities: [QuantitySample] = payload.statistics.compactMap { value in
-      return QuantitySample(value, type)
-    }
-    
-    return (quantities, payload.anchor)
-  }
-  
-  var anchors: [StoredAnchor] = []
-  
-  switch type {
-    case
-      /// Activity
-      HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
-      HKSampleType.quantityType(forIdentifier: .stepCount)!,
-      HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
-      HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
-      
-      let (values, anchor) = try await queryStatistics(type: type as! HKQuantityType)
-      let patch = ActivityPatch(sampleType: type, samples: values)
-      
-      anchors.appendOptional(anchor)
-      
-      return (ProcessedResourceData.summary(.activity(patch)), anchors)
-      
-    case
-      /// Activity
-      HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
-      
-      let (values, anchor) = try await queryQuantities(type: type)
-      let patch = ActivityPatch(sampleType: type, samples: values)
-      
-      anchors.appendOptional(anchor)
-      
-      return (ProcessedResourceData.summary(.activity(patch)), anchors)
-      
-    case
-      /// Body
-      HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-      
-      let (values, anchor) = try await queryQuantities(type: type)
-      let patch = BodyPatch(sampleType: type, samples: values)
-      
-      anchors.appendOptional(anchor)
-      
-      return (ProcessedResourceData.summary(.body(patch)), anchors)
-      
-    default:
-      return try await read(
-        resource: typeToResource(type),
-        healthKitStore: healthKitStore,
-        typeToResource: typeToResource,
-        vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
-      )
-  }
-}
-
 func read(
-  resource: VitalResource,
+  resource: RemappedVitalResource,
   healthKitStore: HKHealthStore,
   typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: VitalHealthKitStorage,
@@ -136,27 +36,10 @@ func read(
   endDate: Date
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
-  switch resource {
-    case .individual:
-      
-      let requirements = toHealthKitTypes(resource: resource)
-    guard requirements.isIndividualType else {
-        fatalError("Individual types should made up of a single type. \(resource) isn't. This is a developer error")
-      }
-      
-      guard let sampleType = requirements.required.first as? HKSampleType else {
-        fatalError("\(requirements.required.first!) is not an HKSampleType")
-      }
-      
-      return try await read(
-        type: sampleType,
-        healthKitStore: healthKitStore,
-        vitalStorage: vitalStorage,
-        typeToResource: typeToResource,
-        startDate: startDate,
-        endDate: endDate
-      )
-      
+  switch resource.wrapped {
+  case .individual:
+    throw VitalHealthKitClientError.invalidRemappedResource
+
     case .profile:
       let profilePayload = try await handleProfile(
         healthKitStore: healthKitStore,

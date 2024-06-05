@@ -57,7 +57,7 @@ class SampleTypeTests: XCTestCase {
 
           do {
             _ = try await read(
-              resource: resource,
+              resource: VitalHealthKitStore.remapResource(resource),
               healthKitStore: MockHealthStore(),
               typeToResource: {
                 VitalHealthKitStore.sampleTypeToVitalResource(type: $0)

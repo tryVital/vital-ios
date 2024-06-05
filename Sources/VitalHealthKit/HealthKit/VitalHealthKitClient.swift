@@ -221,7 +221,7 @@ extension VitalHealthKitClient {
 
     let resources = Set(
       resourcesAskedForPermission(store: self.store)
-        .map(self.store.remapResource)
+        .map(VitalHealthKitStore.remapResource)
     )
     let currentTask = self.backgroundDeliveryTask
 
@@ -320,7 +320,7 @@ extension VitalHealthKitClient {
         }
 
         /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-        let resource = store.remapResource(store.toVitalResource(first))
+        let resource = VitalHealthKitStore.remapResource(store.toVitalResource(first))
         await sync(resource)
       }
     }
@@ -484,8 +484,8 @@ extension VitalHealthKitClient {
   
   public func syncData(for resources: [VitalResource]) {
     Task(priority: .high) {
+      let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
-      let remappedResources = Set(resources.map(self.store.remapResource(_:)))
       for resource in remappedResources {
         await sync(resource)
       }
@@ -507,10 +507,10 @@ extension VitalHealthKitClient {
     await store.disableBackgroundDelivery()
   }
   
-  private func sync(_ resource: RemappedVitalResource) async {
+  private func sync(_ remappedResource: RemappedVitalResource) async {
     guard self.pauseSynchronization == false else { return }
 
-    let resource = resource.wrapped
+    let resource = remappedResource.wrapped
 
     let configuration = await configuration.get()
     let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
@@ -556,7 +556,7 @@ extension VitalHealthKitClient {
       let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
-        resource,
+        remappedResource,
         startDateInBounds,
         endDateInBounds,
         storage
@@ -674,11 +674,10 @@ extension VitalHealthKitClient {
 
 extension VitalHealthKitClient {
   public static func read(resource: VitalResource, startDate: Date, endDate: Date) async throws -> ProcessedResourceData? {
-    let store = HKHealthStore()
-    
+
     let (data, _): (ProcessedResourceData?, [StoredAnchor]) = try await VitalHealthKit.read(
-      resource: resource,
-      healthKitStore: store,
+      resource: VitalHealthKitStore.remapResource(resource),
+      healthKitStore:  HKHealthStore(),
       typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       startDate: startDate,
