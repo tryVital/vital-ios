@@ -88,22 +88,21 @@ struct HealthKitExample: View {
     Text(text)
     Spacer()
     
-    if resources.allSatisfy({ permissions.wrappedValue[$0] == true }) {
-      Button("Permission requested") {}
-        .disabled(true)
-        .buttonStyle(PermissionStyle())
-    } else {
-      Button("Request Permission") {
-        Task { @MainActor in
-          await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
 
-          for resource in resources {
-            permissions.wrappedValue[resource] = true
-          }
+    Button(
+      resources.allSatisfy({ permissions.wrappedValue[$0] == true })
+        ? "Permission requested"
+        : "Request permission"
+    ) {
+      Task { @MainActor in
+        await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
+
+        for resource in resources {
+          permissions.wrappedValue[resource] = true
         }
       }
-      .buttonStyle(PermissionStyle())
     }
+    .buttonStyle(PermissionStyle())
   }
 }
 
