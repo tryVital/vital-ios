@@ -5,6 +5,14 @@ struct RemappedVitalResource: Hashable {
   let wrapped: VitalResource
 }
 
+struct ReadOptions {
+  var perDeviceActivityTS: Bool = false
+
+  internal init(perDeviceActivityTS: Bool = false) {
+    self.perDeviceActivityTS = perDeviceActivityTS
+  }
+}
+
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   
@@ -15,7 +23,7 @@ struct VitalHealthKitStore {
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
-  var readResource: (RemappedVitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData?, [StoredAnchor])
+  var readResource: (RemappedVitalResource, Date, Date, VitalHealthKitStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void
@@ -155,14 +163,15 @@ extension VitalHealthKitStore {
         startDate: startDate,
         endDate: endDate
       )
-    } readResource: { (resource, startDate, endDate, storage) in
+    } readResource: { (resource, startDate, endDate, storage, options) in
       try await read(
         resource: resource,
         healthKitStore: store,
         typeToResource: toVitalResource,
         vitalStorage: storage,
         startDate: startDate,
-        endDate: endDate
+        endDate: endDate,
+        options: options
       )
     } enableBackgroundDelivery: { (type, frequency, completion) in
       store.enableBackgroundDelivery(for: type, frequency: frequency, withCompletion: completion)
@@ -186,7 +195,7 @@ extension VitalHealthKitStore {
       return .sleep
     } writeInput: { (dataInput, startDate, endDate) in
       return
-    } readResource: { _,_,_,_  in
+    } readResource: { _,_,_,_, _  in
       return (ProcessedResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return

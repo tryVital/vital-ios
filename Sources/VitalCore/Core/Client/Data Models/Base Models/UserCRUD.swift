@@ -30,6 +30,22 @@ public struct UserSDKSyncStateResponse: Decodable {
   public let status: Status
   public let requestStartDate: Date?
   public let requestEndDate: Date?
+  public var perDeviceActivityTS: Bool = false
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.status = try container.decode(Status.self, forKey: .status)
+    self.requestStartDate = try container.decodeIfPresent(Date.self, forKey: .requestStartDate)
+    self.requestEndDate = try container.decodeIfPresent(Date.self, forKey: .requestEndDate)
+    self.perDeviceActivityTS = try container.decodeIfPresent(Bool.self, forKey: .perDeviceActivityTS) ?? false
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case status = "status"
+    case requestStartDate = "request_start_date"
+    case requestEndDate = "request_end_date"
+    case perDeviceActivityTS = "per_device_activity_ts"
+  }
 }
 
 public enum Stage: String, Encodable {
@@ -42,7 +58,7 @@ public struct UserSDKSyncStateBody: Encodable {
   public let tzinfo: String
   public let requestStartDate: Date?
   public let requestEndDate: Date?
-  
+
   public init(stage: Stage, tzinfo: String, requestStartDate: Date? = nil, requestEndDate: Date? = nil) {
     self.stage = stage
     self.tzinfo = tzinfo
