@@ -15,8 +15,8 @@ struct VitalHealthKitStore {
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
-  var readResource: (VitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData?, [StoredAnchor])
-  
+  var readResource: (RemappedVitalResource, Date, Date, VitalHealthKitStorage) async throws -> (ProcessedResourceData?, [StoredAnchor])
+
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void
   
@@ -25,16 +25,13 @@ struct VitalHealthKitStore {
 }
 
 extension VitalHealthKitStore {
-  func remapResource(_ resource: VitalResource) -> RemappedVitalResource {
+  static func remapResource(_ resource: VitalResource) -> RemappedVitalResource {
     // Remap individual resources to their composite version
     switch resource {
     case 
         .individual(.bodyFat),
         .individual(.weight):
-
-      if self.hasAskedForPermission(.body) {
-        return RemappedVitalResource(wrapped: .body)
-      }
+      return RemappedVitalResource(wrapped: .body)
 
     case 
         .individual(.activeEnergyBurned),
@@ -44,10 +41,7 @@ extension VitalHealthKitStore {
         .individual(.floorsClimbed),
         .individual(.steps),
         .individual(.vo2Max):
-
-      if self.hasAskedForPermission(.activity) {
-        return RemappedVitalResource(wrapped: .activity)
-      }
+      return RemappedVitalResource(wrapped: .activity)
 
     default:
       break
