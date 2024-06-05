@@ -1,6 +1,26 @@
 import HealthKit
 import VitalCore
 
+/// Describes how HealthKit sample types map to a particular VitalResource.
+///
+/// ### `ask(_:)` behaviour:
+/// We request `required` + `optional` + `supplementary`.
+///
+/// ### `hasAskedForPermission(_:)` behaviour:
+/// If `required` is non-empty:
+/// * A VitalResource is "asked" if and only if all `required` sample types have been asked.
+/// If `required` is empty:
+/// * A VitalResource is "asked" if at least one `optional` sample types have been asked.
+/// In both cases, `supplementary` is not considered at all.
+///
+/// Some sample types may appear in multiple `VitalResource`s:
+/// 1. Each sample type can only be associated with ** one** VitalResource as their `required` or `optional` types.
+/// 2. A sample type can optionally be marked as a `supplementary` type of any other VitalResource.
+///
+/// Example:
+/// * `VitalResource.heartrate` is the primary resource for `HKQuantityType(.heartRate)`.
+/// * Activity, workouts and sleeps all need _supplementary_ heartrate permission for statistics, but can function without it.
+///   So they list `HKQuantityType(.heartRate)` as their `supplementary` types.
 struct HealthKitObjectTypeRequirements {
   /// The required set of HKObjectTypes of a `VitalResource`.
   ///
@@ -12,8 +32,12 @@ struct HealthKitObjectTypeRequirements {
   /// New types can be added or removed from this list.
   let optional: Set<HKObjectType>
 
+  /// An "supplementary" set of HKObjectTypes of a `VitalResource`.
+  /// New types can be added or removed from this list.
+  let supplementary: Set<HKObjectType>
+
   var isIndividualType: Bool {
-    required.count == 1 && optional.isEmpty
+    required.count == 1 && optional.isEmpty && supplementary.isEmpty
   }
 
   func isResourceActive(_ query: (HKObjectType) -> Bool) -> Bool {
@@ -23,10 +47,17 @@ struct HealthKitObjectTypeRequirements {
       return self.required.allSatisfy(query)
     }
   }
+
+  var allObjectTypes: Set<HKObjectType> {
+    var objectTypes = self.required
+    objectTypes.formUnion(self.optional)
+    objectTypes.formUnion(self.supplementary)
+    return objectTypes
+  }
 }
 
 private func single(_ type: HKObjectType) -> HealthKitObjectTypeRequirements {
-  return HealthKitObjectTypeRequirements(required: [type], optional: [])
+  return HealthKitObjectTypeRequirements(required: [type], optional: [], supplementary: [])
 }
 
 func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirements {
@@ -49,6 +80,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     return single(HKSampleType.quantityType(forIdentifier: .bodyMass)!)
   case .individual(.bodyFat):
     return single(HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!)
+
   case .vitals(.bloodOxygen):
     return single(HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!)
 
@@ -59,49 +91,54 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
         HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
         HKQuantityType.quantityType(forIdentifier: .height)!,
-      ]
+      ],
+      supplementary: []
     )
 
   case .body:
     return HealthKitObjectTypeRequirements(required: [], optional: [
       HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
       HKSampleType.quantityType(forIdentifier: .bodyMass)!,
-    ])
+    ], supplementary: [])
 
   case .sleep:
-    let temperature: Set<HKObjectType>
+    let wristTemperature: Set<HKObjectType>
     if #available(iOS 16.0, *) {
-      temperature = [HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!]
+      wristTemperature = [HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!]
     } else {
-      temperature = []
+      wristTemperature = []
     }
 
     return HealthKitObjectTypeRequirements(
       required: [
         HKSampleType.categoryType(forIdentifier: .sleepAnalysis)!,
       ],
-      optional: [
-        HKSampleType.quantityType(forIdentifier: .heartRate)!,
-        HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
-        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
-        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
+      optional: wristTemperature,
+      supplementary: [
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
-      ] + temperature
+        HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
+        HKSampleType.quantityType(forIdentifier: .heartRate)!,
+        HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!,
+        HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+      ]
     )
 
   case .activity:
 
     return HealthKitObjectTypeRequirements(
-      required: [], optional: [
+      required: [],
+      optional: [
         HKSampleType.quantityType(forIdentifier: .stepCount)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
+      ],
+      supplementary: [
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
-        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
       ]
     )
 
@@ -109,8 +146,10 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     return HealthKitObjectTypeRequirements(
       required: [HKSampleType.workoutType()],
       optional: [
-        HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
+      ],
+      supplementary: [
+        HKSampleType.quantityType(forIdentifier: .heartRate)!,
       ]
     )
 
@@ -123,7 +162,8 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!,
       ],
-      optional: []
+      optional: [],
+      supplementary: []
     )
 
   case .vitals(.heartRate):

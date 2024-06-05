@@ -235,7 +235,7 @@ extension VitalHealthKitClient {
     let allowedSampleTypes = Set(
       resources.lazy.map(\.wrapped)
         .map(toHealthKitTypes(resource:))
-        .flatMap { $0.required + $0.optional }
+        .flatMap(\.allObjectTypes)
     )
 
     let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
@@ -661,7 +661,7 @@ extension VitalHealthKitClient {
     }
     
     let requirements = toHealthKitTypes(resource: resource)
-    let dates: [Date] = (requirements.required + requirements.optional).map {
+    let dates: [Date] = requirements.allObjectTypes.map {
       String(describing: $0.self)
     }.compactMap { key in
       storage.read(key: key)?.date

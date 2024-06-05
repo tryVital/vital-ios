@@ -89,7 +89,7 @@ class SampleTypeTests: XCTestCase {
   func test_all_quantity_sample_types_have_mapped_unit() async {
     let allQuantityTypes = VitalResource.all
       .map(toHealthKitTypes(resource:))
-      .flatMap { $0.required + $0.optional }
+      .flatMap(\.allObjectTypes)
       .compactMap { $0 as? HKQuantityType }
 
     for sampleType in allQuantityTypes {
@@ -102,7 +102,8 @@ class SampleTypeTests: XCTestCase {
   func test_HealthKitObjectTypeRequirements_singleObjectType() {
     let requirements = HealthKitObjectTypeRequirements(
       required: [HKQuantityType(.appleExerciseTime)],
-      optional: []
+      optional: [],
+      supplementary: []
     )
 
     // required[0] has been asked
@@ -120,7 +121,8 @@ class SampleTypeTests: XCTestCase {
         HKQuantityType(.appleMoveTime),
         HKQuantityType(.appleStandTime),
       ],
-      optional: []
+      optional: [],
+      supplementary: []
     )
 
     // All asked
@@ -142,7 +144,8 @@ class SampleTypeTests: XCTestCase {
       ],
       optional: [
         HKQuantityType(.appleStandTime),
-      ]
+      ],
+      supplementary: []
     )
 
     // All asked
@@ -166,7 +169,8 @@ class SampleTypeTests: XCTestCase {
         HKQuantityType(.appleExerciseTime),
         HKQuantityType(.appleMoveTime),
         HKQuantityType(.appleStandTime),
-      ]
+      ],
+      supplementary: []
     )
 
     // All asked
@@ -183,10 +187,35 @@ class SampleTypeTests: XCTestCase {
   func test_HealthKitObjectTypeRequirements_empty() {
     let requirements = HealthKitObjectTypeRequirements(
       required: [],
-      optional: []
+      optional: [],
+      supplementary: []
     )
 
     XCTAssertFalse(requirements.isResourceActive { _ in true })
     XCTAssertFalse(requirements.isResourceActive { _ in false })
+  }
+
+
+  @available(iOS 15.0, *)
+  func test_HealthKitObjectTypeRequirements_does_not_overlap() throws {
+    var claimedObjectTypes = Set<HKObjectType>()
+
+    for resource in VitalResource.all {
+      if case .individual = resource {
+        continue
+      }
+
+      let requirements = toHealthKitTypes(resource: resource)
+
+      let isNonoverlapping = requirements.required.intersection(claimedObjectTypes).isEmpty
+        && requirements.optional.intersection(claimedObjectTypes).isEmpty
+
+      XCTAssertTrue(isNonoverlapping, "\(resource.logDescription) overlaps with another VitalResource.")
+
+      // NOTE: A VitalResource can declare `requirements.supplementary` that overlaps with other
+      //       resource.
+      claimedObjectTypes.formUnion(requirements.required)
+      claimedObjectTypes.formUnion(requirements.optional)
+    }
   }
 }

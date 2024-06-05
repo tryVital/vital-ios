@@ -135,15 +135,12 @@ extension VitalHealthKitStore {
     } requestReadWriteAuthorization: { readResources, writeResources in
       let readTypes: [HKObjectType] = readResources
         .map(toHealthKitTypes)
-        .flatMap { requirements in
-          requirements.required + requirements.optional
-        }
+        .flatMap(\.allObjectTypes)
+
       let writeTypes: [HKSampleType] = writeResources
         .map(\.toResource)
         .map(toHealthKitTypes)
-        .flatMap { requirements in
-          requirements.required + requirements.optional
-        }
+        .flatMap(\.allObjectTypes)
         .compactMap { $0 as? HKSampleType }
 
       if #available(iOS 15.0, *) {

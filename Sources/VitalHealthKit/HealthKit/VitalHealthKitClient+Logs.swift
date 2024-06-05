@@ -153,7 +153,7 @@ extension VitalHealthKitClient {
       for resource in VitalResource.all {
         group.addTask {
           let requirements = toHealthKitTypes(resource: resource)
-          let allHealthKitTypes = requirements.required + requirements.optional
+          let allHealthKitTypes = requirements.allObjectTypes
 
           return try await withThrowingTaskGroup(of: (HKObjectType, HKAuthorizationRequestStatus, HKAuthorizationStatus).self) { innerGroup in
             for objectType in allHealthKitTypes {
