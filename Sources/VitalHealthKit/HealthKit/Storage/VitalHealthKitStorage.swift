@@ -64,14 +64,16 @@ class VitalHealthKitStorage {
     {
       storage.store(data, anchorPrefix)
     }
-    
+
     if
       let anchors = entity.vitalAnchors,
       let data = try? JSONEncoder().encode(anchors)
     {
       storage.store(data, anchorsPrefix)
+    } else {
+      storage.remove(anchorsPrefix)
     }
-    
+
     if let date = entity.date {
       storage.storeDate(date, datePrefix)
     }
