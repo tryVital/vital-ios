@@ -777,8 +777,30 @@ private func query(
       healthKitStore.stop(query)
       
       if let error = error {
-        continuation.resume(with: .failure(error))
-        return
+        if let error = error as? HKError {
+          switch error.code {
+          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
+            let storedAnchor = StoredAnchor(
+              key: String(describing: type),
+              anchor: newAnchor,
+              date: Date(),
+              vitalAnchors: nil
+            )
+
+            VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] no data or no permission; anchor = \(newAnchor?.description ?? "nil")")
+            continuation.resume(with: .success(([], storedAnchor)))
+            return
+
+          default:
+            VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] HealthKit error = \(error.code)")
+            continuation.resume(with: .failure(error))
+            return
+          }
+        } else {
+          VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] error = \(error)")
+          continuation.resume(with: .failure(error))
+          return
+        }
       }
       
       let storedAnchor = StoredAnchor(
@@ -787,8 +809,11 @@ private func query(
         date: Date(),
         vitalAnchors: nil
       )
-      
-      continuation.resume(with: .success((samples ?? [], storedAnchor)))
+
+      let samples = samples ?? []
+      VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] discovered \(samples.count) new samples")
+
+      continuation.resume(with: .success((samples, storedAnchor)))
     }
     
     var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -806,7 +831,13 @@ private func query(
       limit: limit,
       resultsHandler: handler
     )
-    
+
+    VitalLogger.healthKit.info("""
+    [AnchoredQuery][\(type.shortenedIdentifier)] requesting delta;
+    bound = \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil");
+    anchor = \(anchor?.description ?? "nil")
+    """)
+
     healthKitStore.execute(query)
   }
 }

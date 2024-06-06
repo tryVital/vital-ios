@@ -392,6 +392,22 @@ extension HKSampleType {
       return nil
     }
   }
+
+  var shortenedIdentifier: String {
+    if self is HKQuantityType {
+      return String(self.identifier.dropFirst("HKQuantityTypeIdentifier".count))
+    }
+
+    if self is HKCorrelationType {
+      return String(self.identifier.dropFirst("HKCorrelationTypeIdentifier".count))
+    }
+
+    if self is HKCategoryType {
+      return String(self.identifier.dropFirst("HKCategoryTypeIdentifier".count))
+    }
+
+    return self.identifier
+  }
 }
 
 func quantity(for statistics: HKStatistics, with options: HKStatisticsOptions?, type: HKQuantityType) -> HKQuantity? {
