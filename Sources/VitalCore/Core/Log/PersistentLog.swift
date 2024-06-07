@@ -60,11 +60,13 @@ public final class VitalPersistentLogger: @unchecked Sendable {
 
     case (false, .some):
       _shared = nil
+      VitalLogger.logLevelRequest.persistentLogger = .error
       return nil
 
     case (true, nil):
       let persistentLogger = VitalPersistentLogger()
       _shared = persistentLogger
+      VitalLogger.logLevelRequest.persistentLogger = .info
       return (persistentLogger, true)
 
     case let (true, logger?):
