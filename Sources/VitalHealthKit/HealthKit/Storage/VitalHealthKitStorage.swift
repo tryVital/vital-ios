@@ -3,6 +3,8 @@ import VitalCore
 
 class VitalHealthKitStorage {
 
+  private static let localSyncState = "local_sync_state"
+
   private let anchorPrefix = "vital_anchor_"
   private let anchorsPrefix = "vital_anchors_"
 
@@ -109,6 +111,28 @@ class VitalHealthKitStorage {
     }
     
     return storeAnchor
+  }
+
+  func getLocalSyncState() -> LocalSyncState? {
+    guard let data = storage.read(Self.localSyncState) else {
+      return nil
+    }
+
+    do {
+      let encoder = JSONDecoder()
+      encoder.dateDecodingStrategy = .iso8601
+      return try encoder.decode(LocalSyncState.self, from: data)
+
+    } catch let error {
+      VitalLogger.healthKit.log(level: .error, "[Storage] Failed to decode HistoricalStage: \(error)")
+      return nil
+    }
+  }
+
+  func setLocalSyncState(_ newValue: LocalSyncState) throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    storage.store(try encoder.encode(newValue), Self.localSyncState)
   }
 
   func remove(key: String) {

@@ -14,6 +14,7 @@ typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> 
 enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
   case invalidRemappedResource
+  case connectionPaused
 }
 
 struct VitalStatisticsError: Error {

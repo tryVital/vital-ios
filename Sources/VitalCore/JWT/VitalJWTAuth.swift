@@ -418,13 +418,14 @@ internal struct VitalSignInTokenClaims: Decodable {
 }
 
 /// A parking lot that holds waiting callers for token refresh flow to complete.
-private final class ParkingLot: @unchecked Sendable {
+@_spi(VitalSDKInternals)
+public final class ParkingLot: @unchecked Sendable {
   enum State: Sendable {
     case mustPark([UUID: CheckedContinuation<Void, Never>] = [:])
     case disabled
   }
 
-  enum Action {
+  public enum Action {
     case enable
     case disable
   }
@@ -432,7 +433,9 @@ private final class ParkingLot: @unchecked Sendable {
   private var state: State = .disabled
   private var lock = NSLock()
 
-  func tryTo(_ action: Action) -> Bool {
+  public init() {}
+
+  public func tryTo(_ action: Action) -> Bool {
     let (callersToRelease, hasTransitioned): ([CheckedContinuation<Void, Never>], Bool) = lock.withLock {
       switch (self.state, action) {
       case (.disabled, .enable):
@@ -461,7 +464,7 @@ private final class ParkingLot: @unchecked Sendable {
     return hasTransitioned
   }
 
-  func parkIfNeeded() async throws {
+  public func parkIfNeeded() async throws {
     let ticket = UUID()
 
     return try await withTaskCancellationHandler {
