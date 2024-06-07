@@ -2,11 +2,17 @@ import Foundation
 import VitalCore
 
 internal struct LocalSyncState: Codable {
-  let historicalStart: Date
+  let historicalStageAnchor: Date
+  let defaultDaysToBackfill: Int
+
   let ingestionEnd: Date?
   let perDeviceActivityTS: Bool
 
   let expiresAt: Date
+
+  func historicalStartDate(for resource: VitalResource) -> Date {
+    Date.dateAgo(historicalStageAnchor, days: defaultDaysToBackfill)
+  }
 }
 
 

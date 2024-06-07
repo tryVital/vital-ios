@@ -529,13 +529,14 @@ extension VitalHealthKitClient {
     /// Make sure the user has a connected source set up
     try await vitalClient.checkConnectedSource(.appleHealthKit)
 
-    let proposedStart = Date.dateAgo(days: configuration.numberOfDaysToBackFill)
+    let now = Date()
+    let proposedStart = Date.dateAgo(now, days: configuration.numberOfDaysToBackFill)
 
     let backendState = try await vitalClient.sdkStateSync(
       UserSDKSyncStateBody(
         tzinfo: TimeZone.current.identifier,
         requestStartDate: proposedStart,
-        requestEndDate: Date()
+        requestEndDate: now
       )
     )
 
@@ -549,7 +550,8 @@ extension VitalHealthKitClient {
       //
       // The only exception is if an ingestion start was set, in which case the most up-to-date
       // ingestion start date takes precedence.
-      historicalStart: backendState.requestStartDate ?? previousState?.historicalStart ?? proposedStart,
+      historicalStageAnchor: backendState.requestStartDate ?? previousState?.historicalStageAnchor ?? now,
+      defaultDaysToBackfill: previousState?.defaultDaysToBackfill ?? configuration.numberOfDaysToBackFill,
 
       // The query upper bound (end date for historical & daily) is normally open-ended.
       // In other words, `ingestionEnd` is typically nil.
@@ -578,7 +580,7 @@ extension VitalHealthKitClient {
       || resource == .profile
 
     let now = Date()
-    let query = state.historicalStart ..< (state.ingestionEnd ?? now)
+    let query = state.historicalStartDate(for: resource) ..< (state.ingestionEnd ?? now)
 
     let instruction = SyncInstruction(stage: hasCompletedHistoricalStage ? .daily : .historical, query: query)
     return (instruction, state)
