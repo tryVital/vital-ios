@@ -47,6 +47,7 @@ public enum PermissionOutcome: Equatable {
   private var cancellables: Set<AnyCancellable> = []
 
   internal let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
+  private let backendSyncStateParkingLot = ParkingLot()
 
   let configuration: ProtectedBox<Configuration>
 
@@ -463,20 +464,6 @@ extension VitalHealthKitClient {
     return (stream, _continuation)
   }
   
-  private func calculateStage(
-    resource: VitalResource,
-    startDate: Date,
-    endDate: Date
-  ) -> TaggedPayload.Stage  {
-    
-    /// We don't keep a historical record for profile data
-    if resource == .profile {
-      return .daily
-    }
-    
-    return storage.readFlag(for: resource) ? .daily : .historical(start: startDate, end: endDate)
-  }
-  
   public func syncData() {
     let resources = resourcesAskedForPermission(store: store)
     syncData(for: Array(resources))
@@ -506,61 +493,122 @@ extension VitalHealthKitClient {
 
     await store.disableBackgroundDelivery()
   }
-  
+
+  private func getLocalSyncState() async throws -> LocalSyncState {
+    // If we have a LocalSyncState with valid TTL, return it.
+    if 
+      let state = storage.getLocalSyncState(),
+      state.expiresAt > Date()
+    {
+      return state
+    }
+
+    guard backendSyncStateParkingLot.tryTo(.enable) else {
+      try await backendSyncStateParkingLot.parkIfNeeded()
+
+      // Try again
+      return try await getLocalSyncState()
+    }
+
+    defer { _ = backendSyncStateParkingLot.tryTo(.disable) }
+
+    // Double check if a LocalSyncState could have already been computed concurrently
+    // between getLocalSyncState() and tryTo(.enable).
+    if
+      let state = storage.getLocalSyncState(),
+      state.expiresAt > Date()
+    {
+      return state
+    }
+
+    VitalLogger.healthKit.info("revalidating", source: "LocalSyncState")
+
+    let previousState = storage.getLocalSyncState()
+    let configuration = await configuration.get()
+
+    /// Make sure the user has a connected source set up
+    try await vitalClient.checkConnectedSource(.appleHealthKit)
+
+    let proposedStart = Date.dateAgo(days: configuration.numberOfDaysToBackFill)
+
+    let backendState = try await vitalClient.sdkStateSync(
+      UserSDKSyncStateBody(
+        tzinfo: TimeZone.current.identifier,
+        requestStartDate: proposedStart,
+        requestEndDate: Date()
+      )
+    )
+
+    if backendState.status != .active {
+      VitalLogger.healthKit.info("connection is paused", source: "LocalSyncState")
+      throw VitalHealthKitClientError.connectionPaused
+    }
+
+    let state = LocalSyncState(
+      // Historical start date is generally fixed once generated the first time, until signOut() reset.
+      //
+      // The only exception is if an ingestion start was set, in which case the most up-to-date
+      // ingestion start date takes precedence.
+      historicalStart: backendState.requestStartDate ?? previousState?.historicalStart ?? proposedStart,
+
+      // The query upper bound (end date for historical & daily) is normally open-ended.
+      // In other words, `ingestionEnd` is typically nil.
+      //
+      // The only exception is if an ingestion end was set, in which case the most up-to-date
+      // ingestion end date dictates the query upper bound.
+      ingestionEnd: backendState.requestEndDate,
+
+      perDeviceActivityTS: backendState.perDeviceActivityTS,
+
+      // When we should revalidate the LocalSyncState again.
+      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn))
+    )
+
+    try storage.setLocalSyncState(state)
+
+    VitalLogger.healthKit.info("updated; \(state)", source: "LocalSyncState")
+
+    return state
+  }
+
+  private func computeSyncInstruction(_ resource: VitalResource) async throws -> (SyncInstruction, LocalSyncState) {
+    let state = try await getLocalSyncState()
+
+    let hasCompletedHistoricalStage = storage.readFlag(for: resource)
+      || resource == .profile
+
+    let now = Date()
+    let query = state.historicalStart ..< (state.ingestionEnd ?? now)
+
+    let instruction = SyncInstruction(stage: hasCompletedHistoricalStage ? .daily : .historical, query: query)
+    return (instruction, state)
+  }
+
   private func sync(_ remappedResource: RemappedVitalResource) async {
     guard self.pauseSynchronization == false else { return }
 
     let resource = remappedResource.wrapped
 
     let configuration = await configuration.get()
-    let startDate: Date = .dateAgo(days: configuration.numberOfDaysToBackFill)
-    let endDate: Date = Date()
-    
-    let infix = ""
     let description = resource.logDescription
 
-    VitalLogger.healthKit.info("Syncing HealthKit \(infix): \(description)")
-    
     do {
+      let (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped)
+
+      VitalLogger.healthKit.info("[\(description)] \(instruction)", source: "Sync")
+
       // Signal syncing (so the consumer can convey it to the user)
       _status.send(.syncing(resource))
-
-      let stage = calculateStage(
-        resource: resource,
-        startDate: startDate,
-        endDate: endDate
-      )
-      /// Make sure the user has a connected source set up
-      try await vitalClient.checkConnectedSource(.appleHealthKit)
-
-      // Sync sdk status
-      let body: UserSDKSyncStateBody
-      switch stage {
-      case .daily:
-        body = UserSDKSyncStateBody(stage: Stage.daily, tzinfo: TimeZone.current.identifier)
-      case let .historical(start, end):
-        body = UserSDKSyncStateBody(stage: Stage.historical, tzinfo: TimeZone.current.identifier, requestStartDate: start, requestEndDate: end)
-      }
-      let statusResponse = try await vitalClient.sdkStateSync(body)
-      
-      guard statusResponse.status == .active else {
-        VitalLogger.healthKit.info("Skipping. Connected source is \(statusResponse.status.rawValue)")
-        _status.send(.nothingToSync(resource))
-        return
-      }
-      
-      let startDateInBounds = statusResponse.requestStartDate ?? startDate
-      let endDateInBounds = statusResponse.requestEndDate ?? endDate
       
       // Fetch from HealthKit
       let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
       
       (data, entitiesToStore) = try await store.readResource(
         remappedResource,
-        startDateInBounds,
-        endDateInBounds,
+        instruction.query.lowerBound,
+        instruction.query.upperBound,
         storage,
-        ReadOptions(perDeviceActivityTS: statusResponse.perDeviceActivityTS)
+        ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
       )
 
       guard let data = data, data.shouldSkipPost == false else {
@@ -571,37 +619,33 @@ extension VitalHealthKitClient {
         // TODO: We should post something anyway so that backend can emit a historical event.
 
         /// If it's historical, we store the entity and bailout
-        if stage.isDaily == false {
+        if instruction.stage != .daily {
           storage.storeFlag(for: resource)
           entitiesToStore.forEach(storage.store(entity:))
         }
 
-        VitalLogger.healthKit.info("Skipping. No new data available \(infix): \(description)")
+        VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
         _status.send(.nothingToSync(resource))
 
         return
       }
-      
+
       if configuration.mode.isAutomatic {
-        VitalLogger.healthKit.info(
-          "Automatic Mode. Posting data for stage \(stage) \(infix): \(description)"
-        )
-        
+        VitalLogger.healthKit.info("[\(description)] begin upload", source: "Sync")
+
         let transformedData = transform(data: data, calendar: vitalCalendar)
 
         // Post data
         try await vitalClient.post(
           transformedData,
-          stage,
+          instruction.taggedPayloadStage,
           .appleHealthKit,
           /// We can't use `vitalCalendar` here. We want to send the user's timezone
           /// rather than UTC (which is what `vitalCalendar` is set to).
           TimeZone.current
         )
       } else {
-        VitalLogger.healthKit.info(
-          "Manual Mode. Skipping posting data for stage \(stage) \(infix): \(description)"
-        )
+        VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
       }
       
       // This is used for calculating the stage (daily vs historical)
@@ -610,16 +654,13 @@ extension VitalHealthKitClient {
       // Save the anchor/date on a succesfull network call
       entitiesToStore.forEach(storage.store(entity:))
       
-      VitalLogger.healthKit.info("Completed syncing \(infix): \(description)")
-      
+      VitalLogger.healthKit.info("[\(description)] completed", source: "Sync")
+
       // Signal success
       _status.send(.successSyncing(resource, data))
-    }
-    catch let error {
-      // Signal failure
-      VitalLogger.healthKit.error(
-        "Failed syncing data \(infix): \(description). Error: \(error)"
-      )
+
+    } catch let error {
+      VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
       _status.send(.failedSyncing(resource, error))
     }
   }
