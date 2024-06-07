@@ -11,16 +11,32 @@ public enum VitalLogger {
   /// - important: Logging to stdout is always disabled when the library is built with Release configuration.
   ///              Use `VitalPersistentLogger` if you need to gather logs in Release builds.
   public static var stdOutEnabled: Bool {
-    get { _stdOutEnabled }
-    set { _stdOutEnabled = newValue }
+    get { logLevelRequest.stdOut < .error }
+    set { logLevelRequest.stdOut = newValue ? .info : .error }
   }
 
   @preconcurrency
-  internal static var _stdOutEnabled: Bool = false
+  internal static var logLevelRequest: (
+    persistentLogger: VitalLogging.Logger.Level,
+    stdOut: VitalLogging.Logger.Level
+  ) = {
+    return (
+      persistentLogger: VitalPersistentLogger.isEnabled ? .info : .error,
+      stdOut: .error
+    )
+  }() {
 
-  public static let core = VitalLogging.Logger(label: Category.core.rawValue, factory: Self.logHandlerFactory)
-  public static let requests = VitalLogging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
-  public static let healthKit = VitalLogging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
+    didSet {
+      let newValue = min(logLevelRequest.persistentLogger, logLevelRequest.stdOut)
+      core.logLevel = newValue
+      requests.logLevel = newValue
+      healthKit.logLevel = newValue
+    }
+  }
+
+  public private(set) static var core = VitalLogging.Logger(label: Category.core.rawValue, factory: Self.logHandlerFactory)
+  public private(set) static var requests = VitalLogging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
+  public private(set) static var healthKit = VitalLogging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
 
   public enum Category: String {
     case core
@@ -38,7 +54,10 @@ public enum VitalLogger {
 
     handlers.append(VitalPersistentLoggerWrapper(label: label))
 
-    return MultiplexLogHandler(handlers)
+    var handler = MultiplexLogHandler(handlers)
+    handler.logLevel = min(logLevelRequest.persistentLogger, logLevelRequest.stdOut)
+
+    return handler
   }
 }
 
@@ -66,7 +85,7 @@ private struct VitalStreamLogHandlerWrapper: VitalLogging.LogHandler {
   }
 
   func log(level: VitalLogging.Logger.Level, message: VitalLogging.Logger.Message, metadata: VitalLogging.Logger.Metadata?, source: String, file: String, function: String, line: UInt) {
-    guard VitalLogger._stdOutEnabled else { return }
+    guard VitalLogger.logLevelRequest.stdOut <= level else { return }
     wrapped.log(level: level, message: message, metadata: metadata, source: source, file: file, function: function, line: line)
   }
 }
