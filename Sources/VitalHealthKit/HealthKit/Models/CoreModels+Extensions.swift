@@ -201,7 +201,7 @@ extension QuantitySample {
       endDate: statistics.endDate,
       sourceBundle: nil,
       productType: nil,
-      type: nil,
+      type: .multipleSources,
       unit: sampleType.toUnitStringRepresentation,
       metadata: nil
     )
