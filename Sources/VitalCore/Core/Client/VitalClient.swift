@@ -555,7 +555,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     shared._setUserId(newUserId)
   }
   
-  public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
+  public func isUserConnected(to provider: UserConnection.Slug) async throws -> Bool {
     let userId = try await getUserId()
     let storage = self.storage
     
@@ -563,11 +563,11 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       return true
     }
     
-    let connectedSources: [Provider] = try await self.user.userConnectedSources()
+    let connectedSources: [UserConnection] = try await self.user.userConnectedSources()
     return connectedSources.contains { $0.slug == provider }
   }
   
-  public func checkConnectedSource(for provider: Provider.Slug) async throws {
+  public func checkConnectedSource(for provider: UserConnection.Slug) async throws {
     let userId = try await getUserId()
     let storage = self.storage
     

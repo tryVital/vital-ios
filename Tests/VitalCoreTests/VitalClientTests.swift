@@ -7,7 +7,7 @@ let environment = Environment.sandbox(.us)
 let userId = UUID().uuidString
 let apiKey = UUID().uuidString
 let apiVersion = "2.0"
-let provider = Provider.Slug.strava
+let provider = UserConnection.Slug.strava
 
 class VitalClientTests: XCTestCase {
   let storage = VitalCoreStorage(storage: .debug)

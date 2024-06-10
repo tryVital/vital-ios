@@ -36,7 +36,7 @@ public extension VitalClient.TimeSeries {
   func post(
     _ timeSeriesData: TimeSeriesData,
     stage: TaggedPayload.Stage,
-    provider: Provider.Slug,
+    provider: UserConnection.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
@@ -60,7 +60,7 @@ public extension VitalClient.TimeSeries {
     resource: SimpleTimeSeriesResource,
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider.Slug? = nil
+    provider: UserConnection.Slug? = nil
   ) async throws -> [TimeSeriesDataPoint] {
     
     let userId = try await self.client.getUserId()
@@ -80,7 +80,7 @@ public extension VitalClient.TimeSeries {
   func getBloodPressure(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider.Slug? = nil
+    provider: UserConnection.Slug? = nil
   ) async throws -> [BloodPressureDataPoint] {
     
     let userId = try await self.client.getUserId()

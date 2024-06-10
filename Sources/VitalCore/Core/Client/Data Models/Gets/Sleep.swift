@@ -6,7 +6,7 @@ public struct SleepResponse: Equatable, Decodable {
 
 public struct SleepSummary: Equatable, Decodable {
   public var id: UUID
-  public var source: SourceSummary
+  public var source: Source
   public var bedtimeStart: Date
   public var bedtimeStop: Date
   public var timezoneOffset: Int?

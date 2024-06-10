@@ -5,13 +5,13 @@ public struct TaggedPayload: Encodable {
   public let startDate: Date?
   public let endDate: Date?
   public let timeZone: String
-  public let provider: Provider.Slug
+  public let provider: UserConnection.Slug
   public let data: VitalAnyEncodable
   
   public init(
     stage: Stage = .daily,
     timeZone: TimeZone,
-    provider: Provider.Slug = .manual,
+    provider: UserConnection.Slug = .manual,
     data: VitalAnyEncodable
   ) {
     self.provider = provider
