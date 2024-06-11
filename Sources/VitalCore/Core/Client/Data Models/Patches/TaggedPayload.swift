@@ -58,7 +58,7 @@ public extension TaggedPayload {
   
   enum Data: Encodable {
     public enum Vitals: Encodable {
-      case glucose([QuantitySample])
+      case glucose([LocalQuantitySample])
     }
     
     case profile(ProfilePatch)

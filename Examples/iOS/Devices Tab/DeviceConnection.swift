@@ -9,8 +9,8 @@ import VitalCore
 enum DeviceConnection {}
 
 enum Reading: Equatable, Hashable, IdentifiableByHashable {
-  case bloodPressure(BloodPressureSample)
-  case glucose(QuantitySample)
+  case bloodPressure(LocalBloodPressureSample)
+  case glucose(LocalQuantitySample)
   
   var isBloodPressure: Bool {
     switch self {
@@ -21,7 +21,7 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
     }
   }
   
-  var glucose: QuantitySample? {
+  var glucose: LocalQuantitySample? {
     switch self {
       case .bloodPressure:
         return nil
@@ -30,7 +30,7 @@ enum Reading: Equatable, Hashable, IdentifiableByHashable {
     }
   }
   
-  var bloodPressure: BloodPressureSample? {
+  var bloodPressure: LocalBloodPressureSample? {
     switch self {
       case let .bloodPressure(bloodPressurePoint):
         return bloodPressurePoint

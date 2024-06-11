@@ -1,6 +1,6 @@
 import Foundation
 
-public struct QuantitySample: Equatable, Hashable, Encodable {
+public struct LocalQuantitySample: Equatable, Hashable, Encodable {
   
   public let id: String?
   public var value: Double
@@ -68,7 +68,7 @@ public struct QuantitySample: Equatable, Hashable, Encodable {
     )
   }
 
-  public static func == (lhs: QuantitySample, rhs: QuantitySample) -> Bool {
+  public static func == (lhs: LocalQuantitySample, rhs: LocalQuantitySample) -> Bool {
     lhs.id == rhs.id &&
     lhs.value == rhs.value &&
     lhs.startDate == rhs.startDate &&

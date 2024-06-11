@@ -6,7 +6,7 @@ import NukeUI
 import Combine
 import VitalCore
 
-extension QuantitySample: IdentifiableByHashable {}
+extension LocalQuantitySample: IdentifiableByHashable {}
 
 enum Libre1Connection {}
 
@@ -144,7 +144,7 @@ extension Libre1Connection {
             Spacer(minLength: 15)
             
             List {
-              ForEach(viewStore.read?.samples ?? []) { (sample: QuantitySample) in
+              ForEach(viewStore.read?.samples ?? []) { (sample: LocalQuantitySample) in
                 
                 HStack {
                   VStack {

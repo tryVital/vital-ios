@@ -2,10 +2,10 @@ import VitalCore
 import CombineCoreBluetooth
 
 public protocol BloodPressureReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<[BloodPressureSample], Error>
+  func read(device: ScannedDevice) -> AnyPublisher<[LocalBloodPressureSample], Error>
 }
 
-class BloodPressureReader1810: GATTMeterWithNoRACP<BloodPressureSample>, BloodPressureReadable {
+class BloodPressureReader1810: GATTMeterWithNoRACP<LocalBloodPressureSample>, BloodPressureReadable {
   init(
     manager: CentralManager = .live(),
     queue: DispatchQueue
@@ -21,7 +21,7 @@ class BloodPressureReader1810: GATTMeterWithNoRACP<BloodPressureSample>, BloodPr
   }
 }
 
-private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
+private func toBloodPressureReading(data: Data) -> LocalBloodPressureSample? {
   guard data.count >= 1 else { return nil }
 
   let bytes: [UInt8] = [UInt8](data)
@@ -53,12 +53,12 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
   let date = Calendar.current.date(from: components) ?? .init()
 
   let idPrefix = "\(date.timeIntervalSince1970.rounded())-"
-  let pulseSample: QuantitySample?
+  let pulseSample: LocalQuantitySample?
 
   if isPulseRatePresent {
     let pulseBytes: UInt16 = UInt16(bytes[15]) << 8 | UInt16(bytes[14])
 
-    pulseSample = QuantitySample(
+    pulseSample = LocalQuantitySample(
       id: "\(idPrefix)pulse",
       value: SFloat.read(data: pulseBytes),
       startDate: date,
@@ -70,7 +70,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
     pulseSample = nil
   }
 
-  let systolicSample = QuantitySample(
+  let systolicSample = LocalQuantitySample(
     id: "\(idPrefix)systolic",
     value: SFloat.read(data: systolicBytes),
     startDate: date,
@@ -78,7 +78,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
     type: .cuff,
     unit: units
   )
-  let diastolicSample = QuantitySample(
+  let diastolicSample = LocalQuantitySample(
     id: "\(idPrefix)diastolic",
     value: SFloat.read(data: diastolicBytes),
     startDate: date,
@@ -87,7 +87,7 @@ private func toBloodPressureReading(data: Data) -> BloodPressureSample? {
     unit: units
   )
   
-  return BloodPressureSample(
+  return LocalBloodPressureSample(
     systolic: systolicSample,
     diastolic: diastolicSample,
     pulse: pulseSample

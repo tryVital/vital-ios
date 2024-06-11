@@ -10,21 +10,21 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     let calendar = Calendar.current
     let date = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
 
-    let s1: QuantitySample = .init(value: 10, date: date, unit: "")
-    let s2: QuantitySample = .init(value: 10, date: date.adding(minutes: 14), unit: "")
+    let s1: LocalQuantitySample = .init(value: 10, date: date, unit: "")
+    let s2: LocalQuantitySample = .init(value: 10, date: date.adding(minutes: 14), unit: "")
     
-    let s3: QuantitySample = .init(value: 5, date: date.adding(minutes: 15), unit: "")
-    let s4: QuantitySample = .init(value: 5, date: date.adding(minutes: 29), unit: "")
+    let s3: LocalQuantitySample = .init(value: 5, date: date.adding(minutes: 15), unit: "")
+    let s4: LocalQuantitySample = .init(value: 5, date: date.adding(minutes: 29), unit: "")
     
-    let s5: QuantitySample = .init(value: 1, date: date.adding(minutes: 30), unit: "")
-    let s6: QuantitySample = .init(value: 1, date: date.adding(minutes: 44), unit: "")
+    let s5: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 30), unit: "")
+    let s6: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 44), unit: "")
     
-    let s7: QuantitySample = .init(value: 2, date: date.adding(minutes: 45), unit: "")
-    let s8: QuantitySample = .init(value: 2, date: date.adding(minutes: 59), unit: "")
+    let s7: LocalQuantitySample = .init(value: 2, date: date.adding(minutes: 45), unit: "")
+    let s8: LocalQuantitySample = .init(value: 2, date: date.adding(minutes: 59), unit: "")
     
-    let s9: QuantitySample = .init(value: 1, date: date.adding(minutes: 60), unit: "")
+    let s9: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 60), unit: "")
   
-    func assert(array: [QuantitySample]) {
+    func assert(array: [LocalQuantitySample]) {
       XCTAssertTrue(array.count == 5)
       XCTAssertTrue(array[0].value == 20)
       XCTAssertTrue(array[1].value == 10)
@@ -44,21 +44,21 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     let calendar = Calendar.current
     let date = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
     
-    let s1: QuantitySample = .init(value: 10, date: date, sourceBundle: "1", unit: "")
-    let s2: QuantitySample = .init(value: 10, date: date.adding(minutes: 14), sourceBundle: "1", unit: "")
+    let s1: LocalQuantitySample = .init(value: 10, date: date, sourceBundle: "1", unit: "")
+    let s2: LocalQuantitySample = .init(value: 10, date: date.adding(minutes: 14), sourceBundle: "1", unit: "")
     
-    let s3: QuantitySample = .init(value: 5, date: date.adding(minutes: 15), sourceBundle: "1", unit: "")
-    let s4: QuantitySample = .init(value: 5, date: date.adding(minutes: 29), sourceBundle: "1", unit: "")
+    let s3: LocalQuantitySample = .init(value: 5, date: date.adding(minutes: 15), sourceBundle: "1", unit: "")
+    let s4: LocalQuantitySample = .init(value: 5, date: date.adding(minutes: 29), sourceBundle: "1", unit: "")
     
-    let s5: QuantitySample = .init(value: 1, date: date.adding(minutes: 30), sourceBundle: "2", unit: "")
-    let s6: QuantitySample = .init(value: 1, date: date.adding(minutes: 44), sourceBundle: "2", unit: "")
+    let s5: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 30), sourceBundle: "2", unit: "")
+    let s6: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 44), sourceBundle: "2", unit: "")
     
-    let s7: QuantitySample = .init(value: 1, date: date.adding(minutes: 45), sourceBundle: "3", unit: "")
-    let s8: QuantitySample = .init(value: 2, date: date.adding(minutes: 50), sourceBundle: "3", unit: "")
-    let s9: QuantitySample = .init(value: 3, date: date.adding(minutes: 59), sourceBundle: "3", unit: "")
+    let s7: LocalQuantitySample = .init(value: 1, date: date.adding(minutes: 45), sourceBundle: "3", unit: "")
+    let s8: LocalQuantitySample = .init(value: 2, date: date.adding(minutes: 50), sourceBundle: "3", unit: "")
+    let s9: LocalQuantitySample = .init(value: 3, date: date.adding(minutes: 59), sourceBundle: "3", unit: "")
     
     
-    func assert(array: [QuantitySample]) {
+    func assert(array: [LocalQuantitySample]) {
       XCTAssertTrue(array.count == 4)
       XCTAssertTrue(array[0].value == 20)
       XCTAssertTrue(array[1].value == 10)
@@ -77,7 +77,7 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
   func testAccumulateRealisticExample() {
     let calendar = Calendar.current
 
-    func makeSample(hour: Int, minute: Int, value: Double) -> QuantitySample {
+    func makeSample(hour: Int, minute: Int, value: Double) -> LocalQuantitySample {
       let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date())!
       return .init(value: value, date: date, sourceBundle: "1", unit: "")
     }
@@ -136,8 +136,8 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     let calendar = Calendar.current
     let date = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
     
-    let s1: QuantitySample = .init(value: 12, date: date, unit: "")
-    let s2: QuantitySample = .init(value: 10, date: date.adding(seconds: 1), unit: "")
+    let s1: LocalQuantitySample = .init(value: 12, date: date, unit: "")
+    let s2: LocalQuantitySample = .init(value: 10, date: date.adding(seconds: 1), unit: "")
     
     let array = average([s1, s2], calendar: calendar)
     
@@ -150,17 +150,17 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     let calendar = Calendar.current
     let date = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
     
-    let s1: QuantitySample = .init(value: 12, date: date, unit: "")
-    let s2: QuantitySample = .init(value: 1, date: date.adding(seconds: 1), unit: "")
-    let s3: QuantitySample = .init(value: 15, date: date.adding(seconds: 3), unit: "")
-    let s4: QuantitySample = .init(value: 11, date: date.adding(seconds: 4), unit: "")
+    let s1: LocalQuantitySample = .init(value: 12, date: date, unit: "")
+    let s2: LocalQuantitySample = .init(value: 1, date: date.adding(seconds: 1), unit: "")
+    let s3: LocalQuantitySample = .init(value: 15, date: date.adding(seconds: 3), unit: "")
+    let s4: LocalQuantitySample = .init(value: 11, date: date.adding(seconds: 4), unit: "")
 
-    let s5: QuantitySample = .init(value: 10, date: date.adding(seconds: 6), unit: "")
-    let s6: QuantitySample = .init(value: 11, date: date.adding(seconds: 7), unit: "")
-    let s7: QuantitySample = .init(value: 12, date: date.adding(seconds: 8), unit: "")
-    let s8: QuantitySample = .init(value: 13, date: date.adding(seconds: 9), unit: "")
+    let s5: LocalQuantitySample = .init(value: 10, date: date.adding(seconds: 6), unit: "")
+    let s6: LocalQuantitySample = .init(value: 11, date: date.adding(seconds: 7), unit: "")
+    let s7: LocalQuantitySample = .init(value: 12, date: date.adding(seconds: 8), unit: "")
+    let s8: LocalQuantitySample = .init(value: 13, date: date.adding(seconds: 9), unit: "")
         
-    func assert(array: [QuantitySample]) {
+    func assert(array: [LocalQuantitySample]) {
       XCTAssertTrue(array.count == 4)
       XCTAssertTrue(array[0].value == 9.75)
       XCTAssertTrue(array[1].value == 1)
@@ -179,18 +179,18 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     let calendar = Calendar.current
     let date = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date())!
     
-    let s1: QuantitySample = .init(value: 12, date: date, sourceBundle: "1", unit: "")
-    let s2: QuantitySample = .init(value: 1, date: date.adding(seconds: 1), sourceBundle: "1", unit: "")
-    let s3: QuantitySample = .init(value: 15, date: date.adding(seconds: 3), sourceBundle: "1", unit: "")
-    let s4: QuantitySample = .init(value: 11, date: date.adding(seconds: 4), sourceBundle: "1", unit: "")
+    let s1: LocalQuantitySample = .init(value: 12, date: date, sourceBundle: "1", unit: "")
+    let s2: LocalQuantitySample = .init(value: 1, date: date.adding(seconds: 1), sourceBundle: "1", unit: "")
+    let s3: LocalQuantitySample = .init(value: 15, date: date.adding(seconds: 3), sourceBundle: "1", unit: "")
+    let s4: LocalQuantitySample = .init(value: 11, date: date.adding(seconds: 4), sourceBundle: "1", unit: "")
     
-    let s5: QuantitySample = .init(value: 9, date: date.adding(seconds: 6), sourceBundle: "2", unit: "")
-    let s6: QuantitySample = .init(value: 11, date: date.adding(seconds: 7), sourceBundle: "2", unit: "")
-    let s7: QuantitySample = .init(value: 7, date: date.adding(seconds: 8), sourceBundle: "2", unit: "")
+    let s5: LocalQuantitySample = .init(value: 9, date: date.adding(seconds: 6), sourceBundle: "2", unit: "")
+    let s6: LocalQuantitySample = .init(value: 11, date: date.adding(seconds: 7), sourceBundle: "2", unit: "")
+    let s7: LocalQuantitySample = .init(value: 7, date: date.adding(seconds: 8), sourceBundle: "2", unit: "")
     
-    let s8: QuantitySample = .init(value: 13, date: date.adding(seconds: 9), sourceBundle: "3", unit: "")
+    let s8: LocalQuantitySample = .init(value: 13, date: date.adding(seconds: 9), sourceBundle: "3", unit: "")
     
-    func assert(array: [QuantitySample]) {
+    func assert(array: [LocalQuantitySample]) {
       XCTAssertTrue(array.count == 7)
       XCTAssertTrue(array[0].value == 9.75)
       XCTAssertTrue(array[1].value == 1)
@@ -226,27 +226,27 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
       ))
     }
 
-    func makeQuantitySamples(for dates: [FloatingDate]) -> [QuantitySample] {
+    func makeLocalQuantitySamples(for dates: [FloatingDate]) -> [LocalQuantitySample] {
       dates.enumerated().flatMap { entry in
         [
-          QuantitySample(
+          LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             // Right on start-of-day
             date: calendar.startOfDay(entry.element),
             unit: "unittest"
           ),
-          QuantitySample(
+          LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             // Right on ~last instant of the day
             date: calendar.startOfDay(calendar.offset(entry.element, byDays: 1)).addingTimeInterval(-1),
             unit: "unittest"
           ),
-          QuantitySample(
+          LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             date: calendar.startOfDay(entry.element).addingTimeInterval(60 * (Double(entry.offset) + 1)),
             unit: "unittest"
           ),
-          QuantitySample(
+          LocalQuantitySample(
             value: 1000 + Double(entry.offset) * 100,
             date: calendar.startOfDay(entry.element).addingTimeInterval(28800 + 60 * (Double(entry.offset) + 1)),
             unit: "unittest"
@@ -282,12 +282,12 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
           )
         ]),
         samples: ActivityPatch.Activity(
-          activeEnergyBurned: makeQuantitySamples(for: sampleDates),
-          basalEnergyBurned: makeQuantitySamples(for: sampleDates),
-          steps: makeQuantitySamples(for: sampleDates),
-          floorsClimbed: makeQuantitySamples(for: sampleDates),
-          distanceWalkingRunning: makeQuantitySamples(for: sampleDates),
-          vo2Max: makeQuantitySamples(for: sampleDates)
+          activeEnergyBurned: makeLocalQuantitySamples(for: sampleDates),
+          basalEnergyBurned: makeLocalQuantitySamples(for: sampleDates),
+          steps: makeLocalQuantitySamples(for: sampleDates),
+          floorsClimbed: makeLocalQuantitySamples(for: sampleDates),
+          distanceWalkingRunning: makeLocalQuantitySamples(for: sampleDates),
+          vo2Max: makeLocalQuantitySamples(for: sampleDates)
         ),
         in: calendar
       )

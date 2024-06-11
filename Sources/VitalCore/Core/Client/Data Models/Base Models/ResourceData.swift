@@ -31,8 +31,8 @@ public enum ProcessedResourceData: Equatable, Encodable {
 }
 
 public enum NutritionData: Equatable, Encodable {
-  case water([QuantitySample])
-  case caffeine([QuantitySample])
+  case water([LocalQuantitySample])
+  case caffeine([LocalQuantitySample])
   
   public var payload: Encodable {
     switch self {
@@ -63,13 +63,13 @@ public enum NutritionData: Equatable, Encodable {
 }
 
 public enum TimeSeriesData: Equatable, Encodable {
-  case glucose([QuantitySample])
-  case bloodOxygen([QuantitySample])
-  case bloodPressure([BloodPressureSample])
-  case heartRate([QuantitySample])
-  case heartRateVariability([QuantitySample])
+  case glucose([LocalQuantitySample])
+  case bloodOxygen([LocalQuantitySample])
+  case bloodPressure([LocalBloodPressureSample])
+  case heartRate([LocalQuantitySample])
+  case heartRateVariability([LocalQuantitySample])
   case nutrition(NutritionData)
-  case mindfulSession([QuantitySample])
+  case mindfulSession([LocalQuantitySample])
   
   
   public var payload: Encodable {

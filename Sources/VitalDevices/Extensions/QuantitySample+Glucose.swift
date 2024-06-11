@@ -1,6 +1,6 @@
 import VitalCore
 
-/// We use this approach so that the JSON payload for `QuantitySample`
+/// We use this approach so that the JSON payload for `LocalQuantitySample`
 /// looks nicer:
 ///
 /// ```
@@ -37,7 +37,7 @@ private struct FreestyleLibreGlucoseDigest: Encodable {
   }
 }
 
-extension QuantitySample {
+extension LocalQuantitySample {
   init(glucose: Glucose) {
     self.init(
       id: String(glucose.id),

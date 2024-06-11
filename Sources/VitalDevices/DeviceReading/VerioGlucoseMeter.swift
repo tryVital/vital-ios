@@ -27,8 +27,8 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
     self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.\(Self.self)", target: queue)
   }
 
-  func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error> {
-    return _connect(device: device) { (peripheral, command, notification) -> AnyPublisher<[QuantitySample], Error> in
+  func read(device: ScannedDevice) -> AnyPublisher<[LocalQuantitySample], Error> {
+    return _connect(device: device) { (peripheral, command, notification) -> AnyPublisher<[LocalQuantitySample], Error> in
 
       let incomingData = peripheral
         .listenForUpdates(on: notification)
@@ -36,7 +36,7 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
         .print("Data")
         .multicast(subject: PassthroughSubject())
 
-      let output = PassthroughSubject<QuantitySample, Error>()
+      let output = PassthroughSubject<LocalQuantitySample, Error>()
 
       var cancellables = Set<AnyCancellable>()
 
@@ -98,7 +98,7 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
 
       // (1) We first start listening for incoming notifications
       return incomingData
-        .compactMap { _ -> [QuantitySample]? in nil }
+        .compactMap { _ -> [LocalQuantitySample]? in nil }
         .merge(with: output.collect())
         .handleEvents(
           receiveSubscription: { _ in incomingData.connect().store(in: &cancellables) },
@@ -279,7 +279,7 @@ private func numberOfRecordsParser(_ data: Data) throws -> Int {
   return Int(Int16(data[1]) << 8 | Int16(data[0]))
 }
 
-private func recordParser(_ data: Data, timeOffset: Int) throws -> QuantitySample {
+private func recordParser(_ data: Data, timeOffset: Int) throws -> LocalQuantitySample {
   print("payload: \(data.hex)")
 
   guard data.count == 11 else {
@@ -297,7 +297,7 @@ private func recordParser(_ data: Data, timeOffset: Int) throws -> QuantitySampl
   let mgdl = Int16(littleEndian: data[4...5])
 
   // TODO: Ehm, is this timestamp stable?
-  return QuantitySample(
+  return LocalQuantitySample(
     value: Double(mgdl),
     date: Date(timeIntervalSince1970: Double(time)),
     unit: "mg/dL",

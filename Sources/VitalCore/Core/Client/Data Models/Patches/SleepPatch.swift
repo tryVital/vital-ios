@@ -5,13 +5,13 @@ public struct SleepPatch: Equatable, Encodable {
     public struct SleepStages: Equatable, Encodable {
 
       
-      public var unspecifiedSleepSamples: [QuantitySample] = []
-      public var awakeSleepSamples: [QuantitySample] = []
-      public var deepSleepSamples: [QuantitySample] = []
-      public var lightSleepSamples: [QuantitySample] = []
-      public var remSleepSamples: [QuantitySample] = []
-      public var inBedSleepSamples: [QuantitySample] = []
-      public var unknownSleepSamples: [QuantitySample] = []
+      public var unspecifiedSleepSamples: [LocalQuantitySample] = []
+      public var awakeSleepSamples: [LocalQuantitySample] = []
+      public var deepSleepSamples: [LocalQuantitySample] = []
+      public var lightSleepSamples: [LocalQuantitySample] = []
+      public var remSleepSamples: [LocalQuantitySample] = []
+      public var inBedSleepSamples: [LocalQuantitySample] = []
+      public var unknownSleepSamples: [LocalQuantitySample] = []
       
       public init() {}
     }
@@ -22,12 +22,12 @@ public struct SleepPatch: Equatable, Encodable {
     public var sourceBundle: String
     public var productType: String
     
-    public var heartRate: [QuantitySample] = []
-    public var restingHeartRate: [QuantitySample] = []
-    public var heartRateVariability: [QuantitySample] = []
-    public var oxygenSaturation: [QuantitySample] = []
-    public var respiratoryRate: [QuantitySample] = []
-    public var wristTemperature: [QuantitySample] = []
+    public var heartRate: [LocalQuantitySample] = []
+    public var restingHeartRate: [LocalQuantitySample] = []
+    public var heartRateVariability: [LocalQuantitySample] = []
+    public var oxygenSaturation: [LocalQuantitySample] = []
+    public var respiratoryRate: [LocalQuantitySample] = []
+    public var wristTemperature: [LocalQuantitySample] = []
 
     public var sleepStages: SleepStages = .init()
 
@@ -41,11 +41,11 @@ public struct SleepPatch: Equatable, Encodable {
       endDate: Date,
       sourceBundle: String,
       productType: String,
-      heartRate: [QuantitySample] = [],
-      restingHeartRate: [QuantitySample] = [],
-      heartRateVariability: [QuantitySample] = [],
-      oxygenSaturation: [QuantitySample] = [],
-      respiratoryRate: [QuantitySample] = [],
+      heartRate: [LocalQuantitySample] = [],
+      restingHeartRate: [LocalQuantitySample] = [],
+      heartRateVariability: [LocalQuantitySample] = [],
+      oxygenSaturation: [LocalQuantitySample] = [],
+      respiratoryRate: [LocalQuantitySample] = [],
       sleepStages: SleepStages = .init()
     ) {
       self.id = id

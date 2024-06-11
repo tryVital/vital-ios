@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SimpleTimeSeriesResource {
+public enum ScalarTimeseriesResource {
   case glucose
   case heartRate
   case bloodOxygen
@@ -57,12 +57,12 @@ public extension VitalClient.TimeSeries {
   }
   
   func get(
-    resource: SimpleTimeSeriesResource,
+    resource: ScalarTimeseriesResource,
     startDate: Date,
     endDate: Date? = nil,
     provider: UserConnection.Slug? = nil
-  ) async throws -> [TimeSeriesDataPoint] {
-    
+  ) async throws -> GroupedSamplesResponse<ScalarSample> {
+
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
@@ -71,8 +71,8 @@ public extension VitalClient.TimeSeries {
     
     let fullPath = await makePath(for: path, userId: userId)
     
-    let request: Request<[TimeSeriesDataPoint]> = .init(path: fullPath, method: .get, query: query)
-    
+    let request: Request<GroupedSamplesResponse<ScalarSample>> = .init(path: fullPath, method: .get, query: query)
+
     let response = try await configuration.apiClient.send(request)
     return response.value
   }
@@ -81,15 +81,15 @@ public extension VitalClient.TimeSeries {
     startDate: Date,
     endDate: Date? = nil,
     provider: UserConnection.Slug? = nil
-  ) async throws -> [BloodPressureDataPoint] {
-    
+  ) async throws -> GroupedSamplesResponse<BloodPressureSample> {
+
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let path = await makePath(for: "blood_pressure", userId: userId)
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
     
-    let request: Request<[BloodPressureDataPoint]> = .init(path: path, method: .get, query: query)
+    let request: Request<GroupedSamplesResponse<BloodPressureSample>> = .init(path: path, method: .get, query: query)
     let response = try await configuration.apiClient.send(request)
     
     return response.value
@@ -106,7 +106,7 @@ public extension VitalClient.TimeSeries {
       .append(self.resource)
       .append(userId)
 
-    return prefix.append(resource)
+    return prefix.append(resource).append("grouped")
   }
   
   func makeQuery(

@@ -1,10 +1,10 @@
 public struct BodyPatch: Equatable, Encodable {
-  public let bodyMass: [QuantitySample]
-  public let bodyFatPercentage: [QuantitySample]
+  public let bodyMass: [LocalQuantitySample]
+  public let bodyFatPercentage: [LocalQuantitySample]
   
   public  init(
-    bodyMass: [QuantitySample] = [],
-    bodyFatPercentage: [QuantitySample] = []
+    bodyMass: [LocalQuantitySample] = [],
+    bodyFatPercentage: [LocalQuantitySample] = []
   ) {
     self.bodyMass = bodyMass
     self.bodyFatPercentage = bodyFatPercentage

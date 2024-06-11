@@ -2,7 +2,7 @@ import HealthKit
 import VitalCore
 
 extension ActivityPatch.Activity {
-  init(sampleType: HKSampleType, date: Date, samples: [QuantitySample]) {
+  init(sampleType: HKSampleType, date: Date, samples: [LocalQuantitySample]) {
     switch sampleType {
       case .quantityType(forIdentifier: .activeEnergyBurned)!:
         self.init(activeEnergyBurned: samples)
@@ -29,14 +29,14 @@ extension ActivityPatch.Activity {
 }
 
 extension ActivityPatch {
-  init(sampleType: HKSampleType, samples: [QuantitySample]) {
+  init(sampleType: HKSampleType, samples: [LocalQuantitySample]) {
     
     let allDates: Set<Date> = Set(samples.reduce([]) { acc, next in
       acc + [next.startDate.dayStart]
     })
     
     let activities = allDates.map { date -> ActivityPatch.Activity in
-      func filter(_ samples: [QuantitySample]) -> [QuantitySample] {
+      func filter(_ samples: [LocalQuantitySample]) -> [LocalQuantitySample] {
         samples.filter { $0.startDate.dayStart == date }
       }
       
@@ -49,7 +49,7 @@ extension ActivityPatch {
 }
 
 extension BodyPatch {
-  init(sampleType: HKSampleType, samples: [QuantitySample]) {
+  init(sampleType: HKSampleType, samples: [LocalQuantitySample]) {
     switch sampleType {
       case .quantityType(forIdentifier: .bodyMass)!:
         self.init(bodyMass: samples)
@@ -100,7 +100,7 @@ extension HKSampleType {
   }
 }
 
-extension BloodPressureSample {
+extension LocalBloodPressureSample {
   init?(
     _ sample: HKSample
   ) {
@@ -123,8 +123,8 @@ extension BloodPressureSample {
       correlation.objects.count == 2,
       let diastolic = correlation.objects.first(where: testType(.bloodPressureDiastolic)),
       let systolic = correlation.objects.first(where: testType(.bloodPressureSystolic)),
-      let diastolicSample = QuantitySample(diastolic),
-      let systolicSample = QuantitySample(systolic)
+      let diastolicSample = LocalQuantitySample(diastolic),
+      let systolicSample = LocalQuantitySample(systolic)
     else {
       return nil
     }
@@ -137,7 +137,7 @@ extension BloodPressureSample {
   }
 }
 
-extension QuantitySample {
+extension LocalQuantitySample {
   init?(
     _ sample: HKSample
   ) {
@@ -180,7 +180,7 @@ private func generateIdForServer(for startDate: Date, endDate: Date, type: Strin
   return id.sha256()
 }
 
-extension QuantitySample {
+extension LocalQuantitySample {
   init?(
     _ statistics: VitalStatistics,
     _ sampleType: HKQuantityType
@@ -496,7 +496,7 @@ extension WorkoutPatch.Workout {
   }
 }
 
-extension QuantitySample {
+extension LocalQuantitySample {
   public init(categorySample: HKCategorySample) {
     self.init(
       id: categorySample.uuid.uuidString,
@@ -511,8 +511,8 @@ extension QuantitySample {
   }
 }
 
-extension QuantitySample {
-  static func fromMindfulSession(sample: HKSample) -> QuantitySample? {
+extension LocalQuantitySample {
+  static func fromMindfulSession(sample: HKSample) -> LocalQuantitySample? {
 
     guard let minutes = Date.differenceInMinutes(startDate: sample.startDate, endDate: sample.endDate) else {
       return nil
