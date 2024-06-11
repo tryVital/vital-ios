@@ -19,7 +19,7 @@ public extension VitalClient.Summary {
   func post(
     _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,
-    provider: UserConnection.Slug,
+    provider: Provider.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
@@ -43,7 +43,7 @@ public extension VitalClient.Summary {
   func sleepsSummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [SleepSummary] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -61,7 +61,7 @@ public extension VitalClient.Summary {
   func sleepsRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -75,29 +75,11 @@ public extension VitalClient.Summary {
     
     return result.value.sleep
   }
-  
-  func sleepsSummaryWithStream(
-    startDate: Date,
-    endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
-  ) async throws -> [SleepSummary] {
-    let userId = try await self.client.getUserId()
-    let configuration = await self.client.configuration.get()
-    
-    let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"
-    let fullPath = prefix + "sleep/\(userId)/stream"
-    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
-    
-    let request: Request<SleepResponse> = .init(path: fullPath, method: .get, query: query)
-    let result = try await configuration.apiClient.send(request)
-    
-    return result.value.sleep
-  }
-  
+
   func activitySummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [ActivitySummary] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -115,7 +97,7 @@ public extension VitalClient.Summary {
   func activityRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -133,7 +115,7 @@ public extension VitalClient.Summary {
   func workoutSummary(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [WorkoutSummary] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -151,7 +133,7 @@ public extension VitalClient.Summary {
   func workoutRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -169,7 +151,7 @@ public extension VitalClient.Summary {
   func body(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [BodySummary] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -187,7 +169,7 @@ public extension VitalClient.Summary {
   func bodyRaw(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> [AnyDecodable] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()

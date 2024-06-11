@@ -1,7 +1,8 @@
 import Foundation
 
 public struct GregorianCalendar {
-  public static let utc = GregorianCalendar(timeZone: TimeZone(secondsFromGMT: 0)!)
+  public static let utcTimeZone = TimeZone(secondsFromGMT: 0)!
+  public static let utc = GregorianCalendar(timeZone: Self.utcTimeZone)
 
   let base: Calendar
 

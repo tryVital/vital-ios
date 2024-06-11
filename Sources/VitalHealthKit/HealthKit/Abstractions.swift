@@ -1,5 +1,5 @@
 import HealthKit
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 
 struct RemappedVitalResource: Hashable {
   let wrapped: VitalResource
@@ -207,8 +207,8 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
-  var post: (ProcessedResourceData, TaggedPayload.Stage, UserConnection.Slug, TimeZone) async throws -> Void
-  var checkConnectedSource: (UserConnection.Slug) async throws -> Void
+  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone) async throws -> Void
+  var checkConnectedSource: (Provider.Slug) async throws -> Void
   var sdkStateSync: (UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse
 }
 

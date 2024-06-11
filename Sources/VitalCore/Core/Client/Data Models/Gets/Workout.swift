@@ -10,11 +10,13 @@ public struct WorkoutSummary: Equatable, Decodable {
   public var title: String?
   public var timezoneOffset: Int?
 
+  public var timeStart: Date
+  public var timeEnd: Date
+  public var calendarDate: String
+
   public var averageHr: Int?
   public var maxHr: Int?
   public var distance: Double?
-  public var timeStart: Date
-  public var timeEnd: Date
   public var calories: Double?
   public var sport: Sport
   public var hrZones: [Int]?

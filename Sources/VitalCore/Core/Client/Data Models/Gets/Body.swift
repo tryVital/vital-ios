@@ -10,7 +10,7 @@ public struct BodyRawResponse: Equatable, Decodable {
 
 public struct BodySummary: Equatable, Decodable {
   public var id: UUID
-  public var date: Date
+  public var calendarDate: String
   public var weight: Double?
   public var fat: Double?
   public var source: Source

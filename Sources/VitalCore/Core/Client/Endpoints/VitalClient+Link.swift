@@ -40,7 +40,7 @@ public extension VitalClient.Link {
   }
   
   func createLinkToken(
-    provider: UserConnection.Slug?,
+    provider: Provider.Slug?,
     redirectURL: String?
   ) async throws -> String {
     
@@ -57,7 +57,7 @@ public extension VitalClient.Link {
   
   func createConnectedSource(
     _ userId: String,
-    provider: UserConnection.Slug
+    provider: Provider.Slug
   ) async throws -> Void {
     
     let configuration = await self.client.configuration.get()
@@ -84,14 +84,14 @@ public extension VitalClient.Link {
   }
   
   func createConnectedSource(
-    for provider: UserConnection.Slug
+    for provider: Provider.Slug
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
     try await createConnectedSource(userId, provider: provider)
   }
   
   func createProviderLink(
-    provider: UserConnection.Slug? = nil,
+    provider: Provider.Slug? = nil,
     redirectURL: String
   ) async throws -> URL {
     let configuration = await self.client.configuration.get()
@@ -107,7 +107,7 @@ public extension VitalClient.Link {
   }
 
   func createOAuthProvider(
-    provider: UserConnection.Slug,
+    provider: Provider.Slug,
     redirectURL: String? = nil
   ) async throws -> CreateOAuthProviderResponse {
     let configuration = await self.client.configuration.get()
@@ -121,23 +121,55 @@ public extension VitalClient.Link {
     let response = try await configuration.apiClient.send(request)
     return response.value
   }
-  
-  func createEmailProvider(
-    email: String,
-    provider: UserConnection.Slug,
-    region: Environment.Region,
+
+  func linkEmailProvider(
+      _ input: LinkEmailProviderInput,
+    provider: Provider.Slug,
     redirectURL: String? = nil
-  ) async throws -> CreateEmailProviderResponse {
-    
+  ) async throws -> LinkResponse {
+
     let configuration = await self.client.configuration.get()
-    
+
     let path = "/\(configuration.apiVersion)/\(path)/provider/email/\(provider.rawValue)"
-    
+
     let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
-    
-    let payload = CreateEmailProviderRequest(email: email, region: configuration.environment.region.rawValue)
-    let request: Request<CreateEmailProviderResponse> = .init(path: path, method: .post, body: payload, headers: ["x-vital-link-token": token])
-    
+
+    let request: Request<LinkResponse> = .init(path: path, method: .post, body: input, headers: ["x-vital-link-token": token])
+
+    let response = try await configuration.apiClient.send(request)
+    return response.value
+  }
+
+  func linkPasswordProvider(
+    _ input: LinkPasswordProviderInput,
+    provider: Provider.Slug,
+    redirectURL: String? = nil
+  ) async throws -> (response: LinkResponse, linkToken: String) {
+
+    let configuration = await self.client.configuration.get()
+
+    let path = "/\(configuration.apiVersion)/\(path)/provider/password/\(provider.rawValue)"
+
+    let token = try await createLinkToken(provider: provider, redirectURL: redirectURL)
+
+    let request: Request<LinkResponse> = .init(path: path, method: .post, body: input, headers: ["x-vital-link-token": token])
+
+    let response = try await configuration.apiClient.send(request)
+    return (response.value, token)
+  }
+
+  func completePasswordProviderMFA(
+    input: CompletePasswordProviderMFAInput,
+    provider: Provider.Slug,
+    linkToken: String,
+    redirectURL: String? = nil
+  ) async throws -> LinkResponse {
+
+    let configuration = await self.client.configuration.get()
+
+    let path = "/\(configuration.apiVersion)/\(path)/provider/password/\(provider.rawValue)/complete_mfa"
+    let request: Request<LinkResponse> = .init(path: path, method: .post, body: input, headers: ["x-vital-link-token": linkToken])
+
     let response = try await configuration.apiClient.send(request)
     return response.value
   }

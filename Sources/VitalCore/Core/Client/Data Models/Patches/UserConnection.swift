@@ -1,7 +1,7 @@
 struct ProviderResponse: Equatable, Decodable {
   struct Provider: Equatable, Decodable {
     let name: String
-    let slug: VitalCore.UserConnection.Slug
+    let slug: VitalCore.Provider.Slug
     let logo: String
     let status: VitalCore.UserConnection.Status
     let resourceAvailability: [VitalAPIResource: VitalCore.UserConnection.ResourceAvailability]
@@ -21,7 +21,7 @@ struct ProviderResponse: Equatable, Decodable {
         forKey: ProviderResponse.Provider.CodingKeys.name
       )
       self.slug = try container.decode(
-        VitalCore.UserConnection.Slug.self,
+        VitalCore.Provider.Slug.self,
         forKey: ProviderResponse.Provider.CodingKeys.slug
       )
       self.logo = try container.decode(
@@ -49,7 +49,7 @@ struct ProviderResponse: Equatable, Decodable {
 
 public struct UserConnection: Equatable {
   public let name: String
-  public let slug: Slug
+  public let slug: Provider.Slug
   public let logo: String
   public let status: Status
   public let resourceAvailability: [VitalAPIResource: VitalCore.UserConnection.ResourceAvailability]
@@ -109,6 +109,12 @@ public struct UserConnection: Equatable {
       self.optional = optional
     }
   }
+}
+
+public struct Provider: Equatable {
+  public let name: String
+  public let slug: Slug
+  public let logo: String
 
   public enum Slug: Hashable, Codable, RawRepresentable {
     case beurerBLE

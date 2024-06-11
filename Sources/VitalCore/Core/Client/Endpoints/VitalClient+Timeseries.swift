@@ -1,20 +1,9 @@
 import Foundation
 
-public enum ScalarTimeseriesResource {
-  case glucose
-  case heartRate
-  case bloodOxygen
-
-  var toPath: String {
-    switch self {
-      case .heartRate:
-        return "heartrate"
-      case .glucose:
-        return "glucose"
-      case .bloodOxygen:
-        return "blood_oxygen"
-    }
-  }
+public enum ScalarTimeseriesResource: String {
+  case glucose = "glucose"
+  case heartRate = "heartrate"
+  case bloodOxygen = "blood_oxygen"
 }
 
 public extension VitalClient {
@@ -36,7 +25,7 @@ public extension VitalClient.TimeSeries {
   func post(
     _ timeSeriesData: TimeSeriesData,
     stage: TaggedPayload.Stage,
-    provider: UserConnection.Slug,
+    provider: Provider.Slug,
     timeZone: TimeZone
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
@@ -60,15 +49,15 @@ public extension VitalClient.TimeSeries {
     resource: ScalarTimeseriesResource,
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> GroupedSamplesResponse<ScalarSample> {
 
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
-    let path = resource.toPath
-    
+    let path = resource.rawValue
+
     let fullPath = await makePath(for: path, userId: userId)
     
     let request: Request<GroupedSamplesResponse<ScalarSample>> = .init(path: fullPath, method: .get, query: query)
@@ -80,7 +69,7 @@ public extension VitalClient.TimeSeries {
   func getBloodPressure(
     startDate: Date,
     endDate: Date? = nil,
-    provider: UserConnection.Slug? = nil
+    provider: Provider.Slug? = nil
   ) async throws -> GroupedSamplesResponse<BloodPressureSample> {
 
     let userId = try await self.client.getUserId()
