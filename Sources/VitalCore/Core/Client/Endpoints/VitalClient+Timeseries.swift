@@ -49,13 +49,14 @@ public extension VitalClient.TimeSeries {
     resource: ScalarTimeseriesResource,
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider.Slug? = nil
+    provider: Provider.Slug? = nil,
+    cursor: String? = nil
   ) async throws -> GroupedSamplesResponse<ScalarSample> {
 
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
-    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
     let path = resource.rawValue
 
     let fullPath = await makePath(for: path, userId: userId)
@@ -69,15 +70,16 @@ public extension VitalClient.TimeSeries {
   func getBloodPressure(
     startDate: Date,
     endDate: Date? = nil,
-    provider: Provider.Slug? = nil
+    provider: Provider.Slug? = nil,
+    cursor: String? = nil
   ) async throws -> GroupedSamplesResponse<BloodPressureSample> {
 
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let path = await makePath(for: "blood_pressure", userId: userId)
-    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider)
-    
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
+
     let request: Request<GroupedSamplesResponse<BloodPressureSample>> = .init(path: path, method: .get, query: query)
     let response = try await configuration.apiClient.send(request)
     
