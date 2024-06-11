@@ -15,7 +15,7 @@ public extension VitalClient {
 
 public extension VitalClient.User {
 
-  func userConnectedSources() async throws -> [Provider] {
+  func userConnectedSources() async throws -> [UserConnection] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
@@ -24,12 +24,18 @@ public extension VitalClient.User {
     let request: Request<ProviderResponse> = .init(path: path, method: .get)
     let response = try await configuration.apiClient.send(request)
     let providers = response.value.providers.map {
-      Provider(name: $0.name, slug: $0.slug, logo: $0.logo)
+      UserConnection(
+        name: $0.name,
+        slug: $0.slug,
+        logo: $0.logo,
+        status: $0.status,
+        resourceAvailability: $0.resourceAvailability
+      )
     }
 
     return providers
   }
-  
+
   func sdkStateSync(body: UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -72,7 +78,7 @@ public extension VitalClient.User {
     )
   }
   
-  func deregisterProvider(provider: Provider.Slug) async throws -> Void {
+  func deregisterProvider(provider: UserConnection.Slug) async throws -> Void {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     

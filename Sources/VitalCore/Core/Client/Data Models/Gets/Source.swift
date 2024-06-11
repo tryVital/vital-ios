@@ -1,5 +1,5 @@
-public struct SourceSummary: Equatable, Decodable {
-  public var name: String
-  public var slug: String
-  public var logo: String
+public struct Source: Equatable, Decodable {
+  public let provider: String
+  public let type: SourceType
+  public let appId: String?
 }

@@ -40,7 +40,7 @@ public extension VitalClient.Link {
   }
   
   func createLinkToken(
-    provider: Provider.Slug?,
+    provider: UserConnection.Slug?,
     redirectURL: String?
   ) async throws -> String {
     
@@ -57,7 +57,7 @@ public extension VitalClient.Link {
   
   func createConnectedSource(
     _ userId: String,
-    provider: Provider.Slug
+    provider: UserConnection.Slug
   ) async throws -> Void {
     
     let configuration = await self.client.configuration.get()
@@ -84,14 +84,14 @@ public extension VitalClient.Link {
   }
   
   func createConnectedSource(
-    for provider: Provider.Slug
+    for provider: UserConnection.Slug
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
     try await createConnectedSource(userId, provider: provider)
   }
   
   func createProviderLink(
-    provider: Provider.Slug? = nil,
+    provider: UserConnection.Slug? = nil,
     redirectURL: String
   ) async throws -> URL {
     let configuration = await self.client.configuration.get()
@@ -107,7 +107,7 @@ public extension VitalClient.Link {
   }
 
   func createOAuthProvider(
-    provider: Provider.Slug,
+    provider: UserConnection.Slug,
     redirectURL: String? = nil
   ) async throws -> CreateOAuthProviderResponse {
     let configuration = await self.client.configuration.get()
@@ -124,7 +124,7 @@ public extension VitalClient.Link {
   
   func createEmailProvider(
     email: String,
-    provider: Provider.Slug,
+    provider: UserConnection.Slug,
     region: Environment.Region,
     redirectURL: String? = nil
   ) async throws -> CreateEmailProviderResponse {

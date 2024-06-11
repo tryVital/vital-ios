@@ -13,5 +13,5 @@ public struct BodySummary: Equatable, Decodable {
   public var date: Date
   public var weight: Double?
   public var fat: Double?
-  public var source: SourceSummary
+  public var source: Source
 }

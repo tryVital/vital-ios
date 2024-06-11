@@ -33,7 +33,7 @@ public struct WorkoutSummary: Equatable, Decodable {
   public var low: Double?
   public var medium: Double?
   public var high: Double?
-  public var source: SourceSummary
+  public var source: Source
   public var floorsClimbed: Int?
 }
 
