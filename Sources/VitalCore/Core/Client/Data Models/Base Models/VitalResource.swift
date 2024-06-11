@@ -23,11 +23,6 @@ public enum VitalResource: Equatable, Hashable, Codable {
           return "mindfulSession"
       }
     }
-
-    @available(*, deprecated, renamed:"heartRate")
-    public static var hearthRate: Self {
-      return .heartRate
-    }
   }
   
   public enum Nutrition: Equatable, Hashable, Codable {

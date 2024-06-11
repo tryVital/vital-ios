@@ -48,36 +48,6 @@ public extension VitalClient.User {
     
     return response.value
   }
-  
-  func create(
-    _ payload: CreateUserRequest,
-    setUserIdOnSuccess: Bool = true
-  ) async throws -> CreateUserResponse {
-    
-    let configuration = await self.client.configuration.get()
-    
-    let path = "/\(configuration.apiVersion)/\(path)/"
-    let request: Request<CreateUserResponse> = .init(path: path, method: .post, body: payload)
-    
-    VitalLogger.core.info("Creating Vital's userId for id: \(payload.clientUserId)")
-    let value = try await configuration.apiClient.send(request).value
-    
-    if setUserIdOnSuccess {
-      await VitalClient.setUserId(value.userId)
-    }
-    
-    return value
-  }
-  
-  func create(
-    clientUserId: String,
-    setUserIdOnSuccess: Bool = true
-  ) async throws -> CreateUserResponse {
-    return try await create(
-      .init(clientUserId: clientUserId),
-      setUserIdOnSuccess: setUserIdOnSuccess
-    )
-  }
 
   func deregisterProvider(provider: Provider.Slug) async throws -> Void {
     let userId = try await self.client.getUserId()

@@ -481,11 +481,6 @@ extension VitalHealthKitClient {
     }
   }
 
-  @available(*, deprecated, message: "Use `VitalClient.shared.signOut()`, which now resets both the Vital Core and Health SDKs.")
-  public func cleanUp() async {
-    await VitalClient.shared.signOut()
-  }
-
   private func resetAutoSync() async {
     backgroundDeliveryTask?.task.cancel()
     backgroundDeliveryTask = nil

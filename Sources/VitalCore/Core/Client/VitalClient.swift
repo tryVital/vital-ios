@@ -578,11 +578,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     storage.storeConnectedSource(for: userId, with: provider)
   }
 
-  @available(*, deprecated, message:"Renamed to `signOut()`.", renamed: "signOut")
-  public func cleanUp() async {
-    await signOut()
-  }
-
   public func signOut() async {
     /// Here we remove the following:
     /// 1) Anchor values we are storing for each `HKSampleType`.
