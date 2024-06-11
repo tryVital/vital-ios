@@ -15,7 +15,7 @@ public extension VitalClient {
 
 public extension VitalClient.User {
 
-  func userConnectedSources() async throws -> [UserConnection] {
+  func userConnections() async throws -> [UserConnection] {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
@@ -36,6 +36,7 @@ public extension VitalClient.User {
     return providers
   }
 
+  @_spi(VitalSDKInternals)
   func sdkStateSync(body: UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -77,8 +78,8 @@ public extension VitalClient.User {
       setUserIdOnSuccess: setUserIdOnSuccess
     )
   }
-  
-  func deregisterProvider(provider: UserConnection.Slug) async throws -> Void {
+
+  func deregisterProvider(provider: Provider.Slug) async throws -> Void {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
     

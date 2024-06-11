@@ -7,6 +7,7 @@ public struct SleepResponse: Equatable, Decodable {
 public struct SleepSummary: Equatable, Decodable {
   public var id: UUID
   public var source: Source
+  public var calendarDate: String
   public var bedtimeStart: Date
   public var bedtimeStop: Date
   public var timezoneOffset: Int?
@@ -24,14 +25,6 @@ public struct SleepSummary: Equatable, Decodable {
   public var temperatureDelta: Float?
   public var averageHrv: Float?
   public var respiratoryRate: Float?
-  public var sleepStream: SleepStream?
-}
-
-public struct SleepStream: Equatable, Decodable {
-  public var hrv: [TimeseriesSummary]?
-  public var heartrate: [TimeseriesSummary]?
-  public var hypnogram: [TimeseriesSummary]?
-  public var respiratoryRate: [TimeseriesSummary]?
 }
 
 public struct SleepRawResponse: Equatable, Decodable {

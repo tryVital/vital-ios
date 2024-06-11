@@ -48,29 +48,64 @@ public struct CreateOAuthProviderResponse: Decodable {
 }
 
 
-public struct CreateEmailProviderRequest: Encodable {
+public struct LinkEmailProviderInput: Encodable {
   public let email: String
   public let region: String?
-  
-  public init(
-    email: String,
-    region: String?
-  ) {
+
+  public init(email: String, region: String? = nil) {
     self.email = email
     self.region = region
   }
 }
 
-public struct CreateEmailProviderResponse: Decodable {
-  public let success: Bool
-  public let redirectUrl: String?
-  
-  public init(
-    success: Bool,
-    redirectUrl: String?
-  ) {
-    self.success = success
-    self.redirectUrl = redirectUrl
+public struct LinkPasswordProviderInput: Encodable {
+  public let username: String
+  public let password: String
+  public let region: String?
+
+  public init(username: String, password: String, region: String? = nil) {
+    self.username = username
+    self.password = password
+    self.region = region
   }
 }
 
+public struct CompletePasswordProviderMFAInput: Encodable {
+  public let mfaCode: String
+
+  public init(mfaCode: String) {
+    self.mfaCode = mfaCode
+  }
+}
+
+public struct LinkResponse: Decodable {
+  public let state: State
+  public let redirectUrl: String?
+  public let error_type: String?
+  public let error: String?
+  public let providerMfa: ProviderMFA?
+
+  public init(state: State, redirectUrl: String?, error_type: String?, error: String?, providerMfa: ProviderMFA?) {
+    self.state = state
+    self.redirectUrl = redirectUrl
+    self.error_type = error_type
+    self.error = error
+    self.providerMfa = providerMfa
+  }
+
+  public enum State: String, RawRepresentable, Decodable {
+    case success
+    case error
+    case pendingProviderMFA = "pending_provider_mfa"
+  }
+
+  public struct ProviderMFA: Decodable {
+    public enum Method: String, RawRepresentable, Decodable {
+      case sms
+      case email
+    }
+
+    public let method: Method
+    public let hint: String
+  }
+}

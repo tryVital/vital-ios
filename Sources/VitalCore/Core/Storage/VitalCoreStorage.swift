@@ -4,8 +4,8 @@ import Foundation
 private let heartRateFlagOldKey = "vitals(VitalCore.VitalResource.Vitals.hearthRate)"
 
 public struct VitalBackStorage {
-  public var isConnectedSourceStored: (String, UserConnection.Slug) -> Bool
-  public var storeConnectedSource: (String, UserConnection.Slug) -> Void
+  public var isConnectedSourceStored: (String, Provider.Slug) -> Bool
+  public var storeConnectedSource: (String, Provider.Slug) -> Void
   
   public var flagResource: (VitalResource) -> Void
   public var isResourceFlagged: (VitalResource) -> Bool
@@ -29,7 +29,7 @@ public struct VitalBackStorage {
     let defaultValue: [String: String] = [:]
     userDefaults.register(defaults: defaultValue)
     
-    let generateKey: (String, UserConnection.Slug) -> String = { userId, provider in
+    let generateKey: (String, Provider.Slug) -> String = { userId, provider in
       return "\(userId)-\(provider.rawValue)"
     }
     
@@ -76,7 +76,7 @@ public struct VitalBackStorage {
 
     var dateStorage: [String: Double] = [:]
 
-    let generateKey: (String, UserConnection.Slug) -> String = { userId, provider in
+    let generateKey: (String, Provider.Slug) -> String = { userId, provider in
       return "\(userId)-\(provider.rawValue)"
     }
     
@@ -117,11 +117,11 @@ public class VitalCoreStorage {
     self.storage = storage
   }
   
-  func storeConnectedSource(for userId: String, with provider: UserConnection.Slug) {
+  func storeConnectedSource(for userId: String, with provider: Provider.Slug) {
     storage.storeConnectedSource(userId, provider)
   }
   
-  func isConnectedSourceStored(for userId: String, with provider: UserConnection.Slug) -> Bool {
+  func isConnectedSourceStored(for userId: String, with provider: Provider.Slug) -> Bool {
     return storage.isConnectedSourceStored(userId, provider)
   }
   
