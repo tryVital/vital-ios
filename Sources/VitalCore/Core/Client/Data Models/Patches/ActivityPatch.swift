@@ -3,12 +3,12 @@ import Foundation
 public struct ActivityPatch: Equatable, Encodable {
   public struct Activity: Equatable, Encodable {
     public var daySummary: DaySummary? = nil
-    public var activeEnergyBurned: [QuantitySample] = []
-    public var basalEnergyBurned: [QuantitySample] = []
-    public var steps: [QuantitySample] = []
-    public var floorsClimbed: [QuantitySample] = []
-    public var distanceWalkingRunning: [QuantitySample] = []
-    public var vo2Max: [QuantitySample] = []
+    public var activeEnergyBurned: [LocalQuantitySample] = []
+    public var basalEnergyBurned: [LocalQuantitySample] = []
+    public var steps: [LocalQuantitySample] = []
+    public var floorsClimbed: [LocalQuantitySample] = []
+    public var distanceWalkingRunning: [LocalQuantitySample] = []
+    public var vo2Max: [LocalQuantitySample] = []
 
     public var isNotEmpty: Bool {
       (daySummary.map(\.isNotEmpty) ?? false) || !activeEnergyBurned.isEmpty ||
@@ -19,12 +19,12 @@ public struct ActivityPatch: Equatable, Encodable {
 
     public init(
       daySummary: DaySummary? = nil,
-      activeEnergyBurned: [QuantitySample] = [],
-      basalEnergyBurned: [QuantitySample] = [],
-      steps: [QuantitySample] = [],
-      floorsClimbed: [QuantitySample] = [],
-      distanceWalkingRunning: [QuantitySample] = [],
-      vo2Max: [QuantitySample] = []
+      activeEnergyBurned: [LocalQuantitySample] = [],
+      basalEnergyBurned: [LocalQuantitySample] = [],
+      steps: [LocalQuantitySample] = [],
+      floorsClimbed: [LocalQuantitySample] = [],
+      distanceWalkingRunning: [LocalQuantitySample] = [],
+      vo2Max: [LocalQuantitySample] = []
     ) {
       self.daySummary = daySummary
       self.activeEnergyBurned = activeEnergyBurned

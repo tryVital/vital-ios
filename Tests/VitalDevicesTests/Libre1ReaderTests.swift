@@ -29,7 +29,7 @@ class Libre1ReaderTests: XCTestCase {
     let expectSensor = expect["sensor"] as! [String : AnyHashable]
     let dictionarySensor = dictionary["sensor"] as! [String : AnyHashable]
 
-    XCTAssertEqual(expect["samples"], dictionary["samples"] as! [QuantitySample])
+    XCTAssertEqual(expect["samples"], dictionary["samples"] as! [LocalQuantitySample])
     XCTAssertEqual(expectSensor["serial"], dictionarySensor["serial"])
     XCTAssertEqual(expectSensor["maxLife"], dictionarySensor["maxLife"])
     XCTAssertEqual(expectSensor["age"], dictionarySensor["age"])

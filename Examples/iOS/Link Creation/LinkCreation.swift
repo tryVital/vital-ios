@@ -7,8 +7,12 @@ import BetterSafariView
 
 enum LinkCreation {}
 
-extension TimeSeriesDataPoint: Identifiable {}
-extension BloodPressureDataPoint: Identifiable {}
+extension ScalarSample: Identifiable {
+  public var id: Date { self.timestamp }
+}
+extension BloodPressureSample: Identifiable {
+  public var id: Date { self.timestamp }
+}
 
 extension LinkCreation {
   
@@ -21,8 +25,8 @@ extension LinkCreation {
     
     var link: URL?
     var status: Status = .initial
-    var glucosePoints: [TimeSeriesDataPoint] = []
-    var bloodPressurePoints: [BloodPressureDataPoint] = []
+    var glucosePoints: [ScalarSample] = []
+    var bloodPressurePoints: [BloodPressureSample] = []
     var showingWebAuthentication: Bool = false
         
     var isGeneratingLink: Bool {
@@ -68,7 +72,7 @@ extension LinkCreation {
     case failedGeneratedLink(String)
     
     case callback(URL)
-    case successFetchingData([TimeSeriesDataPoint], [BloodPressureDataPoint])
+    case successFetchingData([ScalarSample], [BloodPressureSample])
     case failedFetchingData(String)
     case toggleWebView(Bool)
     case fetchData
@@ -124,7 +128,10 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         let glucosePoints = try await VitalClient.shared.timeSeries.get(resource: .glucose, startDate: aWeekAgo)
         let bloodPressurePoints = try await VitalClient.shared.timeSeries.getBloodPressure(startDate: aWeekAgo)
 
-        return .successFetchingData(glucosePoints, bloodPressurePoints)
+        return .successFetchingData(
+          glucosePoints.groups.flatMap(\.data),
+          bloodPressurePoints.groups.flatMap(\.data)
+        )
       }.catch { error in
         return Just(LinkCreation.Action.failedFetchingData(error.localizedDescription))
       }
@@ -195,7 +202,7 @@ extension LinkCreation {
               if viewStore.state.glucosePoints.isEmpty  {
                 Text("No data")
               } else {
-                ForEach(viewStore.glucosePoints) { (point: TimeSeriesDataPoint) in
+                ForEach(viewStore.glucosePoints) { (point: ScalarSample) in
                   HStack {
                     VStack {
                       Text("\(Int(point.value))")
@@ -224,7 +231,7 @@ extension LinkCreation {
               if viewStore.state.bloodPressurePoints.isEmpty  {
                 Text("No data")
               } else {
-                ForEach(viewStore.state.bloodPressurePoints) { (point: BloodPressureDataPoint) in
+                ForEach(viewStore.state.bloodPressurePoints) { (point: BloodPressureSample) in
                   HStack {
                     VStack(alignment: .leading, spacing: 5) {
                       HStack {

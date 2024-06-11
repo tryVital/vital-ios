@@ -15,8 +15,8 @@ public struct WorkoutPatch: Equatable, Encodable {
     public let ascentElevation: Double?
     public let descentElevation: Double?
 
-    public var heartRate: [QuantitySample] = []
-    public var respiratoryRate: [QuantitySample] = []
+    public var heartRate: [LocalQuantitySample] = []
+    public var respiratoryRate: [LocalQuantitySample] = []
 
     public var sourceType: SourceType {
       return .infer(sourceBundle: sourceBundle, productType: productType)
@@ -34,8 +34,8 @@ public struct WorkoutPatch: Equatable, Encodable {
       distance: Double,
       ascentElevation: Double?,
       descentElevation: Double?,
-      heartRate: [QuantitySample] = [],
-      respiratoryRate: [QuantitySample] = []
+      heartRate: [LocalQuantitySample] = [],
+      respiratoryRate: [LocalQuantitySample] = []
     ) {
       self.id = id
       self.startDate = startDate

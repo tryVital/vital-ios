@@ -3,10 +3,10 @@ import CombineCoreBluetooth
 import Combine
 
 public protocol GlucoseMeterReadable: DevicePairable {
-  func read(device: ScannedDevice) -> AnyPublisher<[QuantitySample], Error>
+  func read(device: ScannedDevice) -> AnyPublisher<[LocalQuantitySample], Error>
 }
 
-class GlucoseMeter1808: GATTMeter<QuantitySample>, GlucoseMeterReadable {
+class GlucoseMeter1808: GATTMeter<LocalQuantitySample>, GlucoseMeterReadable {
   init(
     manager: CentralManager = .live(),
     queue: DispatchQueue
@@ -21,7 +21,7 @@ class GlucoseMeter1808: GATTMeter<QuantitySample>, GlucoseMeterReadable {
   }
 }
 
-private func toGlucoseReading(data: Data) -> QuantitySample? {
+private func toGlucoseReading(data: Data) -> LocalQuantitySample? {
   /// Record size is minimum 10 bytes (all mandatory fields)
   /// Size can vary based on flags encoded in the first byte.
   /// Refer to Bluetooth Glucose Service specification for more information.
@@ -89,7 +89,7 @@ private func toGlucoseReading(data: Data) -> QuantitySample? {
     unit = "mg/dL"
   }
 
-  return QuantitySample(
+  return LocalQuantitySample(
     // Prefixed with epoch in seconds to avoid sequence number conflicts
     // (due to new device and/or device reset)
     id: "\(date.timeIntervalSince1970.rounded())-\(sequenceNumber)",

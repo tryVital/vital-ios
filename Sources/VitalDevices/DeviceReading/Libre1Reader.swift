@@ -36,7 +36,7 @@ public class Libre1Reader {
       nfc.startSession()
     }
     
-    let samples = payload.1.map(QuantitySample.init)
+    let samples = payload.1.map(LocalQuantitySample.init)
     let sensor = Libre1Sensor.init(sensor: payload.0)
     
     return Libre1Read(samples: samples, sensor: sensor)
@@ -44,10 +44,10 @@ public class Libre1Reader {
 }
 
 public struct Libre1Read: Equatable, Encodable {
-  public let samples: [QuantitySample]
+  public let samples: [LocalQuantitySample]
   public let sensor: Libre1Sensor
   
-  public init(samples: [QuantitySample], sensor: Libre1Sensor) {
+  public init(samples: [LocalQuantitySample], sensor: Libre1Sensor) {
     self.samples = samples
     self.sensor = sensor
   }

@@ -1,14 +1,14 @@
 import Foundation
 
-public struct BloodPressureSample: Equatable, Hashable, Encodable {
-  public let systolic: QuantitySample
-  public let diastolic: QuantitySample
-  public let pulse: QuantitySample?
+public struct LocalBloodPressureSample: Equatable, Hashable, Encodable {
+  public let systolic: LocalQuantitySample
+  public let diastolic: LocalQuantitySample
+  public let pulse: LocalQuantitySample?
   
   public init(
-    systolic: QuantitySample,
-    diastolic: QuantitySample,
-    pulse: QuantitySample?
+    systolic: LocalQuantitySample,
+    diastolic: LocalQuantitySample,
+    pulse: LocalQuantitySample?
   ) {
     self.systolic = systolic
     self.diastolic = diastolic

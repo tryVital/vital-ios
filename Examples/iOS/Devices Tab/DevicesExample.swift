@@ -29,7 +29,7 @@ extension DevicesExample {
     case navigateToLibre1Connection(String?)
     
     case startScanning
-    case successScanning([QuantitySample])
+    case successScanning([LocalQuantitySample])
     case failureScanning(String)
   }
   
@@ -60,7 +60,7 @@ private let reducer = Reducer<DevicesExample.State, DevicesExample.Action, Devic
       
     case .startScanning:
       
-      let effect = Effect<[QuantitySample], Error>.task {
+      let effect = Effect<[LocalQuantitySample], Error>.task {
         
         let read = try await environment.libre1.read()
         return read.samples

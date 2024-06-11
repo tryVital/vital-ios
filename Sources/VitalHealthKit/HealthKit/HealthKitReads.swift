@@ -188,7 +188,7 @@ func handleMindfulSessions(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (samples: [QuantitySample], anchors: [StoredAnchor]) {
+) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
 
   var anchors: [StoredAnchor] = []
 
@@ -200,7 +200,7 @@ func handleMindfulSessions(
     endDate: endDate
   )
 
-  let samples = payload.sample.compactMap(QuantitySample.fromMindfulSession(sample:))
+  let samples = payload.sample.compactMap(LocalQuantitySample.fromMindfulSession(sample:))
   anchors.appendOptional(payload.anchor)
 
   return (samples: samples, anchors: anchors)
@@ -219,12 +219,12 @@ func handleProfile(
   let dateOfBirth = try healthKitStore.patched_dateOfBirthComponents()
     .flatMap(vitalCalendar.date(from:))
 
-  let payload: [QuantitySample] = try await querySample(
+  let payload: [LocalQuantitySample] = try await querySample(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
     limit: 1,
     ascending: false
-  ).compactMap(QuantitySample.init)
+  ).compactMap(LocalQuantitySample.init)
   
   let height = payload.last.map { Int($0.value)}
   
@@ -258,7 +258,7 @@ func handleBody(
   
   func queryQuantities(
     type: HKSampleType
-  ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
+  ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
     
     let payload = try await query(
       healthKitStore: healthKitStore,
@@ -268,7 +268,7 @@ func handleBody(
       endDate: endDate
     )
     
-    let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
+    let quantities: [LocalQuantitySample] = payload.sample.compactMap(LocalQuantitySample.init)
     return (quantities, payload.anchor)
   }
   
@@ -369,7 +369,7 @@ func handleSleep(
               filteredSample.startDate >= sleep.startDate && filteredSample.endDate <= sleep.endDate
 
           {
-            let sample = QuantitySample(categorySample: categorySample)
+            let sample = LocalQuantitySample(categorySample: categorySample)
             switch sleepAnalysis {
             case .asleepUnspecified:
               sleep.sleepStages.unspecifiedSleepSamples.append(sample)
@@ -408,45 +408,45 @@ func handleSleep(
       )
 
       let filteredHR = originalHR.filter(by: sleep.sourceBundle)
-      let heartRate = filteredHR.compactMap(QuantitySample.init)
+      let heartRate = filteredHR.compactMap(LocalQuantitySample.init)
 
-      let hearRateVariability: [QuantitySample] = try await querySample(
+      let hearRateVariability: [LocalQuantitySample] = try await querySample(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         startDate: sleep.startDate,
         endDate: sleep.endDate
       )
         .filter(by: sleep.sourceBundle)
-        .compactMap(QuantitySample.init)
+        .compactMap(LocalQuantitySample.init)
 
-      let oxygenSaturation: [QuantitySample] = try await querySample(
+      let oxygenSaturation: [LocalQuantitySample] = try await querySample(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .oxygenSaturation)!,
         startDate: sleep.startDate,
         endDate: sleep.endDate
       )
         .filter(by: sleep.sourceBundle)
-        .compactMap(QuantitySample.init)
+        .compactMap(LocalQuantitySample.init)
 
-      let restingHeartRate: [QuantitySample] = try await querySample(
+      let restingHeartRate: [LocalQuantitySample] = try await querySample(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .restingHeartRate)!,
         startDate: sleep.startDate,
         endDate: sleep.endDate
       )
         .filter(by: sleep.sourceBundle)
-        .compactMap(QuantitySample.init)
+        .compactMap(LocalQuantitySample.init)
 
-      let respiratoryRate: [QuantitySample] = try await querySample(
+      let respiratoryRate: [LocalQuantitySample] = try await querySample(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .respiratoryRate)!,
         startDate: sleep.startDate,
         endDate: sleep.endDate
       )
         .filter(by: sleep.sourceBundle)
-        .compactMap(QuantitySample.init)
+        .compactMap(LocalQuantitySample.init)
 
-      let wristTemperature: [QuantitySample]
+      let wristTemperature: [LocalQuantitySample]
 
       if #available(iOS 16.0, *) {
         wristTemperature = try await querySample(
@@ -459,7 +459,7 @@ func handleSleep(
           options: []
         )
         .filter(by: sleep.sourceBundle)
-        .compactMap(QuantitySample.init)
+        .compactMap(LocalQuantitySample.init)
       } else {
         wristTemperature = []
       }
@@ -497,7 +497,7 @@ func handleActivity(
 
   @Sendable func queryQuantities(
     type: HKSampleType
-  ) async throws -> (quantities: [QuantitySample], StoredAnchor?) {
+  ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
 
     let discoveryStartDate: Date
 
@@ -529,15 +529,15 @@ func handleActivity(
       endDate: endDate
     )
     
-    let quantities: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
+    let quantities: [LocalQuantitySample] = payload.sample.compactMap(LocalQuantitySample.init)
     return (quantities, payload.anchor)
   }
 
   @Sendable
   func queryHourlyStatistics(
     type: HKQuantityType,
-    discovered newSamples: [QuantitySample]
-  ) async throws -> [QuantitySample] {
+    discovered newSamples: [LocalQuantitySample]
+  ) async throws -> [LocalQuantitySample] {
     guard newSamples.isEmpty == false else {
       return []
     }
@@ -558,7 +558,7 @@ func handleActivity(
     let statistics = try await dependencies.executeStatisticalQuery(type, earliest ..< latest, .hourly, nil)
 
     return statistics.compactMap { value in
-      return QuantitySample(value, type)
+      return LocalQuantitySample(value, type)
     }
   }
 
@@ -683,23 +683,23 @@ func handleWorkouts(
   var copies: [WorkoutPatch.Workout] = []
   
   for workout in workouts {
-    let heartRate: [QuantitySample] = try await querySample(
+    let heartRate: [LocalQuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .heartRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
     )
       .filter(by: workout.sourceBundle)
-      .compactMap(QuantitySample.init)
+      .compactMap(LocalQuantitySample.init)
     
-    let respiratoryRate: [QuantitySample] = try await querySample(
+    let respiratoryRate: [LocalQuantitySample] = try await querySample(
       healthKitStore: healthKitStore,
       type: .quantityType(forIdentifier: .respiratoryRate)!,
       startDate: workout.startDate,
       endDate: workout.endDate
     )
       .filter(by: workout.sourceBundle)
-      .compactMap(QuantitySample.init)
+      .compactMap(LocalQuantitySample.init)
     
     var copy = workout
     copy.heartRate = heartRate
@@ -717,8 +717,8 @@ func handleBloodPressure(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (bloodPressure: [BloodPressureSample], anchors: [StoredAnchor]) {
-  
+) async throws -> (bloodPressure: [LocalBloodPressureSample], anchors: [StoredAnchor]) {
+
   let bloodPressureIdentifier = HKCorrelationType.correlationType(forIdentifier: .bloodPressure)!
   
   let payload = try await query(
@@ -730,8 +730,8 @@ func handleBloodPressure(
   )
   
   var anchors: [StoredAnchor] = []
-  let bloodPressure: [BloodPressureSample] = payload.sample.compactMap(BloodPressureSample.init)
-  
+  let bloodPressure = payload.sample.compactMap(LocalBloodPressureSample.init)
+
   anchors.appendOptional(payload.anchor)
   
   return (bloodPressure: bloodPressure, anchors: anchors)
@@ -743,7 +743,7 @@ func handleTimeSeries(
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
   endDate: Date
-) async throws -> (samples: [QuantitySample], anchors: [StoredAnchor]) {
+) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
   
   let payload = try await query(
     healthKitStore: healthKitStore,
@@ -754,7 +754,7 @@ func handleTimeSeries(
   )
   
   var anchors: [StoredAnchor] = []
-  let samples: [QuantitySample] = payload.sample.compactMap(QuantitySample.init)
+  let samples: [LocalQuantitySample] = payload.sample.compactMap(LocalQuantitySample.init)
   
   anchors.appendOptional(payload.anchor)
   
@@ -1272,12 +1272,12 @@ private func isDuration(_ date1: Date, _ date2: Date, longerThan seconds: TimeIn
   return diff > seconds
 }
 
-private func orderByDate(_ values: [QuantitySample]) -> [QuantitySample] {
+private func orderByDate(_ values: [LocalQuantitySample]) -> [LocalQuantitySample] {
   return values.sorted { $0.startDate < $1.startDate }
 }
 
-func splitPerBundle(_ values: [QuantitySample]) -> [[QuantitySample]] {
-  var temp: [String: [QuantitySample]] = ["na": []]
+func splitPerBundle(_ values: [LocalQuantitySample]) -> [[LocalQuantitySample]] {
+  var temp: [String: [LocalQuantitySample]] = ["na": []]
   
   for value in values {
     if let bundle = value.sourceBundle {
@@ -1295,7 +1295,7 @@ func splitPerBundle(_ values: [QuantitySample]) -> [[QuantitySample]] {
     }
   }
   
-  var outcome: [[QuantitySample]] = [[]]
+  var outcome: [[LocalQuantitySample]] = [[]]
   
   for key in temp.keys {
     let samples = temp[key]!
@@ -1305,7 +1305,7 @@ func splitPerBundle(_ values: [QuantitySample]) -> [[QuantitySample]] {
   return outcome
 }
 
-private func _accumulate(_ values: [QuantitySample], interval: Int, calendar: Calendar) -> [QuantitySample] {
+private func _accumulate(_ values: [LocalQuantitySample], interval: Int, calendar: Calendar) -> [LocalQuantitySample] {
   let ordered = orderByDate(values)
   
   return ordered.reduce(into: []) { newValues, newValue in
@@ -1338,7 +1338,7 @@ private func _accumulate(_ values: [QuantitySample], interval: Int, calendar: Ca
   }
 }
 
-func accumulate(_ values: [QuantitySample], interval: Int = 15, calendar: Calendar) -> [QuantitySample] {
+func accumulate(_ values: [LocalQuantitySample], interval: Int = 15, calendar: Calendar) -> [LocalQuantitySample] {
   let split = splitPerBundle(values)
   let outcome = split.flatMap {
     _accumulate($0, interval: interval, calendar: calendar)
@@ -1347,7 +1347,7 @@ func accumulate(_ values: [QuantitySample], interval: Int = 15, calendar: Calend
   return orderByDate(outcome)
 }
 
-private func _average(_ values: [QuantitySample], calendar: Calendar) -> [QuantitySample] {
+private func _average(_ values: [LocalQuantitySample], calendar: Calendar) -> [LocalQuantitySample] {
   let ordered = orderByDate(values)
   
   guard ordered.count > 2 else {
@@ -1355,8 +1355,8 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
   }
   
   /// We want to preserve these values, instead of averaging them.
-  var min: QuantitySample? = nil
-  var max: QuantitySample? = nil
+  var min: LocalQuantitySample? = nil
+  var max: LocalQuantitySample? = nil
   
   for value in values {
     if let minValue = min {
@@ -1377,7 +1377,7 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
   }
   
   class Payload {
-    var samples: [QuantitySample] = []
+    var samples: [LocalQuantitySample] = []
     var total: Double = 0
     var totalGrouped: Double = 0
     var count = 0
@@ -1386,7 +1386,7 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
   let payload = Payload()
   payload.samples.reserveCapacity(ordered.count)
 
-  var outcome: [QuantitySample] = ordered.reduce(into: payload) { payload, newValue in
+  var outcome: [LocalQuantitySample] = ordered.reduce(into: payload) { payload, newValue in
     payload.count = payload.count + 1
     
     if let lastValue = payload.samples.last {
@@ -1433,7 +1433,7 @@ private func _average(_ values: [QuantitySample], calendar: Calendar) -> [Quanti
   return outcome
 }
 
-func average(_ values: [QuantitySample], calendar: Calendar) -> [QuantitySample] {
+func average(_ values: [LocalQuantitySample], calendar: Calendar) -> [LocalQuantitySample] {
   let split = splitPerBundle(values)
   let outcome = split.flatMap {
     _average($0, calendar: calendar)
@@ -1447,7 +1447,7 @@ func activityPatchGroupedByDay(
   samples: ActivityPatch.Activity,
   in calendar: GregorianCalendar
 ) -> ActivityPatch? {
-  func grouped(_ samples: [QuantitySample]) -> [GregorianCalendar.FloatingDate: [QuantitySample]] {
+  func grouped(_ samples: [LocalQuantitySample]) -> [GregorianCalendar.FloatingDate: [LocalQuantitySample]] {
     Dictionary(
      grouping: samples, by: { calendar.floatingDate(of: $0.startDate) }
    )
