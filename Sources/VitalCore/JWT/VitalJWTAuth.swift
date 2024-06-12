@@ -36,16 +36,15 @@ internal actor VitalJWTAuth {
   private static let keychainKey = "vital_jwt_auth"
 
   nonisolated var currentUserId: String? {
-    let record: VitalJWTAuthRecord? = try? storage.get(key: Self.keychainKey)
-    return record?.userId
+    return getGist()?.userId
   }
 
   nonisolated var pendingReauthentication: Bool {
-    let record: VitalJWTAuthRecord? = try? storage.get(key: Self.keychainKey)
-    return record?.pendingReauthentication ?? false
+    return getGist()?.pendingReauthentication ?? false
   }
 
-  private let storage: VitalSecureStorage
+  private let storage: VitalJWTAuthStorage
+  private let secureStorage: VitalSecureStorage
   private let session: URLSession
 
   private let parkingLot = ParkingLot()
@@ -55,9 +54,11 @@ internal actor VitalJWTAuth {
   internal nonisolated let statusDidChange = PassthroughSubject<VitalJWTAuthChangeReason, Never>()
 
   init(
-    storage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
+    storage: VitalJWTAuthStorage = VitalJWTAuthStorage(storage: .live),
+    secureStorage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
   ) {
     self.storage = storage
+    self.secureStorage = secureStorage
     self.session = URLSession(configuration: .ephemeral)
   }
 
@@ -125,8 +126,8 @@ internal actor VitalJWTAuth {
   }
 
   func userContext() throws -> VitalJWTAuthUserContext {
-    guard let record = try getRecord() else { throw VitalJWTAuthError.notSignedIn }
-    return VitalJWTAuthUserContext(userId: record.userId, teamId: record.teamId)
+    guard let gist = getGist() else { throw VitalJWTAuthError.notSignedIn }
+    return VitalJWTAuthUserContext(userId: gist.userId, teamId: gist.teamId)
   }
 
   /// If the action encounters 401 Unauthorized, throw `VitalJWTAuthNeedsRefresh` to initiate
@@ -232,6 +233,28 @@ internal actor VitalJWTAuth {
     }
   }
 
+  nonisolated private func getGist() -> VitalJWTAuthRecordGist? {
+    if let gist = storage.getGist() {
+      return gist
+    }
+
+    do {
+      // Try to backfill gist from keychain VitalJWTAuthRecord
+      let record: VitalJWTAuthRecord? = try secureStorage.get(key: Self.keychainKey)
+      let gist = record?.gist
+      return record?.gist
+
+    } catch VitalKeychainError.interactionNotAllowed {
+      VitalLogger.core.error("failed to backfill gist from record because keychain is inaccessible currently", source: "VitalJWTAuth")
+      return nil
+
+    } catch let error {
+      VitalLogger.core.error("failed to backfill gist from record: \(error)", source: "VitalJWTAuth")
+      return nil
+    }
+  }
+
+  /// Fails when keychain is inacessible
   private func getRecord() throws -> VitalJWTAuthRecord? {
     if let record = cachedRecord {
       return record
@@ -239,28 +262,52 @@ internal actor VitalJWTAuth {
 
     // Backfill from keychain
     do {
-      let record: VitalJWTAuthRecord? = try storage.get(key: Self.keychainKey)
+      let record: VitalJWTAuthRecord? = try secureStorage.get(key: Self.keychainKey)
+      try self.storage.setGist(record?.gist)
       self.cachedRecord = record
+
       return record
+
     } catch is DecodingError {
-      VitalLogger.core.error("auto signout: failed to decode keychain auth record")
+      VitalLogger.core.error("auto signout: failed to decode keychain auth record", source: "VitalJWTAuth")
       try? setRecord(nil, reason: .userNoLongerValid)
       return nil
+
+    } catch VitalKeychainError.interactionNotAllowed {
+      VitalLogger.core.error("keychain is inaccessible currently", source: "VitalJWTAuth")
+      throw VitalKeychainError.interactionNotAllowed
     }
   }
 
   private func setRecord(_ record: VitalJWTAuthRecord?, reason: VitalJWTAuthChangeReason) throws {
     if let record = record {
-      try storage.set(value: record, key: Self.keychainKey)
+      try secureStorage.set(value: record, key: Self.keychainKey)
     } else {
-      storage.clean(key: Self.keychainKey)
+      secureStorage.clean(key: Self.keychainKey)
     }
+
+    try self.storage.setGist(record?.gist)
 
     self.cachedRecord = record
     statusDidChange.send(reason)
   }
 }
 
+
+/// A gist of `VitalJWTAuthRecord` without the token secrets.
+/// This is stored in the UserDefaults (instead of Keychain).
+internal struct VitalJWTAuthRecordGist: Codable {
+  let environment: Environment
+  let userId: String
+  let teamId: String
+  var pendingReauthentication: Bool = false
+}
+
+/// A `VitalJWTAuthRecord` records the current signed-in Vital SDK user.
+/// This is stored as a Keychain item.
+///
+/// A gist derived from this is stored in UserDefaults to workaround certain moments of
+/// inaccessible Keychain.
 private struct VitalJWTAuthRecord: Codable {
   let environment: Environment
   let userId: String
@@ -271,6 +318,15 @@ private struct VitalJWTAuthRecord: Codable {
   var refreshToken: String
   var expiry: Date
   var pendingReauthentication = false
+
+  var gist: VitalJWTAuthRecordGist {
+    VitalJWTAuthRecordGist(
+      environment: environment,
+      userId: userId,
+      teamId: teamId,
+      pendingReauthentication: pendingReauthentication
+    )
+  }
 
   func isExpired(now: Date = Date()) -> Bool {
     expiry <= now
@@ -500,6 +556,32 @@ public final class ParkingLot: @unchecked Sendable {
           break
         }
       }
+    }
+  }
+}
+
+
+internal struct VitalJWTAuthStorage {
+  private static let gistKey = "vital_jwt_auth_gist"
+
+  let storage: VitalBackStorage
+
+  func getGist() -> VitalJWTAuthRecordGist? {
+    guard let data = storage.read(Self.gistKey) else { return nil }
+    do {
+      return try JSONDecoder().decode(VitalJWTAuthRecordGist.self, from: data)
+    } catch let error {
+      VitalLogger.core.error("failed to decode gist: \(error)", source: "VitalJWTAuthStorage")
+      return nil
+    }
+  }
+
+  func setGist(_ newValue: VitalJWTAuthRecordGist?) throws {
+    if let newValue = newValue {
+      let data = try JSONEncoder().encode(newValue)
+      storage.store(data, Self.gistKey)
+    } else {
+      storage.remove(Self.gistKey)
     }
   }
 }

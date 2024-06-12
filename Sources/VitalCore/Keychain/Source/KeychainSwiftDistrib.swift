@@ -16,6 +16,11 @@
 import Security
 import Foundation
 
+enum VitalKeychainError: Error {
+  case interactionNotAllowed
+  case otherError(OSStatus)
+}
+
 /**
  
  A collection of helper functions for saving text and data in the keychain.
@@ -156,9 +161,9 @@ class KeychainSwift {
    - returns: The text value from the keychain. Returns nil if unable to read the item.
    
    */
-  func get(_ key: String) -> String? {
-    if let data = getData(key) {
-      
+  func get(_ key: String) throws -> String? {
+    if let data = try getData(key) {
+
       if let currentString = String(data: data, encoding: .utf8) {
         return currentString
       }
@@ -178,7 +183,7 @@ class KeychainSwift {
    - returns: The text value from the keychain. Returns nil if unable to read the item.
    
    */
-  func getData(_ key: String, asReference: Bool = false) -> Data? {
+  func getData(_ key: String, asReference: Bool = false) throws -> Data? {
     // The lock prevents the code to be run simultaneously
     // from multiple threads which may result in crashing
     lock.lock()
@@ -207,12 +212,16 @@ class KeychainSwift {
     lastResultCode = withUnsafeMutablePointer(to: &result) {
       SecItemCopyMatching(query as CFDictionary, UnsafeMutablePointer($0))
     }
-    
+
     if lastResultCode == noErr {
-      return result as? Data
+      return result as! Data?
     }
-    
-    return nil
+
+    if lastResultCode == errSecInteractionNotAllowed {
+      throw VitalKeychainError.interactionNotAllowed
+    }
+
+    throw VitalKeychainError.otherError(lastResultCode)
   }
   
   /**
@@ -223,10 +232,10 @@ class KeychainSwift {
    - returns: The boolean value from the keychain. Returns nil if unable to read the item.
    
    */
-  func getBool(_ key: String) -> Bool? {
-    guard let data = getData(key) else { return nil }
-    guard let firstBit = data.first else { return nil }
-    return firstBit == 1
+  func getBool(_ key: String) throws -> Bool? {
+    guard let data = try getData(key) else { return nil }
+    guard let firstBit = data.first else { return false }
+    return firstBit != 0
   }
   
   /**
