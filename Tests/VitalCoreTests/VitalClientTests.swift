@@ -15,7 +15,7 @@ class VitalClientTests: XCTestCase {
   lazy var client = VitalClient(secureStorage: secureStorage, storage: storage)
 
   override func setUp() async throws {
-    await VitalClient.shared.cleanUp()
+    await VitalClient.shared.signOut()
     VitalClient.setClient(client)
   }
   
@@ -51,7 +51,7 @@ class VitalClientTests: XCTestCase {
       storage.isConnectedSourceStored(for: userId, with: provider)
     )
     
-    await VitalClient.shared.cleanUp()
+    await VitalClient.shared.signOut()
 
     XCTAssertTrue(VitalClient.shared.apiKeyModeUserId.isNil())
     XCTAssertTrue(VitalClient.shared.configuration.isNil())

@@ -16,28 +16,6 @@ public extension VitalClient {
 }
 
 public extension VitalClient.Link {
-
-  @available(*, deprecated)
-  struct ExchangedCredentials: Decodable {
-    public struct Team: Decodable {
-      public let name: String
-      public let logoUrl: URL?
-    }
-    
-    public let userId: UUID
-    public let apiKey: String
-    public let region: String
-    public let environment: String
-    public let team: Team
-  }
-
-  @available(*, deprecated)
-  static func exchangeCode(code: String, environment: Environment) async throws -> ExchangedCredentials {
-    let client = makeClient(environment: environment)
-    let request: Request<ExchangedCredentials> = .init(path: "/v2/link/code/exchange", method: .post, query: [("code", code)])
-    
-    return try await client.send(request).value
-  }
   
   func createLinkToken(
     provider: Provider.Slug?,
