@@ -38,7 +38,7 @@ public extension VitalClient.TimeSeries {
       data: VitalAnyEncodable(timeSeriesData.payload)
     )
     
-    let fullPath: String = await makePath(for: timeSeriesData.name, userId: userId)
+    let fullPath = makePath(for: timeSeriesData.name, userId: userId)
     let request: Request<Void> = .init(path: fullPath, method: .post, body: taggedPayload)
     
     VitalLogger.core.info("Posting TimeSeries data for: \(timeSeriesData.name)")
@@ -59,8 +59,8 @@ public extension VitalClient.TimeSeries {
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
     let path = resource.rawValue
 
-    let fullPath = await makePath(for: path, userId: userId)
-    
+    let fullPath = makePath(for: path, userId: userId).append("grouped")
+
     let request: Request<GroupedSamplesResponse<ScalarSample>> = .init(path: fullPath, method: .get, query: query)
 
     let response = try await configuration.apiClient.send(request)
@@ -77,7 +77,7 @@ public extension VitalClient.TimeSeries {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
-    let path = await makePath(for: "blood_pressure", userId: userId)
+    let path = makePath(for: "blood_pressure", userId: userId).append("grouped")
     let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
 
     let request: Request<GroupedSamplesResponse<BloodPressureSample>> = .init(path: path, method: .get, query: query)
@@ -89,15 +89,8 @@ public extension VitalClient.TimeSeries {
   func makePath(
     for resource: String,
     userId: String
-  ) async -> String {
-
-    let configuration = await client.configuration.get()
-
-    let prefix: String = "/\(configuration.apiVersion)"
-      .append(self.resource)
-      .append(userId)
-
-    return prefix.append(resource).append("grouped")
+  ) -> String {
+    return "/v2/timeseries/\(userId)/\(resource)"
   }
   
   func makeQuery(
