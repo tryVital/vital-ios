@@ -3,7 +3,8 @@ import Foundation
 func makeBaseQuery(
   startDate: Date,
   endDate: Date?,
-  provider: Provider.Slug? = nil
+  provider: Provider.Slug? = nil,
+  cursor: String? = nil
 ) -> [(String, String?)] {
   
   let formatter = DateFormatter()
@@ -20,6 +21,10 @@ func makeBaseQuery(
   if let provider = provider {
     query.append(("provider", provider.rawValue))
   }
-  
+
+  if let cursor = cursor {
+    query.append(("cursor", cursor))
+  }
+
   return query
 }
