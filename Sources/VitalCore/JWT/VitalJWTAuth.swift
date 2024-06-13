@@ -54,7 +54,7 @@ internal actor VitalJWTAuth {
   internal nonisolated let statusDidChange = PassthroughSubject<VitalJWTAuthChangeReason, Never>()
 
   init(
-    storage: VitalJWTAuthStorage = VitalJWTAuthStorage(storage: .live),
+    storage: VitalJWTAuthStorage = VitalJWTAuthStorage(),
     secureStorage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
   ) {
     self.storage = storage
@@ -562,26 +562,18 @@ public final class ParkingLot: @unchecked Sendable {
 
 
 internal struct VitalJWTAuthStorage {
-  private static let gistKey = "vital_jwt_auth_gist"
-
-  let storage: VitalBackStorage
+  init() {}
 
   func getGist() -> VitalJWTAuthRecordGist? {
-    guard let data = storage.read(Self.gistKey) else { return nil }
-    do {
-      return try JSONDecoder().decode(VitalJWTAuthRecordGist.self, from: data)
-    } catch let error {
-      VitalLogger.core.error("failed to decode gist: \(error)", source: "VitalJWTAuthStorage")
-      return nil
-    }
+    return VitalGistStorage.shared.get(JWTAuthRecordGistKey.self)
   }
 
   func setGist(_ newValue: VitalJWTAuthRecordGist?) throws {
-    if let newValue = newValue {
-      let data = try JSONEncoder().encode(newValue)
-      storage.store(data, Self.gistKey)
-    } else {
-      storage.remove(Self.gistKey)
-    }
+    try VitalGistStorage.shared.set(newValue, for: JWTAuthRecordGistKey.self)
   }
+}
+
+enum JWTAuthRecordGistKey: GistKey {
+  typealias T = VitalJWTAuthRecordGist
+  static var identifier: String { "vital_jwt_auth_gist" }
 }
