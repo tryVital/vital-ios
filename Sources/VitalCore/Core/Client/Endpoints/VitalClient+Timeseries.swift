@@ -22,6 +22,7 @@ public extension VitalClient {
 }
 
 public extension VitalClient.TimeSeries {
+  @_spi(VitalSDKInternals)
   func post(
     _ timeSeriesData: TimeSeriesData,
     stage: TaggedPayload.Stage,

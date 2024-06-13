@@ -15,12 +15,10 @@ extension Libre1Connection {
     enum Status: String {
       case notSetup = "Missing credentials. Visit settings tab."
       case readingFailed = "Reading failed"
-      case sendingToServer = "Sending to server..."
-      case serverFailed = "Sending to server failed"
+      case readingSuccess = "Reading success"
       case noneFound = "None found"
       case ready = "Ready"
       case reading = "Reading"
-      case serverSuccess = "Value sent to the server"
     }
     
     let device: DeviceModel
@@ -36,7 +34,7 @@ extension Libre1Connection {
     
     var isLoading: Bool {
       switch self.status {
-        case .reading, .sendingToServer:
+        case .reading:
           return true
         default:
           return false
@@ -48,9 +46,6 @@ extension Libre1Connection {
     case startReading
     case readingSuccesfully(Libre1Read)
     case readingFailed(String)
-    
-    case readingSentToServer(Libre1Read)
-    case failedSentToServer(String)
   }
   
   public struct Environment: Sendable{
@@ -74,11 +69,7 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
   struct LongRunningScan: Hashable {}
   
   switch action {
-      
-    case let .readingSentToServer(reading):
-      state.status = .serverSuccess
-      return .none
-      
+
     case .startReading:
       state.status = .reading
       
@@ -95,25 +86,8 @@ let libre1ConnectionReducer = Reducer<Libre1Connection.State, Libre1Connection.A
       return effect.receive(on: environment.mainQueue).eraseToEffect()
       
     case let .readingSuccesfully(read):
-      state.status = .sendingToServer
       state.read = read
-      
-      let effect = Effect<Void, Error>.task {
-        try await VitalClient.shared.timeSeries.post(
-          .glucose(read.samples),
-          stage: .daily,
-          provider: DevicesManager.provider(for: .libre),
-          timeZone: environment.timeZone
-        )}
-        .map { _ in Libre1Connection.Action.readingSentToServer(read) }
-        .catch { error in
-          return Just(Libre1Connection.Action.failedSentToServer(error.localizedDescription))
-        }
-      
-      return effect.receive(on: environment.mainQueue).eraseToEffect()
-      
-    case let .failedSentToServer(reason):
-      state.status = .serverFailed
+      state.status = .readingSuccess
       return .none
       
     case let .readingFailed(reason):

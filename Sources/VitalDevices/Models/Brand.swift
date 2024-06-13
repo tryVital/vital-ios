@@ -1,3 +1,5 @@
+import VitalCore
+
 public enum Brand: String, Encodable, Equatable {
   case omron
   case accuChek
@@ -20,6 +22,23 @@ public enum Brand: String, Encodable, Equatable {
         return "FreeStyle Libre"
       case .oneTouch:
         return "OneTouch"
+    }
+  }
+
+  internal var providerSlug: Provider.Slug {
+    switch self {
+    case .contour:
+      return .contourBLE
+    case .omron:
+      return .omronBLE
+    case .accuChek:
+      return .accuchekBLE
+    case .beurer:
+      return .beurerBLE
+    case .libre:
+      return .libreBLE
+    case .oneTouch:
+      return .oneTouchBLE
     }
   }
 }

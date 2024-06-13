@@ -39,6 +39,8 @@ public class Libre1Reader {
     let samples = payload.1.map(LocalQuantitySample.init)
     let sensor = Libre1Sensor.init(sensor: payload.0)
     
+    postGlucose(.libreBLE, samples: samples)
+
     return Libre1Read(samples: samples, sensor: sensor)
   }
 }

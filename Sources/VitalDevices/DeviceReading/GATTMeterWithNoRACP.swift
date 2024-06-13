@@ -40,6 +40,7 @@ internal class GATTMeterWithNoRACP<Sample> {
   private let queue: DispatchQueue
 
   private let parser: (Data) -> Sample?
+  private let didReceiveAll: (ScannedDevice, [Sample]) -> Void
 
   /// The timeout used to wait on the next value after having received a previous value.
   /// If another value is delivered before the timeout, the timeout is restarted.
@@ -56,7 +57,8 @@ internal class GATTMeterWithNoRACP<Sample> {
     measurementCharacteristicID: CBUUID,
     waitForNextValueTimeout: TimeInterval = 2.0,
     listenTimeout: TimeInterval = 30.0,
-    parser: @escaping (Data) -> Sample?
+    parser: @escaping (Data) -> Sample?,
+    didReceiveAll: @escaping (ScannedDevice, [Sample]) -> Void
   ) {
     self.manager = manager
     self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.\(Self.self)", target: queue)
@@ -65,6 +67,7 @@ internal class GATTMeterWithNoRACP<Sample> {
     self.parser = parser
     self.waitForNextValueTimeout = waitForNextValueTimeout
     self.listenTimeout = listenTimeout
+    self.didReceiveAll = didReceiveAll
   }
 
   func read(device: ScannedDevice) -> AnyPublisher<[Sample], Error> {
@@ -102,6 +105,7 @@ internal class GATTMeterWithNoRACP<Sample> {
                 .sink(receiveCompletion: { _ in }, receiveValue: {})
                 .store(in: &cancellables)
             },
+            receiveOutput: { [call = self.didReceiveAll, device] in call(device, $0) },
             receiveCompletion: { _ in
               cancellables.forEach { $0.cancel() }
 
