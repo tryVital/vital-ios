@@ -50,13 +50,13 @@ public extension VitalClient.TimeSeries {
     startDate: Date,
     endDate: Date? = nil,
     provider: Provider.Slug? = nil,
-    cursor: String? = nil
+    nextCursor: String? = nil
   ) async throws -> GroupedSamplesResponse<ScalarSample> {
 
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
-    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, nextCursor: nextCursor)
     let path = resource.rawValue
 
     let fullPath = makePath(for: path, userId: userId).append("grouped")
@@ -71,14 +71,14 @@ public extension VitalClient.TimeSeries {
     startDate: Date,
     endDate: Date? = nil,
     provider: Provider.Slug? = nil,
-    cursor: String? = nil
+    nextCursor: String? = nil
   ) async throws -> GroupedSamplesResponse<BloodPressureSample> {
 
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let path = makePath(for: "blood_pressure", userId: userId).append("grouped")
-    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, cursor: cursor)
+    let query = makeBaseQuery(startDate: startDate, endDate: endDate, provider: provider, nextCursor: nextCursor)
 
     let request: Request<GroupedSamplesResponse<BloodPressureSample>> = .init(path: path, method: .get, query: query)
     let response = try await configuration.apiClient.send(request)

@@ -4,7 +4,7 @@ func makeBaseQuery(
   startDate: Date,
   endDate: Date?,
   provider: Provider.Slug? = nil,
-  cursor: String? = nil
+  nextCursor: String? = nil
 ) -> [(String, String?)] {
   
   let formatter = DateFormatter()
@@ -22,8 +22,8 @@ func makeBaseQuery(
     query.append(("provider", provider.rawValue))
   }
 
-  if let cursor = cursor {
-    query.append(("cursor", cursor))
+  if let nextCursor = nextCursor {
+    query.append(("next_cursor", nextCursor))
   }
 
   return query
