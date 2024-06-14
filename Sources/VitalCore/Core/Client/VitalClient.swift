@@ -578,12 +578,9 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   @_spi(VitalSDKInternals)
   public func checkConnectedSource(for provider: Provider.Slug) async throws {
     let userId = try await getUserId()
+    try await self.link.createConnectedSource(userId, provider: provider)
+
     let storage = self.storage
-    
-    if try await isUserConnected(to: provider) == false {
-      try await self.link.createConnectedSource(userId, provider: provider)
-    }
-    
     storage.storeConnectedSource(for: userId, with: provider)
   }
 
