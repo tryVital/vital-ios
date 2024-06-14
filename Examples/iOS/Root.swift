@@ -2,6 +2,7 @@ import SwiftUI
 import VitalCore
 import ComposableArchitecture
 import VitalHealthKit
+import os
 
 @main
 struct ExampleApp: App {
@@ -11,7 +12,6 @@ struct ExampleApp: App {
       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
       VitalLogger.stdOutEnabled = true
-
       VitalHealthKitClient.automaticConfiguration()
       return true
     }

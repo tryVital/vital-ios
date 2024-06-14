@@ -2,7 +2,7 @@ import Foundation
 
 public struct Keychain {
   var set: (Data, String) -> Void
-  var get: (String) -> Data?
+  var get: (String) throws -> Data?
   var clean: (String) -> Void
 
   public static var live: Keychain {
@@ -11,7 +11,7 @@ public struct Keychain {
     return .init { data, key in
       keychain.set(data, forKey: key, withAccess: .accessibleAfterFirstUnlock)
     } get: { key in
-      keychain.getData(key)
+      try keychain.getData(key)
     } clean: { key in
       keychain.delete(key)
     }
@@ -48,7 +48,7 @@ public class VitalSecureStorage {
   }
   
   public func get<T: Decodable>(key: String) throws -> T? {
-    guard let value: Data = keychain.get(key) else {
+    guard let value: Data = try keychain.get(key) else {
       return nil
     }
     

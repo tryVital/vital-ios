@@ -302,9 +302,13 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   public static var status: Status {
+    computeStatus(Self.shared)
+  }
+
+  private static func computeStatus(_ client: VitalClient) -> Status {
     var status = Status()
 
-    if let configuration = self.shared.configuration.value {
+    if let configuration = client.configuration.value {
       status.insert(.configured)
 
       switch configuration.authMode {
@@ -371,7 +375,11 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     }
 
     automaticConfigurationLock.lock()
-    defer { automaticConfigurationLock.unlock() }
+
+    defer {
+      automaticConfigurationLock.unlock()
+      VitalLogger.core.info("postAutoConfig: \(Self.computeStatus(client))", source: "CoreStatus")
+    }
 
     do {
       /// Order is important. `configure` should happen before `setUserId`,
@@ -423,7 +431,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     // `bind()`.
     Task {
       for await status in type(of: client).statuses {
-        VitalLogger.core.debug("status: \(status)")
+        VitalLogger.core.info("updated: \(status)", source: "CoreStatus")
       }
     }
   }
