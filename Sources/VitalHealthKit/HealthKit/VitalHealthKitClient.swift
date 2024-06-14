@@ -674,6 +674,14 @@ extension VitalHealthKitClient {
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource)
 
+      // We have gone through Ask successfully. Check if a connected source has been created.
+      do {
+        try await VitalClient.shared.checkConnectedSource(for: .appleHealthKit)
+
+      } catch let error {
+        VitalLogger.healthKit.info("proactive CS creation failed; error = \(error)", source: "Ask")
+      }
+
       if configuration.isNil() == false {
         let configuration = await configuration.get()
         
