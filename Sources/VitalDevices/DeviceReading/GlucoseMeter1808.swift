@@ -16,7 +16,10 @@ class GlucoseMeter1808: GATTMeter<LocalQuantitySample>, GlucoseMeterReadable {
       queue: queue,
       serviceID: CBUUID(string: "1808".fullUUID),
       measurementCharacteristicID: CBUUID(string: "2A18".fullUUID),
-      parser: toGlucoseReading(data:)
+      parser: toGlucoseReading(data:),
+      didReceiveAll: { scannedDevice, samples in
+        postGlucose(scannedDevice.deviceModel.brand.providerSlug, samples: samples)
+      }
     )
   }
 }

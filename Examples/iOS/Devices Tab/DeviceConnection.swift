@@ -61,12 +61,10 @@ extension DeviceConnection {
       case pairingFailed = "Pairing failed"
       case reading = "Reading data..."
       case readingFailed = "Reading failed"
-      case sendingToServer = "Sending to server..."
+      case readingSuccess = "Reading success"
       case deviceNoData = "Device reported no data"
-      case serverFailed = "Sending to server failed"
       case connectedSourceCreationFailed = "Failed to create Connected Source for the device"
       case noneFound = "None found"
-      case serverSuccess = "Value sent to the server"
     }
     
     let device: DeviceModel
@@ -86,7 +84,7 @@ extension DeviceConnection {
     
     var isLoading: Bool {
       switch self.status {
-        case .serverSuccess, .serverFailed, .pairingFailed:
+        case .pairingFailed:
           return false
         default:
           return true
@@ -95,7 +93,7 @@ extension DeviceConnection {
 
     var canPair: Bool {
       switch self.status {
-      case .searching, .pairingFailed, .serverFailed, .serverSuccess, .found:
+      case .searching, .pairingFailed, .found:
           return scannedDevice != nil && hasPairedSuccessfully == false
         default:
           return false
@@ -104,7 +102,7 @@ extension DeviceConnection {
 
     var canRead: Bool {
       switch self.status {
-      case .paired, .readingFailed, .serverSuccess, .serverFailed, .deviceNoData:
+      case .paired, .readingFailed, .deviceNoData:
           return scannedDevice != nil && hasPairedSuccessfully == true
         default:
           return false
@@ -135,8 +133,6 @@ extension DeviceConnection {
 
     case startReading(ScannedDevice)
     case newReading([Reading])
-    case readingSentToServer(Reading)
-    case failedSentToServer(String)
 
     case connectedSourceCreationFailure(String)
     
@@ -161,9 +157,6 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
   struct DeviceScanning: Hashable {}
 
   switch action {
-    case let .readingSentToServer(reading):
-      state.status = .serverSuccess
-      return .none
 
     case .createConnectedSource:
       state.status = .creatingConnectedSource
@@ -210,8 +203,6 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
       return .none
       
     case let .newReading(dataPoints):
-      state.status = .sendingToServer
-      
       let allReadings = Set(state.readings + dataPoints)
       let unique = Array(allReadings).sorted { $0.date > $1.date }
       
@@ -227,51 +218,9 @@ let deviceConnectionReducer = Reducer<DeviceConnection.State, DeviceConnection.A
         return .none
       }
       
-      if case let .bloodPressure(reading) = dataPoint {
-        
-        let bloodPressures = dataPoints.compactMap { $0.bloodPressure }
-        
-        let effect = Effect<Void, Error>.task {
-          try await VitalClient.shared.timeSeries.post(
-            .bloodPressure(bloodPressures),
-            stage: .daily,
-            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand),
-            timeZone: env.timeZone
-          )
-        }
-          .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
-          .catch { error in
-            return Just(DeviceConnection.Action.failedSentToServer(error.localizedDescription))
-          }
-        
-        return effect.receive(on: env.mainQueue).eraseToEffect()
-      }
-      
-      if case let .glucose(reading) = dataPoint {
-        
-        let glucosePoints = dataPoints.compactMap { $0.glucose }
-        
-        let effect = Effect<Void, Error>.task {
-          try await VitalClient.shared.timeSeries.post(
-            .glucose(glucosePoints),
-            stage: .daily,
-            provider: DevicesManager.provider(for: scannedDevice.deviceModel.brand),
-            timeZone: env.timeZone
-          )}
-          .map { _ in DeviceConnection.Action.readingSentToServer(dataPoint) }
-          .catch { error in
-            return Just(DeviceConnection.Action.failedSentToServer(error.localizedDescription))
-          }
-        
-        return effect.receive(on: env.mainQueue).eraseToEffect()
-      }
-      
+      state.status = .readingSuccess
+
       return .none
-      
-    case let .failedSentToServer(reason):
-      state.status = .serverFailed
-      state.alertText = reason
-      return .init(value: .startScanning)
 
     case let .connectedSourceCreationFailure(reason):
       state.status = .connectedSourceCreationFailed

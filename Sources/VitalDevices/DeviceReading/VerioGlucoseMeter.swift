@@ -102,6 +102,9 @@ internal class VerioGlucoseMeter: GlucoseMeterReadable {
         .merge(with: output.collect())
         .handleEvents(
           receiveSubscription: { _ in incomingData.connect().store(in: &cancellables) },
+          receiveOutput: { samples in
+            postGlucose(.oneTouchBLE, samples: samples)
+          },
           receiveCompletion: { _ in cancellables.forEach { $0.cancel() } },
           receiveCancel: { cancellables.forEach { $0.cancel() } }
         )

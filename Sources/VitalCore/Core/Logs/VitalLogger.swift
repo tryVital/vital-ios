@@ -35,6 +35,7 @@ public enum VitalLogger {
   }
 
   public private(set) static var core = VitalLogging.Logger(label: Category.core.rawValue, factory: Self.logHandlerFactory)
+  public private(set) static var devices = VitalLogging.Logger(label: Category.devices.rawValue, factory: Self.logHandlerFactory)
   public private(set) static var requests = VitalLogging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
   public private(set) static var healthKit = VitalLogging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
 
@@ -42,6 +43,7 @@ public enum VitalLogger {
     case core
     case requests
     case healthKit
+    case devices
     case requestBody
   }
 

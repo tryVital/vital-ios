@@ -16,7 +16,10 @@ class BloodPressureReader1810: GATTMeterWithNoRACP<LocalBloodPressureSample>, Bl
       serviceID: CBUUID(string: "1810".fullUUID),
       // Blood Pressure Measurement characteristic
       measurementCharacteristicID: CBUUID(string: "2A35".fullUUID),
-      parser: toBloodPressureReading(data:)
+      parser: toBloodPressureReading(data:),
+      didReceiveAll: { scannedDevice, samples in
+        postBloodPressure(scannedDevice.deviceModel.brand.providerSlug, samples: samples)
+      }
     )
   }
 }

@@ -13,19 +13,22 @@ internal class GATTMeter<Sample> {
   private let queue: DispatchQueue
 
   private let parser: (Data) -> Sample?
+  private let didReceiveAll: (ScannedDevice, [Sample]) -> Void
 
   init(
     manager: CentralManager,
     queue: DispatchQueue,
     serviceID: CBUUID,
     measurementCharacteristicID: CBUUID,
-    parser: @escaping (Data) -> Sample?
+    parser: @escaping (Data) -> Sample?,
+    didReceiveAll: @escaping (ScannedDevice, [Sample]) -> Void
   ) {
     self.manager = manager
     self.queue = DispatchQueue(label: "io.tryvital.VitalDevices.\(Self.self)", target: queue)
     self.serviceID = serviceID
     self.measurementCharacteristicID = measurementCharacteristicID
     self.parser = parser
+    self.didReceiveAll = didReceiveAll
   }
 
   func read(device: ScannedDevice) -> AnyPublisher<[Sample], Error> {
@@ -72,6 +75,7 @@ internal class GATTMeter<Sample> {
                 .sink(receiveCompletion: { _ in }, receiveValue: {})
                 .store(in: &cancellables)
             },
+            receiveOutput: { [call = self.didReceiveAll, device] in call(device, $0) },
             receiveCompletion: { _ in
               cancellables.forEach { $0.cancel() }
 
