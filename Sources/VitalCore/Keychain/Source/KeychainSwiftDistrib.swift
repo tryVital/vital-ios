@@ -217,6 +217,10 @@ class KeychainSwift {
       return result as! Data?
     }
 
+    if lastResultCode == errSecItemNotFound {
+      return nil
+    }
+
     if lastResultCode == errSecInteractionNotAllowed {
       throw VitalKeychainError.interactionNotAllowed
     }
