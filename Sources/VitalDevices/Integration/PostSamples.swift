@@ -2,6 +2,8 @@
 
 
 internal func postGlucose(_ provider: Provider.Slug, samples: [LocalQuantitySample]) {
+  guard !samples.isEmpty else { return }
+
   Task {
     do {
       try await postGlucoseImpl(provider, samples: samples)
@@ -15,6 +17,8 @@ internal func postGlucose(_ provider: Provider.Slug, samples: [LocalQuantitySamp
 
 
 internal func postBloodPressure(_ provider: Provider.Slug, samples: [LocalBloodPressureSample]) {
+  guard !samples.isEmpty else { return }
+
   Task {
     do {
       try await postBloodPressureImpl(provider, samples: samples)
