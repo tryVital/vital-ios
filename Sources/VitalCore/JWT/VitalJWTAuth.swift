@@ -241,7 +241,6 @@ internal actor VitalJWTAuth {
     do {
       // Try to backfill gist from keychain VitalJWTAuthRecord
       let record: VitalJWTAuthRecord? = try secureStorage.get(key: Self.keychainKey)
-      let gist = record?.gist
       return record?.gist
 
     } catch VitalKeychainError.interactionNotAllowed {
