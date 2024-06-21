@@ -129,8 +129,8 @@ let linkCreationReducer = Reducer<LinkCreation.State, LinkCreation.Action, LinkC
         let bloodPressurePoints = try await VitalClient.shared.timeSeries.getBloodPressure(startDate: aWeekAgo)
 
         return .successFetchingData(
-          glucosePoints.groups.flatMap(\.data),
-          bloodPressurePoints.groups.flatMap(\.data)
+          glucosePoints.groups.values.flatMap { $0 }.flatMap(\.data),
+          bloodPressurePoints.groups.values.flatMap { $0 }.flatMap(\.data)
         )
       }.catch { error in
         return Just(LinkCreation.Action.failedFetchingData(error.localizedDescription))
@@ -209,7 +209,7 @@ extension LinkCreation {
                         .font(.title)
                         .fontWeight(.medium)
                       
-                      Text("\(point.unit ?? "")")
+                      Text("\(point.unit)")
                         .font(.footnote)
                     }
                     
