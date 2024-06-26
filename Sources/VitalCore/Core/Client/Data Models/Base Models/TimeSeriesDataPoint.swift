@@ -65,6 +65,20 @@ public struct GroupedSamplesResponse<Sample: Equatable & Decodable>: Equatable, 
     self.groups = groups
     self.nextCursor = nextCursor
   }
+
+  public init(from decoder: Decoder) throws {
+    var container = try decoder.container(keyedBy: CodingKeys.self)
+    let groups = try container.decode([String: [GroupedSamples<Sample>]].self, forKey: .groups)
+    self.nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
+    self.groups = Dictionary(
+      uniqueKeysWithValues: groups.map { key, value in (Provider.Slug(rawValue: key)!, value) }
+    )
+  }
+
+  public enum CodingKeys: String, Swift.CodingKey {
+    case groups
+    case nextCursor = "next_cursor"
+  }
 }
 
 public struct GroupedSamples<Sample: Equatable & Decodable>: Equatable, Decodable {
