@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
     s.source_files = 'Sources/VitalDevices/**/*.swift'
     s.frameworks = ['CoreNFC', 'AVFoundation', 'CoreBluetooth', 'Combine', 'CryptoKit']
     
-    s.dependency 'VitalCore', '~> 1.0.2'
+    s.dependency 'VitalCore', '~> 1.0.1'
     s.dependency 'CombineCoreBluetooth', '~> 0.3.1'
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }

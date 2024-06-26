@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
     s.swift_versions = ['5']
     s.source_files = 'Sources/VitalHealthKit/**/*.swift'
 
-    s.dependency 'VitalCore', '~> 1.0.2'
+    s.dependency 'VitalCore', '~> 1.0.1'
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end
