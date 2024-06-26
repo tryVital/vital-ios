@@ -166,7 +166,7 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 public let health_secureStorageKey: String = "health_secureStorageKey"
 
 @objc public class VitalClient: NSObject {
-  public static let sdkVersion = "1.0.1"
+  public static let sdkVersion = "1.0.2"
   
   private let secureStorage: VitalSecureStorage
 
