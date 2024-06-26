@@ -11,7 +11,7 @@ We support Swift Package Manager and CocoaPods.
 Add the vital-ios package to your Package.swift.
 
 ```swift
-.package(url: "https://github.com/tryvital/vital-ios", from: "1.0.2"),
+.package(url: "https://github.com/tryvital/vital-ios", from: "1.0.1"),
 ```
 
 Then add the Vital iOS library products you need to your app and/or library targets:
@@ -30,8 +30,8 @@ Add the Vital iOS library products you need to your Podfile:
 
 ```
 pod "VitalCore", "~> 1.0.2"
-pod "VitalDevices", "~> 1.0.2"
-pod "VitalHealthKit", "~> 1.0.2"
+pod "VitalDevices", "~> 1.0.1"
+pod "VitalHealthKit", "~> 1.0.1"
 ```
 
 ## Documentation

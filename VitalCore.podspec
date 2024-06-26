@@ -15,6 +15,6 @@ Pod::Spec.new do |s|
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 
-    s.dependency 'VitalLogging', '~> 1.0.2'
+    s.dependency 'VitalLogging', '~> 1.0.1'
 end
 
