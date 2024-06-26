@@ -29,7 +29,7 @@ Then add the Vital iOS library products you need to your app and/or library targ
 Add the Vital iOS library products you need to your Podfile:
 
 ```
-pod "VitalCore", "~> 1.0.1"
+pod "VitalCore", "~> 1.0.2"
 pod "VitalDevices", "~> 1.0.1"
 pod "VitalHealthKit", "~> 1.0.1"
 ```
