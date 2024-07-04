@@ -1,4 +1,35 @@
 public enum VitalResource: Equatable, Hashable, Codable {
+  public func resourceToBackfillType() -> BackfillType {
+    switch self{
+    case .activity, .individual(.activeEnergyBurned), .individual(.basalEnergyBurned), .individual(.distanceWalkingRunning), .individual(.exerciseTime), .individual(.floorsClimbed), .individual(.steps), .individual(.vo2Max):
+      return BackfillType.activity;
+    case .body, .individual(.bodyFat), .individual(.weight):
+      return BackfillType.body;
+    case .vitals(.bloodOxygen):
+      return BackfillType.bloodOxygen;
+    case .vitals(.bloodPressure):
+      return BackfillType.bloodPressure;
+    case .vitals(.glucose):
+      return BackfillType.glucose;
+    case .vitals(.heartRate):
+      return BackfillType.heartrate;
+    case .vitals(.heartRateVariability):
+      return BackfillType.heartrateVariability;
+    case .profile:
+      return BackfillType.profile;
+    case .sleep:
+      return BackfillType.sleep;
+    case .nutrition(.water):
+      return BackfillType.water;
+    case .nutrition(.caffeine):
+      return BackfillType.caffeine;
+    case .vitals(.mindfulSession):
+      return BackfillType.mindfulnessMinutes;
+    case .workout:
+      return BackfillType.workouts;
+    }
+  }
+
   public enum Vitals: Equatable, Hashable, Codable {
     case glucose
     case bloodPressure
@@ -135,4 +166,34 @@ public enum VitalResource: Equatable, Hashable, Codable {
         return "nutrition - \(nutrition.logDescription)"
     }
   }
+}
+
+public enum BackfillType: String, Codable {
+  case workouts = "workouts"
+  case activity = "activity"
+  case sleep = "sleep"
+  case body = "body"
+  case workoutStream = "workout_stream"
+  case sleepStream = "sleep_stream"
+  case profile = "profile"
+  case bloodPressure = "blood_pressure"
+  case bloodOxygen = "blood_oxygen"
+  case glucose = "glucose"
+  case heartrate = "heartrate"
+  case heartrateVariability = "heartrate_variability"
+  case weight = "weight"
+  case fat = "fat"
+  case meal = "meal"
+  case water = "water"
+  case caffeine = "caffeine"
+  case mindfulnessMinutes = "mindfulness_minutes"
+  case caloriesActive = "calories_active"
+  case distance = "distance"
+  case steps = "steps"
+  case respiratoryRate = "respiratory_rate"
+  case vo2Max = "vo2_max"
+  case stress = "stress"
+  case electrocardiogram = "electrocardiogram"
+  case temperature = "temperature"
+  case menstrualCycle = "menstrual_cycle"
 }

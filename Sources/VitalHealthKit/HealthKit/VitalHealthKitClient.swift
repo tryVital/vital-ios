@@ -547,6 +547,7 @@ extension VitalHealthKitClient {
       // ingestion start date takes precedence.
       historicalStageAnchor: backendState.requestStartDate ?? previousState?.historicalStageAnchor ?? now,
       defaultDaysToBackfill: previousState?.defaultDaysToBackfill ?? configuration.numberOfDaysToBackFill,
+      teamDataPullPreferences: previousState?.teamDataPullPreferences ?? backendState.pullPreferences,
 
       // The query upper bound (end date for historical & daily) is normally open-ended.
       // In other words, `ingestionEnd` is typically nil.

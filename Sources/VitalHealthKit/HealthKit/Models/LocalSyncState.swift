@@ -4,6 +4,7 @@ import VitalCore
 internal struct LocalSyncState: Codable {
   let historicalStageAnchor: Date
   let defaultDaysToBackfill: Int
+  let teamDataPullPreferences: TeamDataPullPreferences?
 
   let ingestionEnd: Date?
   let perDeviceActivityTS: Bool
@@ -11,7 +12,9 @@ internal struct LocalSyncState: Codable {
   let expiresAt: Date
 
   func historicalStartDate(for resource: VitalResource) -> Date {
-    Date.dateAgo(historicalStageAnchor, days: defaultDaysToBackfill)
+    let backfillType = resource.resourceToBackfillType();
+    let daysToBackfill = teamDataPullPreferences?.backfillTypeOverrides?[backfillType]?.historicalDaysToPull ?? teamDataPullPreferences?.historicalDaysToPull;
+    return Date.dateAgo(historicalStageAnchor, days: daysToBackfill ?? defaultDaysToBackfill)
   }
 }
 
