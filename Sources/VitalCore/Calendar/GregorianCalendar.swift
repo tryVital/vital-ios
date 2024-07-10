@@ -37,7 +37,7 @@ public struct GregorianCalendar {
     return results
   }
 
-  public func floatingDate(of date: Date) -> FloatingDate {
+  public func floatingDate(of date: Foundation.Date) -> FloatingDate {
     let components = base.dateComponents([.year, .month, .day], from: date)
     guard let year = components.year, let month = components.month, let day = components.day else {
       Self.invariantViolation()
@@ -45,7 +45,7 @@ public struct GregorianCalendar {
     return FloatingDate(year: year, month: month, day: day)
   }
 
-  public func startOfDay(_ date: FloatingDate) -> Date {
+  public func startOfDay(_ date: FloatingDate) -> Foundation.Date {
     guard let startOfDay = base.date(from: date.dateComponents()) else {
       Self.invariantViolation()
     }
@@ -53,7 +53,7 @@ public struct GregorianCalendar {
   }
 
   /// Return an end-exclusive UTC time range that would cover the given closed range of calendar dates with respect to `self`.
-  public func timeRange(of dateRange: ClosedRange<FloatingDate>) -> Range<Date> {
+  public func timeRange(of dateRange: ClosedRange<FloatingDate>) -> Range<Foundation.Date> {
     // Since we are returning an end-exclusive UTC time range, the upper bound is the first instant
     // of the day after the end date.
     let dayAfterEndDate = offset(dateRange.upperBound, byDays: 1)
@@ -75,6 +75,8 @@ public struct GregorianCalendar {
 }
 
 extension GregorianCalendar {
+  public typealias Date = FloatingDate
+
   public struct FloatingDate: Hashable, Codable, LosslessStringConvertible, Comparable {
     private static let utcFormatter: ISO8601DateFormatter = {
       let formatter = ISO8601DateFormatter()
