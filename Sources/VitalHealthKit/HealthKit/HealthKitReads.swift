@@ -33,8 +33,7 @@ func read(
   healthKitStore: HKHealthStore,
   typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: VitalHealthKitStorage,
-  startDate: Date,
-  endDate: Date,
+  instruction: SyncInstruction,
   options: ReadOptions
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
@@ -58,8 +57,8 @@ func read(
       let payload = try await handleBody(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.summary(.body(payload.bodyPatch)), payload.anchors)
@@ -68,8 +67,8 @@ func read(
       let payload = try await handleSleep(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.summary(.sleep(payload.sleepPatch)), payload.anchors)
@@ -78,8 +77,8 @@ func read(
       let payload = try await handleActivity(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate,
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound,
         options: options
       )
       
@@ -89,8 +88,8 @@ func read(
       let payload = try await handleWorkouts(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
@@ -100,8 +99,8 @@ func read(
         type: .quantityType(forIdentifier: .oxygenSaturation)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
 
       return (.timeSeries(.bloodOxygen(payload.samples)), payload.anchors)
@@ -111,8 +110,8 @@ func read(
         type: .quantityType(forIdentifier: .bloodGlucose)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.timeSeries(.glucose(payload.samples)), payload.anchors)
@@ -122,8 +121,8 @@ func read(
         type: .quantityType(forIdentifier: .heartRate)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.timeSeries(.heartRate(payload.samples)), payload.anchors)
@@ -133,8 +132,8 @@ func read(
         type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
 
       return (.timeSeries(.heartRateVariability(payload.samples)), payload.anchors)
@@ -143,8 +142,8 @@ func read(
       let payload = try await handleBloodPressure(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.timeSeries(.bloodPressure(payload.bloodPressure)), payload.anchors)
@@ -154,8 +153,8 @@ func read(
         type: .quantityType(forIdentifier: .dietaryWater)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
       
       return (.timeSeries(.nutrition(.water(payload.samples))), payload.anchors)
@@ -165,8 +164,8 @@ func read(
         type: .quantityType(forIdentifier: .dietaryCaffeine)!,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
 
       return (.timeSeries(.nutrition(.caffeine(payload.samples))), payload.anchors)
@@ -175,8 +174,8 @@ func read(
       let payload = try await handleMindfulSessions(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: startDate,
-        endDate: endDate
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
       )
 
       return (.timeSeries(.mindfulSession(payload.samples)), payload.anchors)
@@ -762,7 +761,7 @@ func handleTimeSeries(
 }
 
 
-internal func query(
+private func query(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   type: HKSampleType,
@@ -842,6 +841,147 @@ internal func query(
     healthKitStore.execute(query)
   }
 }
+
+func queryMulti(
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage,
+  types: Set<HKSampleType>,
+  limit: Int = HKObjectQueryNoLimit,
+  startDate: Date? = nil,
+  endDate: Date? = nil,
+  extraPredicate: NSPredicate? = nil
+) async throws -> [HKSampleType: [HKSample]] {
+  guard #available(iOS 15.0, *) else {
+    return try await withThrowingTaskGroup(of: (key: HKSampleType, samples: [HKSample]).self) { group in
+      for type in types {
+        group.addTask {
+          let samples = try await querySingle(
+            healthKitStore: healthKitStore,
+            vitalStorage: vitalStorage,
+            type: type,
+            limit: limit,
+            startDate: startDate,
+            endDate: endDate,
+            extraPredicate: extraPredicate
+          )
+
+          return (type, samples)
+        }
+      }
+
+      return try await group.reduce(into: [:]) { result, entry in
+        result[entry.key] = entry.samples
+      }
+    }
+  }
+
+  // iOS 15+: Single query to match multiple HKSampleTypes
+
+  return try await withCheckedThrowingContinuation { continuation in
+
+    let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
+      healthKitStore.stop(query)
+
+      if let error = error {
+        if let error = error as? HKError {
+          switch error.code {
+          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
+            VitalLogger.healthKit.info("no data or no permission. \(error)", source: "QueryMulti")
+            continuation.resume(with: .success([:]))
+            return
+
+          default:
+            VitalLogger.healthKit.info("error[\(error.code)] = \(error)", source: "QueryMulti")
+            continuation.resume(with: .failure(error))
+            return
+          }
+        } else {
+          VitalLogger.healthKit.info("error = \(error)", source: "QueryMulti")
+          continuation.resume(with: .failure(error))
+          return
+        }
+      }
+
+      let samples = Dictionary.init(grouping: samples ?? [], by: \.sampleType)
+      continuation.resume(with: .success(samples))
+    }
+
+    var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+
+    if let extraPredicate = extraPredicate {
+      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, extraPredicate])
+    }
+
+    let query = HKSampleQuery(
+      queryDescriptors: types.map { type in
+        HKQueryDescriptor(sampleType: type, predicate: predicate)
+      },
+      limit: limit != HKObjectQueryNoLimit ? limit * types.count : HKObjectQueryNoLimit,
+      sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)],
+      resultsHandler: handler
+    )
+
+    healthKitStore.execute(query)
+  }
+}
+
+
+
+private func querySingle(
+  healthKitStore: HKHealthStore,
+  vitalStorage: VitalHealthKitStorage,
+  type: HKSampleType,
+  limit: Int = HKObjectQueryNoLimit,
+  startDate: Date? = nil,
+  endDate: Date? = nil,
+  extraPredicate: NSPredicate? = nil
+) async throws -> [HKSample] {
+  return try await withCheckedThrowingContinuation { continuation in
+
+    let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
+      healthKitStore.stop(query)
+
+      if let error = error {
+        if let error = error as? HKError {
+          switch error.code {
+          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
+            VitalLogger.healthKit.info("no data or no permission for \(type.shortenedIdentifier)", source: "QuerySingle")
+            continuation.resume(with: .success([]))
+            return
+
+          default:
+            VitalLogger.healthKit.info("\(type.shortenedIdentifier) error = \(error.code)", source: "QuerySingle")
+            continuation.resume(with: .failure(error))
+            return
+          }
+        } else {
+          VitalLogger.healthKit.info("\(type.shortenedIdentifier) error = \(error)", source: "QuerySingle")
+          continuation.resume(with: .failure(error))
+          return
+        }
+      }
+
+      continuation.resume(with: .success(samples ?? []))
+    }
+
+    var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+
+    if let extraPredicate = extraPredicate {
+      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, extraPredicate])
+    }
+
+    let query = HKSampleQuery(
+      sampleType: type,
+      predicate: predicate,
+      limit: limit,
+      sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)],
+      resultsHandler: handler
+    )
+
+    healthKitStore.execute(query)
+  }
+}
+
 
 func calculateIdsForAnchorsPopulation(
   vitalStatistics: [VitalStatistics],

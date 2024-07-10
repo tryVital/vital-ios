@@ -23,7 +23,7 @@ struct VitalHealthKitStore {
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
-  var readResource: (RemappedVitalResource, Date, Date, VitalHealthKitStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
+  var readResource: (RemappedVitalResource, SyncInstruction, VitalHealthKitStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void
@@ -160,14 +160,13 @@ extension VitalHealthKitStore {
         startDate: startDate,
         endDate: endDate
       )
-    } readResource: { (resource, startDate, endDate, storage, options) in
+    } readResource: { (resource, instruction, storage, options) in
       try await read(
         resource: resource,
         healthKitStore: store,
         typeToResource: toVitalResource,
         vitalStorage: storage,
-        startDate: startDate,
-        endDate: endDate,
+        instruction: instruction,
         options: options
       )
     } enableBackgroundDelivery: { (type, frequency, completion) in
@@ -192,7 +191,7 @@ extension VitalHealthKitStore {
       return .sleep
     } writeInput: { (dataInput, startDate, endDate) in
       return
-    } readResource: { _,_,_,_, _  in
+    } readResource: { _,_,_, _  in
       return (ProcessedResourceData.timeSeries(.glucose([])), [])
     } enableBackgroundDelivery: { _, _, _ in
       return
