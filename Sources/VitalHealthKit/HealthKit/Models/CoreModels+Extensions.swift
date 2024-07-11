@@ -271,7 +271,12 @@ extension HKSampleType {
 
       case HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!:
         return "min"
-        
+
+    case
+      HKSampleType.quantityType(forIdentifier: .bodyTemperature)!,
+      HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      return "\u{00B0}C"
+
       default:
         fatalError("\(String(describing: self)) type not supported)")
     }
@@ -341,6 +346,11 @@ extension HKSampleType {
       case
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
         return .minute()
+
+    case
+      HKSampleType.quantityType(forIdentifier: .bodyTemperature)!,
+      HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      return .degreeCelsius()
 
       default:
         fatalError("\(String(describing: self)) type not supported)")

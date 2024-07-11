@@ -63,8 +63,7 @@ class SampleTypeTests: XCTestCase {
                 VitalHealthKitStore.sampleTypeToVitalResource(type: $0)
               },
               vitalStorage: .init(storage: .debug),
-              startDate: Date(),
-              endDate: Date(),
+              instruction: SyncInstruction(stage: .daily, query: Date() ..< Date()),
               options: ReadOptions()
             )
           } catch let error {

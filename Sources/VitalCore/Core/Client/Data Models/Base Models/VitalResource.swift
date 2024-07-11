@@ -80,6 +80,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
   case workout
   case activity
   case sleep
+  case menstrualCycle
   case vitals(Vitals)
   case individual(Individual)
   case nutrition(Nutrition)
@@ -90,7 +91,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .workout,
     .activity,
     .sleep,
-    
+    .menstrualCycle,
+
     .vitals(.glucose),
     .vitals(.bloodPressure),
     .vitals(.bloodOxygen),
@@ -123,6 +125,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
         return "activity"
       case .sleep:
         return "sleep"
+      case .menstrualCycle:
+        return "menstrualCycle"
       case let .vitals(vitals):
         return "vitals - \(vitals.logDescription)"
       case let .individual(individual):
