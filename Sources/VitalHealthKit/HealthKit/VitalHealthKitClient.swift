@@ -607,18 +607,13 @@ extension VitalHealthKitClient {
         ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
       )
 
-      guard let data = data, data.shouldSkipPost == false else {
-        /// If there's no data, independently of the stage, we won't send it.
-        /// Currently the server is returning 4XX when sending an empty payload.
-        /// More context on VIT-2232.
-
-        // TODO: We should post something anyway so that backend can emit a historical event.
-
-        /// If it's historical, we store the entity and bailout
-        if instruction.stage != .daily {
-          storage.storeFlag(for: resource)
-          entitiesToStore.forEach(storage.store(entity:))
-        }
+      // We skip empty POST only in daily stage.
+      // Empty POST is sent for historical stage, so we would consistently emit
+      // historical.data.*.created events.
+      guard
+        let data = data,
+        instruction.stage == .historical || data.shouldSkipPost == false
+      else {
 
         VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
         _status.send(.nothingToSync(resource))
@@ -627,7 +622,7 @@ extension VitalHealthKitClient {
       }
 
       if configuration.mode.isAutomatic {
-        VitalLogger.healthKit.info("[\(description)] begin upload", source: "Sync")
+        VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
 
         let transformedData = transform(data: data, calendar: vitalCalendar)
 
