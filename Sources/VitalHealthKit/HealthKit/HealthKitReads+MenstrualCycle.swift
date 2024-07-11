@@ -175,6 +175,96 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
     }
   )
 
+  let sexualActivity = groupSamplesByBoundary(
+    .categoryType(forIdentifier: .sexualActivity)!,
+    boundaries: cycleBoundaries,
+    sampleClass: HKCategorySample.self,
+    transform: { date, sample -> MenstrualCycle.SexualActivityEntry? in
+      let protectionUsed = sample.metadata?[HKMetadataKeySexualActivityProtectionUsed] as? Bool ?? false
+      return MenstrualCycle.SexualActivityEntry(date: date, protectionUsed: protectionUsed)
+    }
+  )
+
+  let ovulationTest = groupSamplesByBoundary(
+    .categoryType(forIdentifier: .ovulationTestResult)!,
+    boundaries: cycleBoundaries,
+    sampleClass: HKCategorySample.self,
+    transform: { date, sample -> MenstrualCycle.OvulationTestEntry? in
+      guard
+        let healthKitValue = HKCategoryValueOvulationTestResult(rawValue: sample.value),
+        let value = MenstrualCycle.OvulationTestResult(healthKitValue)
+      else { return nil }
+
+      return MenstrualCycle.OvulationTestEntry(date: date, testResult: value)
+    }
+  )
+
+  let basalBodyTemperature = groupSamplesByBoundary(
+    .quantityType(forIdentifier: .basalBodyTemperature)!,
+    boundaries: cycleBoundaries,
+    sampleClass: HKQuantitySample.self,
+    transform: { date, sample -> MenstrualCycle.BasalBodyTemperatureEntry? in
+      MenstrualCycle.BasalBodyTemperatureEntry(
+        date: date,
+        value: sample.quantity.doubleValue(for: .degreeCelsius())
+      )
+    }
+  )
+
+  let contraceptive: [CycleBoundary: [MenstrualCycle.ContraceptiveEntry]]
+  let homePregnancyTest: [CycleBoundary: [MenstrualCycle.HomePregnancyTestEntry]]
+  let homeProgesteroneTest: [CycleBoundary: [MenstrualCycle.HomeProgesteroneTestEntry]]
+
+  if #available(iOS 15.0, *) {
+    contraceptive = groupSamplesByBoundary(
+      .categoryType(forIdentifier: .contraceptive)!,
+      boundaries: cycleBoundaries,
+      sampleClass: HKCategorySample.self,
+      transform: { date, sample -> MenstrualCycle.ContraceptiveEntry? in
+        guard
+          let healthKitValue = HKCategoryValueContraceptive(rawValue: sample.value),
+          let value = MenstrualCycle.ContraceptiveType(healthKitValue)
+        else { return nil }
+
+        return MenstrualCycle.ContraceptiveEntry(date: date, type: value)
+      }
+    )
+
+    homePregnancyTest = groupSamplesByBoundary(
+      .categoryType(forIdentifier: .pregnancyTestResult)!,
+      boundaries: cycleBoundaries,
+      sampleClass: HKCategorySample.self,
+      transform: { date, sample -> MenstrualCycle.HomePregnancyTestEntry? in
+        guard
+          let healthKitValue = HKCategoryValuePregnancyTestResult(rawValue: sample.value),
+          let value = MenstrualCycle.HomeTestResult(healthKitValue)
+        else { return nil }
+
+        return MenstrualCycle.HomePregnancyTestEntry(date: date, testResult: value)
+      }
+    )
+
+    homeProgesteroneTest = groupSamplesByBoundary(
+      .categoryType(forIdentifier: .progesteroneTestResult)!,
+      boundaries: cycleBoundaries,
+      sampleClass: HKCategorySample.self,
+      transform: { date, sample -> MenstrualCycle.HomeProgesteroneTestEntry? in
+        guard
+          let healthKitValue = HKCategoryValueProgesteroneTestResult(rawValue: sample.value),
+          let value = MenstrualCycle.HomeTestResult(healthKitValue)
+        else { return nil }
+
+        return MenstrualCycle.HomeProgesteroneTestEntry(date: date, testResult: value)
+      }
+    )
+
+  } else {
+    contraceptive = [:]
+    homePregnancyTest = [:]
+    homeProgesteroneTest = [:]
+  }
+
+
   return cycleBoundaries.map { cycle in
     LocalMenstrualCycle(
       sourceBundle: sourceBundle,
@@ -185,14 +275,13 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
         menstrualFlow: menstrualFlows[cycle] ?? [],
         cervicalMucus: cervicalMucus[cycle] ?? [],
         intermenstrualBleeding: intermenstrualBleeding[cycle] ?? [],
-        // TODO: VIT-6747
-        contraceptive: [],
+        contraceptive: contraceptive[cycle] ?? [],
         detectedDeviations: [],
-        ovulationTest: [],
-        homePregnancyTest: [],
-        homeProgesteroneTest: [],
-        sexualActivity: [],
-        basalBodyTemperature: [],
+        ovulationTest: ovulationTest[cycle] ?? [],
+        homePregnancyTest: homePregnancyTest[cycle] ?? [],
+        homeProgesteroneTest: homeProgesteroneTest[cycle] ?? [],
+        sexualActivity: sexualActivity[cycle] ?? [],
+        basalBodyTemperature: basalBodyTemperature[cycle] ?? [],
         source: Source(
           provider: Provider.Slug.appleHealthKit.rawValue,
           type: .app,
@@ -252,6 +341,79 @@ extension MenstrualCycle.CervicalMucusQuality {
       self = .sticky
     case .watery:
       self = .watery
+    @unknown default:
+      return nil
+    }
+  }
+}
+
+extension MenstrualCycle.ContraceptiveType {
+  @available(iOS 15.0, *)
+  init?(_ category: HKCategoryValueContraceptive) {
+    switch category {
+    case .implant:
+      self = .implant
+    case .injection:
+      self = .injection
+    case .intrauterineDevice:
+      self = .iud
+    case .intravaginalRing:
+      self = .intravaginalRing
+    case .oral:
+      self = .oral
+    case .patch:
+      self = .patch
+    case .unspecified:
+      self = .unspecified
+    @unknown default:
+      return nil
+    }
+  }
+}
+
+extension MenstrualCycle.HomeTestResult {
+  @available(iOS 15.0, *)
+  init?(_ category: HKCategoryValuePregnancyTestResult) {
+    switch category {
+    case .indeterminate:
+      self = .indeterminate
+    case .negative:
+      self = .negative
+    case .positive:
+      self = .positive
+    @unknown default:
+      return nil
+    }
+  }
+}
+
+extension MenstrualCycle.HomeTestResult {
+  @available(iOS 15.0, *)
+  init?(_ category: HKCategoryValueProgesteroneTestResult) {
+    switch category {
+    case .indeterminate:
+      self = .indeterminate
+    case .negative:
+      self = .negative
+    case .positive:
+      self = .positive
+    @unknown default:
+      return nil
+    }
+  }
+}
+
+extension MenstrualCycle.OvulationTestResult {
+  init?(_ category: HKCategoryValueOvulationTestResult) {
+    switch category {
+    case .estrogenSurge:
+      self = .estrogenSurge
+    case .luteinizingHormoneSurge:
+      self = .luteinizingHormoneSurge
+    case .negative:
+      self = .negative
+    case .indeterminate:
+      self = .indeterminate
     @unknown default:
       return nil
     }

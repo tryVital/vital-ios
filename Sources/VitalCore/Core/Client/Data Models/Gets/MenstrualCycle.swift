@@ -225,11 +225,11 @@ extension MenstrualCycle {
 
   public struct BasalBodyTemperatureEntry: Equatable, Codable {
     public let date: GregorianCalendar.Date
-    public let value: Decimal
+    public let value: Double
 
     public init(
       date: GregorianCalendar.Date,
-      value: Decimal
+      value: Double
     ) {
       self.date = date
       self.value = value
