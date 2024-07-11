@@ -607,10 +607,21 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   internal func getUserId() async throws -> String {
-    let configuration = await configuration.get()
+    /// SDK now attempts automatic configuration on singleton creation to recover API Key +
+    /// userID from keychain. (See: `VitalClient.shared`)
+    ///
+    /// So it is no longer necessary to await on the user ID and configuration.
+
+    guard let configuration = configuration.value else {
+      throw VitalClient.Error.notConfigured
+    }
+
     switch configuration.authMode {
     case .apiKey:
-      return await apiKeyModeUserId.get().uuidString
+      guard let userId = apiKeyModeUserId.value?.uuidString else {
+        throw VitalClient.Error.notSignedIn
+      }
+      return userId
 
     case .userJwt:
       // In User JWT mode, we need not wait for user ID to be set.
@@ -710,5 +721,12 @@ public extension VitalClient {
     public init(rawValue: Int) {
       self.rawValue = rawValue
     }
+  }
+}
+
+extension VitalClient {
+  public enum Error: Swift.Error {
+    case notConfigured
+    case notSignedIn
   }
 }

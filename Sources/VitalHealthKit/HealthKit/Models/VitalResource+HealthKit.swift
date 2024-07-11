@@ -166,6 +166,43 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       supplementary: []
     )
 
+  case .menstrualCycle:
+    var optionalTypes: Set<HKSampleType> = [
+      HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
+      HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
+      HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
+    ]
+
+    let supplementaryTypes: Set<HKSampleType> = [
+      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
+      HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!,
+    ]
+
+    if #available(iOS 15.0, *) {
+      optionalTypes.formUnion([
+        HKCategoryType.categoryType(forIdentifier: .contraceptive)!,
+        HKCategoryType.categoryType(forIdentifier: .pregnancyTestResult)!,
+        HKCategoryType.categoryType(forIdentifier: .progesteroneTestResult)!,
+      ])
+    }
+
+    if #available(iOS 16.0, *) {
+      optionalTypes.formUnion([
+        HKCategoryType.categoryType(forIdentifier: .persistentIntermenstrualBleeding)!,
+        HKCategoryType.categoryType(forIdentifier: .prolongedMenstrualPeriods)!,
+        HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
+        HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!,
+      ])
+    }
+
+    return HealthKitObjectTypeRequirements(
+      required: [
+        HKCategoryType.categoryType(forIdentifier: .menstrualFlow)!,
+      ],
+      optional: optionalTypes,
+      supplementary: supplementaryTypes
+    )
+
   case .vitals(.heartRate):
     return single(HKSampleType.quantityType(forIdentifier: .heartRate)!)
 
@@ -184,6 +221,31 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
 }
 
 func observedSampleTypes() -> [[HKSampleType]] {
+  var menstrualCycleTypes: [HKSampleType] = [
+    HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
+    HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
+    HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
+    HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
+    HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!,
+  ]
+
+  if #available(iOS 15.0, *) {
+    menstrualCycleTypes.append(contentsOf: [
+      HKCategoryType.categoryType(forIdentifier: .contraceptive)!,
+      HKCategoryType.categoryType(forIdentifier: .pregnancyTestResult)!,
+      HKCategoryType.categoryType(forIdentifier: .progesteroneTestResult)!,
+    ])
+  }
+
+  if #available(iOS 16.0, *) {
+    menstrualCycleTypes.append(contentsOf: [
+      HKCategoryType.categoryType(forIdentifier: .persistentIntermenstrualBleeding)!,
+      HKCategoryType.categoryType(forIdentifier: .prolongedMenstrualPeriods)!,
+      HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
+      HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!,
+    ])
+  }
+
   return [
     /// Profile
     [
@@ -212,7 +274,10 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
     ],
-    
+
+    /// Menstrual Cycle
+    menstrualCycleTypes,
+
     /// Workout
     [
       HKSampleType.workoutType()

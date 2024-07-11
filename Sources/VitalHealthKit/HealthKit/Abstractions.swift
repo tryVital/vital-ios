@@ -113,8 +113,43 @@ extension VitalHealthKitStore {
       case HKSampleType.categoryType(forIdentifier: .mindfulSession)!:
         return .vitals(.mindfulSession)
 
-      default:
-        fatalError("\(String(describing: type)) is not supported. This is a developer error")
+
+    case
+      HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
+      HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
+      HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
+      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
+      HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      return .menstrualCycle
+
+    default:
+      if #available(iOS 15.0, *) {
+        switch type {
+        case
+          HKCategoryType.categoryType(forIdentifier: .contraceptive)!,
+          HKCategoryType.categoryType(forIdentifier: .pregnancyTestResult)!,
+          HKCategoryType.categoryType(forIdentifier: .progesteroneTestResult)!:
+          return .menstrualCycle
+        default:
+          break
+        }
+      }
+
+
+      if #available(iOS 16.0, *) {
+        switch type {
+        case
+          HKCategoryType.categoryType(forIdentifier: .persistentIntermenstrualBleeding)!,
+          HKCategoryType.categoryType(forIdentifier: .prolongedMenstrualPeriods)!,
+          HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
+          HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!:
+          return .menstrualCycle
+        default:
+          break
+        }
+      }
+
+      fatalError("\(String(describing: type)) is not supported. This is a developer error")
     }
   }
   

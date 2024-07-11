@@ -83,7 +83,14 @@ func read(
       )
       
       return (payload.activityPatch.map { .summary(.activity($0)) }, payload.anchors)
-      
+
+  case .menstrualCycle:
+    let payload = try await handleMenstrualCycle(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
+    return (
+      .summary(.menstrualCycle(MenstrualCyclePatch(cycles: payload.menstrualCycles))),
+      payload.anchors
+    )
+
     case .workout:
       let payload = try await handleWorkouts(
         healthKitStore: healthKitStore,
