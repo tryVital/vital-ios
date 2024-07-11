@@ -36,6 +36,8 @@ struct HealthKitExample: View {
 
             makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
 
+            makePermissionRow("Menstrual Cycle", resources: [.menstrualCycle], permissions: $permissions)
+
           }
           .buttonStyle(PlainButtonStyle())
         }
