@@ -66,6 +66,7 @@ public extension TaggedPayload {
     case workout(WorkoutPatch)
     case sleep(SleepPatch)
     case body(BodyPatch)
+    case menstrualCycle(MenstrualCyclePatch)
     case vitals(Vitals)
   }
 }

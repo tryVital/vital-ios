@@ -771,7 +771,7 @@ extension VitalHealthKitClient {
 
 func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedResourceData {
   switch data {
-    case .summary(.activity):
+    case .summary(.activity), .summary(.menstrualCycle), .summary(.body), .summary(.profile), .timeSeries:
       return data
 
     case let .summary(.workout(patch)):
@@ -813,16 +813,6 @@ func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedReso
       }
 
       return .summary(.sleep(SleepPatch(sleep: sleep)))
-      
-    case .summary(.body), .summary(.profile):
-      return data
-      
-    case let .timeSeries(.heartRate(samples)):
-      let newSamples = average(samples, calendar: calendar)
-      return .timeSeries(.heartRate(newSamples))
-      
-    case .timeSeries:
-      return data
   }
 }
 

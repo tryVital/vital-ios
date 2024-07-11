@@ -762,7 +762,7 @@ func handleTimeSeries(
 }
 
 
-private func query(
+internal func query(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   type: HKSampleType,
