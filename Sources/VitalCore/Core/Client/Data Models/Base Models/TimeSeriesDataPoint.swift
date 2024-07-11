@@ -67,7 +67,7 @@ public struct GroupedSamplesResponse<Sample: Equatable & Decodable>: Equatable, 
   }
 
   public init(from decoder: Decoder) throws {
-    var container = try decoder.container(keyedBy: CodingKeys.self)
+    let container = try decoder.container(keyedBy: CodingKeys.self)
     let groups = try container.decode([String: [GroupedSamples<Sample>]].self, forKey: .groups)
     self.nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
     self.groups = Dictionary(

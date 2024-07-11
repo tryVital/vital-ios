@@ -1,6 +1,7 @@
 import HealthKit
 import VitalCore
 
+@HealthKitActor
 func handleMenstrualCycle(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,

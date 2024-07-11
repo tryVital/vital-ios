@@ -849,6 +849,7 @@ private func query(
   }
 }
 
+@HealthKitActor
 func queryMulti(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
@@ -861,7 +862,7 @@ func queryMulti(
   guard #available(iOS 15.0, *) else {
     return try await withThrowingTaskGroup(of: (key: HKSampleType, samples: [HKSample]).self) { group in
       for type in types {
-        group.addTask {
+        group.addTask { @HealthKitActor in
           let samples = try await querySingle(
             healthKitStore: healthKitStore,
             vitalStorage: vitalStorage,
@@ -932,8 +933,7 @@ func queryMulti(
   }
 }
 
-
-
+@HealthKitActor
 private func querySingle(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
@@ -944,7 +944,6 @@ private func querySingle(
   extraPredicate: NSPredicate? = nil
 ) async throws -> [HKSample] {
   return try await withCheckedThrowingContinuation { continuation in
-
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
       healthKitStore.stop(query)
 
