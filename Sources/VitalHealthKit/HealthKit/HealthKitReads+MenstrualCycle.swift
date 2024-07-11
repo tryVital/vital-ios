@@ -214,6 +214,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
   let contraceptive: [CycleBoundary: [MenstrualCycle.ContraceptiveEntry]]
   let homePregnancyTest: [CycleBoundary: [MenstrualCycle.HomePregnancyTestEntry]]
   let homeProgesteroneTest: [CycleBoundary: [MenstrualCycle.HomeProgesteroneTestEntry]]
+  var detectedDeviations: [CycleBoundary: [MenstrualCycle.DetectedDeviationEntry]] = [:]
 
   if #available(iOS 15.0, *) {
     contraceptive = groupSamplesByBoundary(
@@ -265,6 +266,33 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
   }
 
 
+  if #available(iOS 16.0, *) {
+    detectedDeviations = [:]
+    func processDeviations(
+      _ identifier: HKCategoryTypeIdentifier,
+      _ deviation: MenstrualCycle.MenstrualDeviation
+    ) {
+      let entries = groupSamplesByBoundary(
+        .categoryType(forIdentifier: identifier)!,
+        boundaries: cycleBoundaries,
+        sampleClass: HKCategorySample.self,
+        transform: { date, sample -> MenstrualCycle.DetectedDeviationEntry? in
+          return MenstrualCycle.DetectedDeviationEntry(date: date, deviation: deviation)
+        }
+      )
+
+      for (date, entries) in entries {
+        detectedDeviations[date, default: []].append(contentsOf: entries)
+      }
+    }
+
+    processDeviations(.persistentIntermenstrualBleeding, .persistentIntermenstrualBleeding)
+    processDeviations(.infrequentMenstrualCycles, .infrequentMenstrualCycles)
+    processDeviations(.prolongedMenstrualPeriods, .prolongedMenstrualPeriods)
+    processDeviations(.irregularMenstrualCycles, .irregularMenstrualCycles)
+  }
+
+
   return cycleBoundaries.map { cycle in
     LocalMenstrualCycle(
       sourceBundle: sourceBundle,
@@ -276,7 +304,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
         cervicalMucus: cervicalMucus[cycle] ?? [],
         intermenstrualBleeding: intermenstrualBleeding[cycle] ?? [],
         contraceptive: contraceptive[cycle] ?? [],
-        detectedDeviations: [],
+        detectedDeviations: detectedDeviations[cycle] ?? [],
         ovulationTest: ovulationTest[cycle] ?? [],
         homePregnancyTest: homePregnancyTest[cycle] ?? [],
         homeProgesteroneTest: homeProgesteroneTest[cycle] ?? [],

@@ -61,7 +61,7 @@ extension MenstrualCycle {
     case heavy
   }
 
-  public enum MenstraulDeviation: String, Codable {
+  public enum MenstrualDeviation: String, Codable {
     case persistentIntermenstrualBleeding = "persistent_intermenstrual_bleeding"
     case prolongedMenstrualPeriods = "prolonged_menstrual_periods"
     case irregularMenstrualCycles = "irregular_menstrual_cycles"
@@ -155,11 +155,11 @@ extension MenstrualCycle {
 
   public struct DetectedDeviationEntry: Equatable, Codable {
     public let date: GregorianCalendar.Date
-    public let deviation: MenstraulDeviation
+    public let deviation: MenstrualDeviation
 
     public init(
       date: GregorianCalendar.Date,
-      deviation: MenstraulDeviation
+      deviation: MenstrualDeviation
     ) {
       self.date = date
       self.deviation = deviation
