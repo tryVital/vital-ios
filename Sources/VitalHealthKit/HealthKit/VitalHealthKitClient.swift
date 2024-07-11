@@ -602,8 +602,7 @@ extension VitalHealthKitClient {
       
       (data, entitiesToStore) = try await store.readResource(
         remappedResource,
-        instruction.query.lowerBound,
-        instruction.query.upperBound,
+        instruction,
         storage,
         ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
       )
@@ -727,8 +726,7 @@ extension VitalHealthKitClient {
       healthKitStore:  HKHealthStore(),
       typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
-      startDate: startDate,
-      endDate: endDate,
+      instruction: SyncInstruction(stage: .daily, query: startDate ..< endDate),
       options: ReadOptions()
     )
 
