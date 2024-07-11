@@ -1,6 +1,7 @@
 import HealthKit
 import VitalCore
 
+@HealthKitActor
 func handleMenstrualCycle(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
@@ -44,26 +45,51 @@ func handleMenstrualCycle(
     searchLowerBound = Date.dateAgo(instruction.query.upperBound, days: 90)
   }
 
+  // Use end-of-day (exclusive) as the search upper bound.
+  // Apple Health writes calendar date bound samples at UTC noon (12:00:00Z).
+  let searchUpperBound = instruction.query.upperBound.dayEnd
+
   let sampleGroups = try await queryMulti(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     types: types,
     startDate: searchLowerBound,
-    endDate: instruction.query.upperBound
+    endDate: searchUpperBound
   )
 
   let cycles = splitGroupBySourceBundle(sampleGroups)
     .flatMap { processMenstrualCycleSamples($1, fromSourceBundle: $0) }
 
-  var anchors: [StoredAnchor] = []
+  let currentHash = try deterministicHash(for: cycles)
 
-  if !cycles.isEmpty {
-    anchors.append(
-      StoredAnchor(key: "menstrual_cycle", anchor: nil, date: Date(), vitalAnchors: nil)
+  let previousAnchor = vitalStorage.read(key: "menstrual_cycle")
+  let previousHash = previousAnchor?.vitalAnchors?.first?.id
+
+  let newAnchors = [
+    StoredAnchor(
+      key: "menstrual_cycle",
+      anchor: nil,
+      date: Date(),
+      vitalAnchors: [VitalAnchor(id: currentHash)]
     )
+  ]
+
+  VitalLogger.healthKit.info("hash: prev = \(previousHash ?? "nil"); curr = \(currentHash)", source: "MenstrualCycle")
+
+  if previousHash != currentHash {
+    return (menstrualCycles: cycles, anchors: newAnchors)
+
+  } else {
+    return (menstrualCycles: [], anchors: newAnchors)
   }
 
-  return (menstrualCycles: cycles, anchors: anchors)
+}
+
+func deterministicHash<T: Encodable>(for content: T) throws -> String {
+  let encoder = JSONEncoder()
+  encoder.outputFormatting = [.sortedKeys]
+
+  return try encoder.encode(content).base64EncodedSHA256()
 }
 
 func splitGroupBySourceBundle(_ groups: [HKSampleType: [HKSample]]) -> [String: [HKSampleType: [HKSample]]] {
@@ -135,7 +161,23 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
     sampleClass: Sample.Type,
     transform: (GregorianCalendar.Date, Sample) -> Entry?
   ) -> [CycleBoundary: [Entry]] {
-    return [:]
+    guard let samples = groups[type] else { return [:] }
+
+    // Simple O(N*M) algorithm since the number of entries is low.
+    return Dictionary(
+      uniqueKeysWithValues: boundaries.map { boundary in
+        (
+          boundary,
+          samples.compactMap { sample -> Entry? in
+            let startDate = sample.calendarDate(of: \.startDate)
+            guard boundary.contains(startDate) else { return nil }
+
+            let entry = transform(startDate, sample as! Sample)
+            return entry
+          }
+        )
+      }
+    )
   }
 
   let menstrualFlows = groupSamplesByBoundary(
@@ -335,6 +377,14 @@ struct CycleBoundary: Hashable {
   let cycleStart: GregorianCalendar.Date
   let periodEnd: GregorianCalendar.Date?
   let cycleEnd: GregorianCalendar.Date?
+
+  func contains(_ date: GregorianCalendar.Date) -> Bool {
+    if let cycleEnd = cycleEnd {
+      return cycleStart <= date && date <= cycleEnd
+    }
+
+    return cycleStart <= date
+  }
 }
 
 extension MenstrualCycle.MenstrualFlow {

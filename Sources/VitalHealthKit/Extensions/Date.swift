@@ -28,6 +28,8 @@ extension Date {
     return vitalCalendar.startOfDay(for: self)
   }
   
+  /// End of the day (exclusive)
+  /// Equivalent to the first instant of the next day.
   var dayEnd: Date {
     let components = DateComponents(day: 1)
     return vitalCalendar.date(byAdding: components, to: dayStart) ?? self

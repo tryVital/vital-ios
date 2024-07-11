@@ -115,6 +115,7 @@ extension VitalHealthKitStore {
 
 
     case
+      HKCategoryType.categoryType(forIdentifier: .menstrualFlow)!,
       HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
       HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
       HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
