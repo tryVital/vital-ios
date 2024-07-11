@@ -222,6 +222,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
 
 func observedSampleTypes() -> [[HKSampleType]] {
   var menstrualCycleTypes: [HKSampleType] = [
+    HKCategoryType.categoryType(forIdentifier: .menstrualFlow)!,
     HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
     HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
     HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,

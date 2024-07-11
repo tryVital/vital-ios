@@ -2,8 +2,10 @@ import Foundation
 
 public struct MenstrualCycle: Equatable, Codable {
   public let periodStart: GregorianCalendar.Date
-  public let periodEnd: GregorianCalendar.Date?
-  public let cycleEnd: GregorianCalendar.Date?
+  @NilAsNull
+  public var periodEnd: GregorianCalendar.Date?
+  @NilAsNull
+  public var cycleEnd: GregorianCalendar.Date?
 
   public let menstrualFlow: [MenstrualFlowEntry]
   public let cervicalMucus: [CervicalMucusEntry]

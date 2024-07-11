@@ -20,3 +20,9 @@ extension String {
     return SHA256.hash(data: data).hexStr
   }
 }
+
+extension Data {
+  func base64EncodedSHA256() -> String {
+    Data(SHA256.hash(data: self).bytes).base64EncodedString()
+  }
+}
