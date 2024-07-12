@@ -90,6 +90,7 @@ extension MenstrualCycle {
 
   public enum OvulationTestResult: String, Codable {
     case negative
+    case positive
     case luteinizingHormoneSurge = "luteinizing_hormone_surge"
     case estrogenSurge = "estrogen_surge"
     case indeterminate
@@ -213,11 +214,13 @@ extension MenstrualCycle {
 
   public struct SexualActivityEntry: Equatable, Codable {
     public let date: GregorianCalendar.Date
-    public let protectionUsed: Bool
+
+    @NilAsNull
+    public var protectionUsed: Bool?
 
     public init(
       date: GregorianCalendar.Date,
-      protectionUsed: Bool
+      protectionUsed: Bool?
     ) {
       self.date = date
       self.protectionUsed = protectionUsed

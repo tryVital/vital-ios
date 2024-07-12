@@ -222,7 +222,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
     boundaries: cycleBoundaries,
     sampleClass: HKCategorySample.self,
     transform: { date, sample -> MenstrualCycle.SexualActivityEntry? in
-      let protectionUsed = sample.metadata?[HKMetadataKeySexualActivityProtectionUsed] as? Bool ?? false
+      let protectionUsed = sample.metadata?[HKMetadataKeySexualActivityProtectionUsed] as? Bool
       return MenstrualCycle.SexualActivityEntry(date: date, protectionUsed: protectionUsed)
     }
   )
