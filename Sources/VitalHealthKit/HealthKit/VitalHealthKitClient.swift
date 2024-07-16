@@ -556,10 +556,10 @@ extension VitalHealthKitClient {
       // ingestion end date dictates the query upper bound.
       ingestionEnd: backendState.requestEndDate,
 
-      perDeviceActivityTS: backendState.perDeviceActivityTS,
+      perDeviceActivityTS: backendState.perDeviceActivityTs ?? false,
 
       // When we should revalidate the LocalSyncState again.
-      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn))
+      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400))
     )
 
     try storage.setLocalSyncState(state)

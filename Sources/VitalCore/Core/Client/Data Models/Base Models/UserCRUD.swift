@@ -33,9 +33,14 @@ public struct SingleBackfillTypeOverride: Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.historicalDaysToPull = try container.decode(Int.self, forKey: .historicalDaysToPull)
   }
+  
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
+  }
 
   enum CodingKeys: String, CodingKey {
-    case historicalDaysToPull = "historical_days_to_pull"
+    case historicalDaysToPull
   }
 }
 
@@ -50,10 +55,20 @@ public struct TeamDataPullPreferences: Codable {
       Dictionary(uniqueKeysWithValues: $0.map { (BackfillType(rawValue: $0.key)!, $0.value) })
     } ?? nil
   }
+  
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
+    
+    if let backfillTypeOverrides = backfillTypeOverrides {
+      let overrides = Dictionary(uniqueKeysWithValues: backfillTypeOverrides.map { ($0.key.rawValue, $0.value) })
+      try container.encode(overrides, forKey: .backfillTypeOverrides)
+    }
+  }
 
   enum CodingKeys: String, CodingKey {
-    case historicalDaysToPull = "historical_days_to_pull"
-    case backfillTypeOverrides = "backfill_type_overrides"
+    case historicalDaysToPull
+    case backfillTypeOverrides
   }
 }
 
@@ -61,28 +76,9 @@ public struct UserSDKSyncStateResponse: Decodable {
   public let status: Status
   public let requestStartDate: Date?
   public let requestEndDate: Date?
-  public var perDeviceActivityTS: Bool = false
-  public var expiresIn: Int = 14400
-  public var pullPreferences: TeamDataPullPreferences?
-
-  public init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.status = try container.decode(Status.self, forKey: .status)
-    self.requestStartDate = try container.decodeIfPresent(Date.self, forKey: .requestStartDate)
-    self.requestEndDate = try container.decodeIfPresent(Date.self, forKey: .requestEndDate)
-    self.perDeviceActivityTS = try container.decodeIfPresent(Bool.self, forKey: .perDeviceActivityTS) ?? false
-    self.expiresIn = try container.decodeIfPresent(Int.self, forKey: .expiresIn) ?? 14400
-    self.pullPreferences = try container.decodeIfPresent(TeamDataPullPreferences.self, forKey: .pullPreferences) ?? nil
-  }
-
-  enum CodingKeys: String, CodingKey {
-    case status = "status"
-    case requestStartDate = "request_start_date"
-    case requestEndDate = "request_end_date"
-    case perDeviceActivityTS = "per_device_activity_ts"
-    case expiresIn = "expires_in"
-    case pullPreferences = "pull_preferences"
-  }
+  public var perDeviceActivityTs: Bool? = false
+  public var expiresIn: Int?
+  public var pullPreferences: TeamDataPullPreferences? = nil
 }
 
 public enum Stage: String, Encodable {

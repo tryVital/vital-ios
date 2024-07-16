@@ -27,6 +27,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
       return BackfillType.mindfulnessMinutes;
     case .workout:
       return BackfillType.workouts;
+    case .menstrualCycle:
+      return BackfillType.menstrualCycle;
     }
   }
 
