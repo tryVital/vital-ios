@@ -33,7 +33,7 @@ public struct SingleBackfillTypeOverride: Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.historicalDaysToPull = try container.decode(Int.self, forKey: .historicalDaysToPull)
   }
-  
+
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
@@ -55,11 +55,11 @@ public struct TeamDataPullPreferences: Codable {
       Dictionary(uniqueKeysWithValues: $0.map { (BackfillType(rawValue: $0.key)!, $0.value) })
     } ?? nil
   }
-  
+
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
-    
+
     if let backfillTypeOverrides = backfillTypeOverrides {
       let overrides = Dictionary(uniqueKeysWithValues: backfillTypeOverrides.map { ($0.key.rawValue, $0.value) })
       try container.encode(overrides, forKey: .backfillTypeOverrides)
