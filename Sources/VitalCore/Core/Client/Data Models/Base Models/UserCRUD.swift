@@ -44,6 +44,7 @@ public struct SingleBackfillTypeOverride: Codable {
   }
 }
 
+@_spi(VitalSDKInternals)
 public struct TeamDataPullPreferences: Codable {
   public let historicalDaysToPull: Int
   public let backfillTypeOverrides: [BackfillType: SingleBackfillTypeOverride]?
@@ -52,7 +53,7 @@ public struct TeamDataPullPreferences: Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.historicalDaysToPull = try container.decode(Int.self, forKey: .historicalDaysToPull)
     self.backfillTypeOverrides = try container.decodeIfPresent([String: SingleBackfillTypeOverride].self, forKey: .backfillTypeOverrides).map {
-      Dictionary(uniqueKeysWithValues: $0.map { (BackfillType(rawValue: $0.key)!, $0.value) })
+      Dictionary(uniqueKeysWithValues: $0.map { (BackfillType(rawValue: $0.key), $0.value) })
     } ?? nil
   }
 
@@ -72,8 +73,10 @@ public struct TeamDataPullPreferences: Codable {
   }
 }
 
+@_spi(VitalSDKInternals)
 public struct UserSDKSyncStateResponse: Decodable {
   public let status: Status
+  public let ingestionStart: Date?
   public let requestStartDate: Date?
   public let requestEndDate: Date?
   public var perDeviceActivityTs: Bool? = false

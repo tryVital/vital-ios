@@ -1,11 +1,13 @@
 import Foundation
 import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 
 internal struct LocalSyncState: Codable {
   let historicalStageAnchor: Date
   let defaultDaysToBackfill: Int
   let teamDataPullPreferences: TeamDataPullPreferences?
 
+  let ingestionStart: Date
   let ingestionEnd: Date?
   let perDeviceActivityTS: Bool
 
@@ -14,7 +16,9 @@ internal struct LocalSyncState: Codable {
   func historicalStartDate(for resource: VitalResource) -> Date {
     let backfillType = resource.resourceToBackfillType();
     let daysToBackfill = teamDataPullPreferences?.backfillTypeOverrides?[backfillType]?.historicalDaysToPull ?? teamDataPullPreferences?.historicalDaysToPull;
-    return Date.dateAgo(historicalStageAnchor, days: daysToBackfill ?? defaultDaysToBackfill)
+
+    let calculatedDate = Date.dateAgo(historicalStageAnchor, days: daysToBackfill ?? defaultDaysToBackfill)
+    return max(ingestionStart, calculatedDate)
   }
 }
 
