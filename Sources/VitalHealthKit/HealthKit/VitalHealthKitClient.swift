@@ -541,13 +541,11 @@ extension VitalHealthKitClient {
     }
 
     let state = LocalSyncState(
-      // Historical start date is generally fixed once generated the first time, until signOut() reset.
-      //
-      // The only exception is if an ingestion start was set, in which case the most up-to-date
-      // ingestion start date takes precedence.
-      historicalStageAnchor: backendState.requestStartDate ?? previousState?.historicalStageAnchor ?? now,
+      historicalStageAnchor: previousState?.historicalStageAnchor ?? now,
       defaultDaysToBackfill: previousState?.defaultDaysToBackfill ?? configuration.numberOfDaysToBackFill,
+      teamDataPullPreferences: previousState?.teamDataPullPreferences ?? backendState.pullPreferences,
 
+      ingestionStart: backendState.ingestionStart ?? previousState?.ingestionStart ?? .distantPast,
       // The query upper bound (end date for historical & daily) is normally open-ended.
       // In other words, `ingestionEnd` is typically nil.
       //
@@ -555,10 +553,10 @@ extension VitalHealthKitClient {
       // ingestion end date dictates the query upper bound.
       ingestionEnd: backendState.requestEndDate,
 
-      perDeviceActivityTS: backendState.perDeviceActivityTS,
+      perDeviceActivityTS: backendState.perDeviceActivityTs ?? false,
 
       // When we should revalidate the LocalSyncState again.
-      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn))
+      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400))
     )
 
     try storage.setLocalSyncState(state)

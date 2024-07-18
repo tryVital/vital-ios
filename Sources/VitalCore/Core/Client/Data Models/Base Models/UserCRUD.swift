@@ -26,29 +26,62 @@ public enum Status: String, Decodable {
   case error
 }
 
-public struct UserSDKSyncStateResponse: Decodable {
-  public let status: Status
-  public let requestStartDate: Date?
-  public let requestEndDate: Date?
-  public var perDeviceActivityTS: Bool = false
-  public var expiresIn: Int = 14400
+public struct SingleBackfillTypeOverride: Codable {
+  public let historicalDaysToPull: Int
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.status = try container.decode(Status.self, forKey: .status)
-    self.requestStartDate = try container.decodeIfPresent(Date.self, forKey: .requestStartDate)
-    self.requestEndDate = try container.decodeIfPresent(Date.self, forKey: .requestEndDate)
-    self.perDeviceActivityTS = try container.decodeIfPresent(Bool.self, forKey: .perDeviceActivityTS) ?? false
-    self.expiresIn = try container.decodeIfPresent(Int.self, forKey: .expiresIn) ?? 14400
+    self.historicalDaysToPull = try container.decode(Int.self, forKey: .historicalDaysToPull)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
   }
 
   enum CodingKeys: String, CodingKey {
-    case status = "status"
-    case requestStartDate = "request_start_date"
-    case requestEndDate = "request_end_date"
-    case perDeviceActivityTS = "per_device_activity_ts"
-    case expiresIn = "expires_in"
+    case historicalDaysToPull
   }
+}
+
+@_spi(VitalSDKInternals)
+public struct TeamDataPullPreferences: Codable {
+  public let historicalDaysToPull: Int
+  public let backfillTypeOverrides: [BackfillType: SingleBackfillTypeOverride]?
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.historicalDaysToPull = try container.decode(Int.self, forKey: .historicalDaysToPull)
+    self.backfillTypeOverrides = try container.decodeIfPresent([String: SingleBackfillTypeOverride].self, forKey: .backfillTypeOverrides).map {
+      Dictionary(uniqueKeysWithValues: $0.map { (BackfillType(rawValue: $0.key), $0.value) })
+    } ?? nil
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(historicalDaysToPull, forKey: .historicalDaysToPull)
+
+    if let backfillTypeOverrides = backfillTypeOverrides {
+      let overrides = Dictionary(uniqueKeysWithValues: backfillTypeOverrides.map { ($0.key.rawValue, $0.value) })
+      try container.encode(overrides, forKey: .backfillTypeOverrides)
+    }
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case historicalDaysToPull
+    case backfillTypeOverrides
+  }
+}
+
+@_spi(VitalSDKInternals)
+public struct UserSDKSyncStateResponse: Decodable {
+  public let status: Status
+  public let ingestionStart: Date?
+  public let requestStartDate: Date?
+  public let requestEndDate: Date?
+  public var perDeviceActivityTs: Bool? = false
+  public var expiresIn: Int?
+  public var pullPreferences: TeamDataPullPreferences? = nil
 }
 
 public enum Stage: String, Encodable {
