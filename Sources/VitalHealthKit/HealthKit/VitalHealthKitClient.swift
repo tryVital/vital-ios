@@ -261,33 +261,35 @@ extension VitalHealthKitClient {
       (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
     }
 
-    let task = Task(priority: .high) {
-      /// Detect if we have ever had performed an initial sync.
+    let task = Task(priority: .high) { @MainActor in
+      /// If we are in foreground, check if the historical stage has been completed.
       /// If we never did, start a background task and runs the initial sync first.
       /// This ensures that `syncData` is called on all VitalResources at least once.
-      ///
       /// We would defer consuming `stream` until all the initial sync are completed.
-      let unflaggedResources = resources.filter { storage.readFlag(for: $0.wrapped) == false }
+      ///
+      /// However, skip this and start consuming `stream` when we are in background.
+      if UIApplication.shared.applicationState == .active {
+        let unflaggedResources = resources.filter { storage.readFlag(for: $0.wrapped) == false }
 
-      if unflaggedResources.isEmpty == false {
-        VitalLogger.healthKit.info("[historical-bgtask] Started for \(unflaggedResources)")
+        if unflaggedResources.isEmpty == false {
+          VitalLogger.healthKit.info("[historical-bgtask] Started for \(unflaggedResources)")
 
-        let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
-        osBackgroundTask.start("vital-historical-stage", expiration: {})
-        defer {
-          osBackgroundTask.endIfNeeded()
-          VitalLogger.healthKit.info("[historical-bgtask] Ended")
-        }
-
-        try await withTaskCancellationHandler {
-
-          for resource in unflaggedResources {
-            try Task.checkCancellation()
-            await sync(resource)
+          let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
+          osBackgroundTask.start("vital-historical-stage", expiration: {})
+          defer {
+            osBackgroundTask.endIfNeeded()
+            VitalLogger.healthKit.info("[historical-bgtask] Ended")
           }
 
-        } onCancel: { osBackgroundTask.endIfNeeded() }
+          try await withTaskCancellationHandler {
 
+            for resource in unflaggedResources {
+              try Task.checkCancellation()
+              await sync(resource)
+            }
+
+          } onCancel: { osBackgroundTask.endIfNeeded() }
+        }
       }
 
       for await payload in stream {
@@ -303,26 +305,29 @@ extension VitalHealthKitClient {
           continue
         }
 
-        // Task is not cancelled — we must call the HealthKit completion handler irrespective of
-        // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
-        // rule of HealthKit background delivery.
-        //
-        // Since we have fairly frequent delivery anyway, each of which will implicit retry from
-        // where the last sync has left off, this unconfigurable exponential backoff retry
-        // behaviour adds little to no value in maintaining data freshness.
-        //
-        // (except for the task cancellation redelivery expectation stated above).
-        defer { payload.completion(.completed) }
+        // Allow multiple resource sync to run concurrently.
+        Task(priority: .high) {
+          // Task is not cancelled — we must call the HealthKit completion handler irrespective of
+          // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
+          // rule of HealthKit background delivery.
+          //
+          // Since we have fairly frequent delivery anyway, each of which will implicit retry from
+          // where the last sync has left off, this unconfigurable exponential backoff retry
+          // behaviour adds little to no value in maintaining data freshness.
+          //
+          // (except for the task cancellation redelivery expectation stated above).
+          defer { payload.completion(.completed) }
 
-        VitalLogger.healthKit.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes)")
+          VitalLogger.healthKit.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes)")
 
-        guard let first = payload.sampleTypes.first else {
-          continue
+          guard let first = payload.sampleTypes.first else {
+            return
+          }
+
+          /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
+          let resource = VitalHealthKitStore.remapResource(store.toVitalResource(first))
+          await sync(resource)
         }
-
-        /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-        let resource = VitalHealthKitStore.remapResource(store.toVitalResource(first))
-        await sync(resource)
       }
     }
 
