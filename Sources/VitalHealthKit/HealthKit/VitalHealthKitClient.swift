@@ -272,13 +272,13 @@ extension VitalHealthKitClient {
         let unflaggedResources = resources.filter { storage.readFlag(for: $0.wrapped) == false }
 
         if unflaggedResources.isEmpty == false {
-          VitalLogger.healthKit.info("[historical-bgtask] Started for \(unflaggedResources)")
+          VitalLogger.healthKit.info("started: \(unflaggedResources)", source: "HistoricalBgTask")
 
           let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
           osBackgroundTask.start("vital-historical-stage", expiration: {})
           defer {
             osBackgroundTask.endIfNeeded()
-            VitalLogger.healthKit.info("[historical-bgtask] Ended")
+            VitalLogger.healthKit.info("ended: \(unflaggedResources)", source: "HistoricalBgTask")
           }
 
           try await withTaskCancellationHandler {
@@ -318,7 +318,7 @@ extension VitalHealthKitClient {
           // (except for the task cancellation redelivery expectation stated above).
           defer { payload.completion(.completed) }
 
-          VitalLogger.healthKit.info("[BackgroundDelivery] Dequeued payload for \(payload.sampleTypes)")
+          VitalLogger.healthKit.info("received: \(payload.sampleTypes.map(\.shortenedIdentifier))", source: "BgDelivery")
 
           guard let first = payload.sampleTypes.first else {
             return
@@ -343,11 +343,11 @@ extension VitalHealthKitClient {
       store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
         
         guard failure == nil && success else {
-          VitalLogger.healthKit.error("Failed to enable background delivery for type: \(sampleType.identifier). Did you enable \"Background Delivery\" in Capabilities?")
+          VitalLogger.healthKit.error("failed: \(sampleType.shortenedIdentifier); error = \(String(describing: failure))", source: "EnableBgDelivery")
           return
         }
         
-        VitalLogger.healthKit.info("Successfully enabled background delivery for type: \(sampleType.identifier)")
+        VitalLogger.healthKit.info("enabled: \(sampleType.shortenedIdentifier)", source: "EnableBgDelivery")
       }
     }
   }
@@ -378,13 +378,13 @@ extension VitalHealthKitClient {
           }
 
           guard error == nil else {
-            VitalLogger.healthKit.error("Failed to background deliver for \(String(describing: sampleTypes)) with \(String(describing: error)).")
+            VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).")
 
             ///  We need a better way to handle if a failure happens here.
             return
           }
 
-          VitalLogger.healthKit.info("[HealthKit] Notified changes in \(sampleTypes)")
+          VitalLogger.healthKit.info("notified: \(sampleTypes.map(\.shortenedIdentifier))", source: "HealthKit")
 
           // It appears that the iOS 15+ HKObserverQuery might pass us `HKSampleType`s that is
           // outside the conditions we specified via `descriptors`. Filter out any unsolicited types
@@ -441,8 +441,8 @@ extension VitalHealthKitClient {
             return
           }
 
-          VitalLogger.healthKit.info("[HealthKit] Notified changes in \(sampleType)")
-          
+          VitalLogger.healthKit.info("notified: \(sampleType.shortenedIdentifier)", source: "HealthKit")
+
           let payload = BackgroundDeliveryPayload(
             sampleTypes: Set([sampleType]),
             completion: { completion in
@@ -585,12 +585,20 @@ extension VitalHealthKitClient {
   }
 
   private func sync(_ remappedResource: RemappedVitalResource) async {
-    guard self.pauseSynchronization == false else { return }
-
     let resource = remappedResource.wrapped
-
-    let configuration = await configuration.get()
     let description = resource.logDescription
+
+    guard self.pauseSynchronization == false else {
+      VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
+      return
+    }
+
+    VitalLogger.healthKit.info("[\(description)] begin", source: "Sync")
+
+    guard let configuration = configuration.value else {
+      VitalLogger.healthKit.info("[\(description)] configuration unavailable", source: "Sync")
+      return
+    }
 
     do {
       let (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped)
