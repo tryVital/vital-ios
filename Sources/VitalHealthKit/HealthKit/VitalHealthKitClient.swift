@@ -637,57 +637,67 @@ extension VitalHealthKitClient {
 
       // Signal syncing (so the consumer can convey it to the user)
       _status.send(.syncing(resource))
-      
-      // Fetch from HealthKit
-      let (data, entitiesToStore): (ProcessedResourceData?, [StoredAnchor])
-      
-      (data, entitiesToStore) = try await store.readResource(
-        remappedResource,
-        instruction,
-        storage,
-        ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
-      )
 
-      // We skip empty POST only in daily stage.
-      // Empty POST is sent for historical stage, so we would consistently emit
-      // historical.data.*.created events.
-      guard
-        let data = data,
-        instruction.stage == .historical || data.shouldSkipPost == false
-      else {
+      var hasMore = false
 
-        VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
-        _status.send(.nothingToSync(resource))
+      repeat {
+        // Fetch from HealthKit
+        let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
 
-        return
-      }
-
-      if configuration.mode.isAutomatic {
-        VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
-
-        // Post data
-        try await vitalClient.post(
-          data,
-          instruction.taggedPayloadStage,
-          .appleHealthKit,
-          /// We can't use `vitalCalendar` here. We want to send the user's timezone
-          /// rather than UTC (which is what `vitalCalendar` is set to).
-          TimeZone.current
+        (data, anchors) = try await store.readResource(
+          remappedResource,
+          instruction,
+          storage,
+          ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
         )
-      } else {
-        VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
-      }
-      
-      // This is used for calculating the stage (daily vs historical)
-      storage.storeFlag(for: resource)
-      
-      // Save the anchor/date on a succesfull network call
-      entitiesToStore.forEach(storage.store(entity:))
-      
-      VitalLogger.healthKit.info("[\(description)] completed", source: "Sync")
 
-      // Signal success
-      _status.send(.successSyncing(resource, data))
+        // Continue the loop if any anchor reports hasMore=true.
+        hasMore = anchors.contains(where: \.hasMore)
+
+        // We skip empty POST only in daily stage.
+        // Empty POST is sent for historical stage, so we would consistently emit
+        // historical.data.*.created events.
+        guard
+          let data = data,
+          instruction.stage == .historical || data.shouldSkipPost == false
+        else {
+
+          VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
+          _status.send(.nothingToSync(resource))
+
+          return
+        }
+
+        if configuration.mode.isAutomatic {
+          VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
+
+          // Post data
+          try await vitalClient.post(
+            data,
+            instruction.taggedPayloadStage,
+            .appleHealthKit,
+            /// We can't use `vitalCalendar` here. We want to send the user's timezone
+            /// rather than UTC (which is what `vitalCalendar` is set to).
+            TimeZone.current,
+            // Is final chunk?
+            hasMore == false
+          )
+        } else {
+          VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
+        }
+
+        // This is used for calculating the stage (daily vs historical)
+        storage.storeFlag(for: resource)
+
+        // Save the anchor/date on a succesfull network call
+        anchors.forEach(storage.store(entity:))
+
+        // Signal success
+        _status.send(.successSyncing(resource, data))
+
+        VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
+
+      } while hasMore
 
     } catch let error {
       VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
