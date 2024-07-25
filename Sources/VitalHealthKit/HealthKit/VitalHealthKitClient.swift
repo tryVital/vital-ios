@@ -51,6 +51,10 @@ public enum PermissionOutcome: Equatable {
 
   let configuration: ProtectedBox<Configuration>
 
+  let syncSerializerLock = NSLock()
+  var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
+
+
   private var isAutoSyncConfigured: Bool {
     backgroundDeliveryEnabled.value ?? false
   }
@@ -568,6 +572,35 @@ extension VitalHealthKitClient {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
       return
     }
+
+    let parkingLot = self.syncSerializerLock.withLock {
+      if let parkingLot = self.syncSerializer[remappedResource] {
+        return parkingLot
+      }
+
+      let newLot = ParkingLot()
+      self.syncSerializer[remappedResource] = newLot
+      return newLot
+    }
+
+    // Use ParkingLot to ensure that — for each `RemappedVitalResource` — there can only be one
+    // `sync()` call actually carrying out the sync work.
+    //
+    // All other subsequent callers would just wait in the ParkingLot until the sync work is done.
+    //
+    // This defends the SDK against flood of HKObserverQuery callouts, presumably caused by some
+    // apps saving each HKSample individually, rather than in batches.
+    // (e.g., Oura as at July 2024)
+    guard parkingLot.tryTo(.enable) else {
+      VitalLogger.healthKit.info("[\(description)] +1 parked; fg=\(foreground)", source: "Sync")
+
+      // Throw CancellationError, which we can gracefully ignore.
+      try? await parkingLot.parkIfNeeded()
+
+      VitalLogger.healthKit.info("[\(description)] -1 parked; fg=\(foreground)", source: "Sync")
+      return
+    }
+    defer { _ = parkingLot.tryTo(.disable) }
 
     VitalLogger.healthKit.info("[\(description)] begin fg=\(foreground)", source: "Sync")
 
