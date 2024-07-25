@@ -15,6 +15,14 @@ struct ReadOptions {
   }
 }
 
+struct Predicates: @unchecked Sendable {
+  let wrapped: [NSPredicate]
+
+  init(_ predicates: [NSPredicate]) {
+    self.wrapped = predicates
+  }
+}
+
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   
@@ -302,6 +310,8 @@ struct StatisticsQueryDependencies {
   /// and the resulting statistics use end-exclusive time intervals as well.
   var executeStatisticalQuery: (HKQuantityType, Range<Date>, Granularity, HKStatisticsOptions?) async throws -> [VitalStatistics]
 
+  var executeSingleStatisticsQuery: (HKQuantityType, Range<Date>, HKStatisticsOptions, Predicates) async throws -> HKStatistics?
+
   var isFirstTimeSycingType: (HKQuantityType) -> Bool
   var isLegacyType: (HKQuantityType) -> Bool
   
@@ -312,6 +322,8 @@ struct StatisticsQueryDependencies {
 
   static var debug: StatisticsQueryDependencies {
     return .init { _, _, _, _ in
+      fatalError()
+    } executeSingleStatisticsQuery: { _, _, _, _ in
       fatalError()
     } isFirstTimeSycingType: { _ in
       fatalError()
@@ -432,6 +444,57 @@ struct StatisticsQueryDependencies {
         }
 
         healthKitStore.execute(query)
+      }
+
+    } executeSingleStatisticsQuery: { type, date, options, predicates in
+
+      // %@ <= %K AND %K < %@
+      // Exclusive end as per Apple documentation
+      // https://developer.apple.com/documentation/healthkit/hkquery/1614771-predicateforsampleswithstartdate#discussion
+      let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        HKQuery.predicateForSamples(
+          withStart: date.lowerBound,
+          end: date.upperBound,
+          options: [.strictStartDate, .strictEndDate]
+        )
+      ] + predicates.wrapped)
+
+      // If task is already cancelled, don't bother with starting the query.
+      try Task.checkCancellation()
+
+      return try await withCheckedThrowingContinuation { continuation in
+
+        healthKitStore.execute(
+          HKStatisticsQuery(
+            quantityType: type,
+            quantitySamplePredicate: predicate,
+            options: type.idealStatisticalQueryOptions
+          ) { _, statistics, error in
+            guard let statistics = statistics else {
+              guard let error = error else {
+                continuation.resume(
+                  throwing: VitalHealthKitClientError.healthKitInvalidState(
+                    "HKStatisticsCollectionQuery returns neither a result set nor an error."
+                  )
+                )
+                return
+              }
+
+              switch (error as? HKError)?.code {
+              case .errorNoData:
+                continuation.resume(with: .success(nil))
+              default:
+                continuation.resume(with: .failure(error))
+              }
+
+              return
+            }
+
+            continuation.resume(
+              with: .success(statistics)
+            )
+          }
+        )
       }
 
     } isFirstTimeSycingType: { type in
