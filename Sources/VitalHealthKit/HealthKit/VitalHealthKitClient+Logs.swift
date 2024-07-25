@@ -93,7 +93,7 @@ extension VitalHealthKitClient {
 
   public static func clearLogs() throws {
     guard let rootDirectoryURL = VitalPersistentLogger.shared?.directoryURL(for: nil) else { return }
-    if FileManager.default.fileExists(atPath: rootDirectoryURL.absoluteString) {
+    if FileManager.default.fileExists(atPath: rootDirectoryURL.path) {
       try FileManager.default.removeItem(at: rootDirectoryURL)
     }
   }

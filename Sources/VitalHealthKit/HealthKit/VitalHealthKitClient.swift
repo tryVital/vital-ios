@@ -638,21 +638,28 @@ extension VitalHealthKitClient {
       // Signal syncing (so the consumer can convey it to the user)
       _status.send(.syncing(resource))
 
-      var hasMore = false
-
-      repeat {
+      @Sendable func readStep(uncommittedAnchors: [StoredAnchor]) async throws -> (ProcessedResourceData?, [StoredAnchor], hasMore: Bool) {
         // Fetch from HealthKit
         let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
 
         (data, anchors) = try await store.readResource(
           remappedResource,
           instruction,
-          storage,
+          AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
           ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
         )
 
         // Continue the loop if any anchor reports hasMore=true.
-        hasMore = anchors.contains(where: \.hasMore)
+        let hasMore = anchors.contains(where: \.hasMore)
+
+        return (data, anchors, hasMore)
+      }
+
+      @Sendable func uploadStep(
+        data: ProcessedResourceData?,
+        anchors: [StoredAnchor],
+        hasMore: Bool
+      ) async throws {
 
         // We skip empty POST only in daily stage.
         // Empty POST is sent for historical stage, so we would consistently emit
@@ -686,8 +693,6 @@ extension VitalHealthKitClient {
           VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
         }
 
-        // This is used for calculating the stage (daily vs historical)
-        storage.storeFlag(for: resource)
 
         // Save the anchor/date on a succesfull network call
         anchors.forEach(storage.store(entity:))
@@ -696,8 +701,55 @@ extension VitalHealthKitClient {
         _status.send(.successSyncing(resource, data))
 
         VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
+      }
 
-      } while hasMore
+      // Overlap read and upload, so we maximize the use of limited background execution time.
+      //
+      // .read -> .upload
+      //           .read  -> .upload
+      //                      .read -> .upload
+      //                                 (fin)
+
+      let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
+      pipelineScheduler.yield(.read())
+
+      let uploadSemaphore = ParkingLot().semaphore
+
+      try await withThrowingTaskGroup(of: Void.self) { group in
+        for await stage in pipeline {
+          try Task.checkCancellation()
+
+          switch stage {
+          case let .read(uncommittedAnchors):
+            _ = group.addTaskUnlessCancelled {
+              let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
+              pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
+            }
+
+          case let .upload(data, anchors, hasMore: hasMore):
+            _ = group.addTaskUnlessCancelled {
+              try await uploadSemaphore.acquire()
+              defer { uploadSemaphore.release() }
+
+              if hasMore {
+                pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
+              }
+
+              try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+
+              if !hasMore {
+                pipelineScheduler.finish()
+              }
+            }
+          }
+        }
+
+        try await group.waitForAll()
+      }
+
+
+      // This is used for calculating the stage (daily vs historical)
+      storage.storeFlag(for: resource)
 
     } catch let error {
       VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
@@ -759,6 +811,20 @@ extension VitalHealthKitClient {
     /// This is not technically correct, because a resource (e.g. activity) can be made up of many types.
     /// In this case, we pick up the most recent one.
     return dates.sorted { $0.compare($1) == .orderedDescending }.first
+  }
+}
+
+enum PipelineStage {
+  case read(uncommittedAnchors: [StoredAnchor] = [])
+  case upload(ProcessedResourceData?, [StoredAnchor], hasMore: Bool)
+
+  var description: String {
+    switch self {
+    case .read:
+      return "read"
+    case let .upload(_, _, hasMore):
+      return "upload(\(hasMore ? "hasMore" : "noMore"))"
+    }
   }
 }
 

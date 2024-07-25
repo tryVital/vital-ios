@@ -4,7 +4,7 @@ import VitalCore
 @HealthKitActor
 func handleMenstrualCycle(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   instruction: SyncInstruction
 ) async throws -> (menstrualCycles: [LocalMenstrualCycle], anchors: [StoredAnchor]) {
 

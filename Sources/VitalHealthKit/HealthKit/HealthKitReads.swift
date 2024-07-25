@@ -42,7 +42,7 @@ func read(
   resource: RemappedVitalResource,
   healthKitStore: HKHealthStore,
   typeToResource: ((HKSampleType) -> VitalResource),
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   instruction: SyncInstruction,
   options: ReadOptions
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
@@ -203,7 +203,7 @@ func read(
 
 func handleMindfulSessions(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
@@ -227,7 +227,7 @@ func handleMindfulSessions(
 
 func handleProfile(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage
+  vitalStorage: AnchorStorage
 ) async throws -> (profilePatch: ProfilePatch?, anchors: [StoredAnchor]) {
 
   let storageKey = "profile"
@@ -270,7 +270,7 @@ func handleProfile(
 
 func handleBody(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date
 ) async throws -> (bodyPatch: BodyPatch, anchors: [StoredAnchor]) {
@@ -317,7 +317,7 @@ func handleBody(
 
 func handleSleep(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date,
   options: ReadOptions
@@ -478,7 +478,7 @@ func handleSleep(
         wristTemperature = []
       }
 
-      let stats = StatisticsQueryDependencies.live(healthKitStore: healthKitStore, vitalStorage: vitalStorage)
+      let stats = StatisticsQueryDependencies.live(healthKitStore: healthKitStore)
       let queryInterval = sleep.startDate ..< sleep.endDate
       let predicates = Predicates([fromSameSourceRevision])
 
@@ -521,15 +521,14 @@ func handleSleep(
 
 func handleActivity(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date,
   options: ReadOptions
 ) async throws -> (activityPatch: ActivityPatch?, anchors: [StoredAnchor]) {
 
   let dependencies = StatisticsQueryDependencies.live(
-    healthKitStore: healthKitStore,
-    vitalStorage: vitalStorage
+    healthKitStore: healthKitStore
   )
 
   // Calendar in local TZ, used for day summaries and final sample grouping.
@@ -711,7 +710,7 @@ func handleActivity(
 
 func handleWorkouts(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date,
   options: ReadOptions
@@ -863,7 +862,7 @@ func handleWorkouts(
 
 func handleBloodPressure(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date
 ) async throws -> (bloodPressure: [LocalBloodPressureSample], anchors: [StoredAnchor]) {
@@ -890,7 +889,7 @@ func handleBloodPressure(
 func handleTimeSeries(
   type: HKSampleType,
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   startDate: Date,
   endDate: Date
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
@@ -912,10 +911,59 @@ func handleTimeSeries(
   return (samples,anchors)
 }
 
-
 private func anchoredQuery(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
+  type: HKSampleType,
+  limit: Int,
+  startDate: Date? = nil,
+  endDate: Date? = nil,
+  extraPredicate: NSPredicate? = nil
+) async throws -> (sample: some Sequence<HKSample>, anchor: StoredAnchor?) {
+
+  let shortID = "Query,\(type.shortenedIdentifier)"
+
+  VitalLogger.healthKit.info("batch begin with bound \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil")", source: shortID)
+  defer {
+    VitalLogger.healthKit.info("batch ended", source: shortID)
+  }
+
+  var samplesToReturn: [[HKSample]] = []
+  var latestAnchor: StoredAnchor? = nil
+  var tally = 0
+  var attemptsRemaining = 4
+
+  // AnchoredQuery returns both new & deleted objects, which means new could stay below the limit
+  // sometimes.
+  //
+  // Try to fill up to the target batch size, with at most 4 attempts.
+  repeat {
+    let (samples, anchor) = try await anchoredQueryCore(
+      healthKitStore,
+      vitalStorage: AnchorStorageOverlay(
+        wrapped: vitalStorage,
+        uncommittedAnchors: latestAnchor.map { [$0] } ?? []
+      ),
+      type: type,
+      limit: limit - tally,
+      startDate: startDate,
+      endDate: endDate,
+      extraPredicate: extraPredicate
+    )
+
+    tally += samples.count
+    samplesToReturn.append(samples)
+    latestAnchor = anchor
+    attemptsRemaining -= 1
+
+  } while (latestAnchor?.hasMore ?? false) && tally < limit && attemptsRemaining > 0
+
+  return (samplesToReturn.lazy.flatMap { $0 }, latestAnchor)
+}
+
+private func anchoredQueryCore(
+  _ healthKitStore: HKHealthStore,
+  vitalStorage: AnchorStorage,
   type: HKSampleType,
   limit: Int,
   startDate: Date? = nil,
@@ -930,7 +978,8 @@ private func anchoredQuery(
 
     let handler: AnchorQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
       healthKitStore.stop(query)
-      
+      VitalLogger.healthKit.info("anchor[out]: \((newAnchor?.description ?? "nil").dropFirst(16).prefix(16))", source: shortID)
+
       if let error = error {
         if let error = error as? HKError {
           switch error.code {
@@ -942,7 +991,7 @@ private func anchoredQuery(
               vitalAnchors: nil
             )
 
-            VitalLogger.healthKit.info("no data or no permission; anchor = \(newAnchor?.description ?? "nil")", source: shortID)
+            VitalLogger.healthKit.info("no data or no permission", source: shortID)
             continuation.resume(with: .success(([], storedAnchor)))
             return
 
@@ -959,15 +1008,21 @@ private func anchoredQuery(
       }
 
       let samples = samples ?? []
+      let deletedObject = deletedObject ?? []
+
       let anchorToStore = StoredAnchor(
         key: String(describing: type),
         anchor: newAnchor,
         date: Date(),
         vitalAnchors: nil,
-        hasMore: !samples.isEmpty && currentAnchor != newAnchor
+        // We cannot rely on samples.count because:
+        // 1. the limit is dynamically shared by samples & deletedObject
+        // 2. HealthKit does not guarantee samples.count + deletedObject.count == limit
+        // So the only reliable indicator is anchor equality.
+        hasMore: currentAnchor != newAnchor
       )
 
-      VitalLogger.healthKit.info("found \(samples.count) new, \(anchorToStore.hasMore ? "hasMore" : "noMore")", source: shortID)
+      VitalLogger.healthKit.info("found \(samples.count) new, \(deletedObject.count) deleted, \(anchorToStore.hasMore ? "hasMore" : "noMore")", source: shortID)
 
       continuation.resume(with: .success((samples, anchorToStore)))
     }
@@ -986,8 +1041,7 @@ private func anchoredQuery(
       resultsHandler: handler
     )
 
-    VitalLogger.healthKit.info("will look \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil")", source: shortID)
-    VitalLogger.healthKit.info("with anchor: \(currentAnchor?.description ?? "nil")", source: shortID)
+    VitalLogger.healthKit.info("anchor[in]: \((currentAnchor?.description ?? "nil").dropFirst(16).prefix(16))", source: shortID)
 
     healthKitStore.execute(query)
   }
@@ -996,7 +1050,7 @@ private func anchoredQuery(
 @HealthKitActor
 func queryMulti(
   healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  vitalStorage: AnchorStorage,
   types: Set<HKSampleType>,
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,
@@ -1527,8 +1581,8 @@ private func filterForWatch(samples: [HKSample]) -> [HKSample] {
   }
 }
 
-private func filter(samples: [HKSample], by dataSources: [DataSource]) -> [HKSample] {
-  
+private func filter(samples: some Sequence<HKSample>, by dataSources: [DataSource]) -> [HKSample] {
+
   return samples.filter { sample in
     let identifier = sample.sourceRevision.source.bundleIdentifier
 

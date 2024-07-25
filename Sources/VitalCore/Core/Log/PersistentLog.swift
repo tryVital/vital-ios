@@ -97,11 +97,11 @@ public final class VitalPersistentLogger: @unchecked Sendable {
 
     let fileUrl = directoryUrl.appendingPathComponent("\(calendarDate).log")
 
-    let exists = FileManager.default.fileExists(atPath: fileUrl.absoluteString)
+    let exists = FileManager.default.fileExists(atPath: fileUrl.path)
 
     if !exists {
       try! FileManager.default.createDirectory(at: directoryUrl, withIntermediateDirectories: true)
-      FileManager.default.createFile(atPath: fileUrl.absoluteString, contents: Data())
+      FileManager.default.createFile(atPath: fileUrl.path, contents: Data())
     }
 
     return fileUrl

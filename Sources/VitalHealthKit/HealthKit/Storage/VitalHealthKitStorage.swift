@@ -1,7 +1,23 @@
 import HealthKit
 import VitalCore
 
-class VitalHealthKitStorage {
+protocol AnchorStorage {
+  func read(key: String) -> StoredAnchor?
+}
+
+struct AnchorStorageOverlay: AnchorStorage {
+  let wrapped: AnchorStorage
+  let uncommittedAnchors: [StoredAnchor]
+
+  func read(key: String) -> StoredAnchor? {
+    guard let anchor = uncommittedAnchors.first(where: { $0.key == key })
+      else { return wrapped.read(key: key) }
+
+    return anchor
+  }
+}
+
+class VitalHealthKitStorage: AnchorStorage {
 
   private static let localSyncState = "local_sync_state"
 
