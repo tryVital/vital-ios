@@ -18,6 +18,14 @@ enum VitalHealthKitClientError: Error {
   case healthKitInvalidState(String)
 }
 
+enum AnchoredQueryChunkSize {
+  static let timeseries = 50000
+  static let workout = 40
+  // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
+  static let sleep = HKObjectQueryNoLimit
+  static let activityTimeseries = 50000
+}
+
 struct VitalStatisticsError: Error {
   let statistics: HKStatistics
 
@@ -200,10 +208,11 @@ func handleMindfulSessions(
 
   var anchors: [StoredAnchor] = []
 
-  let payload = try await query(
+  let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     type: .categoryType(forIdentifier: .mindfulSession)!,
+    limit: AnchoredQueryChunkSize.timeseries,
     startDate: startDate,
     endDate: endDate
   )
@@ -268,10 +277,11 @@ func handleBody(
     type: HKSampleType
   ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
     
-    let payload = try await query(
+    let payload = try await anchoredQuery(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       type: type,
+      limit: AnchoredQueryChunkSize.timeseries,
       startDate: startDate,
       endDate: endDate
     )
@@ -319,10 +329,11 @@ func handleSleep(
     predicate = HKCategoryValueSleepAnalysis.predicateForSamples(equalTo: [.asleepUnspecified, .asleepCore, .asleepREM, .asleepDeep, .awake, .inBed])
   }
   
-  let payload = try await query(
+  let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     type: sleepType,
+    limit: AnchoredQueryChunkSize.sleep,
     startDate: startDate,
     endDate: endDate,
     extraPredicate: predicate
@@ -548,10 +559,11 @@ func handleActivity(
       discoveryStartDate = startDate
     }
 
-    let payload = try await query(
+    let payload = try await anchoredQuery(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       type: type,
+      limit: AnchoredQueryChunkSize.activityTimeseries,
       startDate: discoveryStartDate,
       endDate: endDate
     )
@@ -652,13 +664,21 @@ func handleActivity(
     hourlyDistanceWalkingRunning.first?.startDate,
   ].compactMap { $0 }.min()
 
+  let daySummaryEndDate: Date? = [
+    hourlyActiveEnergyBurned.first?.endDate,
+    hourlyBasalEnergyBurned.first?.endDate,
+    hourlyStepCount.first?.endDate,
+    hourlyFlightsClimbed.first?.endDate,
+    hourlyDistanceWalkingRunning.first?.endDate,
+  ].compactMap { $0 }.max()
+
   let daySummaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]
 
   if let startDate = daySummaryStartDate {
     daySummaries = try await queryActivityDaySummaries(
       dependencies: dependencies,
       startTime: daySummaryStartDate ?? startDate,
-      endTime: endDate,
+      endTime: daySummaryEndDate ?? endDate,
       in: deviceTimeZoneCalendar
     )
   } else {
@@ -696,10 +716,11 @@ func handleWorkouts(
   
   var anchors: [StoredAnchor] = []
   
-  let payload = try await query(
+  let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     type: .workoutType(),
+    limit: AnchoredQueryChunkSize.workout,
     startDate: startDate,
     endDate: endDate
   )
@@ -748,10 +769,11 @@ func handleBloodPressure(
 
   let bloodPressureIdentifier = HKCorrelationType.correlationType(forIdentifier: .bloodPressure)!
   
-  let payload = try await query(
+  let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     type: bloodPressureIdentifier,
+    limit: AnchoredQueryChunkSize.timeseries,
     startDate: startDate,
     endDate: endDate
   )
@@ -772,10 +794,11 @@ func handleTimeSeries(
   endDate: Date
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
   
-  let payload = try await query(
+  let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
     type: type,
+    limit: AnchoredQueryChunkSize.timeseries,
     startDate: startDate,
     endDate: endDate
   )
@@ -789,11 +812,11 @@ func handleTimeSeries(
 }
 
 
-private func query(
+private func anchoredQuery(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   type: HKSampleType,
-  limit: Int = HKObjectQueryNoLimit,
+  limit: Int,
   startDate: Date? = nil,
   endDate: Date? = nil,
   extraPredicate: NSPredicate? = nil
@@ -802,7 +825,8 @@ private func query(
   let shortID = "Query,\(type.shortenedIdentifier)"
 
   return try await withCheckedThrowingContinuation { continuation in
-    
+    let currentAnchor = vitalStorage.read(key: String(describing: type.self))?.anchor
+
     let handler: AnchorQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
       healthKitStore.stop(query)
       
@@ -832,18 +856,19 @@ private func query(
           return
         }
       }
-      
-      let storedAnchor = StoredAnchor(
+
+      let samples = samples ?? []
+      let anchorToStore = StoredAnchor(
         key: String(describing: type),
         anchor: newAnchor,
         date: Date(),
-        vitalAnchors: nil
+        vitalAnchors: nil,
+        hasMore: !samples.isEmpty && currentAnchor != newAnchor
       )
 
-      let samples = samples ?? []
-      VitalLogger.healthKit.info("found \(samples.count) new", source: shortID)
+      VitalLogger.healthKit.info("found \(samples.count) new, \(anchorToStore.hasMore ? "hasMore" : "noMore")", source: shortID)
 
-      continuation.resume(with: .success((samples, storedAnchor)))
+      continuation.resume(with: .success((samples, anchorToStore)))
     }
     
     var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
@@ -851,19 +876,17 @@ private func query(
     if let extraPredicate = extraPredicate {
       predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, extraPredicate])
     }
-    
-    let anchor = vitalStorage.read(key: String(describing: type.self))?.anchor
-    
+
     let query = HKAnchoredObjectQuery(
       type: type,
       predicate: predicate,
-      anchor: anchor,
+      anchor: currentAnchor,
       limit: limit,
       resultsHandler: handler
     )
 
     VitalLogger.healthKit.info("will look \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil")", source: shortID)
-    VitalLogger.healthKit.info("with anchor: \(anchor?.description ?? "nil")", source: shortID)
+    VitalLogger.healthKit.info("with anchor: \(currentAnchor?.description ?? "nil")", source: shortID)
 
     healthKitStore.execute(query)
   }

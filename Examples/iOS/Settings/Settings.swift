@@ -202,7 +202,7 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
           await VitalHealthKitClient.configure(
             .init(
               backgroundDeliveryEnabled: true,
-              numberOfDaysToBackFill: 30,
+              numberOfDaysToBackFill: 365,
               logsEnabled: true
             )
           )
