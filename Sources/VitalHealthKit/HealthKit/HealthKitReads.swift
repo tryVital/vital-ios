@@ -777,7 +777,9 @@ private func query(
   endDate: Date? = nil,
   extraPredicate: NSPredicate? = nil
 ) async throws -> (sample: [HKSample], anchor: StoredAnchor?) {
-  
+
+  let shortID = "Query,\(type.shortenedIdentifier)"
+
   return try await withCheckedThrowingContinuation { continuation in
     
     let handler: AnchorQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
@@ -794,17 +796,17 @@ private func query(
               vitalAnchors: nil
             )
 
-            VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] no data or no permission; anchor = \(newAnchor?.description ?? "nil")")
+            VitalLogger.healthKit.info("no data or no permission; anchor = \(newAnchor?.description ?? "nil")", source: shortID)
             continuation.resume(with: .success(([], storedAnchor)))
             return
 
           default:
-            VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] HealthKit error = \(error.code)")
+            VitalLogger.healthKit.info("HealthKit error = \(error.code)", source: shortID)
             continuation.resume(with: .failure(error))
             return
           }
         } else {
-          VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] error = \(error)")
+          VitalLogger.healthKit.info("error = \(error)", source: shortID)
           continuation.resume(with: .failure(error))
           return
         }
@@ -818,7 +820,7 @@ private func query(
       )
 
       let samples = samples ?? []
-      VitalLogger.healthKit.info("[AnchoredQuery][\(type.shortenedIdentifier)] discovered \(samples.count) new samples")
+      VitalLogger.healthKit.info("found \(samples.count) new", source: shortID)
 
       continuation.resume(with: .success((samples, storedAnchor)))
     }
@@ -839,11 +841,8 @@ private func query(
       resultsHandler: handler
     )
 
-    VitalLogger.healthKit.info("""
-    [AnchoredQuery][\(type.shortenedIdentifier)] requesting delta;
-    bound = \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil");
-    anchor = \(anchor?.description ?? "nil")
-    """)
+    VitalLogger.healthKit.info("will look \(startDate?.description ?? "nil") ..< \(endDate?.description ?? "nil")", source: shortID)
+    VitalLogger.healthKit.info("with anchor: \(anchor?.description ?? "nil")", source: shortID)
 
     healthKitStore.execute(query)
   }
@@ -1091,11 +1090,8 @@ func queryActivityDaySummaries(
     ... calendar.floatingDate(of: endTime)
   let queryInterval = calendar.timeRange(of: datesToCompute)
 
-  VitalLogger.healthKit.info("""
-  [Day Summary] lastComputed = \(startTime) now = \(endTime)
-  datesToCompute = \(datesToCompute.lowerBound) ... \(datesToCompute.upperBound)
-  queryInterval = \(queryInterval.lowerBound) ..< \(queryInterval.upperBound)
-  """)
+  VitalLogger.healthKit.info("lastComputed = \(startTime) now = \(endTime)", source: "DaySummary")
+  VitalLogger.healthKit.info("recomputing \(queryInterval.lowerBound) ..< \(queryInterval.upperBound)", source: "DaySummary")
 
   async let _activeEnergyBurnedSum = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
