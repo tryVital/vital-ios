@@ -21,7 +21,13 @@ public struct SleepPatch: Equatable, Encodable {
     public var endDate: Date
     public var sourceBundle: String
     public var productType: String
-    
+
+    public var heartRateMaximum: Int? = nil
+    public var heartRateMinimum: Int? = nil
+    public var heartRateMean: Int? = nil
+    public var hrvMeanSdnn: Double? = nil
+    public var respiratoryRateMean: Double? = nil
+
     public var heartRate: [LocalQuantitySample] = []
     public var restingHeartRate: [LocalQuantitySample] = []
     public var heartRateVariability: [LocalQuantitySample] = []
@@ -41,6 +47,11 @@ public struct SleepPatch: Equatable, Encodable {
       endDate: Date,
       sourceBundle: String,
       productType: String,
+      heartRateMaximum: Int? = nil,
+      heartRateMinimum: Int? = nil,
+      heartRateMean: Int? = nil,
+      hrvMeanSdnn: Double? = nil,
+      respiratoryRateMean: Double? = nil,
       heartRate: [LocalQuantitySample] = [],
       restingHeartRate: [LocalQuantitySample] = [],
       heartRateVariability: [LocalQuantitySample] = [],
@@ -53,6 +64,11 @@ public struct SleepPatch: Equatable, Encodable {
       self.endDate = endDate
       self.sourceBundle = sourceBundle
       self.productType = productType
+      self.heartRateMaximum = heartRateMaximum
+      self.heartRateMinimum = heartRateMinimum
+      self.heartRateMean = heartRateMean
+      self.hrvMeanSdnn = hrvMeanSdnn
+      self.respiratoryRateMean = respiratoryRateMean
       self.heartRate = heartRate
       self.restingHeartRate = restingHeartRate
       self.heartRateVariability = heartRateVariability

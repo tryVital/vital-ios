@@ -15,6 +15,17 @@ public struct WorkoutPatch: Equatable, Encodable {
     public let ascentElevation: Double?
     public let descentElevation: Double?
 
+
+    public var heartRateMaximum: Int? = nil
+    public var heartRateMinimum: Int? = nil
+    public var heartRateMean: Int? = nil
+    public var heartRateZone1: Int? = nil
+    public var heartRateZone2: Int? = nil
+    public var heartRateZone3: Int? = nil
+    public var heartRateZone4: Int? = nil
+    public var heartRateZone5: Int? = nil
+    public var heartRateZone6: Int? = nil
+
     public var heartRate: [LocalQuantitySample] = []
     public var respiratoryRate: [LocalQuantitySample] = []
 
@@ -32,8 +43,17 @@ public struct WorkoutPatch: Equatable, Encodable {
       sport: String,
       calories: Double,
       distance: Double,
-      ascentElevation: Double?,
-      descentElevation: Double?,
+      heartRateMaximum: Int? = nil,
+      heartRateMinimum: Int? = nil,
+      heartRateMean: Int? = nil,
+      heartRateZone1: Int? = nil,
+      heartRateZone2: Int? = nil,
+      heartRateZone3: Int? = nil,
+      heartRateZone4: Int? = nil,
+      heartRateZone5: Int? = nil,
+      heartRateZone6: Int? = nil,
+      ascentElevation: Double? = nil,
+      descentElevation: Double? = nil,
       heartRate: [LocalQuantitySample] = [],
       respiratoryRate: [LocalQuantitySample] = []
     ) {
@@ -46,6 +66,15 @@ public struct WorkoutPatch: Equatable, Encodable {
       self.sport = sport
       self.calories = calories
       self.distance = distance
+      self.heartRateMaximum = heartRateMaximum
+      self.heartRateMinimum = heartRateMinimum
+      self.heartRateMean = heartRateMean
+      self.heartRateZone1 = heartRateZone1
+      self.heartRateZone2 = heartRateZone2
+      self.heartRateZone3 = heartRateZone3
+      self.heartRateZone4 = heartRateZone4
+      self.heartRateZone5 = heartRateZone5
+      self.heartRateZone6 = heartRateZone6
       self.ascentElevation = ascentElevation
       self.descentElevation = descentElevation
       self.heartRate = heartRate
