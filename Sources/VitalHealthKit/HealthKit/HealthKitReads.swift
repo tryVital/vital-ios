@@ -15,6 +15,7 @@ enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
   case invalidRemappedResource
   case connectionPaused
+  case healthKitInvalidState(String)
 }
 
 struct VitalStatisticsError: Error {
@@ -464,7 +465,35 @@ func handleSleep(
         wristTemperature = []
       }
 
+      let stats = StatisticsQueryDependencies.live(healthKitStore: healthKitStore, vitalStorage: vitalStorage)
+      let queryInterval = sleep.startDate ..< sleep.endDate
+      let predicates = Predicates([fromSameSourceRevision])
+
+      async let _heartRateStatistics = try stats.executeSingleStatisticsQuery(
+        HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+        queryInterval,
+        [.discreteMin, .discreteMax, .discreteAverage],
+        predicates
+      )
+
+      async let _hrvStatistics = try await stats.executeSingleStatisticsQuery(
+        HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+        queryInterval,
+        [.discreteAverage],
+        predicates
+      )
+
       var copy = sleep
+
+      let heartRateStatistics = try await _heartRateStatistics
+      let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
+      copy.heartRateMean = (heartRateStatistics?.averageQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
+      copy.heartRateMinimum = (heartRateStatistics?.minimumQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
+      copy.heartRateMaximum = (heartRateStatistics?.maximumQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
+
+      let hrvStatistics = try await _hrvStatistics
+      copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: .secondUnit(with: .milli))
+
       copy.heartRate = heartRate
       copy.heartRateVariability = hearRateVariability
       copy.respiratoryRate = respiratoryRate
