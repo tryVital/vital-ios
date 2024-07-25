@@ -635,11 +635,9 @@ extension VitalHealthKitClient {
       if configuration.mode.isAutomatic {
         VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
 
-        let transformedData = transform(data: data, calendar: vitalCalendar)
-
         // Post data
         try await vitalClient.post(
-          transformedData,
+          data,
           instruction.taggedPayloadStage,
           .appleHealthKit,
           /// We can't use `vitalCalendar` here. We want to send the user's timezone
@@ -736,11 +734,7 @@ extension VitalHealthKitClient {
       options: ReadOptions()
     )
 
-    if let data = data {
-      return transform(data: data, calendar: vitalCalendar)
-    }
-
-    return nil
+    return data
   }
 }
 
@@ -770,53 +764,6 @@ extension VitalHealthKitClient {
         self.syncData()
       }
     }
-  }
-}
-
-func transform(data: ProcessedResourceData, calendar: Calendar) -> ProcessedResourceData {
-  switch data {
-    case .summary(.activity), .summary(.menstrualCycle), .summary(.body), .summary(.profile), .timeSeries:
-      return data
-
-    case let .summary(.workout(patch)):
-      let workouts = patch.workouts.map { workout in
-        WorkoutPatch.Workout(
-          id: workout.id,
-          startDate: workout.startDate,
-          endDate: workout.endDate,
-          movingTime: workout.movingTime,
-          sourceBundle: workout.sourceBundle,
-          productType: workout.productType,
-          sport: workout.sport,
-          calories: workout.calories,
-          distance: workout.distance,
-          ascentElevation: workout.ascentElevation,
-          descentElevation: workout.descentElevation,
-          heartRate: average(workout.heartRate, calendar: calendar),
-          respiratoryRate: average(workout.respiratoryRate, calendar: calendar)
-        )
-      }
-      
-      return .summary(.workout(WorkoutPatch(workouts: workouts)))
-
-    case let.summary(.sleep(patch)):
-      let sleep = patch.sleep.map { sleep in
-        SleepPatch.Sleep(
-          id: sleep.id,
-          startDate: sleep.startDate,
-          endDate: sleep.endDate,
-          sourceBundle: sleep.sourceBundle,
-          productType: sleep.productType,
-          heartRate: average(sleep.heartRate, calendar: calendar),
-          restingHeartRate: average(sleep.restingHeartRate, calendar: calendar),
-          heartRateVariability: average(sleep.heartRateVariability, calendar: calendar),
-          oxygenSaturation: average(sleep.oxygenSaturation, calendar: calendar),
-          respiratoryRate: average(sleep.respiratoryRate, calendar: calendar),
-          sleepStages: sleep.sleepStages
-        )
-      }
-
-      return .summary(.sleep(SleepPatch(sleep: sleep)))
   }
 }
 
