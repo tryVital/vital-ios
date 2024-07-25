@@ -261,37 +261,7 @@ extension VitalHealthKitClient {
       (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
     }
 
-    let task = Task(priority: .high) { @MainActor in
-      /// If we are in foreground, check if the historical stage has been completed.
-      /// If we never did, start a background task and runs the initial sync first.
-      /// This ensures that `syncData` is called on all VitalResources at least once.
-      /// We would defer consuming `stream` until all the initial sync are completed.
-      ///
-      /// However, skip this and start consuming `stream` when we are in background.
-      if UIApplication.shared.applicationState == .active {
-        let unflaggedResources = resources.filter { storage.readFlag(for: $0.wrapped) == false }
-
-        if unflaggedResources.isEmpty == false {
-          VitalLogger.healthKit.info("started: \(unflaggedResources)", source: "HistoricalBgTask")
-
-          let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
-          osBackgroundTask.start("vital-historical-stage", expiration: {})
-          defer {
-            osBackgroundTask.endIfNeeded()
-            VitalLogger.healthKit.info("ended: \(unflaggedResources)", source: "HistoricalBgTask")
-          }
-
-          try await withTaskCancellationHandler {
-
-            for resource in unflaggedResources {
-              try Task.checkCancellation()
-              await sync(resource)
-            }
-
-          } onCancel: { osBackgroundTask.endIfNeeded() }
-        }
-      }
-
+    let task = Task<Void, any Error>(priority: .high) { @MainActor in
       for await payload in stream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
@@ -326,7 +296,7 @@ extension VitalHealthKitClient {
 
           /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
           let resource = VitalHealthKitStore.remapResource(store.toVitalResource(first))
-          await sync(resource)
+          await sync(resource, foreground: payload.appState != .background)
         }
       }
     }
@@ -394,15 +364,18 @@ extension VitalHealthKitClient {
           if filteredSampleTypes.isEmpty {
             handler()
           } else {
-            let payload = BackgroundDeliveryPayload(
-              sampleTypes: filteredSampleTypes,
-              completion: { completion in
-                if completion == .completed {
-                  handler()
-                }
-              }
-            )
-            continuation.yield(payload)
+            Task(priority: .userInitiated) { @MainActor in
+              let payload = BackgroundDeliveryPayload(
+                sampleTypes: filteredSampleTypes,
+                completion: { completion in
+                  if completion == .completed {
+                    handler()
+                  }
+                },
+                appState: UIApplication.shared.applicationState
+              )
+              continuation.yield(payload)
+            }
           }
         }
 
@@ -443,15 +416,18 @@ extension VitalHealthKitClient {
 
           VitalLogger.healthKit.info("notified: \(sampleType.shortenedIdentifier)", source: "HealthKit")
 
-          let payload = BackgroundDeliveryPayload(
-            sampleTypes: Set([sampleType]),
-            completion: { completion in
-              if completion == .completed {
-                handler()
-              }
-            }
-          )
-          continuation.yield(payload)
+          Task(priority: .userInitiated) { @MainActor in
+            let payload = BackgroundDeliveryPayload(
+              sampleTypes: Set([sampleType]),
+              completion: { completion in
+                if completion == .completed {
+                  handler()
+                }
+              },
+              appState: UIApplication.shared.applicationState
+            )
+            continuation.yield(payload)
+          }
         }
         
         queries.append(query)
@@ -479,7 +455,7 @@ extension VitalHealthKitClient {
       let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
       for resource in remappedResources {
-        await sync(resource)
+        await sync(resource, foreground: true)
       }
       
       _status.send(.syncingCompleted)
@@ -584,20 +560,41 @@ extension VitalHealthKitClient {
     return (instruction, state)
   }
 
-  private func sync(_ remappedResource: RemappedVitalResource) async {
+  private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {
     let resource = remappedResource.wrapped
-    let description = resource.logDescription
+    let description = resource.resourceToBackfillType().rawValue
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
       return
     }
 
-    VitalLogger.healthKit.info("[\(description)] begin", source: "Sync")
+    VitalLogger.healthKit.info("[\(description)] begin fg=\(foreground)", source: "Sync")
 
     guard let configuration = configuration.value else {
       VitalLogger.healthKit.info("[\(description)] configuration unavailable", source: "Sync")
       return
+    }
+
+    // If we receive this payload in foreground, wrap the sync work in
+    // a UIKit background task, in case the user will move the app to background soon.
+
+    let osBackgroundTask: ProtectedBox<UIBackgroundTaskIdentifier>?
+
+    if foreground {
+      osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
+      osBackgroundTask!.start("vital-sync-\(description)", expiration: {})
+      VitalLogger.healthKit.info("started: daily:\(description)", source: "UIKitBgTask")
+
+    } else {
+      osBackgroundTask = nil
+    }
+
+    defer {
+      if let osBackgroundTask = osBackgroundTask {
+        osBackgroundTask.endIfNeeded()
+        VitalLogger.healthKit.info("ended: daily:\(description)", source: "UIKitBgTask")
+      }
     }
 
     do {
