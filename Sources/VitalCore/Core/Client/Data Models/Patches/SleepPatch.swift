@@ -29,9 +29,7 @@ public struct SleepPatch: Equatable, Encodable {
     public var respiratoryRateMean: Double? = nil
 
     public var heartRate: [LocalQuantitySample] = []
-    public var restingHeartRate: [LocalQuantitySample] = []
     public var heartRateVariability: [LocalQuantitySample] = []
-    public var oxygenSaturation: [LocalQuantitySample] = []
     public var respiratoryRate: [LocalQuantitySample] = []
     public var wristTemperature: [LocalQuantitySample] = []
 
@@ -53,9 +51,7 @@ public struct SleepPatch: Equatable, Encodable {
       hrvMeanSdnn: Double? = nil,
       respiratoryRateMean: Double? = nil,
       heartRate: [LocalQuantitySample] = [],
-      restingHeartRate: [LocalQuantitySample] = [],
       heartRateVariability: [LocalQuantitySample] = [],
-      oxygenSaturation: [LocalQuantitySample] = [],
       respiratoryRate: [LocalQuantitySample] = [],
       sleepStages: SleepStages = .init()
     ) {
@@ -70,9 +66,7 @@ public struct SleepPatch: Equatable, Encodable {
       self.hrvMeanSdnn = hrvMeanSdnn
       self.respiratoryRateMean = respiratoryRateMean
       self.heartRate = heartRate
-      self.restingHeartRate = restingHeartRate
       self.heartRateVariability = heartRateVariability
-      self.oxygenSaturation = oxygenSaturation
       self.respiratoryRate = respiratoryRate
       self.sleepStages = sleepStages
     }

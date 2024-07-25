@@ -728,7 +728,7 @@ extension VitalHealthKitClient {
       typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       instruction: SyncInstruction(stage: .daily, query: startDate ..< endDate),
-      options: ReadOptions()
+      options: ReadOptions(embedTimeseries: true)
     )
 
     return data
