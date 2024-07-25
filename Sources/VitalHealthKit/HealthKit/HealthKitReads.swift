@@ -68,7 +68,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.summary(.sleep(payload.sleepPatch)), payload.anchors)
@@ -305,7 +306,8 @@ func handleSleep(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (sleepPatch: SleepPatch, anchors: [StoredAnchor]) {
   
   var anchors: [StoredAnchor] = []
@@ -348,6 +350,8 @@ func handleSleep(
   var copies: [SleepPatch.Sleep] = []
 
   for (groupKey, sampleGroup) in samplesBySourceBundle {
+    let sourceRevision = sampleGroup[0].sourceRevision
+
     /// Sorting by start date is essential here, since HKAnchoredObjectQuery returns samples in insertion order.
     /// There is otherwise no guarantee of samples being somewhat chornologically ordered, and being so are important to
     /// achieve consistent and quality stitches across all sorts of HealthKit writers.
@@ -406,51 +410,40 @@ func handleSleep(
         fitSamples(sleep: &sleep)
       }
 
-      let originalHR: [HKSample] = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .heartRate)!,
-        startDate: sleep.startDate,
-        endDate: sleep.endDate
-      )
+      var heartRate: [LocalQuantitySample] = []
+      var hearRateVariability: [LocalQuantitySample] = []
+      var respiratoryRate: [LocalQuantitySample] = []
 
-      let filteredHR = originalHR.filter(by: sleep.sourceBundle)
-      let heartRate = filteredHR.compactMap(LocalQuantitySample.init)
+      let fromSameSourceRevision = NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, sourceRevision)
 
-      let hearRateVariability: [LocalQuantitySample] = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
-        startDate: sleep.startDate,
-        endDate: sleep.endDate
-      )
-        .filter(by: sleep.sourceBundle)
-        .compactMap(LocalQuantitySample.init)
+      if options.embedTimeseries {
+        heartRate = try await querySample(
+          healthKitStore: healthKitStore,
+          type: .quantityType(forIdentifier: .heartRate)!,
+          startDate: sleep.startDate,
+          endDate: sleep.endDate,
+          extraPredicates: [fromSameSourceRevision]
+        )
+          .compactMap(LocalQuantitySample.init)
 
-      let oxygenSaturation: [LocalQuantitySample] = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .oxygenSaturation)!,
-        startDate: sleep.startDate,
-        endDate: sleep.endDate
-      )
-        .filter(by: sleep.sourceBundle)
-        .compactMap(LocalQuantitySample.init)
+        hearRateVariability = try await querySample(
+          healthKitStore: healthKitStore,
+          type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+          startDate: sleep.startDate,
+          endDate: sleep.endDate,
+          extraPredicates: [fromSameSourceRevision]
+        )
+          .compactMap(LocalQuantitySample.init)
 
-      let restingHeartRate: [LocalQuantitySample] = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .restingHeartRate)!,
-        startDate: sleep.startDate,
-        endDate: sleep.endDate
-      )
-        .filter(by: sleep.sourceBundle)
-        .compactMap(LocalQuantitySample.init)
-
-      let respiratoryRate: [LocalQuantitySample] = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .respiratoryRate)!,
-        startDate: sleep.startDate,
-        endDate: sleep.endDate
-      )
-        .filter(by: sleep.sourceBundle)
-        .compactMap(LocalQuantitySample.init)
+        respiratoryRate = try await querySample(
+          healthKitStore: healthKitStore,
+          type: .quantityType(forIdentifier: .respiratoryRate)!,
+          startDate: sleep.startDate,
+          endDate: sleep.endDate,
+          extraPredicates: [fromSameSourceRevision]
+        )
+          .compactMap(LocalQuantitySample.init)
+      }
 
       let wristTemperature: [LocalQuantitySample]
 
@@ -460,6 +453,7 @@ func handleSleep(
           type: .quantityType(forIdentifier: .appleSleepingWristTemperature)!,
           startDate: sleep.startDate,
           endDate: sleep.endDate,
+          extraPredicates: [fromSameSourceRevision],
           // `appleSleepingWristTemperature` sometimes falls outside the bounds of a sleep
           // This means that if we use `strictStartDate` we won't pick up these values.
           options: []
@@ -473,8 +467,6 @@ func handleSleep(
       var copy = sleep
       copy.heartRate = heartRate
       copy.heartRateVariability = hearRateVariability
-      copy.restingHeartRate = restingHeartRate
-      copy.oxygenSaturation = oxygenSaturation
       copy.respiratoryRate = respiratoryRate
       copy.wristTemperature = wristTemperature
 
@@ -1205,6 +1197,7 @@ func querySample(
   startDate: Date? = nil,
   endDate: Date? = nil,
   ascending: Bool = true,
+  extraPredicates: [NSPredicate] = [],
   options: HKQueryOptions = [.strictStartDate]
 ) async throws -> [HKSample] {
   
@@ -1221,12 +1214,16 @@ func querySample(
       continuation.resume(with: .success(samples ?? []))
     }
     
-    let predicate = HKQuery.predicateForSamples(
+    var predicate = HKQuery.predicateForSamples(
       withStart: startDate,
       end: endDate,
       options: options
     )
-    
+
+    if !extraPredicates.isEmpty {
+      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate] + extraPredicates)
+    }
+
     let sort = [
       NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
     ]
