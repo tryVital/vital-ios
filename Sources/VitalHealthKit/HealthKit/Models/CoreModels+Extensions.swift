@@ -475,11 +475,7 @@ public extension SleepPatch.Sleep {
 }
 
 extension WorkoutPatch.Workout {
-  public init?(sample: HKSample) {
-    guard let workout = sample as? HKWorkout else {
-      return nil
-    }
-
+  public init(_ workout: HKWorkout) {
     var ascentElevation: Double? = nil
     if let ascentElevationQuantity = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
       ascentElevation = ascentElevationQuantity.doubleValue(for: .meter())
@@ -492,8 +488,8 @@ extension WorkoutPatch.Workout {
 
     self.init(
       id: workout.uuid,
-      startDate: sample.startDate,
-      endDate: sample.endDate,
+      startDate: workout.startDate,
+      endDate: workout.endDate,
       movingTime: workout.duration,
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,

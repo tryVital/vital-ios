@@ -21,6 +21,20 @@ struct Predicates: @unchecked Sendable {
   init(_ predicates: [NSPredicate]) {
     self.wrapped = predicates
   }
+
+  func withHeartRateZone(_ range: Range<Double>) -> Predicates {
+    let unit = HKUnit.count().unitDivided(by: .minute())
+    return Predicates(wrapped + [
+      HKQuery.predicateForQuantitySamples(
+        with: .greaterThanOrEqualTo,
+        quantity: HKQuantity(unit: unit, doubleValue: range.lowerBound)
+      ),
+      HKQuery.predicateForQuantitySamples(
+        with: .lessThan,
+        quantity: HKQuantity(unit: unit, doubleValue: range.upperBound)
+      ),
+    ])
+  }
 }
 
 struct VitalHealthKitStore {
@@ -470,7 +484,7 @@ struct StatisticsQueryDependencies {
           HKStatisticsQuery(
             quantityType: type,
             quantitySamplePredicate: predicate,
-            options: type.idealStatisticalQueryOptions
+            options: options
           ) { _, statistics, error in
             guard let statistics = statistics else {
               guard let error = error else {
@@ -492,9 +506,7 @@ struct StatisticsQueryDependencies {
               return
             }
 
-            continuation.resume(
-              with: .success(statistics)
-            )
+            continuation.resume(with: .success(statistics))
           }
         )
       }

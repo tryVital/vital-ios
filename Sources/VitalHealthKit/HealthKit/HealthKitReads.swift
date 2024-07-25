@@ -1,5 +1,6 @@
 import HealthKit
 import VitalCore
+import Accelerate
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
 typealias AnchorQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
@@ -98,7 +99,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
@@ -691,7 +693,8 @@ func handleWorkouts(
   healthKitStore: HKHealthStore,
   vitalStorage: VitalHealthKitStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (workoutPatch: WorkoutPatch, anchors: [StoredAnchor]) {
   
   var anchors: [StoredAnchor] = []
@@ -704,40 +707,138 @@ func handleWorkouts(
     endDate: endDate
   )
   
-  let workouts = payload.sample.compactMap(WorkoutPatch.Workout.init)
   anchors.appendOptional(payload.anchor)
-  
+
+  let knownAge: Int?
+  do {
+    let dateOfBirth = try healthKitStore.patched_dateOfBirthComponents()
+    knownAge = dateOfBirth.flatMap { dob in
+      vitalCalendar.dateComponents(
+        [.year],
+        from: dob,
+        to: vitalCalendar.dateComponents(in: .current, from: Date())
+      ).year
+    }
+  } catch _ {
+    knownAge = nil
+  }
+  let zoneMaxHr = Double(220 - (knownAge ?? 30))
+
   var copies: [WorkoutPatch.Workout] = []
-  
-  for workout in workouts {
-    let heartRate: [LocalQuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .heartRate)!,
-      startDate: workout.startDate,
-      endDate: workout.endDate
-    )
-      .filter(by: workout.sourceBundle)
+
+  for workout in payload.sample {
+
+    let workout = workout as! HKWorkout
+    var patch = WorkoutPatch.Workout(workout)
+
+    let fromSameSourceRevision = [NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, workout.sourceRevision)]
+    let fromSameDevice = workout.device.map { [NSPredicate(format: "%K == %@", HKPredicateKeyPathDevice, $0)] } ?? []
+
+    let queryInterval = workout.startDate ..< workout.endDate
+    let predicates = Predicates([
+      // sample has same HKSourceRevision **OR** sample has same HKDevice
+      NSCompoundPredicate(orPredicateWithSubpredicates: fromSameSourceRevision + fromSameDevice)
+    ])
+
+    func computeStatistics(_ patch: inout WorkoutPatch.Workout) async throws {
+      let samples = try await querySingle(
+        healthKitStore,
+        type: .quantityType(forIdentifier: .heartRate)!,
+        startDate: queryInterval.lowerBound,
+        endDate: queryInterval.upperBound,
+        extraPredicates: predicates
+      )
+
+      guard samples.count >= 2 else {
+        return
+      }
+
+      let unit = HKUnit.count().unitDivided(by: .minute())
+      let timestamps = samples.map { $0.startDate.timeIntervalSinceReferenceDate }
+      let durations = vDSP.subtract(timestamps.dropFirst(), timestamps.dropLast())
+      let values = samples.map { unsafeDowncast($0, to: HKQuantitySample.self).quantity.doubleValue(for: unit) }.dropLast()
+      precondition(durations.count == values.count)
+
+      let zone1Range = 0.0 ..< zoneMaxHr * 0.5
+      let zone2Range = 0.5 ..< zoneMaxHr * 0.6
+      let zone3Range = 0.6 ..< zoneMaxHr * 0.7
+      let zone4Range = 0.7 ..< zoneMaxHr * 0.8
+      let zone5Range = 0.8 ..< zoneMaxHr * 0.9
+      let zone6Range = 0.9 ..< zoneMaxHr
+
+      var zones = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+      var minHr = Double.greatestFiniteMagnitude
+      var maxHr = Double.leastNormalMagnitude
+      var averageHr = 0.0
+
+      durations.withUnsafeBufferPointer { durations in
+        values.withUnsafeBufferPointer { values in
+          for i in 0 ..< durations.count {
+            let value = values[i]
+            minHr = min(minHr, value)
+            maxHr = max(maxHr, value)
+            averageHr += value
+
+            switch value {
+            case zone1Range:
+              zones.0 += durations[i]
+            case zone2Range:
+              zones.1 += durations[i]
+            case zone3Range:
+              zones.2 += durations[i]
+            case zone4Range:
+              zones.3 += durations[i]
+            case zone5Range:
+              zones.4 += durations[i]
+            case zone6Range:
+              zones.5 += durations[i]
+            default:
+              continue
+            }
+          }
+        }
+      }
+
+      averageHr = averageHr / Double(durations.count)
+
+      patch.heartRateMaximum = Int(maxHr)
+      patch.heartRateMinimum = Int(minHr)
+      patch.heartRateMean = Int(averageHr)
+      patch.heartRateZone1 = Int(zones.0)
+      patch.heartRateZone2 = Int(zones.1)
+      patch.heartRateZone3 = Int(zones.2)
+      patch.heartRateZone4 = Int(zones.3)
+      patch.heartRateZone5 = Int(zones.4)
+      patch.heartRateZone6 = Int(zones.5)
+    }
+
+    try await computeStatistics(&patch)
+
+    if options.embedTimeseries {
+      patch.heartRate = try await querySample(
+        healthKitStore: healthKitStore,
+        type: .quantityType(forIdentifier: .heartRate)!,
+        startDate: workout.startDate,
+        endDate: workout.endDate,
+        extraPredicates: predicates.wrapped
+      )
       .compactMap(LocalQuantitySample.init)
-    
-    let respiratoryRate: [LocalQuantitySample] = try await querySample(
-      healthKitStore: healthKitStore,
-      type: .quantityType(forIdentifier: .respiratoryRate)!,
-      startDate: workout.startDate,
-      endDate: workout.endDate
-    )
-      .filter(by: workout.sourceBundle)
+
+      patch.respiratoryRate = try await querySample(
+        healthKitStore: healthKitStore,
+        type: .quantityType(forIdentifier: .respiratoryRate)!,
+        startDate: workout.startDate,
+        endDate: workout.endDate,
+        extraPredicates: predicates.wrapped
+      )
       .compactMap(LocalQuantitySample.init)
-    
-    var copy = workout
-    copy.heartRate = heartRate
-    copy.respiratoryRate = respiratoryRate
-    
-    copies.append(copy)
+    }
+
+    copies.append(patch)
   }
   
   return (.init(workouts: copies), anchors)
 }
-
 
 func handleBloodPressure(
   healthKitStore: HKHealthStore,
@@ -877,20 +978,19 @@ func queryMulti(
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,
   endDate: Date? = nil,
-  extraPredicate: NSPredicate? = nil
+  extraPredicates: Predicates = Predicates([])
 ) async throws -> [HKSampleType: [HKSample]] {
   guard #available(iOS 15.0, *) else {
     return try await withThrowingTaskGroup(of: (key: HKSampleType, samples: [HKSample]).self) { group in
       for type in types {
         group.addTask { @HealthKitActor in
           let samples = try await querySingle(
-            healthKitStore: healthKitStore,
-            vitalStorage: vitalStorage,
+            healthKitStore,
             type: type,
             limit: limit,
             startDate: startDate,
             endDate: endDate,
-            extraPredicate: extraPredicate
+            extraPredicates: extraPredicates
           )
 
           return (type, samples)
@@ -936,8 +1036,8 @@ func queryMulti(
 
     var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
 
-    if let extraPredicate = extraPredicate {
-      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, extraPredicate])
+    if !extraPredicates.wrapped.isEmpty {
+      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate] + extraPredicates.wrapped)
     }
 
     let query = HKSampleQuery(
@@ -955,13 +1055,12 @@ func queryMulti(
 
 @HealthKitActor
 private func querySingle(
-  healthKitStore: HKHealthStore,
-  vitalStorage: VitalHealthKitStorage,
+  _ healthKitStore: HKHealthStore,
   type: HKSampleType,
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,
   endDate: Date? = nil,
-  extraPredicate: NSPredicate? = nil
+  extraPredicates: Predicates = Predicates([])
 ) async throws -> [HKSample] {
   return try await withCheckedThrowingContinuation { continuation in
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
@@ -992,8 +1091,8 @@ private func querySingle(
 
     var predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
 
-    if let extraPredicate = extraPredicate {
-      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, extraPredicate])
+    if !extraPredicates.wrapped.isEmpty {
+      predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate] + extraPredicates.wrapped)
     }
 
     let query = HKSampleQuery(
