@@ -20,7 +20,8 @@ public extension VitalClient.Summary {
     _ summaryData: SummaryData,
     stage: TaggedPayload.Stage,
     provider: Provider.Slug,
-    timeZone: TimeZone
+    timeZone: TimeZone,
+    isFinalChunk: Bool = true
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -29,7 +30,8 @@ public extension VitalClient.Summary {
       stage: stage,
       timeZone: timeZone,
       provider: provider,
-      data: VitalAnyEncodable(summaryData.payload)
+      data: VitalAnyEncodable(summaryData.payload),
+      isFinalChunk: isFinalChunk
     )
     
     let prefix: String = "/\(configuration.apiVersion)/\(self.resource)/"

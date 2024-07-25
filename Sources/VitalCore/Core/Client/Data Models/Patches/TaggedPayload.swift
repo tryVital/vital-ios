@@ -7,17 +7,20 @@ public struct TaggedPayload: Encodable {
   public let timeZone: String
   public let provider: Provider.Slug
   public let data: VitalAnyEncodable
-  
+  public let isFinalChunk: Bool
+
   public init(
     stage: Stage = .daily,
     timeZone: TimeZone,
     provider: Provider.Slug = .manual,
-    data: VitalAnyEncodable
+    data: VitalAnyEncodable,
+    isFinalChunk: Bool = true
   ) {
     self.provider = provider
     self.data = data
     self.timeZone = timeZone.identifier
-    
+    self.isFinalChunk = isFinalChunk
+
     switch stage {
       case .daily:
         self.stage = "daily"

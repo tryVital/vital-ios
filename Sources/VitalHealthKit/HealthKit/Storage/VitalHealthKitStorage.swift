@@ -157,11 +157,15 @@ struct StoredAnchor {
   
   /// New approach (2.0)
   var vitalAnchors: [VitalAnchor]?
-  
-  init(key: String, anchor: HKQueryAnchor?, date: Date?, vitalAnchors: [VitalAnchor]?) {
+
+  /// There are more data to be fetched.
+  var hasMore: Bool
+
+  init(key: String, anchor: HKQueryAnchor?, date: Date?, vitalAnchors: [VitalAnchor]?, hasMore: Bool = false) {
     self.key = key
     self.anchor = anchor
     self.date = date
     self.vitalAnchors = vitalAnchors
+    self.hasMore = hasMore
   }
 }
