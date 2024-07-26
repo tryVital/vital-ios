@@ -564,12 +564,29 @@ extension VitalHealthKitClient {
     return (instruction, state)
   }
 
+  private func prioritizeSync(_ remappedResource: RemappedVitalResource, foreground: Bool) -> Bool {
+    let prioritized = resourcesAskedForPermission(store: store)
+      .intersection([.activity, .workout, .sleep, .menstrualCycle])
+
+    if prioritized.contains(remappedResource.wrapped) {
+      return true
+    }
+
+    // Deprioritized until all prioritized resources have finished their historical stage.
+    return prioritized.allSatisfy(storage.readFlag(for:))
+  }
+
   private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {
     let resource = remappedResource.wrapped
     let description = resource.resourceToBackfillType().rawValue
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
+      return
+    }
+
+    guard self.prioritizeSync(remappedResource, foreground: foreground) else {
+      VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       return
     }
 
@@ -714,7 +731,6 @@ extension VitalHealthKitClient {
       pipelineScheduler.yield(.read())
 
       let uploadSemaphore = ParkingLot().semaphore
-      let log = VitalLogger.signpost
 
       try await withThrowingTaskGroup(of: Void.self) { group in
         for await stage in pipeline {
@@ -732,8 +748,6 @@ extension VitalHealthKitClient {
 
           case let .upload(data, anchors, hasMore: hasMore):
             _ = group.addTaskUnlessCancelled {
-              let id = OSSignpostID(UInt64.random(in: UInt64.min ..< UInt64.max))
-
               let signpost = VitalLogger.Signpost.begin(name: "wait-for-outstanding-upload", description: description)
               try await uploadSemaphore.acquire()
               signpost.end()
@@ -750,6 +764,7 @@ extension VitalHealthKitClient {
               try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
 
               if !hasMore {
+                self.storage.storeFlag(for: resource)
                 pipelineScheduler.finish()
               }
             }
@@ -758,10 +773,6 @@ extension VitalHealthKitClient {
 
         try await group.waitForAll()
       }
-
-
-      // This is used for calculating the stage (daily vs historical)
-      storage.storeFlag(for: resource)
 
     } catch let error {
       VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
