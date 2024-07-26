@@ -714,6 +714,7 @@ extension VitalHealthKitClient {
       pipelineScheduler.yield(.read())
 
       let uploadSemaphore = ParkingLot().semaphore
+      let log = VitalLogger.signpost
 
       try await withThrowingTaskGroup(of: Void.self) { group in
         for await stage in pipeline {
@@ -722,14 +723,25 @@ extension VitalHealthKitClient {
           switch stage {
           case let .read(uncommittedAnchors):
             _ = group.addTaskUnlessCancelled {
+              let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
+              defer { signpost.end() }
+
               let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
               pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
             }
 
           case let .upload(data, anchors, hasMore: hasMore):
             _ = group.addTaskUnlessCancelled {
+              let id = OSSignpostID(UInt64.random(in: UInt64.min ..< UInt64.max))
+
+              let signpost = VitalLogger.Signpost.begin(name: "wait-for-outstanding-upload", description: description)
               try await uploadSemaphore.acquire()
+              signpost.end()
+
               defer { uploadSemaphore.release() }
+
+              let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
+              defer { signpost2.end() }
 
               if hasMore {
                 pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
