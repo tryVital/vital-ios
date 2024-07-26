@@ -47,7 +47,7 @@ struct VitalHealthKitStore {
   var toVitalResource: (HKSampleType) -> VitalResource
   
   var writeInput: (DataInput, Date, Date) async throws -> Void
-  var readResource: (RemappedVitalResource, SyncInstruction, VitalHealthKitStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
+  var readResource: (RemappedVitalResource, SyncInstruction, AnchorStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
 
   var enableBackgroundDelivery: (HKObjectType, HKUpdateFrequency, @escaping (Bool, Error?) -> Void) -> Void
   var disableBackgroundDelivery: () async -> Void
@@ -328,35 +328,16 @@ struct StatisticsQueryDependencies {
 
   var executeSingleStatisticsQuery: (HKQuantityType, Range<Date>, HKStatisticsOptions, Predicates) async throws -> HKStatistics?
 
-  var isFirstTimeSycingType: (HKQuantityType) -> Bool
-  var isLegacyType: (HKQuantityType) -> Bool
-  
-  var vitalAnchorsForType: (HKQuantityType) -> [VitalAnchor]
-  var storedDate: (HKQuantityType) -> Date?
-
-  var key: (HKQuantityType) -> String
-
   static var debug: StatisticsQueryDependencies {
     return .init { _, _, _, _ in
       fatalError()
     } executeSingleStatisticsQuery: { _, _, _, _ in
       fatalError()
-    } isFirstTimeSycingType: { _ in
-      fatalError()
-    } isLegacyType: { _ in
-      fatalError()
-    } vitalAnchorsForType: { _ in
-      fatalError()
-    } storedDate: { _ in
-      fatalError()
-    } key: { _ in
-      fatalError()
     }
   }
   
   static func live(
-    healthKitStore: HKHealthStore,
-    vitalStorage: VitalHealthKitStorage
+    healthKitStore: HKHealthStore
   ) -> StatisticsQueryDependencies {
     return .init { type, queryInterval, granularity, options in
 
@@ -511,24 +492,6 @@ struct StatisticsQueryDependencies {
         )
       }
 
-    } isFirstTimeSycingType: { type in
-      let key = String(describing: type.self)
-      return vitalStorage.isFirstTimeSycingType(for: key)
-      
-    } isLegacyType: { type in
-      let key = String(describing: type.self)
-      return vitalStorage.isLegacyType(for: key)
-      
-    } vitalAnchorsForType: { type in
-      let key = String(describing: type.self)
-      return vitalStorage.read(key: key)?.vitalAnchors ?? []
-      
-    } storedDate: { type in
-      let key = String(describing: type.self)
-      return vitalStorage.read(key: key)?.date
-      
-    } key: { type in
-      return String(describing: type.self)
     }
   }
 }

@@ -485,6 +485,10 @@ public final class ParkingLot: @unchecked Sendable {
     case disable
   }
 
+  public var semaphore: SemaphoreView {
+    SemaphoreView(wrapped: self)
+  }
+
   private var state: State = .disabled
   private var lock = NSLock()
 
@@ -555,6 +559,29 @@ public final class ParkingLot: @unchecked Sendable {
           break
         }
       }
+    }
+  }
+
+  public struct SemaphoreView: @unchecked Sendable {
+    let wrapped: ParkingLot
+
+    init(wrapped: ParkingLot) {
+      self.wrapped = wrapped
+    }
+
+    public func acquire() async throws {
+      repeat {
+        if wrapped.tryTo(.enable) {
+          return
+        } else {
+          try await wrapped.parkIfNeeded()
+        }
+      } while true
+    }
+
+    public func release() {
+      let success = wrapped.tryTo(.disable)
+      precondition(success, "Failed to release a ParkingLot semaphore")
     }
   }
 }

@@ -77,7 +77,7 @@ internal final class VitalGistStorage: @unchecked Sendable {
     try lock.withLock {
       if let newValue = newValue {
         let directoryUrl = Self.directoryURL
-        if !FileManager.default.fileExists(atPath: directoryUrl.absoluteString) {
+        if !FileManager.default.fileExists(atPath: directoryUrl.path) {
           try FileManager.default.createDirectory(at: Self.directoryURL, withIntermediateDirectories: true)
         }
 
@@ -87,7 +87,7 @@ internal final class VitalGistStorage: @unchecked Sendable {
         self.state[typeKey] = .hasGist(newValue)
 
       } else {
-        if FileManager.default.fileExists(atPath: url.absoluteString) {
+        if FileManager.default.fileExists(atPath: url.path) {
           try FileManager.default.removeItem(at: url)
         }
         self.state[typeKey] = .noGist

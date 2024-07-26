@@ -74,9 +74,7 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
   case sandbox(Region)
   case production(Region)
 
-#if DEBUG
   case local(Region)
-#endif
 
   init?(environment: String, region: String) {
     switch(environment, region) {
@@ -92,12 +90,10 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
       self = .dev(.us)
     case ("dev", "eu"):
       self = .dev(.eu)
-#if DEBUG
     case ("local", "eu"):
       self = .local(.eu)
     case ("local", "eu"):
       self = .local(.eu)
-#endif
       case (_, _):
         return nil
     }
@@ -117,10 +113,8 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
         return "https://api.eu.tryvital.io"
       case .production(.us):
         return "https://api.tryvital.io"
-      #if DEBUG
       case .local:
         return "http://localhost:8000"
-      #endif
     }
   }
   
@@ -132,10 +126,8 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
         return "sandbox"
       case .production:
         return "production"
-#if DEBUG
       case .local:
         return "local"
-#endif
     }
   }
   
@@ -147,10 +139,8 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
         return region
       case .production(let region):
         return region
-#if DEBUG
       case .local(let region):
         return region
-#endif
     }
   }
 

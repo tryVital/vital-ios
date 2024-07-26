@@ -6,7 +6,7 @@ import XCTest
 class StatisticalQueryTests: XCTestCase {
 
   func test_executeStatisticalQuery_respects_cooperative_cancellation() async {
-    let dependencies = StatisticsQueryDependencies.live(healthKitStore: HKHealthStore(), vitalStorage: VitalHealthKitStorage(storage: .debug))
+    let dependencies = StatisticsQueryDependencies.live(healthKitStore: HKHealthStore())
 
     // Run it 100 times to mitigate away any temporary blips that might cause it to pass.
     for _ in 0 ..< 100 {

@@ -62,7 +62,7 @@ class SampleTypeTests: XCTestCase {
               typeToResource: {
                 VitalHealthKitStore.sampleTypeToVitalResource(type: $0)
               },
-              vitalStorage: .init(storage: .debug),
+              vitalStorage: VitalHealthKitStorage(storage: .debug),
               instruction: SyncInstruction(stage: .daily, query: Date() ..< Date()),
               options: ReadOptions()
             )
