@@ -102,7 +102,8 @@ extension HKSampleType {
 
 extension LocalBloodPressureSample {
   init?(
-    _ sample: HKSample
+    _ correlation: HKCorrelation,
+    unit: HKUnit
   ) {
     
     func testType(_ identifier: HKQuantityTypeIdentifier) -> (HKSample) -> Bool {
@@ -119,34 +120,28 @@ extension LocalBloodPressureSample {
     }
     
     guard
-      let correlation = sample as? HKCorrelation,
       correlation.objects.count == 2,
-      let diastolic = correlation.objects.first(where: testType(.bloodPressureDiastolic)),
-      let systolic = correlation.objects.first(where: testType(.bloodPressureSystolic)),
-      let diastolicSample = LocalQuantitySample(diastolic),
-      let systolicSample = LocalQuantitySample(systolic)
+      let diastolic = correlation.objects.first(where: testType(.bloodPressureDiastolic)) as! HKQuantitySample?,
+      let systolic = correlation.objects.first(where: testType(.bloodPressureSystolic)) as! HKQuantitySample?
     else {
       return nil
     }
         
     self.init(
-      systolic: systolicSample,
-      diastolic: diastolicSample,
+      systolic: LocalQuantitySample(systolic, unit: unit),
+      diastolic: LocalQuantitySample(diastolic, unit: unit),
       pulse: nil
     )
   }
 }
 
 extension LocalQuantitySample {
-  init?(
-    _ sample: HKSample
+  init(
+    _ sample: HKQuantitySample,
+    unit: HKUnit
   ) {
-    guard let value = sample as? HKQuantitySample else {
-      return nil
-    }
 
-    let unit = sample.sampleType.toHealthKitUnits
-    var doubleValue = value.quantity.doubleValue(for: unit)
+    var doubleValue = sample.quantity.doubleValue(for: unit)
 
     if unit == HKUnit.percent() {
       // Vital uses [0, 100[ instead of [0, 1[, so we need to scale up the percentage.
@@ -154,12 +149,11 @@ extension LocalQuantitySample {
     }
 
     self.init(
-      id: value.uuid.uuidString,
       value: doubleValue,
       startDate: sample.startDate,
       endDate: sample.endDate,
-      sourceBundle: value.sourceRevision.source.bundleIdentifier,
-      productType: value.sourceRevision.productType,
+      sourceBundle: sample.sourceRevision.source.bundleIdentifier,
+      productType: sample.sourceRevision.productType,
       type: nil,
       unit: sample.sampleType.toUnitStringRepresentation
     )
@@ -518,7 +512,7 @@ extension LocalQuantitySample {
 }
 
 extension LocalQuantitySample {
-  static func fromMindfulSession(sample: HKSample) -> LocalQuantitySample? {
+  static func fromMindfulSession(sample: HKCategorySample) -> LocalQuantitySample? {
 
     guard let minutes = Date.differenceInMinutes(startDate: sample.startDate, endDate: sample.endDate) else {
       return nil
