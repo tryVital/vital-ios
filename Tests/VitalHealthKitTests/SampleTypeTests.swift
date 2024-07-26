@@ -92,8 +92,7 @@ class SampleTypeTests: XCTestCase {
       .compactMap { $0 as? HKQuantityType }
 
     for sampleType in allQuantityTypes {
-      _ = sampleType.toHealthKitUnits
-      _ = sampleType.toUnitStringRepresentation
+      _ = QuantityUnit(.init(rawValue: sampleType.identifier))
     }
   }
 

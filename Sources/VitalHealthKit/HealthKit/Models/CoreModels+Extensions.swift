@@ -103,7 +103,7 @@ extension HKSampleType {
 extension LocalBloodPressureSample {
   init?(
     _ correlation: HKCorrelation,
-    unit: HKUnit
+    unit: QuantityUnit
   ) {
     
     func testType(_ identifier: HKQuantityTypeIdentifier) -> (HKSample) -> Bool {
@@ -138,12 +138,12 @@ extension LocalBloodPressureSample {
 extension LocalQuantitySample {
   init(
     _ sample: HKQuantitySample,
-    unit: HKUnit
+    unit: QuantityUnit
   ) {
 
-    var doubleValue = sample.quantity.doubleValue(for: unit)
+    var doubleValue = sample.quantity.doubleValue(for: unit.healthKitRepresentation)
 
-    if unit == HKUnit.percent() {
+    if unit.vitalRepresentation == .percentage {
       // Vital uses [0, 100[ instead of [0, 1[, so we need to scale up the percentage.
       doubleValue = doubleValue * 100
     }
@@ -155,7 +155,7 @@ extension LocalQuantitySample {
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
       type: nil,
-      unit: sample.sampleType.toUnitStringRepresentation
+      unit: unit.vitalRepresentation
     )
   }
 }
@@ -175,188 +175,104 @@ private func generateIdForServer(for startDate: Date, endDate: Date, type: Strin
 }
 
 extension LocalQuantitySample {
-  init?(
+  init(
     _ statistics: VitalStatistics,
-    _ sampleType: HKQuantityType
+    unit: QuantityUnit
   ) {
-    
-    let type = String(describing: sampleType)
-
-    guard
-      let idString = generateIdForServer(for: statistics.startDate, endDate: statistics.endDate, type: type)
-    else {
-      return nil
-    }
 
     self.init(
-      id: idString,
       value: statistics.value,
       startDate: statistics.startDate,
       endDate: statistics.endDate,
       sourceBundle: nil,
       productType: nil,
       type: .multipleSources,
-      unit: sampleType.toUnitStringRepresentation,
-      metadata: nil
+      unit: unit.vitalRepresentation
     )
   }
 }
 
-extension HKSampleType {
-  var toUnitStringRepresentation: String {
-    if #available(iOS 16.0, *) {
-      switch self {
-        case HKQuantityType.quantityType(forIdentifier: .appleSleepingWristTemperature)!:
-          return "C"
-        default:
-          break
-      }
-    }
+struct QuantityUnit {
+  let healthKitRepresentation: HKUnit
+  let vitalRepresentation: LocalQuantitySample.Unit
 
-    switch self {
-      case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
-        return "kg"
-      case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-        return "percent"
-        
-      case HKQuantityType.quantityType(forIdentifier: .height)!:
-        return "cm"
-        
-      case HKSampleType.quantityType(forIdentifier: .heartRate)!:
-        return "bpm"
-      case HKSampleType.quantityType(forIdentifier: .respiratoryRate)!:
-        //  "breaths per minute"
-        return "bpm"
-        
-      case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
-        return "rmssd"
-      case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
-        return "percent"
-      case HKSampleType.quantityType(forIdentifier: .restingHeartRate)!:
-        return "bpm"
-      
-      case
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
-        return "kcal"
-        
-      case HKSampleType.quantityType(forIdentifier: .stepCount)!:
-        return ""
-      case HKSampleType.quantityType(forIdentifier: .flightsClimbed)!:
-        return ""
-      case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
-        return "m"
-      case  HKSampleType.quantityType(forIdentifier: .vo2Max)!:
-        return "mL/kg/min"
-        
-      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
-        return "mmol/L"
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
-        return "mmHg"
-        
-      case HKQuantityType.quantityType(forIdentifier: .dietaryWater)!:
-        return "mL"
-
-      case HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!:
-        return "g"
-
-      case HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!:
-        return "min"
-
-    case
-      HKSampleType.quantityType(forIdentifier: .bodyTemperature)!,
-      HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
-      return "\u{00B0}C"
-
-      default:
-        fatalError("\(String(describing: self)) type not supported)")
-    }
+  init(_ id: HKQuantityTypeIdentifier) {
+    healthKitRepresentation = Self.vitalStandardUnits[id]!
+    vitalRepresentation = Self.unitStringRepresentation[id]!
   }
-  
-  var toHealthKitUnits: HKUnit {
+
+  static let unitStringRepresentation: [HKQuantityTypeIdentifier: LocalQuantitySample.Unit] = {
+    var mapping = [HKQuantityTypeIdentifier: LocalQuantitySample.Unit]()
 
     if #available(iOS 16.0, *) {
-      switch self {
-        case HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!:
-          return .degreeCelsius()
-        default:
-          break
-      }
+      mapping[.appleSleepingWristTemperature] = .degreeCelsius
     }
 
-    switch self {
-      case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
-        return .gramUnit(with: .kilo)
-      case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
-        return .percent()
-        
-      case HKQuantityType.quantityType(forIdentifier: .height)!:
-        return .meterUnit(with: .centi)
-        
-      case HKSampleType.quantityType(forIdentifier: .heartRate)!:
-        return .count().unitDivided(by: .minute())
-      case HKSampleType.quantityType(forIdentifier: .respiratoryRate)!:
-        //  "breaths per minute"
-        return .count().unitDivided(by: .minute())
-        
-      case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
-        return .secondUnit(with: .milli)
-      case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
-        return .percent()
-      case HKSampleType.quantityType(forIdentifier: .restingHeartRate)!:
-        return .count().unitDivided(by: .minute())
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!:
-        return .kilocalorie()
-        
-      case HKSampleType.quantityType(forIdentifier: .stepCount)!:
-        return .count()
-      case HKSampleType.quantityType(forIdentifier: .flightsClimbed)!:
-        return .count()
-      case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
-        return .meter()
-      case  HKSampleType.quantityType(forIdentifier: .vo2Max)!:
-        return .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
-        
-      case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
-        return .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
-        
-      case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
-        return .literUnit(with: .milli)
+    mapping[.bodyMass] = .kg
+    mapping[.bodyFatPercentage] = .percentage
+    mapping[.height] = .centimeter
+    mapping[.heartRate] = .bpm
+    mapping[.respiratoryRate] = .bpm
+    mapping[.heartRateVariabilitySDNN] = .rmssd
+    mapping[.oxygenSaturation] = .percentage
+    mapping[.restingHeartRate] = .bpm
+    mapping[.activeEnergyBurned] = .kcal
+    mapping[.basalEnergyBurned] = .kcal
+    mapping[.stepCount] = .count
+    mapping[.flightsClimbed] = .count
+    mapping[ .distanceWalkingRunning] = .meter
+    mapping[.vo2Max] = .vo2Max
+    mapping[.bloodGlucose] = .glucose
+    mapping[.bloodPressureSystolic] = .mmHg
+    mapping[.bloodPressureDiastolic] = .mmHg
+    mapping[.dietaryWater] = .mL
+    mapping[.dietaryCaffeine] = .gram
+    mapping[.appleExerciseTime] = .minute
+    mapping[.bodyTemperature] = .degreeCelsius
+    mapping[.basalBodyTemperature] = .degreeCelsius
 
-      case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
-        return .gram()
+    return mapping
+  }()
 
-      case
-        HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
-        HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
-        return .millimeterOfMercury()
-        
-      case
-        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
-        return .minute()
+  static let vitalStandardUnits: [HKQuantityTypeIdentifier: HKUnit] = {
+    var mapping = [HKQuantityTypeIdentifier: HKUnit]()
 
-    case
-      HKSampleType.quantityType(forIdentifier: .bodyTemperature)!,
-      HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
-      return .degreeCelsius()
-
-      default:
-        fatalError("\(String(describing: self)) type not supported)")
+    if #available(iOS 16.0, *) {
+      mapping[.appleSleepingWristTemperature] = .degreeCelsius()
     }
-  }
+
+    mapping[.bodyMass] = .gramUnit(with: .kilo)
+    mapping[.bodyFatPercentage] = .percent()
+    mapping[.height] = .meterUnit(with: .centi)
+    mapping[.heartRate] = .count().unitDivided(by: .minute())
+    mapping[.respiratoryRate] = .count().unitDivided(by: .minute())
+    mapping[.heartRateVariabilitySDNN] = .secondUnit(with: .milli)
+    mapping[.oxygenSaturation] = .percent()
+    mapping[.restingHeartRate] = .count().unitDivided(by: .minute())
+    mapping[.activeEnergyBurned] = .kilocalorie()
+    mapping[.basalEnergyBurned] = .kilocalorie()
+    mapping[.stepCount] = .count()
+    mapping[.flightsClimbed] = .count()
+    mapping[.distanceWalkingRunning] = .meter()
+    mapping[.vo2Max] = .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
+    mapping[.bloodGlucose] = .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
+    mapping[.bloodPressureSystolic] = .millimeterOfMercury()
+    mapping[.bloodPressureDiastolic] = .millimeterOfMercury()
+    mapping[.dietaryWater] = .literUnit(with: .milli)
+    mapping[.dietaryCaffeine] = .gram()
+    mapping[.appleExerciseTime] = .minute()
+    mapping[.bodyTemperature] = .degreeCelsius()
+    mapping[.basalBodyTemperature] = .degreeCelsius()
+
+    return mapping
+  }()
+}
+
+extension HKQuantityType {
 
   var idealStatisticalQueryOptions: HKStatisticsOptions {
-    guard let quantityType = self as? HKQuantityType else {
-      fatalError("Only quantity types can work with HKStatisticalQuery.")
-    }
 
-    switch quantityType.aggregationStyle {
+    switch aggregationStyle {
     case .cumulative:
       // We always want sum for cumulative quantity types.
       return [.cumulativeSum]
@@ -375,11 +291,8 @@ extension HKSampleType {
   }
 
   func idealStatisticalQuantity(from statistics: HKStatistics) -> HKQuantity? {
-    guard let quantityType = self as? HKQuantityType else {
-      fatalError("Only quantity types can work with HKStatisticalQuery.")
-    }
 
-    switch quantityType.aggregationStyle {
+    switch aggregationStyle {
     case .cumulative:
       // We always want sum for cumulative quantity types.
       return statistics.sumQuantity()
@@ -396,6 +309,9 @@ extension HKSampleType {
       return nil
     }
   }
+}
+
+extension HKSampleType {
 
   var shortenedIdentifier: String {
     if self is HKQuantityType {
@@ -499,14 +415,13 @@ extension WorkoutPatch.Workout {
 extension LocalQuantitySample {
   public init(categorySample: HKCategorySample) {
     self.init(
-      id: categorySample.uuid.uuidString,
       value: Double(categorySample.value),
       startDate: categorySample.startDate,
       endDate: categorySample.endDate,
       sourceBundle: categorySample.sourceRevision.source.bundleIdentifier,
       productType: categorySample.sourceRevision.productType,
       type: nil,
-      unit: "stage"
+      unit: .stage
     )
   }
 }
@@ -519,14 +434,13 @@ extension LocalQuantitySample {
     }
 
     return self.init(
-      id: sample.uuid.uuidString,
       value: Double(minutes),
       startDate: sample.startDate,
       endDate: sample.endDate,
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
       type: nil,
-      unit: "minute"
+      unit: .minute
     )
   }
 }

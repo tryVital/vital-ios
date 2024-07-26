@@ -25,29 +25,31 @@ class VitalHealthKitFreeFunctionsTests: XCTestCase {
     }
 
     func makeLocalQuantitySamples(for dates: [FloatingDate]) -> [LocalQuantitySample] {
-      dates.enumerated().flatMap { entry in
+      let unit = QuantityUnit(.activeEnergyBurned).vitalRepresentation
+
+      return dates.enumerated().flatMap { entry in
         [
           LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             // Right on start-of-day
             date: calendar.startOfDay(entry.element),
-            unit: "unittest"
+            unit: unit
           ),
           LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             // Right on ~last instant of the day
             date: calendar.startOfDay(calendar.offset(entry.element, byDays: 1)).addingTimeInterval(-1),
-            unit: "unittest"
+            unit: unit
           ),
           LocalQuantitySample(
             value: 100 + Double(entry.offset) * 10,
             date: calendar.startOfDay(entry.element).addingTimeInterval(60 * (Double(entry.offset) + 1)),
-            unit: "unittest"
+            unit: unit
           ),
           LocalQuantitySample(
             value: 1000 + Double(entry.offset) * 100,
             date: calendar.startOfDay(entry.element).addingTimeInterval(28800 + 60 * (Double(entry.offset) + 1)),
-            unit: "unittest"
+            unit: unit
           ),
         ]
       }

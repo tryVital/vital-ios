@@ -37,7 +37,9 @@ private func toBloodPressureReading(data: Data) -> LocalBloodPressureSample? {
   // by BLE Blood Pressure Service specification v1.1.1).
   guard isTimestampPresent, data.count >= expectedPayloadSize else { return nil }
 
-  let units = (bytes[0] & 1) != 0 ? "kPa" : "mmHg"
+  let kPa = (bytes[0] & 1) != 0
+  // 1 kPa = 7.50062 mmHg
+  let coefficient = kPa ? 7.50062 : 1.0
 
   // Little-endian
   let systolicBytes = UInt16(bytes[2]) << 8 | UInt16(bytes[1])
@@ -55,39 +57,35 @@ private func toBloodPressureReading(data: Data) -> LocalBloodPressureSample? {
   let components = DateComponents(year: Int(year), month: Int(month), day: Int(day), hour: Int(hour), minute: Int(minute), second: Int(second))
   let date = Calendar.current.date(from: components) ?? .init()
 
-  let idPrefix = "\(date.timeIntervalSince1970.rounded())-"
   let pulseSample: LocalQuantitySample?
 
   if isPulseRatePresent {
     let pulseBytes: UInt16 = UInt16(bytes[15]) << 8 | UInt16(bytes[14])
 
     pulseSample = LocalQuantitySample(
-      id: "\(idPrefix)pulse",
       value: SFloat.read(data: pulseBytes),
       startDate: date,
       endDate: date,
       type: .cuff,
-      unit: "bpm"
+      unit: .bpm
     )
   } else {
     pulseSample = nil
   }
 
   let systolicSample = LocalQuantitySample(
-    id: "\(idPrefix)systolic",
-    value: SFloat.read(data: systolicBytes),
+    value: SFloat.read(data: systolicBytes) * coefficient,
     startDate: date,
     endDate: date,
     type: .cuff,
-    unit: units
+    unit: .mmHg
   )
   let diastolicSample = LocalQuantitySample(
-    id: "\(idPrefix)diastolic",
-    value: SFloat.read(data: diastolicBytes),
+    value: SFloat.read(data: diastolicBytes) * coefficient,
     startDate: date,
     endDate: date,
     type: .cuff,
-    unit: units
+    unit: .mmHg
   )
   
   return LocalBloodPressureSample(

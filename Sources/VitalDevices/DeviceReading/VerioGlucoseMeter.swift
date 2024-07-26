@@ -301,12 +301,10 @@ private func recordParser(_ data: Data, timeOffset: Int) throws -> LocalQuantity
 
   // TODO: Ehm, is this timestamp stable?
   return LocalQuantitySample(
-    value: Double(mgdl),
+    // 1 mg/dL = 0.0555 mmol/L
+    value: Double(mgdl) * 0.0555,
     date: Date(timeIntervalSince1970: Double(time)),
-    unit: "mg/dL",
-    metadata: VitalAnyEncodable([
-      "timezone_offset": timeOffset
-    ])
+    unit: .glucose
   )
 }
 

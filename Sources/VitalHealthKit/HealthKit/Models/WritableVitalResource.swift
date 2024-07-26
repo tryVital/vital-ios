@@ -19,10 +19,6 @@ public enum DataInput {
     }
   }
   
-  var units: HKUnit {
-    return type.toHealthKitUnits
-  }
-  
   var type: HKQuantityType {
     let requirements = toHealthKitTypes(resource: resource)
     guard requirements.isIndividualType, let type = requirements.required.first as? HKQuantityType else {

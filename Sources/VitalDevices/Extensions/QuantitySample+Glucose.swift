@@ -40,14 +40,11 @@ private struct FreestyleLibreGlucoseDigest: Encodable {
 extension LocalQuantitySample {
   init(glucose: Glucose) {
     self.init(
-      id: String(glucose.id),
       value: glucose.valueUnit,
       startDate: glucose.date,
       endDate: glucose.date,
       type: .manualScan,
-      unit: "mmol/L",
-      metadata: FreestyleLibreGlucoseDigest(glucose: glucose)
-        .eraseToAnyEncodable()
+      unit: .glucose
     )
   }
 }

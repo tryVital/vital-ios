@@ -18,17 +18,15 @@ struct VitalStatistics {
     self.endDate = endDate
   }
     
-  init(statistics: HKStatistics, type: HKQuantityType, options: HKStatisticsOptions?) throws {
-    let unit = type.toHealthKitUnits
+  init(statistics: HKStatistics, unit: QuantityUnit, type: HKQuantityType, options: HKStatisticsOptions?) throws {
 
     guard
-      type.is(compatibleWith: unit),
       let quantity = quantity(for: statistics, with: options, type: type)
     else {
       throw VitalStatisticsError(statistics: statistics)
     }
 
-    let value = quantity.doubleValue(for: unit)
+    let value = quantity.doubleValue(for: unit.healthKitRepresentation)
     self.init(
       value: value,
       type: type,

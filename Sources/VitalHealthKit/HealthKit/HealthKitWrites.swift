@@ -16,7 +16,7 @@ func write(
 
     case .caffeine, .water:
       let quantity = HKQuantity(
-        unit: dataInput.units,
+        unit: QuantityUnit(.init(rawValue: dataInput.type.identifier)).healthKitRepresentation,
         doubleValue: Double(dataInput.value)
       )
 
