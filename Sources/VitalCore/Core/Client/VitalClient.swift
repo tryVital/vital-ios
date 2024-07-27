@@ -179,8 +179,9 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   private static let automaticConfigurationLock = NSLock()
   private var cancellables: Set<AnyCancellable> = []
 
-  @_spi(VitalSDKInternals)
-  public let childSDKShouldReset = PassthroughSubject<Void, Never>()
+  // Get: runSignoutTasks()
+  // Set: registerSignoutTask()
+  private var signoutTasks: [@Sendable () async -> Void] = []
 
   public static var shared: VitalClient {
     let sharedClient = sharedNoAutoConfig
@@ -211,7 +212,24 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   internal static func setClient(_ client: VitalClient?) {
     clientInitLock.withLock { Self.client = client }
   }
-  
+
+  @_spi(VitalSDKInternals)
+  public func registerSignoutTask(_ action: @Sendable @escaping () async -> Void) {
+    Self.clientInitLock.withLock {
+      signoutTasks.append(action)
+    }
+  }
+
+  private func runSignoutTasks() async {
+    let tasks = Self.clientInitLock.withLock { signoutTasks }
+
+    await withTaskGroup(of: Void.self) { group in
+      for task in tasks {
+        group.addTask(priority: .userInitiated) { await task() }
+      }
+    }
+  }
+
   /// Only use this method if you are working from Objc.
   /// Please use the async/await configure method when working from Swift.
   @objc public static func configure(
@@ -575,13 +593,11 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   public func signOut() async {
-    /// Here we remove the following:
-    /// 1) Anchor values we are storing for each `HKSampleType`.
-    /// 2) Stage for each `HKSampleType`.
-    ///
-    /// We might be able to derive 2) from 1)?
-    ///
-    /// We need to check this first, otherwise it will suspend until a configuration is set
+
+    // First make sure all child SDKs have done their cleanup and closed off ALL outstanding work.
+    await runSignoutTasks()
+
+    // Then we clear the storage and persistent user session.
     self.storage.clean()
     try? await self.jwtAuth.signOut()
 
@@ -592,7 +608,6 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     self.apiKeyModeUserId.clean()
     self.configuration.clean()
 
-    childSDKShouldReset.send(())
     statusDidChange.send(())
   }
 
