@@ -1,13 +1,19 @@
 import HealthKit
 import UIKit
 
+public enum SyncTrigger: Int, Codable {
+  case foreground = 0
+  case backgroundHealthKit = 1
+  case backgroundTask = 2
+}
+
 struct BackgroundDeliveryPayload: CustomStringConvertible {
   let resources: Set<RemappedVitalResource>
   let completion: (Completion) -> Void
-  let appState: UIApplication.State
+  let trigger: SyncTrigger
 
   var description: String {
-    "\(resources.map(\.wrapped.logDescription).joined(separator: ",")) fg=\(appState != .background)"
+    "\(resources.map(\.wrapped.logDescription).joined(separator: ",")) \(trigger)"
   }
 
   enum Completion {

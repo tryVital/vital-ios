@@ -7,7 +7,8 @@ public struct SyncProgress: Codable {
   public init() {}
 
   public enum SystemEventType: Int, Codable {
-    case receivedNotification = 0
+    case healthKitCalloutBackground = 0
+    case healthKitCalloutForeground = 1
   }
 
   public struct Event<EventType: Equatable & Codable>: Codable, Identifiable {
@@ -39,6 +40,7 @@ public struct SyncProgress: Codable {
   public struct Sync: Codable, Identifiable {
     public let start: Date
     public var end: Date?
+    public var trigger: SyncTrigger
     public private(set) var statuses: [Event<SyncStatus>]
 
     public var lastStatus: SyncStatus {
@@ -47,9 +49,10 @@ public struct SyncProgress: Codable {
 
     public var id: Date { start }
 
-    public init(start: Date, status: SyncStatus) {
+    public init(start: Date, status: SyncStatus, trigger: SyncTrigger) {
       self.start = start
       self.statuses = [Event(timestamp: start, type: status)]
+      self.trigger = trigger
     }
 
     public mutating func append(_ status: SyncStatus, at timestamp: Date = Date()) {
@@ -59,9 +62,11 @@ public struct SyncProgress: Codable {
 
   public struct SyncID {
     public let rawValue: Date
+    public let trigger: SyncTrigger
 
-    public init() {
-      rawValue = Date()
+    public init(trigger: SyncTrigger) {
+      self.rawValue = Date()
+      self.trigger = trigger
     }
   }
 
@@ -137,7 +142,7 @@ final class SyncProgressStore {
         }
 
         $0.syncs.append(
-          SyncProgress.Sync(start: id.rawValue, status: status)
+          SyncProgress.Sync(start: id.rawValue, status: status, trigger: id.trigger)
         )
       }
     }

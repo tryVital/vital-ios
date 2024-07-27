@@ -297,7 +297,7 @@ extension VitalHealthKitClient {
           await withTaskGroup(of: Void.self) { group in
             for resource in payload.resources {
               group.addTask {
-                await self.sync(resource, foreground: payload.appState != .background)
+                await self.sync(resource, payload.trigger)
               }
             }
           }
@@ -369,6 +369,8 @@ extension VitalHealthKitClient {
             let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
 
             Task(priority: .userInitiated) { @MainActor in
+              let isForeground = UIApplication.shared.applicationState != .background
+
               let payload = BackgroundDeliveryPayload(
                 resources: remapped,
                 completion: { completion in
@@ -376,13 +378,16 @@ extension VitalHealthKitClient {
                     handler()
                   }
                 },
-                appState: UIApplication.shared.applicationState
+                trigger: isForeground ? .foreground : .backgroundHealthKit
               )
               VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
               continuation.yield(payload)
 
-              SyncProgressStore.shared.recordSystem(remapped, .receivedNotification)
+              SyncProgressStore.shared.recordSystem(
+                remapped,
+                isForeground ? .healthKitCalloutForeground : .healthKitCalloutBackground
+              )
             }
           }
         }
@@ -426,6 +431,8 @@ extension VitalHealthKitClient {
           VitalLogger.healthKit.info("notified: \(remapped.map(\.wrapped.logDescription).joined(separator: ","))", source: "HealthKit")
 
           Task(priority: .userInitiated) { @MainActor in
+            let isForeground = UIApplication.shared.applicationState != .background
+
             let payload = BackgroundDeliveryPayload(
               resources: remapped,
               completion: { completion in
@@ -433,13 +440,16 @@ extension VitalHealthKitClient {
                   handler()
                 }
               },
-              appState: UIApplication.shared.applicationState
+              trigger: isForeground ? .foreground : .backgroundHealthKit
             )
             VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
             continuation.yield(payload)
 
-            SyncProgressStore.shared.recordSystem(remapped, .receivedNotification)
+            SyncProgressStore.shared.recordSystem(
+              remapped,
+              isForeground ? .healthKitCalloutForeground : .healthKitCalloutBackground
+            )
           }
         }
 
@@ -468,7 +478,7 @@ extension VitalHealthKitClient {
       let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
       for resource in remappedResources {
-        await sync(resource, foreground: true)
+        await sync(resource, .foreground)
       }
       
       _status.send(.syncingCompleted)
@@ -575,7 +585,7 @@ extension VitalHealthKitClient {
     return (instruction, state)
   }
 
-  private func prioritizeSync(_ remappedResource: RemappedVitalResource, foreground: Bool) -> Bool {
+  private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ trigger: SyncTrigger) -> Bool {
     let waitForHistoricalDone: Set<VitalResource>
 
     switch remappedResource.wrapped {
@@ -599,8 +609,8 @@ extension VitalHealthKitClient {
     return resourcesToCheck.allSatisfy(storage.historicalStageDone(for:))
   }
 
-  private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {
-    let syncID = SyncProgress.SyncID()
+  private func sync(_ remappedResource: RemappedVitalResource, _ trigger: SyncTrigger) async {
+    let syncID = SyncProgress.SyncID(trigger: trigger)
 
     let resource = remappedResource.wrapped
     let description = resource.logDescription
@@ -611,7 +621,7 @@ extension VitalHealthKitClient {
       return
     }
 
-    guard self.prioritizeSync(remappedResource, foreground: foreground) else {
+    guard self.prioritizeSync(remappedResource, trigger) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
       progressStore.recordSync(remappedResource, .deprioritized, for: syncID)
@@ -637,17 +647,17 @@ extension VitalHealthKitClient {
     // apps saving each HKSample individually, rather than in batches.
     // (e.g., Oura as at July 2024)
     guard parkingLot.tryTo(.enable) else {
-      VitalLogger.healthKit.info("[\(description)] +1 parked; fg=\(foreground)", source: "Sync")
+      VitalLogger.healthKit.info("[\(description)] +1 parked; \(trigger)", source: "Sync")
 
       // Throw CancellationError, which we can gracefully ignore.
       try? await parkingLot.parkIfNeeded()
 
-      VitalLogger.healthKit.info("[\(description)] -1 parked; fg=\(foreground)", source: "Sync")
+      VitalLogger.healthKit.info("[\(description)] -1 parked; \(trigger)", source: "Sync")
       return
     }
     defer { _ = parkingLot.tryTo(.disable) }
 
-    VitalLogger.healthKit.info("[\(description)] begin fg=\(foreground)", source: "Sync")
+    VitalLogger.healthKit.info("[\(description)] begin \(trigger)", source: "Sync")
 
     guard let configuration = configuration.value else {
       VitalLogger.healthKit.info("[\(description)] configuration unavailable", source: "Sync")
@@ -659,7 +669,7 @@ extension VitalHealthKitClient {
 
     let osBackgroundTask: ProtectedBox<UIBackgroundTaskIdentifier>?
 
-    if foreground {
+    if trigger == .foreground {
       osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
       osBackgroundTask!.start("vital-sync-\(description)", expiration: {})
       VitalLogger.healthKit.info("started: daily:\(description)", source: "UIKitBgTask")
@@ -836,7 +846,7 @@ extension VitalHealthKitClient {
       await withTaskGroup(of: Void.self) { group in
         for resource in retries {
           group.addTask {
-            await self.sync(resource, foreground: true)
+            await self.sync(resource, .foreground)
           }
         }
       }

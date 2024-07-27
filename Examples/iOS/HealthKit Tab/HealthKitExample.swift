@@ -187,6 +187,12 @@ struct ResourceSyncProgressView: View {
             )
           }
 
+          HStack(alignment: .center) {
+            Text("Trigger")
+            Spacer()
+            Text(verbatim: String(describing: sync.trigger))
+          }
+
           VStack(alignment: .leading) {
             if let end = end {
               HStack(alignment: .center) {
