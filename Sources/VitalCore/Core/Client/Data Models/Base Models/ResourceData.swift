@@ -71,37 +71,32 @@ public enum TimeSeriesData: Equatable, Encodable {
   case nutrition(NutritionData)
   case mindfulSession([LocalQuantitySample])
   
-  
   public var payload: Encodable {
     switch self {
-      case let .glucose(dataPoints):
-        return dataPoints
-      case let .bloodOxygen(samples):
-        return samples
-      case let .bloodPressure(dataPoints):
-        return dataPoints
-      case let .heartRate(dataPoints):
-        return dataPoints
-      case let .heartRateVariability(dataPoints):
-        return dataPoints
-      case let .nutrition(nutrition):
-        return nutrition.payload
-      case let .mindfulSession(dataPoints):
-        return dataPoints
+    case 
+      let .glucose(samples), let .bloodOxygen(samples), let .heartRate(samples),
+      let .heartRateVariability(samples):
+      return samples
+
+    case let .bloodPressure(dataPoints):
+      return dataPoints
+
+    case let .nutrition(nutrition):
+      return nutrition.payload
+
+    case let .mindfulSession(dataPoints):
+      return dataPoints
     }
   }
   
   public var shouldSkipPost: Bool {
     switch self {
-      case let .glucose(samples):
-        return samples.isEmpty
-      case let .bloodOxygen(samples):
-        return samples.isEmpty
+    case 
+      let .glucose(samples), let .bloodOxygen(samples), let .heartRate(samples),
+      let .heartRateVariability(samples):
+      return samples.isEmpty
+
       case let .bloodPressure(samples):
-        return samples.isEmpty
-      case let .heartRate(samples):
-        return samples.isEmpty
-      case let .heartRateVariability(samples):
         return samples.isEmpty
       case let .nutrition(nutrition):
         return nutrition.shouldSkipPost

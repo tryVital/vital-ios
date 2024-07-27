@@ -565,15 +565,31 @@ extension VitalHealthKitClient {
   }
 
   private func prioritizeSync(_ remappedResource: RemappedVitalResource, foreground: Bool) -> Bool {
-    let prioritized = resourcesAskedForPermission(store: store)
-      .intersection([.activity, .workout, .sleep, .menstrualCycle])
+    let waitForHistoricalDone: Set<VitalResource>
 
-    if prioritized.contains(remappedResource.wrapped) {
+    switch remappedResource.wrapped {
+    case .activity, .workout, .sleep, .menstrualCycle:
+      // Always sync first
       return true
+
+    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
+      // These must sync only after heart rates are done.
+      waitForHistoricalDone = [.vitals(.heartRate)]
+
+    case .vitals(.heartRate):
+      // These must sync only after steps are done.
+      waitForHistoricalDone = [.individual(.steps)]
+
+    default:
+      // Everything else must sync only after the summaries historical are done
+      waitForHistoricalDone = [.activity, .workout, .sleep, .menstrualCycle]
     }
 
+    let resourcesToCheck = resourcesAskedForPermission(store: store)
+      .intersection(waitForHistoricalDone)
+
     // Deprioritized until all prioritized resources have finished their historical stage.
-    return prioritized.allSatisfy(storage.readFlag(for:))
+    return resourcesToCheck.allSatisfy(storage.readFlag(for:))
   }
 
   private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {

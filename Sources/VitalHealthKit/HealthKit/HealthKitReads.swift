@@ -12,6 +12,8 @@ typealias StatisticsHandler = (HKStatisticsCollectionQuery, HKStatisticsCollecti
 
 typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
 
+let activityStatsDaysToLookback = 10
+
 enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
   case invalidRemappedResource
@@ -48,9 +50,6 @@ func read(
 ) async throws -> (ProcessedResourceData?, [StoredAnchor]) {
   
   switch resource.wrapped {
-  case .individual:
-    throw VitalHealthKitClientError.invalidRemappedResource
-
     case .profile:
       let profilePayload = try await handleProfile(
         healthKitStore: healthKitStore,
@@ -197,7 +196,144 @@ func read(
       )
 
       return (.timeSeries(.mindfulSession(payload.samples)), payload.anchors)
+
+  case .individual(.activeEnergyBurned):
+    return try await handleActivityTimeseries(
+      healthKitStore,
+      vitalStorage,
+      .activeEnergyBurned,
+      instruction,
+      keyPath: \.activeEnergyBurned,
+      options: options
+    )
+
+  case .individual(.basalEnergyBurned):
+    return try await handleActivityTimeseries(
+      healthKitStore,
+      vitalStorage,
+      .basalEnergyBurned,
+      instruction,
+      keyPath: \.basalEnergyBurned,
+      options: options
+    )
+
+  case .individual(.steps):
+    return try await handleActivityTimeseries(
+      healthKitStore,
+      vitalStorage,
+      .stepCount,
+      instruction,
+      keyPath: \.steps,
+      options: options
+    )
+
+  case .individual(.distanceWalkingRunning):
+    return try await handleActivityTimeseries(
+      healthKitStore,
+      vitalStorage,
+      .distanceWalkingRunning,
+      instruction,
+      keyPath: \.distanceWalkingRunning,
+      options: options
+    )
+
+  case .individual(.floorsClimbed):
+    return try await handleActivityTimeseries(
+      healthKitStore,
+      vitalStorage,
+      .flightsClimbed,
+      instruction,
+      keyPath: \.floorsClimbed,
+      options: options
+    )
+
+  case .individual(.vo2Max):
+    let payload = try await handleTimeSeries(
+      .vo2Max,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+    let patch = ActivityPatch(activities: [
+      .init(daySummary: nil, vo2Max: payload.samples)
+    ])
+    return (.summary(.activity(patch)), payload.anchors)
+
+  case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
+    throw VitalHealthKitClientError.invalidRemappedResource
   }
+}
+
+func handleActivityTimeseries(
+  _ healthKitStore: HKHealthStore,
+  _ vitalStorage: AnchorStorage,
+  _ id: HKQuantityTypeIdentifier,
+  _ instruction: SyncInstruction,
+  keyPath: WritableKeyPath<ActivityPatch.Activity, [LocalQuantitySample]>,
+  options: ReadOptions
+) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+  var patches: [ActivityPatch.Activity] = []
+  var anchors: [StoredAnchor] = []
+
+  let (hourlyStats, statsAnchor) = try await queryHourlyStatistics(healthKitStore, id, instruction)
+  var patch = ActivityPatch.Activity(daySummary: nil)
+  patch[keyPath: keyPath] = hourlyStats
+  patches.append(patch)
+  anchors.appendOptional(statsAnchor)
+
+  if options.perDeviceActivityTS {
+    let payload = try await handleTimeSeries(
+      id,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+    var patch = ActivityPatch.Activity(daySummary: nil)
+    patch[keyPath: keyPath] = hourlyStats
+    patches.append(patch)
+    anchors += payload.anchors
+  }
+
+  return (.summary(.activity(.init(activities: patches))), anchors)
+}
+
+func queryHourlyStatistics(
+  _ store: HKHealthStore,
+  _ id: HKQuantityTypeIdentifier,
+  _ instruction: SyncInstruction
+) async throws -> ([LocalQuantitySample], StoredAnchor?) {
+
+  // Round down earliest to the start of the whole hour
+  // Round up latest to the next whole hour
+  let earliest: Date
+
+  switch instruction.stage {
+  case .historical:
+    earliest = instruction.query.lowerBound.beginningHour
+
+  case .daily:
+    earliest = max(
+      Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback),
+      instruction.query.lowerBound
+    ).beginningHour
+  }
+
+  let latest: Date = instruction.query.upperBound.nextHour
+
+  let type = HKQuantityType.quantityType(forIdentifier: id)!
+
+  let statistics = try await StatisticsQueryDependencies.live(healthKitStore: store)
+    .executeStatisticalQuery(type, earliest ..< latest, .hourly, nil)
+
+  let unit = QuantityUnit(id)
+
+  let samples = statistics.compactMap { value in
+    return LocalQuantitySample(value, unit: unit)
+  }
+  let anchor = StoredAnchor(key: "hourly-\(id.rawValue)", anchor: nil, date: latest, vitalAnchors: nil)
+  return (samples, anchor)
 }
 
 func handleMindfulSessions(
@@ -549,7 +685,11 @@ func handleActivity(
 
   switch instruction.stage {
   case .daily:
-    lowerBound = Date.dateAgo(instruction.query.upperBound, days: 14)
+    lowerBound = max(
+      Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback),
+      instruction.query.lowerBound
+    )
+
   case .historical:
     lowerBound = instruction.query.lowerBound
   }
