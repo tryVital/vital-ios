@@ -3,6 +3,10 @@ import Combine
 import os.log
 import UIKit
 @_spi(VitalSDKInternals) import VitalCore
+import BackgroundTasks
+
+let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
+let researchTaskIdentifier = "io.tryvital.VitalHealthKit.HealthResearchTask"
 
 public enum PermissionOutcome: Equatable {
   case success
@@ -89,6 +93,8 @@ public enum PermissionOutcome: Equatable {
         }
       }
       .store(in: &client.cancellables)
+
+    client.registerProcessingTaskHandlers()
   }
   
   /// Only use this method if you are working from Objc.
@@ -256,6 +262,9 @@ extension VitalHealthKitClient {
     /// Enable background deliveries
     enableBackgroundDelivery(for: uniqueFlatenned)
 
+    /// Submit BGProcessingTasks
+    submitProcessingTasks()
+
     let stream: AsyncStream<BackgroundDeliveryPayload>
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
@@ -322,6 +331,70 @@ extension VitalHealthKitClient {
         }
         
         VitalLogger.healthKit.info("enabled: \(sampleType.shortenedIdentifier)", source: "EnableBgDelivery")
+      }
+    }
+  }
+
+  // We can only register handlers once, and this must happen before the app finishes launching.
+  func registerProcessingTaskHandlers() {
+    let scheduler = BGTaskScheduler.shared
+    let declaredBgTasks = Set(Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? [])
+
+    if declaredBgTasks.contains(processingTaskIdentifier) {
+      scheduler.register(forTaskWithIdentifier: processingTaskIdentifier, using: nil) { task in
+
+        VitalLogger.healthKit.info("begin", source: "ProcessingTask")
+        defer { VitalLogger.healthKit.info("ended", source: "ProcessingTask") }
+
+        task.expirationHandler = {
+          VitalLogger.healthKit.info("expired", source: "ProcessingTask")
+        }
+
+        Task(priority: .userInitiated) {
+          defer {
+            task.setTaskCompleted(success: true)
+            self.submitProcessingTasks()
+          }
+
+          guard VitalClient.status.contains(.signedIn) else {
+            VitalLogger.healthKit.info("not signed in", source: "ProcessingTask")
+            return
+          }
+
+          let resources = Set(
+            resourcesAskedForPermission(store: self.store)
+              .map(VitalHealthKitStore.remapResource(_:))
+          )
+
+          SyncProgressStore.shared.recordSystem(resources, .processingTaskCallout)
+
+          await withTaskGroup(of: Void.self) { group in
+            for resource in resources {
+              group.addTask {
+                await self.sync(resource, .processingTask)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  func submitProcessingTasks() {
+    let scheduler = BGTaskScheduler.shared
+    let declaredBgTasks = Set(Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? [])
+
+    if declaredBgTasks.contains(processingTaskIdentifier) {
+      let request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
+      request.requiresExternalPower = true
+      request.requiresNetworkConnectivity = true
+
+      do {
+        try scheduler.submit(request)
+        VitalLogger.healthKit.info("submitted", source: "ProcessingTask")
+
+      } catch let error {
+        VitalLogger.healthKit.info("submission failed: \(error)", source: "ProcessingTask")
       }
     }
   }

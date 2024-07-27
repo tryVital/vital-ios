@@ -11,6 +11,7 @@ public struct SyncProgress: Codable {
   public enum SystemEventType: Int, Codable {
     case healthKitCalloutBackground = 0
     case healthKitCalloutForeground = 1
+    case processingTaskCallout = 2
   }
 
   public struct Event<EventType: Equatable & Codable>: Codable, Identifiable {
