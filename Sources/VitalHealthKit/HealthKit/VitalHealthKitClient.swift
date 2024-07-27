@@ -292,15 +292,10 @@ extension VitalHealthKitClient {
           // (except for the task cancellation redelivery expectation stated above).
           defer { payload.completion(.completed) }
 
-          VitalLogger.healthKit.info("received: \(payload.sampleTypes.map(\.shortenedIdentifier))", source: "BgDelivery")
-
-          let matches = Set(payload.sampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
-          let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
-
-          VitalLogger.healthKit.info("will trigger: \(remapped.map(\.wrapped.logDescription))", source: "BgDelivery")
+          VitalLogger.healthKit.info("received: \(payload)", source: "BgDelivery")
 
           await withTaskGroup(of: Void.self) { group in
-            for resource in remapped {
+            for resource in payload.resources {
               group.addTask {
                 await self.sync(resource, foreground: payload.appState != .background)
               }
@@ -352,18 +347,14 @@ extension VitalHealthKitClient {
         let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
 
           guard let sampleTypes = sampleTypes else {
-            VitalLogger.healthKit.error("Failed to background deliver. Empty samples")
+            VitalLogger.healthKit.error("unexpected callout with no sample type", source: "HealthKit")
             return
           }
 
           guard error == nil else {
-            VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).")
-
-            ///  We need a better way to handle if a failure happens here.
+            VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).", source: "HealthKit")
             return
           }
-
-          VitalLogger.healthKit.info("notified: \(sampleTypes.map(\.shortenedIdentifier))", source: "HealthKit")
 
           // It appears that the iOS 15+ HKObserverQuery might pass us `HKSampleType`s that is
           // outside the conditions we specified via `descriptors`. Filter out any unsolicited types
@@ -373,9 +364,13 @@ extension VitalHealthKitClient {
           if filteredSampleTypes.isEmpty {
             handler()
           } else {
+
+            let matches = Set(filteredSampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
+            let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
+
             Task(priority: .userInitiated) { @MainActor in
               let payload = BackgroundDeliveryPayload(
-                sampleTypes: filteredSampleTypes,
+                resources: remapped,
                 completion: { completion in
                   if completion == .completed {
                     handler()
@@ -383,7 +378,11 @@ extension VitalHealthKitClient {
                 },
                 appState: UIApplication.shared.applicationState
               )
+              VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
+
               continuation.yield(payload)
+
+              SyncProgressStore.shared.recordSystem(remapped, .receivedNotification)
             }
           }
         }
@@ -417,17 +416,18 @@ extension VitalHealthKitClient {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { query, handler, error in
 
           guard error == nil else {
-            VitalLogger.healthKit.error("Failed to background deliver for \(sampleType.identifier).")
-            
-            ///  We need a better way to handle if a failure happens here.
+            VitalLogger.healthKit.error("observer errored for \(sampleType.shortenedIdentifier); error = \(String(describing: error)).", source: "HealthKit")
             return
           }
 
-          VitalLogger.healthKit.info("notified: \(sampleType.shortenedIdentifier)", source: "HealthKit")
+          let matches = Set(VitalHealthKitStore.sampleTypeToVitalResource(type: sampleType))
+          let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
+
+          VitalLogger.healthKit.info("notified: \(remapped.map(\.wrapped.logDescription).joined(separator: ","))", source: "HealthKit")
 
           Task(priority: .userInitiated) { @MainActor in
             let payload = BackgroundDeliveryPayload(
-              sampleTypes: Set([sampleType]),
+              resources: remapped,
               completion: { completion in
                 if completion == .completed {
                   handler()
@@ -435,10 +435,14 @@ extension VitalHealthKitClient {
               },
               appState: UIApplication.shared.applicationState
             )
+            VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
+
             continuation.yield(payload)
+
+            SyncProgressStore.shared.recordSystem(remapped, .receivedNotification)
           }
         }
-        
+
         queries.append(query)
         store.execute(query)
       }
@@ -477,6 +481,8 @@ extension VitalHealthKitClient {
     backgroundDeliveryEnabled.set(value: false)
 
     await store.disableBackgroundDelivery()
+
+    SyncProgressStore.shared.clear()
   }
 
   private func getLocalSyncState() async throws -> LocalSyncState {
@@ -594,8 +600,11 @@ extension VitalHealthKitClient {
   }
 
   private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {
+    let syncID = SyncProgress.SyncID()
+
     let resource = remappedResource.wrapped
     let description = resource.logDescription
+    let progressStore = SyncProgressStore.shared
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
@@ -605,6 +614,7 @@ extension VitalHealthKitClient {
     guard self.prioritizeSync(remappedResource, foreground: foreground) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
+      progressStore.recordSync(remappedResource, .deprioritized, for: syncID)
       return
     }
 
@@ -696,7 +706,7 @@ extension VitalHealthKitClient {
         data: ProcessedResourceData?,
         anchors: [StoredAnchor],
         hasMore: Bool
-      ) async throws {
+      ) async throws -> Bool {
 
         // We skip empty POST only in daily stage.
         // Empty POST is sent for historical stage, so we would consistently emit
@@ -709,7 +719,7 @@ extension VitalHealthKitClient {
           VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
           _status.send(.nothingToSync(resource))
 
-          return
+          return false
         }
 
         if configuration.mode.isAutomatic {
@@ -738,6 +748,7 @@ extension VitalHealthKitClient {
         _status.send(.successSyncing(resource, data))
 
         VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
+        return true
       }
 
       // Overlap read and upload, so we maximize the use of limited background execution time.
@@ -768,6 +779,8 @@ extension VitalHealthKitClient {
 
           case let .upload(data, anchors, hasMore: hasMore):
             _ = group.addTaskUnlessCancelled {
+              progressStore.recordSync(remappedResource, .readChunk, for: syncID)
+
               let signpost = VitalLogger.Signpost.begin(name: "wait-for-outstanding-upload", description: description)
               try await uploadSemaphore.acquire()
               signpost.end()
@@ -781,10 +794,14 @@ extension VitalHealthKitClient {
                 pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
               }
 
-              try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+              let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
 
-              if !hasMore {
+              if hasMore {
+                progressStore.recordSync(remappedResource, hasPosted ? .uploadedChunk : .noData, for: syncID)
+
+              } else {
                 self.storage.markHistoricalStageDone(for: resource)
+                progressStore.recordSync(remappedResource, hasPosted ? .completed : .noData, for: syncID)
                 pipelineScheduler.finish()
               }
             }
@@ -938,6 +955,10 @@ extension VitalHealthKitClient {
         self.syncData()
       }
     }
+  }
+
+  public var syncProgress: SyncProgress {
+    SyncProgressStore.shared.get()
   }
 }
 
