@@ -44,9 +44,7 @@ struct VitalHealthKitStore {
   var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource]) async throws -> Void
   
   var hasAskedForPermission: (VitalResource) -> Bool
-  
-  var toVitalResource: (HKSampleType) -> VitalResource
-  
+
   var writeInput: (DataInput, Date, Date) async throws -> Void
   var readResource: (RemappedVitalResource, SyncInstruction, AnchorStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
 
@@ -77,23 +75,23 @@ extension VitalHealthKitStore {
     return RemappedVitalResource(wrapped: resource)
   }
 
-  static func sampleTypeToVitalResource(type: HKSampleType) -> VitalResource {
+  static func sampleTypeToVitalResource(type: HKSampleType) -> [VitalResource] {
     switch type {
       case
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
         HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
 
-        return type.toIndividualResource
-        
+      return [type.toIndividualResource, .body]
+
       case HKQuantityType.quantityType(forIdentifier: .height)!:
-        return .profile
-        
+        return [.profile]
+
       case HKSampleType.workoutType():
-        return .workout
-        
+        return [.workout]
+
       case HKSampleType.categoryType(forIdentifier: .sleepAnalysis):
-        return .sleep
-        
+        return [.sleep]
+
       case
         HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
         HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!,
@@ -103,33 +101,33 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
 
-        return type.toIndividualResource
-        
+      return [type.toIndividualResource, .activity]
+
       case HKSampleType.quantityType(forIdentifier: .bloodGlucose)!:
-        return .vitals(.glucose)
+        return [.vitals(.glucose)]
 
       case HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!:
-        return .vitals(.bloodOxygen)
-        
+        return [.vitals(.bloodOxygen)]
+
       case
         HKSampleType.quantityType(forIdentifier: .bloodPressureSystolic)!,
         HKSampleType.quantityType(forIdentifier: .bloodPressureDiastolic)!:
-        return .vitals(.bloodPressure)
-        
+        return [.vitals(.bloodPressure)]
+
       case HKSampleType.quantityType(forIdentifier: .heartRate)!:
-        return .vitals(.heartRate)
+        return [.vitals(.heartRate)]
 
       case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
-        return .vitals(.heartRateVariability)
-        
+        return [.vitals(.heartRateVariability)]
+
       case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
-        return .nutrition(.water)
+        return [.nutrition(.water)]
 
       case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
-        return .nutrition(.caffeine)
+        return [.nutrition(.caffeine)]
 
       case HKSampleType.categoryType(forIdentifier: .mindfulSession)!:
-        return .vitals(.mindfulSession)
+        return [.vitals(.mindfulSession)]
 
 
     case
@@ -139,7 +137,7 @@ extension VitalHealthKitStore {
       HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
       HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
       HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!:
-      return .menstrualCycle
+      return [.menstrualCycle]
 
     default:
       if #available(iOS 15.0, *) {
@@ -148,7 +146,7 @@ extension VitalHealthKitStore {
           HKCategoryType.categoryType(forIdentifier: .contraceptive)!,
           HKCategoryType.categoryType(forIdentifier: .pregnancyTestResult)!,
           HKCategoryType.categoryType(forIdentifier: .progesteroneTestResult)!:
-          return .menstrualCycle
+          return [.menstrualCycle]
         default:
           break
         }
@@ -162,7 +160,7 @@ extension VitalHealthKitStore {
           HKCategoryType.categoryType(forIdentifier: .prolongedMenstrualPeriods)!,
           HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
           HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!:
-          return .menstrualCycle
+          return [.menstrualCycle]
         default:
           break
         }
@@ -178,10 +176,6 @@ extension VitalHealthKitStore {
     let hasAskedForPermission: (VitalResource) -> Bool = { resource in
       let requirements = toHealthKitTypes(resource: resource)
       return requirements.isResourceActive { store.authorizationStatus(for: $0) != .notDetermined }
-    }
-    
-    let toVitalResource: (HKSampleType) -> VitalResource = { type in
-      return sampleTypeToVitalResource(type: type)
     }
     
     return .init {
@@ -205,8 +199,6 @@ extension VitalHealthKitStore {
       
     } hasAskedForPermission: { resource in
       return hasAskedForPermission(resource)
-    } toVitalResource: { type in
-      return toVitalResource(type)
     } writeInput: { (dataInput, startDate, endDate) in
       try await write(
         healthKitStore: store,
@@ -218,7 +210,6 @@ extension VitalHealthKitStore {
       try await read(
         resource: resource,
         healthKitStore: store,
-        typeToResource: toVitalResource,
         vitalStorage: storage,
         instruction: instruction,
         options: options
@@ -241,8 +232,6 @@ extension VitalHealthKitStore {
       return
     } hasAskedForPermission: { _ in
       true
-    } toVitalResource: { sampleType in
-      return .sleep
     } writeInput: { (dataInput, startDate, endDate) in
       return
     } readResource: { _,_,_, _  in

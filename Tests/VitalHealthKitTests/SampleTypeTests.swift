@@ -52,16 +52,15 @@ class SampleTypeTests: XCTestCase {
 
     Task {
       do {
-        for sampleType in observedSampleTypes().flatMap({ $0 }) {
-          let resource = VitalHealthKitStore.sampleTypeToVitalResource(type: sampleType)
+        let resources = observedSampleTypes()
+          .flatMap({ $0 })
+          .flatMap(VitalHealthKitStore.sampleTypeToVitalResource)
 
+        for resource in resources {
           do {
             _ = try await read(
               resource: VitalHealthKitStore.remapResource(resource),
               healthKitStore: MockHealthStore(),
-              typeToResource: {
-                VitalHealthKitStore.sampleTypeToVitalResource(type: $0)
-              },
               vitalStorage: VitalHealthKitStorage(storage: .debug),
               instruction: SyncInstruction(stage: .daily, query: Date() ..< Date()),
               options: ReadOptions()

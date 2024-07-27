@@ -37,11 +37,11 @@ class VitalHealthKitStorage: AnchorStorage {
     self.storage = storage
   }
   
-  func storeFlag(for resource: VitalResource) {
+  func markHistoricalStageDone(for resource: VitalResource) {
     storage.flagResource(resource)
   }
   
-  func readFlag(for resource: VitalResource) -> Bool {
+  func historicalStageDone(for resource: VitalResource) -> Bool {
     return storage.isResourceFlagged(resource)
   }
 
