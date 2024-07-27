@@ -124,8 +124,8 @@ struct HealthKitExample: View {
       .onChange(of: self.pauseSync) { pauseSync in
         VitalHealthKitClient.shared.pauseSynchronization = pauseSync
       }
-      .onReceive(Timer.publish(every: 0.10, on: RunLoop.main, in: .default).autoconnect()) { _ in
-        self.items = VitalHealthKitClient.shared.syncProgress.resources
+      .onReceive(VitalHealthKitClient.shared.syncProgressPublisher().receive(on: RunLoop.main)) { progress in
+        self.items = progress.resources
           .sorted(by: { $0.key.logDescription.compare($1.key.logDescription) == .orderedAscending })
       }
     }
