@@ -89,6 +89,7 @@ public enum Stage: String, Encodable {
   case historical
 }
 
+@_spi(VitalSDKInternals)
 public struct UserSDKSyncStateBody: Encodable {
   public let tzinfo: String
   public let requestStartDate: Date?
@@ -98,5 +99,18 @@ public struct UserSDKSyncStateBody: Encodable {
     self.tzinfo = tzinfo
     self.requestStartDate = requestStartDate
     self.requestEndDate = requestEndDate
+  }
+}
+
+@_spi(VitalSDKInternals)
+public struct UserSDKHistoricalStageBeginBody: Encodable {
+  public let rangeStart: Date
+  public let rangeEnd: Date
+  public let backfillType: BackfillType
+
+  public init(rangeStart: Date, rangeEnd: Date, backfillType: BackfillType) {
+    self.rangeStart = rangeStart
+    self.rangeEnd = rangeEnd
+    self.backfillType = backfillType
   }
 }

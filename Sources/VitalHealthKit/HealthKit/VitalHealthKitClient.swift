@@ -711,6 +711,18 @@ extension VitalHealthKitClient {
     let query = state.historicalStartDate(for: resource) ..< (state.ingestionEnd ?? now)
 
     let instruction = SyncInstruction(stage: hasCompletedHistoricalStage ? .daily : .historical, query: query)
+
+    if !hasCompletedHistoricalStage {
+      // Report historical stage range
+      try await vitalClient.sdkStartHistoricalStage(
+        UserSDKHistoricalStageBeginBody(
+          rangeStart: query.lowerBound,
+          rangeEnd: query.upperBound,
+          backfillType: resource.resourceToBackfillType()
+        )
+      )
+    }
+
     return (instruction, state)
   }
 
