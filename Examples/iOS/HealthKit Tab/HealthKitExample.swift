@@ -6,16 +6,17 @@ import VitalCore
 let dateFormatter = {
   let formatter = DateFormatter()
   formatter.dateStyle = .short
-  formatter.timeStyle = .short
+  formatter.timeStyle = .none
   formatter.timeZone = TimeZone.autoupdatingCurrent
+  formatter.doesRelativeDateFormatting = true
   return formatter
 }()
 
-let dateComponentFormatter = {
-  let formatter = DateComponentsFormatter()
-  formatter.allowedUnits = [.minute, .second]
-  formatter.unitsStyle = .positional
-  formatter.zeroFormattingBehavior = .pad
+let timeFormatter = {
+  let formatter = DateFormatter()
+  formatter.dateStyle = .none
+  formatter.timeStyle = .long
+  formatter.timeZone = TimeZone.autoupdatingCurrent
   return formatter
 }()
 
@@ -37,7 +38,14 @@ struct HealthKitExample: View {
 
             } label: {
               HStack {
-                Text("\(key.logDescription)")
+                VStack(alignment: .leading) {
+                  Text("\(key.logDescription)")
+                  if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
+                    Text(verbatim: dateFormatter.string(from: lastUpdated))
+                      .foregroundStyle(Color.secondary)
+                      .font(Font.subheadline)
+                  }
+                }
                 Spacer()
 
                 if let sync = resource.latestSync {
@@ -176,53 +184,61 @@ struct ResourceSyncProgressView: View {
         .isDetailLink(false)
       }
 
-      ForEach(resource.syncs.reversed()) { sync in
-        Section {
-          let start = dateFormatter.string(from: sync.start)
-          let startTimeZone = dateFormatter.timeZone.abbreviation(for: sync.start) ?? ""
-          let end = sync.end.map { end in
-            (
-              dateFormatter.string(from: end),
-              dateFormatter.timeZone.abbreviation(for: end) ?? ""
-            )
-          }
+      Section {
+        ForEach(resource.syncs.reversed()) { sync in
+          let timestamp = sync.statuses.last?.timestamp ?? sync.start
+          let date = dateFormatter.string(from: timestamp)
+          let time = timeFormatter.string(from: timestamp)
 
-          HStack(alignment: .center) {
-            Text("Trigger")
-            Spacer()
-            Text(verbatim: String(describing: sync.trigger))
-          }
+          DisclosureGroup {
+            VStack(alignment: .leading) {
+              ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
+                HStack(alignment: .firstTextBaseline) {
+                  if offset == 0 {
+                    Image(systemName: "arrowtriangle.right.fill")
+                  } else {
+                    Image(systemName: "arrowtriangle.up")
+                  }
 
-          VStack(alignment: .leading) {
-            if let end = end {
-              HStack(alignment: .center) {
-                Text("End")
-                Spacer()
-                Text(verbatim: "\(end.0) \(end.1)")
+                  Text("\(String(describing: status.type))")
+                  Spacer()
+
+                  Text(verbatim: dateFormatter.string(from: status.timestamp))
+                }
+                .foregroundStyle(offset == 0 ? Color.primary : Color.secondary)
               }
+              .font(Font.subheadline)
             }
 
+          } label: {
             HStack(alignment: .center) {
-              if sync.lastStatus.isInProgress {
+              switch sync.lastStatus {
+              case .completed:
+                Image(systemName: "checkmark.circle.fill")
+                  .foregroundStyle(Color.green)
+              case .deprioritized:
+                Image(systemName: "pause.fill")
+                  .foregroundStyle(Color.gray)
+              case .timeout:
+                Image(systemName: "alarm.fill")
+                  .foregroundStyle(Color.yellow)
+              case .started, .readChunk, .uploadedChunk, .noData:
                 ProgressView()
               }
 
-              Text("Start")
-              Spacer()
-              Text(verbatim: "\(start) \(startTimeZone)")
-            }
-            .foregroundStyle(end != nil ? Color.secondary : Color.primary)
-          }
-
-          VStack(alignment: .leading) {
-            ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
-              HStack(alignment: .firstTextBaseline) {
-                Text("\(String(describing: status.type))")
-                Spacer()
-
-                Text(verbatim: dateComponentFormatter.string(from: status.timestamp.timeIntervalSince(sync.start)) ?? "")
+              VStack(alignment: .leading) {
+                Text(verbatim: String(describing: sync.lastStatus))
+                Text(verbatim: String(describing: sync.trigger))
+                  .foregroundStyle(Color.secondary)
+                  .font(.subheadline)
               }
-              .foregroundStyle(offset == 0 ? Color.primary : Color.secondary)
+
+              Spacer()
+              VStack(alignment: .trailing) {
+                Text(verbatim: "\(time)")
+                Text(verbatim: "\(date)")
+                  .foregroundStyle(Color.secondary)
+              }
             }
           }
         }
@@ -239,13 +255,17 @@ struct ResourceSystemEventView: View {
   var body: some View {
     List {
       ForEach(resource.systemEvents.reversed()) { event in
-        let time = dateFormatter.string(from: event.timestamp)
-        let timeZone = dateFormatter.timeZone.abbreviation(for: event.timestamp) ?? ""
+        let date = dateFormatter.string(from: event.timestamp)
+        let time = timeFormatter.string(from: event.timestamp)
 
         HStack(alignment: .firstTextBaseline) {
           Text("\(String(describing: event.type))")
           Spacer()
-          Text(verbatim: "\(time) \(timeZone)")
+          VStack(alignment: .trailing) {
+            Text(verbatim: "\(time)")
+            Text(verbatim: "\(date)")
+              .foregroundStyle(Color.secondary)
+          }
         }
       }
     }
