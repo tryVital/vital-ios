@@ -166,7 +166,7 @@ final class SyncProgressStore {
         $0.syncs[index].append(status, at: now)
 
         switch status {
-        case .completed, .cancelled, .noData:
+        case .completed, .error, .cancelled, .noData:
           $0.syncs[index].end = now
 
         default:
