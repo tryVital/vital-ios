@@ -1,5 +1,7 @@
 @_spi(VitalSDKInternals) import VitalCore
 import Foundation
+import UIKit
+import Combine
 
 public struct SyncProgress: Codable {
   public var resources: [VitalResource: Resource] = [:]
@@ -88,20 +90,51 @@ public struct SyncProgress: Codable {
 
 final class SyncProgressStore {
   private var state: SyncProgress {
-    didSet {
-      try? VitalGistStorage.shared.set(state, for: SyncProgressGistKey.self)
-    }
+    didSet { hasChanges = true }
   }
+  private var hasChanges = false
   private let lock = NSLock()
+  private let didChange = PassthroughSubject<Void, Never>()
 
   static let shared = SyncProgressStore()
 
+  private var cancellables: Set<AnyCancellable> = []
+  private var multicaster: AnyPublisher<SyncProgress, Never>!
+
   init() {
     state = VitalGistStorage.shared.get(SyncProgressGistKey.self) ?? SyncProgress()
+
+    multicaster = didChange.prepend(())
+      .map { self.get() }
+      .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest)
+      .share()
+      .eraseToAnyPublisher()
+
+    NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+      .sink { [weak self] _ in self?.flush() }
+      .store(in: &cancellables)
+
+    Timer.publish(every: 10.0, on: RunLoop.main, in: .default)
+      .autoconnect()
+      .sink { [weak self] _ in self?.flush() }
+      .store(in: &cancellables)
   }
 
   func get() -> SyncProgress {
     lock.withLock { state }
+  }
+
+  func publisher() -> some Publisher<SyncProgress, Never> {
+    multicaster
+  }
+
+  func flush() {
+    lock.withLock {
+      if hasChanges {
+        try? VitalGistStorage.shared.set(state, for: SyncProgressGistKey.self)
+        hasChanges = false
+      }
+    }
   }
 
   func clear() {
@@ -109,6 +142,8 @@ final class SyncProgressStore {
       state = SyncProgress()
       try? VitalGistStorage.shared.set(Optional<SyncProgress>.none, for: SyncProgressGistKey.self)
     }
+
+    didChange.send(())
   }
 
   func recordSync(_ resource: RemappedVitalResource, _ status: SyncProgress.SyncStatus, for id: SyncProgress.SyncID) {
@@ -166,13 +201,15 @@ final class SyncProgressStore {
     }
   }
 
-  public func mutate(_ resources: some Sequence<RemappedVitalResource>, action: (inout SyncProgress.Resource) -> Void) {
+  private func mutate(_ resources: some Sequence<RemappedVitalResource>, action: (inout SyncProgress.Resource) -> Void) {
     lock.withLock {
       for resource in resources {
         state.resources[resource.wrapped, default: SyncProgress.Resource()]
           .with(action)
       }
     }
+
+    didChange.send(())
   }
 }
 

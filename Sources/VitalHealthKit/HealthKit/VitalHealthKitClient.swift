@@ -610,11 +610,13 @@ extension VitalHealthKitClient {
   }
 
   private func sync(_ remappedResource: RemappedVitalResource, _ trigger: SyncTrigger) async {
+    let progressStore = SyncProgressStore.shared
+
     let syncID = SyncProgress.SyncID(trigger: trigger)
+    defer { progressStore.flush() }
 
     let resource = remappedResource.wrapped
     let description = resource.logDescription
-    let progressStore = SyncProgressStore.shared
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
@@ -970,6 +972,19 @@ extension VitalHealthKitClient {
   public var syncProgress: SyncProgress {
     SyncProgressStore.shared.get()
   }
+
+  public var syncProgresses: AsyncStream<SyncProgress> {
+    AsyncStream<SyncProgress> { continuation in
+      let cancellable = syncProgressPublisher()
+        .sink { _ in continuation.finish() } receiveValue: { continuation.yield($0) }
+      continuation.onTermination = { _ in cancellable.cancel() }
+    }
+  }
+
+  public func syncProgressPublisher() -> some Publisher<SyncProgress, Never> {
+    SyncProgressStore.shared.publisher()
+  }
+
 }
 
 extension ProtectedBox<UIBackgroundTaskIdentifier> {
