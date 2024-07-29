@@ -342,7 +342,7 @@ func handleSleep(
     limit: AnchoredQueryChunkSize.sleep,
     startDate: startDate,
     endDate: endDate,
-    extraPredicate: nil,
+    extraPredicate: predicate,
     transform: { sleep, _ in sleep }
   )
 
