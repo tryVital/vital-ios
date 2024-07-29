@@ -820,177 +820,181 @@ extension VitalHealthKitClient {
       }
     }
 
+    let instruction: SyncInstruction
+    let state: LocalSyncState
+
     do {
-      let (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped)
+      (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped)
 
-      VitalLogger.healthKit.info("[\(description)] \(instruction)", source: "Sync")
+    } catch let error {
+      VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(error)", source: "Sync")
+      progressStore.recordSync(remappedResource, .error, for: syncID)
+      return
+    }
 
-      // Signal syncing (so the consumer can convey it to the user)
-      _status.send(.syncing(resource))
+    VitalLogger.healthKit.info("[\(description)] \(instruction)", source: "Sync")
 
-      @Sendable func readStep(uncommittedAnchors: [StoredAnchor]) async throws -> (ProcessedResourceData?, [StoredAnchor], hasMore: Bool) {
-        // Fetch from HealthKit
-        let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
+    // Signal syncing (so the consumer can convey it to the user)
+    _status.send(.syncing(resource))
 
-        (data, anchors) = try await store.readResource(
-          remappedResource,
-          instruction,
-          AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
-          ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
+    @Sendable func readStep(uncommittedAnchors: [StoredAnchor]) async throws -> (ProcessedResourceData?, [StoredAnchor], hasMore: Bool) {
+      // Fetch from HealthKit
+      let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
+
+      (data, anchors) = try await store.readResource(
+        remappedResource,
+        instruction,
+        AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
+        ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
+      )
+
+      // Continue the loop if any anchor reports hasMore=true.
+      let hasMore = anchors.contains(where: \.hasMore)
+
+      return (data, anchors, hasMore)
+    }
+
+    @Sendable func uploadStep(
+      data: ProcessedResourceData?,
+      anchors: [StoredAnchor],
+      hasMore: Bool
+    ) async throws -> Bool {
+
+      // We skip empty POST only in daily stage.
+      // Empty POST is sent for historical stage, so we would consistently emit
+      // historical.data.*.created events.
+      guard
+        let data = data,
+        instruction.stage == .historical || data.shouldSkipPost == false
+      else {
+
+        VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
+        _status.send(.nothingToSync(resource))
+
+        return false
+      }
+
+      if configuration.mode.isAutomatic {
+        VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
+
+        // Post data
+        try await vitalClient.post(
+          data,
+          instruction.taggedPayloadStage,
+          .appleHealthKit,
+          /// We can't use `vitalCalendar` here. We want to send the user's timezone
+          /// rather than UTC (which is what `vitalCalendar` is set to).
+          TimeZone.current,
+          // Is final chunk?
+          hasMore == false
         )
-
-        // Continue the loop if any anchor reports hasMore=true.
-        let hasMore = anchors.contains(where: \.hasMore)
-
-        return (data, anchors, hasMore)
+      } else {
+        VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
       }
 
-      @Sendable func uploadStep(
-        data: ProcessedResourceData?,
-        anchors: [StoredAnchor],
-        hasMore: Bool
-      ) async throws -> Bool {
 
-        // We skip empty POST only in daily stage.
-        // Empty POST is sent for historical stage, so we would consistently emit
-        // historical.data.*.created events.
-        guard
-          let data = data,
-          instruction.stage == .historical || data.shouldSkipPost == false
-        else {
+      // Save the anchor/date on a succesfull network call
+      anchors.forEach(storage.store(entity:))
 
-          VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
-          _status.send(.nothingToSync(resource))
+      // Signal success
+      _status.send(.successSyncing(resource, data))
 
-          return false
-        }
+      VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
+      return true
+    }
 
-        if configuration.mode.isAutomatic {
-          VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
+    // Overlap read and upload, so we maximize the use of limited background execution time.
+    //
+    // .read -> .upload
+    //           .read  -> .upload
+    //                      .read -> .upload
+    //                                 (fin)
 
-          // Post data
-          try await vitalClient.post(
-            data,
-            instruction.taggedPayloadStage,
-            .appleHealthKit,
-            /// We can't use `vitalCalendar` here. We want to send the user's timezone
-            /// rather than UTC (which is what `vitalCalendar` is set to).
-            TimeZone.current,
-            // Is final chunk?
-            hasMore == false
-          )
-        } else {
-          VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
-        }
+    let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
+    pipelineScheduler.yield(.read())
+    pipelineScheduler.onTermination = { reason in
+      switch reason {
+      case .cancelled:
+        progressStore.recordSync(remappedResource, .cancelled, for: syncID)
 
+      case .finished:
+        self.storage.markHistoricalStageDone(for: resource)
+        progressStore.recordSync(remappedResource, .completed, for: syncID)
 
-        // Save the anchor/date on a succesfull network call
-        anchors.forEach(storage.store(entity:))
-
-        // Signal success
-        _status.send(.successSyncing(resource, data))
-
-        VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
-        return true
+      @unknown default:
+        VitalLogger.healthKit.info("unknown AsyncStream state: \(reason)", source: "Sync")
       }
+    }
 
-      // Overlap read and upload, so we maximize the use of limited background execution time.
-      //
-      // .read -> .upload
-      //           .read  -> .upload
-      //                      .read -> .upload
-      //                                 (fin)
+    let uploadSemaphore = ParkingLot().semaphore
 
-      let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
-      pipelineScheduler.yield(.read())
-      pipelineScheduler.onTermination = { reason in
-        switch reason {
-        case .cancelled:
-          progressStore.recordSync(remappedResource, .cancelled, for: syncID)
+    await withTaskGroup(of: Void.self) { group in
+      for await stage in pipeline {
+        switch stage {
+        case let .read(uncommittedAnchors):
+          _ = group.addTaskUnlessCancelled {
+            let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
+            defer { signpost.end() }
 
-        case .finished:
-          self.storage.markHistoricalStageDone(for: resource)
-          progressStore.recordSync(remappedResource, .completed, for: syncID)
+            do {
+              let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
+              pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
 
-        @unknown default:
-          VitalLogger.healthKit.info("unknown AsyncStream state: \(reason)", source: "Sync")
-        }
-      }
+            } catch is CancellationError {
+              return
 
-      let uploadSemaphore = ParkingLot().semaphore
-
-      await withTaskGroup(of: Void.self) { group in
-        for await stage in pipeline {
-          switch stage {
-          case let .read(uncommittedAnchors):
-            _ = group.addTaskUnlessCancelled {
-              let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
-              defer { signpost.end() }
-
-              do {
-                let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
-                pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
-
-              } catch is CancellationError {
-                return
-
-              } catch let error {
-                VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-                progressStore.recordSync(remappedResource, .error, for: syncID)
-                pipelineScheduler.finish()
-              }
+            } catch let error {
+              VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+              progressStore.recordSync(remappedResource, .error, for: syncID)
+              pipelineScheduler.finish()
             }
+          }
 
-          case let .upload(data, anchors, hasMore: hasMore):
-            _ = group.addTaskUnlessCancelled {
-              progressStore.recordSync(remappedResource, .readChunk, for: syncID)
+        case let .upload(data, anchors, hasMore: hasMore):
+          _ = group.addTaskUnlessCancelled {
+            progressStore.recordSync(remappedResource, .readChunk, for: syncID)
 
-              do {
-                try await VitalLogger.Signpost
-                  .begin(name: "wait-for-outstanding-upload", description: description)
-                  .endWith {
-                    try await uploadSemaphore.acquire()
-                  }
-
-                defer { uploadSemaphore.release() }
-
-                let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
-                defer { signpost2.end() }
-
-                // Schedule an overlapping read
-                if hasMore {
-                  pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
+            do {
+              try await VitalLogger.Signpost
+                .begin(name: "wait-for-outstanding-upload", description: description)
+                .endWith {
+                  try await uploadSemaphore.acquire()
                 }
 
-                let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
-                progressStore.recordSync(
-                  remappedResource,
-                  hasPosted ? .uploadedChunk : .noData,
-                  for: syncID
-                )
+              defer { uploadSemaphore.release() }
 
-                if !hasMore {
-                  pipelineScheduler.finish()
-                }
+              let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
+              defer { signpost2.end() }
 
-              } catch is CancellationError {
-                return
+              // Schedule an overlapping read
+              if hasMore {
+                pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
+              }
 
-              } catch let error {
-                VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-                progressStore.recordSync(remappedResource, .error, for: syncID)
+              let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+              progressStore.recordSync(
+                remappedResource,
+                hasPosted ? .uploadedChunk : .noData,
+                for: syncID
+              )
+
+              if !hasMore {
                 pipelineScheduler.finish()
               }
+
+            } catch is CancellationError {
+              return
+
+            } catch let error {
+              VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+              progressStore.recordSync(remappedResource, .error, for: syncID)
+              pipelineScheduler.finish()
             }
           }
         }
-
-        await group.waitForAll()
       }
 
-    } catch let error {
-      VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-      _status.send(.failedSyncing(resource, error))
+      await group.waitForAll()
     }
   }
 
