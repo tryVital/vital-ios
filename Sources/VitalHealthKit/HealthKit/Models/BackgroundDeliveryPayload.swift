@@ -4,7 +4,7 @@ import UIKit
 public enum SyncTrigger: Int, Codable {
   case foreground = 0
   case backgroundHealthKit = 1
-  case backgroundTask = 2
+  case processingTask = 2
 }
 
 struct BackgroundDeliveryPayload: CustomStringConvertible {
