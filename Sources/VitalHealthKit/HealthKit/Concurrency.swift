@@ -36,19 +36,21 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
   }
 
   @discardableResult
-  func task(_ action: @Sendable @escaping () async throws -> Void) throws -> TaskHandle {
-    try lock.withLock {
-      guard !isCancelled else { throw CancellationError() }
+  func task(priority: TaskPriority = .medium, _ action: @Sendable @escaping () async throws -> Void) -> TaskHandle? {
+    lock.withLock {
+      guard !isCancelled else { return nil }
 
       let handle = TaskHandle()
-      activeTasks.insert(handle)
+      self.activeTasks.insert(handle)
 
-      handle.wrapped = Task<Void, Never> {
+      handle.wrapped = Task<Void, Never>(priority: priority) {
         do {
           try await action()
         } catch _ {}
 
-        activeTasks.remove(handle)
+        self.lock.withLock {
+          _ = self.activeTasks.remove(handle)
+        }
       }
 
       return handle
@@ -62,7 +64,7 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
   func timeoutScope(cancellingAfter timeout: TimeInterval) throws -> SupervisorScope {
     let scope = createChild()
 
-    try scope.task { [weak scope] in
+    scope.task { [weak scope] in
       try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
       await scope?.cancel()
     }

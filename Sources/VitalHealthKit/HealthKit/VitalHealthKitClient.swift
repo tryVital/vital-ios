@@ -59,6 +59,8 @@ public enum PermissionOutcome: Equatable {
   var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
   var syncDeprioritizedQueue: Set<RemappedVitalResource> = []
 
+  var scope = SupervisorScope()
+
   private var isAutoSyncConfigured: Bool {
     backgroundDeliveryEnabled.value ?? false
   }
@@ -86,13 +88,9 @@ public enum PermissionOutcome: Equatable {
   }
 
   private static func bind(_ client: VitalHealthKitClient, core: VitalClient) {
-    core.childSDKShouldReset
-      .sink {
-        Task {
-          await client.resetAutoSync()
-        }
-      }
-      .store(in: &client.cancellables)
+    core.registerSignoutTask {
+      await client.resetAutoSync()
+    }
 
     client.registerProcessingTaskHandlers()
   }
@@ -171,6 +169,7 @@ public enum PermissionOutcome: Equatable {
       backgroundDeliveryEnabled.set(value: true)
 
       checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled)
+      scheduleUnnotifiedResourceRescue()
     }
   }
 }
@@ -214,13 +213,13 @@ public extension VitalHealthKitClient {
   }
 
   private struct BackgroundDeliveryTask {
-    let task: Task<Void, Error>
+    let task: TaskHandle?
     let resources: Set<RemappedVitalResource>
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
     func cancel() {
       streamContinuation.finish()
-      task.cancel()
+      task?.cancel()
     }
   }
 }
@@ -274,7 +273,7 @@ extension VitalHealthKitClient {
       (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
     }
 
-    let task = Task<Void, any Error>(priority: .userInitiated) {
+    let payloadListener = scope.task(priority: .userInitiated) {
       for await payload in stream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
@@ -289,7 +288,7 @@ extension VitalHealthKitClient {
         }
 
         // Allow multiple resource sync to run concurrently.
-        Task(priority: .userInitiated) {
+        self.scope.task(priority: .userInitiated) {
           // Task is not cancelled — we must call the HealthKit completion handler irrespective of
           // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
           // rule of HealthKit background delivery.
@@ -315,7 +314,7 @@ extension VitalHealthKitClient {
     }
 
     self.backgroundDeliveryTask = BackgroundDeliveryTask(
-      task: task,
+      task: payloadListener,
       resources: Set(resources),
       streamContinuation: streamContinuation
     )
@@ -350,7 +349,7 @@ extension VitalHealthKitClient {
           VitalLogger.healthKit.info("expired", source: "ProcessingTask")
         }
 
-        Task(priority: .userInitiated) {
+        self.scope.task(priority: .userInitiated) {
           defer {
             task.setTaskCompleted(success: true)
             self.submitProcessingTasks()
@@ -366,12 +365,12 @@ extension VitalHealthKitClient {
               .map(VitalHealthKitStore.remapResource(_:))
           )
 
-          SyncProgressStore.shared.recordSystem(resources, .processingTaskCallout)
+          SyncProgressStore.shared.recordSystem(resources, .backgroundProcessingTask)
 
           await withTaskGroup(of: Void.self) { group in
             for resource in resources {
               group.addTask {
-                await self.sync(resource, .processingTask)
+                await self.sync(resource, .backgroundProcessingTask)
               }
             }
           }
@@ -395,6 +394,38 @@ extension VitalHealthKitClient {
 
       } catch let error {
         VitalLogger.healthKit.info("submission failed: \(error)", source: "ProcessingTask")
+      }
+    }
+  }
+
+  /// HKObserverQuery does not callout at app launch on resources that have no data.
+  /// Rescue these resources by checking t
+  func scheduleUnnotifiedResourceRescue() {
+    scope.task { @MainActor in
+      // 1 seconds after app launch or Ask
+      try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
+      let isInForeground = UIApplication.shared.applicationState != .background
+
+      let resources = Set(
+        resourcesAskedForPermission(store: self.store)
+          .map(VitalHealthKitStore.remapResource)
+      )
+
+      let progress = SyncProgressStore.shared.get()
+      let unnotifiedResources = resources.filter { resource in
+        guard let resourceProgress = progress.resources[resource.wrapped] else {
+          // Doesn't even show up in `SyncProgress.resources`
+          return true
+        }
+        // OR has no sync attempt
+        return resourceProgress.syncs.isEmpty
+      }
+
+      // Rescue these resources
+      await withTaskGroup(of: Void.self) { group in
+        for resource in unnotifiedResources {
+          await self.sync(resource, isInForeground ? .foreground : .backgroundOther)
+        }
       }
     }
   }
@@ -441,7 +472,7 @@ extension VitalHealthKitClient {
             let matches = Set(filteredSampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
             let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
 
-            Task(priority: .userInitiated) { @MainActor in
+            self.scope.task(priority: .userInitiated) { @MainActor in
               let isForeground = UIApplication.shared.applicationState != .background
 
               let payload = BackgroundDeliveryPayload(
@@ -503,7 +534,7 @@ extension VitalHealthKitClient {
 
           VitalLogger.healthKit.info("notified: \(remapped.map(\.wrapped.logDescription).joined(separator: ","))", source: "HealthKit")
 
-          Task(priority: .userInitiated) { @MainActor in
+          self.scope.task(priority: .userInitiated) { @MainActor in
             let isForeground = UIApplication.shared.applicationState != .background
 
             let payload = BackgroundDeliveryPayload(
@@ -547,25 +578,33 @@ extension VitalHealthKitClient {
   }
   
   public func syncData(for resources: [VitalResource]) {
-    Task(priority: .high) {
+    scope.task(priority: .high) {
       let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
       for resource in remappedResources {
-        await sync(resource, .foreground)
+        await self.sync(resource, .foreground)
       }
-      
-      _status.send(.syncingCompleted)
     }
   }
 
   private func resetAutoSync() async {
-    backgroundDeliveryTask?.task.cancel()
-    backgroundDeliveryTask = nil
-    backgroundDeliveryEnabled.set(value: false)
+    VitalLogger.healthKit.info("begin", source: "Reset")
+
+    await scope.cancel()
+
+    VitalLogger.healthKit.info("cancelled outstanding tasks", source: "Reset")
 
     await store.disableBackgroundDelivery()
 
+    // Install a new clean scope.
+    scope = SupervisorScope()
+
+    backgroundDeliveryTask = nil
+    backgroundDeliveryEnabled.set(value: false)
+
     SyncProgressStore.shared.clear()
+
+    VitalLogger.healthKit.info("done", source: "Reset")
   }
 
   private func getLocalSyncState() async throws -> LocalSyncState {
@@ -739,6 +778,8 @@ extension VitalHealthKitClient {
       return
     }
 
+    progressStore.recordSync(remappedResource, .started, for: syncID)
+
     // If we receive this payload in foreground, wrap the sync work in
     // a UIKit background task, in case the user will move the app to background soon.
 
@@ -903,14 +944,14 @@ extension VitalHealthKitClient {
   }
 
   private func scheduleDeprioritizedResourceRetries() {
-    Task { @MainActor in
+    scope.task(priority: .high) { @MainActor in
       guard UIApplication.shared.applicationState != .background else {
         return
       }
 
-      let retries = syncSerializerLock.withLock {
-        let queue = syncDeprioritizedQueue
-        syncDeprioritizedQueue = []
+      let retries = self.syncSerializerLock.withLock {
+        let queue = self.syncDeprioritizedQueue
+        self.syncDeprioritizedQueue = []
         return queue
       }
 
@@ -955,7 +996,7 @@ extension VitalHealthKitClient {
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled
         )
       }
-      
+
       return .success
     }
     catch let error {
