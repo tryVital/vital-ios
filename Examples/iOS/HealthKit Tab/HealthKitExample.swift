@@ -54,8 +54,10 @@ struct HealthKitExample: View {
                     Text("OK")
                   case .started, .readChunk, .uploadedChunk:
                     ProgressView()
-                  case .timeout:
+                  case .cancelled:
                     Text("Timeout")
+                  case .error:
+                    Text("Error")
                   case .deprioritized:
                     Text("Deprioritized")
                   }
@@ -214,13 +216,16 @@ struct ResourceSyncProgressView: View {
             HStack(alignment: .center) {
               switch sync.lastStatus {
               case .completed:
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: "checkmark.square.fill")
                   .foregroundStyle(Color.green)
               case .deprioritized:
-                Image(systemName: "pause.fill")
+                Image(systemName: "arrow.uturn.down.square")
                   .foregroundStyle(Color.gray)
-              case .timeout:
-                Image(systemName: "alarm.fill")
+              case .cancelled:
+                Image(systemName: "minus.square")
+                  .foregroundStyle(Color.yellow)
+              case .error:
+                Image(systemName: "exclamationmark.triangle.fill")
                   .foregroundStyle(Color.yellow)
               case .started, .readChunk, .uploadedChunk, .noData:
                 ProgressView()
@@ -238,6 +243,7 @@ struct ResourceSyncProgressView: View {
                 Text(verbatim: "\(time)")
                 Text(verbatim: "\(date)")
                   .foregroundStyle(Color.secondary)
+                  .font(.subheadline)
               }
             }
           }
@@ -265,6 +271,7 @@ struct ResourceSystemEventView: View {
             Text(verbatim: "\(time)")
             Text(verbatim: "\(date)")
               .foregroundStyle(Color.secondary)
+              .font(.subheadline)
           }
         }
       }

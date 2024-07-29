@@ -886,55 +886,89 @@ extension VitalHealthKitClient {
 
       let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
       pipelineScheduler.yield(.read())
+      pipelineScheduler.onTermination = { reason in
+        switch reason {
+        case .cancelled:
+          progressStore.recordSync(remappedResource, .cancelled, for: syncID)
+
+        case .finished:
+          self.storage.markHistoricalStageDone(for: resource)
+          progressStore.recordSync(remappedResource, .completed, for: syncID)
+
+        @unknown default:
+          VitalLogger.healthKit.info("unknown AsyncStream state: \(reason)", source: "Sync")
+        }
+      }
 
       let uploadSemaphore = ParkingLot().semaphore
 
-      try await withThrowingTaskGroup(of: Void.self) { group in
+      await withTaskGroup(of: Void.self) { group in
         for await stage in pipeline {
-          try Task.checkCancellation()
-
           switch stage {
           case let .read(uncommittedAnchors):
             _ = group.addTaskUnlessCancelled {
               let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
               defer { signpost.end() }
 
-              let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
-              pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
+              do {
+                let (data, anchors, hasMore) = try await readStep(uncommittedAnchors: uncommittedAnchors)
+                pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
+
+              } catch is CancellationError {
+                return
+
+              } catch let error {
+                VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+                progressStore.recordSync(remappedResource, .error, for: syncID)
+                pipelineScheduler.finish()
+              }
             }
 
           case let .upload(data, anchors, hasMore: hasMore):
             _ = group.addTaskUnlessCancelled {
               progressStore.recordSync(remappedResource, .readChunk, for: syncID)
 
-              let signpost = VitalLogger.Signpost.begin(name: "wait-for-outstanding-upload", description: description)
-              try await uploadSemaphore.acquire()
-              signpost.end()
+              do {
+                try await VitalLogger.Signpost
+                  .begin(name: "wait-for-outstanding-upload", description: description)
+                  .endWith {
+                    try await uploadSemaphore.acquire()
+                  }
 
-              defer { uploadSemaphore.release() }
+                defer { uploadSemaphore.release() }
 
-              let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
-              defer { signpost2.end() }
+                let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
+                defer { signpost2.end() }
 
-              if hasMore {
-                pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
-              }
+                // Schedule an overlapping read
+                if hasMore {
+                  pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
+                }
 
-              let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+                let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+                progressStore.recordSync(
+                  remappedResource,
+                  hasPosted ? .uploadedChunk : .noData,
+                  for: syncID
+                )
 
-              if hasMore {
-                progressStore.recordSync(remappedResource, hasPosted ? .uploadedChunk : .noData, for: syncID)
+                if !hasMore {
+                  pipelineScheduler.finish()
+                }
 
-              } else {
-                self.storage.markHistoricalStageDone(for: resource)
-                progressStore.recordSync(remappedResource, hasPosted ? .completed : .noData, for: syncID)
+              } catch is CancellationError {
+                return
+
+              } catch let error {
+                VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+                progressStore.recordSync(remappedResource, .error, for: syncID)
                 pipelineScheduler.finish()
               }
             }
           }
         }
 
-        try await group.waitForAll()
+        await group.waitForAll()
       }
 
     } catch let error {
