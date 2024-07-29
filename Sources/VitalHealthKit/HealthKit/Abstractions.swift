@@ -66,14 +66,7 @@ extension VitalHealthKitStore {
         .individual(.weight):
       return RemappedVitalResource(wrapped: .body)
 
-    case 
-        .individual(.activeEnergyBurned),
-        .individual(.basalEnergyBurned), 
-        .individual(.distanceWalkingRunning),
-        .individual(.exerciseTime), 
-        .individual(.floorsClimbed),
-        .individual(.steps),
-        .individual(.vo2Max):
+    case .individual(.exerciseTime):
       return RemappedVitalResource(wrapped: .activity)
 
     default:
