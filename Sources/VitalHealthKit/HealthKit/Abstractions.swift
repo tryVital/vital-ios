@@ -1,5 +1,6 @@
 import HealthKit
 @_spi(VitalSDKInternals) import VitalCore
+import os
 
 struct RemappedVitalResource: Hashable {
   let wrapped: VitalResource
@@ -350,6 +351,10 @@ struct StatisticsQueryDependencies {
         options: []
       )
 
+      let shortID = type.shortenedIdentifier
+      let signpost = VitalLogger.Signpost.begin(name: "statsMulti", description: shortID)
+      defer { signpost.end() }
+
       let intervalComponents: DateComponents
       switch granularity {
       case .hourly:
@@ -457,6 +462,10 @@ struct StatisticsQueryDependencies {
           options: [.strictStartDate, .strictEndDate]
         )
       ] + predicates.wrapped)
+
+      let shortID = type.shortenedIdentifier
+      let signpost = VitalLogger.Signpost.begin(name: "statsSingle", description: shortID)
+      defer { signpost.end() }
 
       // If task is already cancelled, don't bother with starting the query.
       try Task.checkCancellation()

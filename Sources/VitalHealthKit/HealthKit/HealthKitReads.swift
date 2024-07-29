@@ -20,11 +20,11 @@ enum VitalHealthKitClientError: Error {
 }
 
 enum AnchoredQueryChunkSize {
-  static let timeseries = 50000
-  static let workout = 40
+  static let timeseries = 10000
+  static let workout = 5
   // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
   static let sleep = HKObjectQueryNoLimit
-  static let activityTimeseries = 50000
+  static let activityTimeseries = 10000
 }
 
 struct VitalStatisticsError: Error {
@@ -342,7 +342,7 @@ func handleSleep(
     limit: AnchoredQueryChunkSize.sleep,
     startDate: startDate,
     endDate: endDate,
-    extraPredicate: predicate,
+    extraPredicate: nil,
     transform: { sleep, _ in sleep }
   )
 
@@ -970,6 +970,7 @@ private func anchoredQuery<Sample: HKSample, Result, SampleUnit>(
   //
   // Try to fill up to the target batch size, with at most 4 attempts.
   repeat {
+
     let (samples, anchor) = try await anchoredQueryCore(
       healthKitStore,
       vitalStorage: AnchorStorageOverlay(
@@ -1008,6 +1009,9 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
   extraPredicate: NSPredicate?,
   transform: @escaping (Sample, SampleUnit) -> Result?
 ) async throws -> (sample: [Result], anchor: StoredAnchor?) {
+
+  let signpost = VitalLogger.Signpost.begin(name: "anchoredQuery", description: type.shortenedIdentifier)
+  defer { signpost.end() }
 
   let shortID = "Query,\(type.shortenedIdentifier)"
 
@@ -1127,6 +1131,10 @@ func queryMulti(
     }
   }
 
+  let shortIDs = types.map(\.shortenedIdentifier).joined(separator: ",")
+  let signpost = VitalLogger.Signpost.begin(name: "queryMulti", description: shortIDs)
+  defer { signpost.end() }
+
   // iOS 15+: Single query to match multiple HKSampleTypes
 
   return try await withCheckedThrowingContinuation { continuation in
@@ -1186,6 +1194,11 @@ private func querySingle(
   endDate: Date? = nil,
   extraPredicates: Predicates = Predicates([])
 ) async throws -> [HKSample] {
+
+  let shortID = type.shortenedIdentifier
+  let signpost = VitalLogger.Signpost.begin(name: "querySingle", description: shortID)
+  defer { signpost.end() }
+
   return try await withCheckedThrowingContinuation { continuation in
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
       healthKitStore.stop(query)
@@ -1194,17 +1207,17 @@ private func querySingle(
         if let error = error as? HKError {
           switch error.code {
           case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
-            VitalLogger.healthKit.info("no data or no permission for \(type.shortenedIdentifier)", source: "QuerySingle")
+            VitalLogger.healthKit.info("no data or no permission for \(shortID)", source: "QuerySingle")
             continuation.resume(with: .success([]))
             return
 
           default:
-            VitalLogger.healthKit.info("\(type.shortenedIdentifier) error = \(error.code)", source: "QuerySingle")
+            VitalLogger.healthKit.info("\(shortID) error = \(error.code)", source: "QuerySingle")
             continuation.resume(with: .failure(error))
             return
           }
         } else {
-          VitalLogger.healthKit.info("\(type.shortenedIdentifier) error = \(error)", source: "QuerySingle")
+          VitalLogger.healthKit.info("\(shortID) error = \(error)", source: "QuerySingle")
           continuation.resume(with: .failure(error))
           return
         }

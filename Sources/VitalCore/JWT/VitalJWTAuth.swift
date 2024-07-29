@@ -571,6 +571,8 @@ public final class ParkingLot: @unchecked Sendable {
 
     public func acquire() async throws {
       repeat {
+        try Task.checkCancellation()
+
         if wrapped.tryTo(.enable) {
           return
         } else {

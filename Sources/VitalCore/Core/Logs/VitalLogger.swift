@@ -38,6 +38,7 @@ public enum VitalLogger {
   public private(set) static var devices = VitalLogging.Logger(label: Category.devices.rawValue, factory: Self.logHandlerFactory)
   public private(set) static var requests = VitalLogging.Logger(label: Category.requests.rawValue, factory: Self.logHandlerFactory)
   public private(set) static var healthKit = VitalLogging.Logger(label: Category.healthKit.rawValue, factory: Self.logHandlerFactory)
+  public static let signpost = OSLog(subsystem: "io.tryvital.VitalHealthKit", category: .pointsOfInterest)
 
   public enum Category: String {
     case core
@@ -60,6 +61,53 @@ public enum VitalLogger {
     handler.logLevel = min(logLevelRequest.persistentLogger, logLevelRequest.stdOut)
 
     return handler
+  }
+
+  public final class Signpost {
+    public var id: OSSignpostID {
+      OSSignpostID(log: VitalLogger.signpost, object: self)
+    }
+
+    public let dso: UnsafeRawPointer
+    public let name: StaticString
+    public let description: String
+
+    var ended: Bool = false
+
+    public init(
+      dso: UnsafeRawPointer = #dsohandle,
+      name: StaticString,
+      description: String
+    ) {
+      self.dso = dso
+      self.name = name
+      self.description = description
+    }
+
+    public func begin() {
+      os_signpost(.begin, dso: dso, log: VitalLogger.signpost, name: name, signpostID: id, "%{public}@", description)
+    }
+
+    public func end() {
+      ended = true
+      os_signpost(.end, dso: dso, log: VitalLogger.signpost, name: name, signpostID: id, "%{public}@", description)
+    }
+
+    deinit {
+      if !ended {
+        end()
+      }
+    }
+
+    public static func begin(
+      dso: UnsafeRawPointer = #dsohandle,
+      name: StaticString,
+      description: String
+    ) -> Signpost {
+      let signpost = Self(dso: dso, name: name, description: description)
+      signpost.begin()
+      return signpost
+    }
   }
 }
 
