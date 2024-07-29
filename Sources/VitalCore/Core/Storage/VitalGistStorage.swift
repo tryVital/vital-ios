@@ -1,6 +1,7 @@
 import Foundation
 
-internal protocol GistKey<T> {
+@_spi(VitalSDKInternals)
+public protocol GistKey<T> {
   associatedtype T: Codable
   static var identifier: String { get }
 }
@@ -11,7 +12,8 @@ internal protocol GistKey<T> {
 /// Certain SDK queries (e.g., `VitalClient.status`) are backed by Gist Storage, since the host app
 /// may be pre-warmed in iOS 15+ and therefore may unintentionally query the SDK during this post reboot to device
 /// first unlock time window.
-internal final class VitalGistStorage: @unchecked Sendable {
+@_spi(VitalSDKInternals)
+public final class VitalGistStorage: @unchecked Sendable {
   private static let directoryURL = {
     let applicationSupport: URL
 
@@ -31,9 +33,9 @@ internal final class VitalGistStorage: @unchecked Sendable {
   private var state: [ObjectIdentifier: State] = [:]
   private let lock = NSLock()
 
-  static let shared = VitalGistStorage()
+  public static let shared = VitalGistStorage()
 
-  func get<Key: GistKey>(_ key: Key.Type) -> Key.T? {
+  public func get<Key: GistKey>(_ key: Key.Type) -> Key.T? {
     let typeKey = ObjectIdentifier(key)
 
     do {
@@ -70,7 +72,7 @@ internal final class VitalGistStorage: @unchecked Sendable {
     }
   }
 
-  func set<Key: GistKey>(_ newValue: VitalJWTAuthRecordGist?, for key: Key.Type) throws {
+  public func set<Key: GistKey>(_ newValue: (some Encodable)?, for key: Key.Type) throws {
     let typeKey = ObjectIdentifier(key)
     let url = Self.fileURL(forKey: key.identifier)
 
