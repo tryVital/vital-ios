@@ -3,69 +3,16 @@ import VitalHealthKit
 import HealthKit
 import VitalCore
 
-let dateFormatter = {
-  let formatter = DateFormatter()
-  formatter.dateStyle = .short
-  formatter.timeStyle = .none
-  formatter.timeZone = TimeZone.autoupdatingCurrent
-  formatter.doesRelativeDateFormatting = true
-  return formatter
-}()
-
-let timeFormatter = {
-  let formatter = DateFormatter()
-  formatter.dateStyle = .none
-  formatter.timeStyle = .long
-  formatter.timeZone = TimeZone.autoupdatingCurrent
-  return formatter
-}()
 
 struct HealthKitExample: View {
   @State var permissions: [VitalResource: Bool] = [:]
   @State var pauseSync = VitalHealthKitClient.shared.pauseSynchronization
 
-  @State var items: [(key: VitalResource, value: SyncProgress.Resource)] = []
-
   var body: some View {
     NavigationView {
       Form {
         Section(header: Text("Sync Progress")) {
-          ForEach($items, id: \.key) { item in
-            let (key, resource) = item.wrappedValue
-
-            NavigationLink {
-              ResourceSyncProgressView(key: key, resource: item[keyPath: \.value])
-
-            } label: {
-              HStack {
-                VStack(alignment: .leading) {
-                  Text("\(key.logDescription)")
-                  if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
-                    Text(verbatim: dateFormatter.string(from: lastUpdated))
-                      .foregroundStyle(Color.secondary)
-                      .font(Font.subheadline)
-                  }
-                }
-                Spacer()
-
-                if let sync = resource.latestSync {
-                  switch sync.lastStatus {
-                  case .completed, .noData:
-                    Text("OK")
-                  case .started, .readChunk, .uploadedChunk:
-                    ProgressView()
-                  case .cancelled:
-                    Text("Timeout")
-                  case .error:
-                    Text("Error")
-                  case .deprioritized:
-                    Text("Deprioritized")
-                  }
-                }
-              }
-            }
-            .isDetailLink(false)
-          }
+          ForEachVitalResource()
         }
 
         Section(header: Text("Permissions")) {
@@ -134,10 +81,6 @@ struct HealthKitExample: View {
       .onChange(of: self.pauseSync) { pauseSync in
         VitalHealthKitClient.shared.pauseSynchronization = pauseSync
       }
-      .onReceive(VitalHealthKitClient.shared.syncProgressPublisher().receive(on: RunLoop.main)) { progress in
-        self.items = progress.resources
-          .sorted(by: { $0.key.logDescription.compare($1.key.logDescription) == .orderedAscending })
-      }
     }
   }
 }
@@ -167,115 +110,5 @@ struct HealthKitExample: View {
       }
     }
     .buttonStyle(PermissionStyle())
-  }
-}
-
-struct ResourceSyncProgressView: View {
-  let key: VitalResource
-  @Binding var resource: SyncProgress.Resource
-
-  var body: some View {
-    List {
-      Section {
-        NavigationLink {
-          ResourceSystemEventView(key: key, resource: $resource)
-
-        } label: {
-          Text("System Events")
-        }
-        .isDetailLink(false)
-      }
-
-      Section {
-        ForEach(resource.syncs.reversed()) { sync in
-          let timestamp = sync.statuses.last?.timestamp ?? sync.start
-          let date = dateFormatter.string(from: timestamp)
-          let time = timeFormatter.string(from: timestamp)
-
-          DisclosureGroup {
-            VStack(alignment: .leading) {
-              ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
-                HStack(alignment: .firstTextBaseline) {
-                  if offset == 0 {
-                    Image(systemName: "arrowtriangle.right.fill")
-                  } else {
-                    Image(systemName: "arrowtriangle.up")
-                  }
-
-                  Text("\(String(describing: status.type))")
-                  Spacer()
-
-                  Text(verbatim: dateFormatter.string(from: status.timestamp))
-                }
-                .foregroundStyle(offset == 0 ? Color.primary : Color.secondary)
-              }
-              .font(Font.subheadline)
-            }
-
-          } label: {
-            HStack(alignment: .center) {
-              switch sync.lastStatus {
-              case .completed:
-                Image(systemName: "checkmark.square.fill")
-                  .foregroundStyle(Color.green)
-              case .deprioritized:
-                Image(systemName: "arrow.uturn.down.square")
-                  .foregroundStyle(Color.gray)
-              case .cancelled:
-                Image(systemName: "minus.square")
-                  .foregroundStyle(Color.yellow)
-              case .error:
-                Image(systemName: "exclamationmark.triangle.fill")
-                  .foregroundStyle(Color.yellow)
-              case .started, .readChunk, .uploadedChunk, .noData:
-                ProgressView()
-              }
-
-              VStack(alignment: .leading) {
-                Text(verbatim: String(describing: sync.lastStatus))
-                Text(verbatim: String(describing: sync.trigger))
-                  .foregroundStyle(Color.secondary)
-                  .font(.subheadline)
-              }
-
-              Spacer()
-              VStack(alignment: .trailing) {
-                Text(verbatim: "\(time)")
-                Text(verbatim: "\(date)")
-                  .foregroundStyle(Color.secondary)
-                  .font(.subheadline)
-              }
-            }
-          }
-        }
-      }
-    }
-    .navigationTitle(Text(key.logDescription))
-  }
-}
-
-struct ResourceSystemEventView: View {
-  let key: VitalResource
-  @Binding var resource: SyncProgress.Resource
-
-  var body: some View {
-    List {
-      ForEach(resource.systemEvents.reversed()) { event in
-        let date = dateFormatter.string(from: event.timestamp)
-        let time = timeFormatter.string(from: event.timestamp)
-
-        HStack(alignment: .firstTextBaseline) {
-          Text("\(String(describing: event.type))")
-          Spacer()
-          VStack(alignment: .trailing) {
-            Text(verbatim: "\(time)")
-            Text(verbatim: "\(date)")
-              .foregroundStyle(Color.secondary)
-              .font(.subheadline)
-          }
-        }
-      }
-    }
-    .navigationTitle(Text(key.logDescription))
   }
 }
