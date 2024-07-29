@@ -70,38 +70,44 @@ public enum TimeSeriesData: Equatable, Encodable {
   case heartRateVariability([LocalQuantitySample])
   case nutrition(NutritionData)
   case mindfulSession([LocalQuantitySample])
-  
+  case respiratoryRate([LocalQuantitySample])
+  case caloriesActive([LocalQuantitySample])
+  case caloriesBasal([LocalQuantitySample])
+  case distance([LocalQuantitySample])
+  case floorsClimbed([LocalQuantitySample])
+  case steps([LocalQuantitySample])
+  case vo2Max([LocalQuantitySample])
+  case temperature([LocalQuantitySample])
+
   public var payload: Encodable {
     switch self {
     case 
       let .glucose(samples), let .bloodOxygen(samples), let .heartRate(samples),
-      let .heartRateVariability(samples):
+      let .heartRateVariability(samples), let .nutrition(.caffeine(samples)),
+      let .nutrition(.water(samples)), let .mindfulSession(samples),
+      let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
+      let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
+      let .respiratoryRate(samples), let .temperature(samples):
       return samples
 
-    case let .bloodPressure(dataPoints):
-      return dataPoints
-
-    case let .nutrition(nutrition):
-      return nutrition.payload
-
-    case let .mindfulSession(dataPoints):
-      return dataPoints
+    case let .bloodPressure(samples):
+      return samples
     }
   }
   
   public var shouldSkipPost: Bool {
     switch self {
-    case 
+    case
       let .glucose(samples), let .bloodOxygen(samples), let .heartRate(samples),
-      let .heartRateVariability(samples):
+      let .heartRateVariability(samples), let .nutrition(.caffeine(samples)),
+      let .nutrition(.water(samples)), let .mindfulSession(samples),
+      let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
+      let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
+      let .respiratoryRate(samples), let .temperature(samples):
       return samples.isEmpty
 
-      case let .bloodPressure(samples):
-        return samples.isEmpty
-      case let .nutrition(nutrition):
-        return nutrition.shouldSkipPost
-      case let .mindfulSession(dataPoints):
-        return dataPoints.isEmpty
+    case let .bloodPressure(samples):
+      return samples.isEmpty
     }
   }
   
@@ -123,6 +129,22 @@ public enum TimeSeriesData: Equatable, Encodable {
         /// This is the path used by the endpoint
         /// so it needs to be `mindfulness_minutes` versus `mindful_session`.
         return "mindfulness_minutes"
+    case .caloriesActive:
+      return "calories_active"
+    case .caloriesBasal:
+      return "calories_basal"
+    case .distance:
+      return "distance"
+    case .floorsClimbed:
+      return "floors_climbed"
+    case .steps:
+      return "steps"
+    case .vo2Max:
+      return "vo2_max"
+    case .respiratoryRate:
+      return "respiratory_rate"
+    case .temperature:
+      return "temperature"
     }
   }
 }

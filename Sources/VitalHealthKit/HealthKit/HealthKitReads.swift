@@ -202,7 +202,7 @@ func read(
       vitalStorage,
       .activeEnergyBurned,
       instruction,
-      keyPath: \.activeEnergyBurned,
+      transform: TimeSeriesData.caloriesActive,
       options: options
     )
 
@@ -212,7 +212,7 @@ func read(
       vitalStorage,
       .basalEnergyBurned,
       instruction,
-      keyPath: \.basalEnergyBurned,
+      transform: TimeSeriesData.caloriesBasal,
       options: options
     )
 
@@ -222,7 +222,7 @@ func read(
       vitalStorage,
       .stepCount,
       instruction,
-      keyPath: \.steps,
+      transform: TimeSeriesData.steps,
       options: options
     )
 
@@ -232,7 +232,7 @@ func read(
       vitalStorage,
       .distanceWalkingRunning,
       instruction,
-      keyPath: \.distanceWalkingRunning,
+      transform: TimeSeriesData.distance,
       options: options
     )
 
@@ -242,7 +242,7 @@ func read(
       vitalStorage,
       .flightsClimbed,
       instruction,
-      keyPath: \.floorsClimbed,
+      transform: TimeSeriesData.floorsClimbed,
       options: options
     )
 
@@ -254,10 +254,7 @@ func read(
       startDate: instruction.query.lowerBound,
       endDate: instruction.query.upperBound
     )
-    let patch = ActivityPatch(activities: [
-      .init(daySummary: nil, vo2Max: payload.samples)
-    ])
-    return (.summary(.activity(patch)), payload.anchors)
+    return (.timeSeries(.vo2Max(payload.samples)), payload.anchors)
 
   case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
     throw VitalHealthKitClientError.invalidRemappedResource
@@ -269,16 +266,14 @@ func handleActivityTimeseries(
   _ vitalStorage: AnchorStorage,
   _ id: HKQuantityTypeIdentifier,
   _ instruction: SyncInstruction,
-  keyPath: WritableKeyPath<ActivityPatch.Activity, [LocalQuantitySample]>,
+  transform: ([LocalQuantitySample]) -> TimeSeriesData,
   options: ReadOptions
 ) async throws -> (ProcessedResourceData, [StoredAnchor]) {
-  var patches: [ActivityPatch.Activity] = []
   var anchors: [StoredAnchor] = []
 
   let (hourlyStats, statsAnchor) = try await queryHourlyStatistics(healthKitStore, id, instruction)
-  var patch = ActivityPatch.Activity(daySummary: nil)
-  patch[keyPath: keyPath] = hourlyStats
-  patches.append(patch)
+
+  var samples = hourlyStats
   anchors.appendOptional(statsAnchor)
 
   if options.perDeviceActivityTS {
@@ -289,13 +284,11 @@ func handleActivityTimeseries(
       startDate: instruction.query.lowerBound,
       endDate: instruction.query.upperBound
     )
-    var patch = ActivityPatch.Activity(daySummary: nil)
-    patch[keyPath: keyPath] = hourlyStats
-    patches.append(patch)
+    samples += payload.samples
     anchors += payload.anchors
   }
 
-  return (.summary(.activity(.init(activities: patches))), anchors)
+  return (.timeSeries(transform(samples)), anchors)
 }
 
 func queryHourlyStatistics(

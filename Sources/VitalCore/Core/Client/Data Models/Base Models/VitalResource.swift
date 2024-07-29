@@ -4,12 +4,16 @@ public enum VitalResource: Equatable, Hashable, Codable {
     switch self {
     case .activity, .individual(.exerciseTime):
       return BackfillType.activity;
-    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
+    case .individual(.activeEnergyBurned):
       return BackfillType.caloriesActive
+    case .individual(.basalEnergyBurned):
+      return BackfillType.caloriesBasal
     case .individual(.distanceWalkingRunning):
       return BackfillType.distance
-    case .individual(.floorsClimbed), .individual(.steps):
+    case .individual(.steps):
       return BackfillType.steps
+    case .individual(.floorsClimbed):
+      return BackfillType.floorsClimbed
     case .individual(.vo2Max):
       return BackfillType.vo2Max
     case .body, .individual(.bodyFat), .individual(.weight):
@@ -206,7 +210,9 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable {
   public static let caffeine = BackfillType(rawValue: "caffeine")
   public static let mindfulnessMinutes = BackfillType(rawValue: "mindfulness_minutes")
   public static let caloriesActive = BackfillType(rawValue: "calories_active")
+  public static let caloriesBasal = BackfillType(rawValue: "calories_basal")
   public static let distance = BackfillType(rawValue: "distance")
+  public static let floorsClimbed = BackfillType(rawValue: "floors_climbed")
   public static let steps = BackfillType(rawValue: "steps")
   public static let respiratoryRate = BackfillType(rawValue: "respiratory_rate")
   public static let vo2Max = BackfillType(rawValue: "vo2_max")

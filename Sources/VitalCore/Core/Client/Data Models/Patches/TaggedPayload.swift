@@ -58,19 +58,5 @@ public extension TaggedPayload {
       }
     }
   }
-  
-  enum Data: Encodable {
-    public enum Vitals: Encodable {
-      case glucose([LocalQuantitySample])
-    }
-    
-    case profile(ProfilePatch)
-    case activity(ActivityPatch)
-    case workout(WorkoutPatch)
-    case sleep(SleepPatch)
-    case body(BodyPatch)
-    case menstrualCycle(MenstrualCyclePatch)
-    case vitals(Vitals)
-  }
 }
 
