@@ -6,7 +6,6 @@ import UIKit
 import BackgroundTasks
 
 let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
-let researchTaskIdentifier = "io.tryvital.VitalHealthKit.HealthResearchTask"
 
 public enum PermissionOutcome: Equatable {
   case success
@@ -262,7 +261,7 @@ extension VitalHealthKitClient {
     enableBackgroundDelivery(for: uniqueFlatenned)
 
     /// Submit BGProcessingTasks
-    submitProcessingTasks()
+    scope.task { await self.submitProcessingTasks() }
 
     let stream: AsyncStream<BackgroundDeliveryPayload>
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
@@ -347,12 +346,12 @@ extension VitalHealthKitClient {
 
         task.expirationHandler = {
           VitalLogger.healthKit.info("expired", source: "ProcessingTask")
+          task.setTaskCompleted(success: false)
         }
 
         self.scope.task(priority: .userInitiated) {
           defer {
             task.setTaskCompleted(success: true)
-            self.submitProcessingTasks()
           }
 
           guard VitalClient.status.contains(.signedIn) else {
@@ -374,19 +373,37 @@ extension VitalHealthKitClient {
               }
             }
           }
+
+          await self.submitProcessingTasks()
         }
       }
     }
   }
 
-  func submitProcessingTasks() {
+  func submitProcessingTasks() async {
     let scheduler = BGTaskScheduler.shared
     let declaredBgTasks = Set(Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? [])
 
     if declaredBgTasks.contains(processingTaskIdentifier) {
-      let request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
+      let requests = await scheduler.pendingTaskRequests()
+      if requests.contains(where: { $0.identifier == processingTaskIdentifier }) {
+        VitalLogger.healthKit.info("found existing", source: "ProcessingTask")
+        return
+      }
+
+      let request: BGProcessingTaskRequest
+      
+      if #available(iOS 17.0, *) {
+        request = BGHealthResearchTaskRequest(identifier: processingTaskIdentifier)
+      } else {
+        request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
+      }
+
       request.requiresExternalPower = true
       request.requiresNetworkConnectivity = true
+
+      // Processing Tasks should be at minimum 6 hours apart
+      request.earliestBeginDate = Date().addingTimeInterval(3600 * 6)
 
       do {
         try scheduler.submit(request)
