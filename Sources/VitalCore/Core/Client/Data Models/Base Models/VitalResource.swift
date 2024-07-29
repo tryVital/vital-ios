@@ -1,9 +1,17 @@
 public enum VitalResource: Equatable, Hashable, Codable {
   @_spi(VitalSDKInternals)
   public func resourceToBackfillType() -> BackfillType {
-    switch self{
-    case .activity, .individual(.activeEnergyBurned), .individual(.basalEnergyBurned), .individual(.distanceWalkingRunning), .individual(.exerciseTime), .individual(.floorsClimbed), .individual(.steps), .individual(.vo2Max):
+    switch self {
+    case .activity, .individual(.exerciseTime):
       return BackfillType.activity;
+    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
+      return BackfillType.caloriesActive
+    case .individual(.distanceWalkingRunning):
+      return BackfillType.distance
+    case .individual(.floorsClimbed), .individual(.steps):
+      return BackfillType.steps
+    case .individual(.vo2Max):
+      return BackfillType.vo2Max
     case .body, .individual(.bodyFat), .individual(.weight):
       return BackfillType.body;
     case .vitals(.bloodOxygen):
@@ -162,11 +170,11 @@ public enum VitalResource: Equatable, Hashable, Codable {
       case .menstrualCycle:
         return "menstrualCycle"
       case let .vitals(vitals):
-        return "vitals - \(vitals.logDescription)"
+        return vitals.logDescription
       case let .individual(individual):
-        return "individual - \(individual.logDescription)"
+        return individual.logDescription
       case let .nutrition(nutrition):
-        return "nutrition - \(nutrition.logDescription)"
+        return nutrition.logDescription
     }
   }
 }

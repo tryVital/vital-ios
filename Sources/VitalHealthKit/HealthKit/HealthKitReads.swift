@@ -43,7 +43,6 @@ struct VitalStatisticsError: Error {
 func read(
   resource: RemappedVitalResource,
   healthKitStore: HKHealthStore,
-  typeToResource: ((HKSampleType) -> VitalResource),
   vitalStorage: AnchorStorage,
   instruction: SyncInstruction,
   options: ReadOptions

@@ -53,7 +53,7 @@ public enum PermissionOutcome: Equatable {
 
   let syncSerializerLock = NSLock()
   var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
-
+  var syncDeprioritizedQueue: Set<RemappedVitalResource> = []
 
   private var isAutoSyncConfigured: Bool {
     backgroundDeliveryEnabled.value ?? false
@@ -265,7 +265,7 @@ extension VitalHealthKitClient {
       (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
     }
 
-    let task = Task<Void, any Error>(priority: .high) { @MainActor in
+    let task = Task<Void, any Error>(priority: .userInitiated) {
       for await payload in stream {
         // If the task is cancelled, we would break the endless iteration and end the task.
         // Any buffered payload would not be processed, and is expected to be redelivered by
@@ -280,7 +280,7 @@ extension VitalHealthKitClient {
         }
 
         // Allow multiple resource sync to run concurrently.
-        Task(priority: .high) {
+        Task(priority: .userInitiated) {
           // Task is not cancelled — we must call the HealthKit completion handler irrespective of
           // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
           // rule of HealthKit background delivery.
@@ -294,13 +294,18 @@ extension VitalHealthKitClient {
 
           VitalLogger.healthKit.info("received: \(payload.sampleTypes.map(\.shortenedIdentifier))", source: "BgDelivery")
 
-          guard let first = payload.sampleTypes.first else {
-            return
-          }
+          let matches = Set(payload.sampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
+          let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
 
-          /// This means we are trying to sync related samples, so let's convert it to a `VitalResource`
-          let resource = VitalHealthKitStore.remapResource(store.toVitalResource(first))
-          await sync(resource, foreground: payload.appState != .background)
+          VitalLogger.healthKit.info("will trigger: \(remapped.map(\.wrapped.logDescription))", source: "BgDelivery")
+
+          await withTaskGroup(of: Void.self) { group in
+            for resource in remapped {
+              group.addTask {
+                await self.sync(resource, foreground: payload.appState != .background)
+              }
+            }
+          }
         }
       }
     }
@@ -554,7 +559,7 @@ extension VitalHealthKitClient {
   private func computeSyncInstruction(_ resource: VitalResource) async throws -> (SyncInstruction, LocalSyncState) {
     let state = try await getLocalSyncState()
 
-    let hasCompletedHistoricalStage = storage.readFlag(for: resource)
+    let hasCompletedHistoricalStage = storage.historicalStageDone(for: resource)
       || resource == .profile
 
     let now = Date()
@@ -572,12 +577,8 @@ extension VitalHealthKitClient {
       // Always sync first
       return true
 
-    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
-      // These must sync only after heart rates are done.
-      waitForHistoricalDone = [.vitals(.heartRate)]
-
-    case .vitals(.heartRate):
-      // These must sync only after steps are done.
+    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned), .vitals(.heartRate):
+      // These heavy hitters wait until steps are done.
       waitForHistoricalDone = [.individual(.steps)]
 
     default:
@@ -589,12 +590,12 @@ extension VitalHealthKitClient {
       .intersection(waitForHistoricalDone)
 
     // Deprioritized until all prioritized resources have finished their historical stage.
-    return resourcesToCheck.allSatisfy(storage.readFlag(for:))
+    return resourcesToCheck.allSatisfy(storage.historicalStageDone(for:))
   }
 
   private func sync(_ remappedResource: RemappedVitalResource, foreground: Bool) async {
     let resource = remappedResource.wrapped
-    let description = resource.resourceToBackfillType().rawValue
+    let description = resource.logDescription
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
@@ -603,6 +604,7 @@ extension VitalHealthKitClient {
 
     guard self.prioritizeSync(remappedResource, foreground: foreground) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
+      syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
       return
     }
 
@@ -657,6 +659,8 @@ extension VitalHealthKitClient {
     }
 
     defer {
+      scheduleDeprioritizedResourceRetries()
+
       if let osBackgroundTask = osBackgroundTask {
         osBackgroundTask.endIfNeeded()
         VitalLogger.healthKit.info("ended: daily:\(description)", source: "UIKitBgTask")
@@ -780,7 +784,7 @@ extension VitalHealthKitClient {
               try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
 
               if !hasMore {
-                self.storage.storeFlag(for: resource)
+                self.storage.markHistoricalStageDone(for: resource)
                 pipelineScheduler.finish()
               }
             }
@@ -795,7 +799,33 @@ extension VitalHealthKitClient {
       _status.send(.failedSyncing(resource, error))
     }
   }
-  
+
+  private func scheduleDeprioritizedResourceRetries() {
+    Task { @MainActor in
+      guard UIApplication.shared.applicationState != .background else {
+        return
+      }
+
+      let retries = syncSerializerLock.withLock {
+        let queue = syncDeprioritizedQueue
+        syncDeprioritizedQueue = []
+        return queue
+      }
+
+      // Retry previously deprioritized resources.
+      //
+      // If their prerequisites still were not satisfied, they will re-enter
+      // `syncDeprioritizedQueue` eventually.
+      await withTaskGroup(of: Void.self) { group in
+        for resource in retries {
+          group.addTask {
+            await self.sync(resource, foreground: true)
+          }
+        }
+      }
+    }
+  }
+
   public func ask(
     readPermissions readResources: [VitalResource],
     writePermissions writeResource: [WritableVitalResource]
@@ -873,7 +903,6 @@ extension VitalHealthKitClient {
     let (data, _): (ProcessedResourceData?, [StoredAnchor]) = try await VitalHealthKit.read(
       resource: VitalHealthKitStore.remapResource(resource),
       healthKitStore:  HKHealthStore(),
-      typeToResource: VitalHealthKitStore.live.toVitalResource,
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       instruction: SyncInstruction(stage: .daily, query: startDate ..< endDate),
       options: ReadOptions(embedTimeseries: true)
