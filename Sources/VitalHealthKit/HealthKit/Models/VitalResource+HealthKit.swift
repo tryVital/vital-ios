@@ -145,10 +145,9 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
   case .workout:
     return HealthKitObjectTypeRequirements(
       required: [HKSampleType.workoutType()],
-      optional: [
-        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
-      ],
+      optional: [],
       supplementary: [
+        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
       ]
     )
@@ -217,6 +216,12 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
 
   case .vitals(.heartRateVariability):
     return single(.quantityType(forIdentifier: .heartRateVariabilitySDNN)!)
+
+  case .vitals(.respiratoryRate):
+    return single(.quantityType(forIdentifier: .respiratoryRate)!)
+
+  case .vitals(.temperature):
+    return single(.quantityType(forIdentifier: .bodyTemperature)!)
   }
 }
 
@@ -327,7 +332,17 @@ func observedSampleTypes() -> [[HKSampleType]] {
     /// Mindfulness Minutes
     [
       HKSampleType.categoryType(forIdentifier: .mindfulSession)!
-    ]
+    ],
+
+    /// Temperature
+    [
+      HKSampleType.quantityType(forIdentifier: .bodyTemperature)!
+    ],
+
+    /// Respiratory rate
+    [
+      HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
+    ],
   ]
 }
 
