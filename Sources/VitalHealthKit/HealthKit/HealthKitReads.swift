@@ -88,8 +88,7 @@ func read(
       let payload = try await handleActivity(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound,
+        instruction: instruction,
         options: options
       )
       
@@ -535,8 +534,7 @@ func handleSleep(
 func handleActivity(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
-  startDate: Date,
-  endDate: Date,
+  instruction: SyncInstruction,
   options: ReadOptions
 ) async throws -> (activityPatch: ActivityPatch?, anchors: [StoredAnchor]) {
 
@@ -544,187 +542,28 @@ func handleActivity(
     healthKitStore: healthKitStore
   )
 
-  // Calendar in local TZ, used for day summaries and final sample grouping.
   let deviceTimeZoneCalendar = GregorianCalendar(timeZone: .current)
 
-  @Sendable func queryQuantities(
-    _ id: HKQuantityTypeIdentifier
-  ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
-
-    let discoveryStartDate: Date
-
-    let type = HKQuantityType.quantityType(forIdentifier: id)!
-
-    // One-off migration for hourly statistics previously using content hash anchors (`[VitalAnchor]`)
-    // to HKQueryAnchor.
-    if
-      let anchor = vitalStorage.read(key: String(describing: type)),
-      !(anchor.vitalAnchors?.isEmpty ?? true),
-      let lastSyncDate = anchor.date
-    {
-      // Migration process:
-      // 1. Override `startDate` to lastSyncDate - 7 days.
-      // 2. `query(...)` bootstraps the HKAnchoredObjectQuery using the overriden `startDate`.
-      // 3. `query(...)` returns a `StoredAnchor` containing only a `HKQueryAnchor` and the date.
-      // 4. After posting data successfully, we commit the `StoreAnchor`, during which the content
-      //    hash anchors (`[VitalAnchor]`) would be deleted.
-      // 5. Migration completed — all future sync would not enter this migration path again.
-      discoveryStartDate = min(Date.dateAgo(lastSyncDate, days: 7), endDate)
-
-    } else {
-      discoveryStartDate = startDate
-    }
-
-    let payload = try await anchoredQuery(
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      type: type,
-      sampleClass: HKQuantitySample.self,
-      unit: QuantityUnit(id),
-      limit: AnchoredQueryChunkSize.activityTimeseries,
-      startDate: discoveryStartDate,
-      endDate: endDate,
-      transform: LocalQuantitySample.init
-    )
-
-    return (payload.sample, payload.anchor)
-  }
-
-  @Sendable
-  func queryHourlyStatistics(
-    _ id: HKQuantityTypeIdentifier,
-    discovered newSamples: [LocalQuantitySample]
-  ) async throws -> [LocalQuantitySample] {
-    guard newSamples.isEmpty == false else {
-      return []
-    }
-
-    let type = HKQuantityType.quantityType(forIdentifier: id)!
-    let unit = QuantityUnit(id)
-
-    var earliest = newSamples[0].startDate
-    var latest = newSamples[0].endDate
-
-    for sample in newSamples.dropFirst() {
-      earliest = min(earliest, sample.startDate)
-      latest = max(latest, sample.endDate)
-    }
-
-    // Round down earliest to the start of the whole hour
-    // Round up latest to the next whole hour
-    earliest = earliest.beginningHour
-    latest = latest.nextHour
-
-    let statistics = try await dependencies.executeStatisticalQuery(type, earliest ..< latest, .hourly, nil)
-
-    return statistics.compactMap { value in
-      return LocalQuantitySample(value, unit: unit)
-    }
-  }
-
-  // - Hourly timeseries samples
-  var anchors: [StoredAnchor] = []
-
-  async let _rawActiveEnergyBurned = queryQuantities( .activeEnergyBurned)
-  async let _rawBasalEnergyBurned = queryQuantities(.basalEnergyBurned)
-  async let _rawStepCount = queryQuantities(.stepCount)
-  async let _rawFlightsClimbed = queryQuantities(.flightsClimbed)
-  async let _rawDistanceWalkingRunning = queryQuantities(.distanceWalkingRunning)
-  async let _rawVo2Max = queryQuantities(.vo2Max)
-
-  let rawActiveEnergyBurned = try await _rawActiveEnergyBurned
-  let rawBasalEnergyBurned = try await _rawBasalEnergyBurned
-  let rawStepCount = try await _rawStepCount
-  let rawFlightsClimbed = try await _rawFlightsClimbed
-  let rawDistanceWalkingRunning = try await _rawDistanceWalkingRunning
-  let rawVo2Max = try await _rawVo2Max
-
-  anchors.appendOptional(rawActiveEnergyBurned.1)
-  anchors.appendOptional(rawBasalEnergyBurned.1)
-  anchors.appendOptional(rawStepCount.1)
-  anchors.appendOptional(rawFlightsClimbed.1)
-  anchors.appendOptional(rawDistanceWalkingRunning.1)
-  anchors.appendOptional(rawVo2Max.1)
-
-  async let _hourlyActiveEnergyBurned = queryHourlyStatistics(
-    .activeEnergyBurned,
-    discovered: rawActiveEnergyBurned.quantities
-  )
-  async let _hourlyBasalEnergyBurned = queryHourlyStatistics(
-    .basalEnergyBurned,
-    discovered: rawBasalEnergyBurned.quantities
-  )
-  async let _hourlyStepCount = queryHourlyStatistics(
-    .stepCount,
-    discovered: rawStepCount.quantities
-  )
-  async let _hourlyFlightsClimbed = queryHourlyStatistics(
-    .flightsClimbed,
-    discovered: rawFlightsClimbed.quantities
-  )
-  async let _hourlyDistanceWalkingRunning = queryHourlyStatistics(
-    .distanceWalkingRunning,
-    discovered: rawDistanceWalkingRunning.quantities
-  )
-
-  let hourlyActiveEnergyBurned = try await _hourlyActiveEnergyBurned
-  let hourlyBasalEnergyBurned = try await _hourlyBasalEnergyBurned
-  let hourlyStepCount = try await _hourlyStepCount
-  let hourlyFlightsClimbed = try await _hourlyFlightsClimbed
-  let hourlyDistanceWalkingRunning = try await _hourlyDistanceWalkingRunning
-
-
-  // - Day summaries
-
-  // Find the minimum start date.
-  let daySummaryStartDate: Date? = [
-    hourlyActiveEnergyBurned.first?.startDate,
-    hourlyBasalEnergyBurned.first?.startDate,
-    hourlyStepCount.first?.startDate,
-    hourlyFlightsClimbed.first?.startDate,
-    hourlyDistanceWalkingRunning.first?.startDate,
-  ].compactMap { $0 }.min()
-
-  let daySummaryEndDate: Date? = [
-    hourlyActiveEnergyBurned.first?.endDate,
-    hourlyBasalEnergyBurned.first?.endDate,
-    hourlyStepCount.first?.endDate,
-    hourlyFlightsClimbed.first?.endDate,
-    hourlyDistanceWalkingRunning.first?.endDate,
-  ].compactMap { $0 }.max()
-
   let daySummaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]
+  let lowerBound: Date
 
-  if let startDate = daySummaryStartDate {
-    daySummaries = try await queryActivityDaySummaries(
-      dependencies: dependencies,
-      startTime: daySummaryStartDate ?? startDate,
-      endTime: daySummaryEndDate ?? endDate,
-      in: deviceTimeZoneCalendar
-    )
-  } else {
-    daySummaries = [:]
+  switch instruction.stage {
+  case .daily:
+    lowerBound = Date.dateAgo(instruction.query.upperBound, days: 14)
+  case .historical:
+    lowerBound = instruction.query.lowerBound
   }
 
-  var allSamples = ActivityPatch.Activity(
-    activeEnergyBurned: hourlyActiveEnergyBurned,
-    basalEnergyBurned: hourlyBasalEnergyBurned,
-    steps: hourlyStepCount,
-    floorsClimbed: hourlyFlightsClimbed,
-    distanceWalkingRunning: hourlyDistanceWalkingRunning,
-    vo2Max: rawVo2Max.quantities
+  daySummaries = try await queryActivityDaySummaries(
+    dependencies: dependencies,
+    startTime: lowerBound,
+    endTime: instruction.query.upperBound,
+    in: deviceTimeZoneCalendar
   )
 
-  if options.perDeviceActivityTS {
-    allSamples.activeEnergyBurned += rawActiveEnergyBurned.quantities
-    allSamples.basalEnergyBurned += rawBasalEnergyBurned.quantities
-    allSamples.steps += rawStepCount.quantities
-    allSamples.floorsClimbed += rawFlightsClimbed.quantities
-    allSamples.distanceWalkingRunning += rawDistanceWalkingRunning.quantities
-  }
+  let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: ActivityPatch.Activity(), in: deviceTimeZoneCalendar)
+  let anchors = [StoredAnchor(key: "activityDaySummary", anchor: nil, date: instruction.query.upperBound, vitalAnchors: nil, hasMore: false)]
 
-  let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: allSamples, in: deviceTimeZoneCalendar)
-  
   return (patch, anchors: anchors)
 }
 
