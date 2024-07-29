@@ -422,8 +422,10 @@ struct StatisticsQueryDependencies {
         }
 
         do {
+          let unit = QuantityUnit(.init(rawValue: type.identifier))
+
           let vitalStatistics = try values.map { statistics in
-            try VitalStatistics(statistics: statistics, type: type, options: options)
+            try VitalStatistics(statistics: statistics, unit: unit, type: type, options: options)
           }
 
           continuation.resume(returning: vitalStatistics)

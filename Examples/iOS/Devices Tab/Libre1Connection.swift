@@ -126,7 +126,7 @@ extension Libre1Connection {
                       .font(.title)
                       .fontWeight(.medium)
                     
-                    Text("\(sample.unit)")
+                    Text("\(sample.unit.rawValue)")
                       .font(.footnote)
                   }
                   

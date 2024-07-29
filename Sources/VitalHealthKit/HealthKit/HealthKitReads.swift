@@ -115,7 +115,7 @@ func read(
 
     case .vitals(.bloodOxygen):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .oxygenSaturation)!,
+        .oxygenSaturation,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -126,7 +126,7 @@ func read(
 
     case .vitals(.glucose):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .bloodGlucose)!,
+        .bloodGlucose,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -137,7 +137,7 @@ func read(
       
     case .vitals(.heartRate):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .heartRate)!,
+        .heartRate,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -148,7 +148,7 @@ func read(
 
     case .vitals(.heartRateVariability):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+        .heartRateVariabilitySDNN,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -169,7 +169,7 @@ func read(
       
     case .nutrition(.water):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .dietaryWater)!,
+        .dietaryWater,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -180,7 +180,7 @@ func read(
 
     case .nutrition(.caffeine):
       let payload = try await handleTimeSeries(
-        type: .quantityType(forIdentifier: .dietaryCaffeine)!,
+        .dietaryCaffeine,
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
@@ -244,6 +244,7 @@ func handleProfile(
     healthKitStore: healthKitStore,
     type: .quantityType(forIdentifier: .height)!,
     sampleClass: HKQuantitySample.self,
+    unit: QuantityUnit(.height),
     limit: 1,
     ascending: false,
     transform: LocalQuantitySample.init
@@ -280,15 +281,15 @@ func handleBody(
 ) async throws -> (bodyPatch: BodyPatch, anchors: [StoredAnchor]) {
   
   func queryQuantities(
-    type: HKSampleType
+    _ id: HKQuantityTypeIdentifier
   ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
     
     let payload = try await anchoredQuery(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
-      type: type,
+      type: .quantityType(forIdentifier: id)!,
       sampleClass: HKQuantitySample.self,
-      unit: type.toHealthKitUnits,
+      unit: QuantityUnit(id),
       limit: AnchoredQueryChunkSize.timeseries,
       startDate: startDate,
       endDate: endDate,
@@ -301,13 +302,8 @@ func handleBody(
   
   var anchors: [StoredAnchor] = []
   
-  let (bodyMass, bodyMassAnchor) = try await queryQuantities(
-    type: .quantityType(forIdentifier: .bodyMass)!
-  )
-  
-  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(
-    type: .quantityType(forIdentifier: .bodyFatPercentage)!
-  )
+  let (bodyMass, bodyMassAnchor) = try await queryQuantities(.bodyMass)
+  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(.bodyFatPercentage)
   
   anchors.appendOptional(bodyMassAnchor)
   anchors.appendOptional(bodyFatPercentageAnchor)
@@ -444,6 +440,7 @@ func handleSleep(
           healthKitStore: healthKitStore,
           type: .quantityType(forIdentifier: .heartRate)!,
           sampleClass: HKQuantitySample.self,
+          unit: QuantityUnit(.heartRate),
           startDate: sleep.startDate,
           endDate: sleep.endDate,
           extraPredicates: [fromSameSourceRevision],
@@ -454,6 +451,7 @@ func handleSleep(
           healthKitStore: healthKitStore,
           type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
           sampleClass: HKQuantitySample.self,
+          unit: QuantityUnit(.heartRateVariabilitySDNN),
           startDate: sleep.startDate,
           endDate: sleep.endDate,
           extraPredicates: [fromSameSourceRevision],
@@ -464,6 +462,7 @@ func handleSleep(
           healthKitStore: healthKitStore,
           type: .quantityType(forIdentifier: .respiratoryRate)!,
           sampleClass: HKQuantitySample.self,
+          unit: QuantityUnit(.respiratoryRate),
           startDate: sleep.startDate,
           endDate: sleep.endDate,
           extraPredicates: [fromSameSourceRevision],
@@ -478,6 +477,7 @@ func handleSleep(
           healthKitStore: healthKitStore,
           type: .quantityType(forIdentifier: .appleSleepingWristTemperature)!,
           sampleClass: HKQuantitySample.self,
+          unit: QuantityUnit(.appleSleepingWristTemperature),
           startDate: sleep.startDate,
           endDate: sleep.endDate,
           extraPredicates: [fromSameSourceRevision],
@@ -548,10 +548,12 @@ func handleActivity(
   let deviceTimeZoneCalendar = GregorianCalendar(timeZone: .current)
 
   @Sendable func queryQuantities(
-    type: HKSampleType
+    _ id: HKQuantityTypeIdentifier
   ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
 
     let discoveryStartDate: Date
+
+    let type = HKQuantityType.quantityType(forIdentifier: id)!
 
     // One-off migration for hourly statistics previously using content hash anchors (`[VitalAnchor]`)
     // to HKQueryAnchor.
@@ -578,7 +580,7 @@ func handleActivity(
       vitalStorage: vitalStorage,
       type: type,
       sampleClass: HKQuantitySample.self,
-      unit: type.toHealthKitUnits,
+      unit: QuantityUnit(id),
       limit: AnchoredQueryChunkSize.activityTimeseries,
       startDate: discoveryStartDate,
       endDate: endDate,
@@ -590,12 +592,15 @@ func handleActivity(
 
   @Sendable
   func queryHourlyStatistics(
-    type: HKQuantityType,
+    _ id: HKQuantityTypeIdentifier,
     discovered newSamples: [LocalQuantitySample]
   ) async throws -> [LocalQuantitySample] {
     guard newSamples.isEmpty == false else {
       return []
     }
+
+    let type = HKQuantityType.quantityType(forIdentifier: id)!
+    let unit = QuantityUnit(id)
 
     var earliest = newSamples[0].startDate
     var latest = newSamples[0].endDate
@@ -613,19 +618,19 @@ func handleActivity(
     let statistics = try await dependencies.executeStatisticalQuery(type, earliest ..< latest, .hourly, nil)
 
     return statistics.compactMap { value in
-      return LocalQuantitySample(value, type)
+      return LocalQuantitySample(value, unit: unit)
     }
   }
 
   // - Hourly timeseries samples
   var anchors: [StoredAnchor] = []
 
-  async let _rawActiveEnergyBurned = queryQuantities(type: .quantityType(forIdentifier: .activeEnergyBurned)!)
-  async let _rawBasalEnergyBurned = queryQuantities(type: .quantityType(forIdentifier: .basalEnergyBurned)!)
-  async let _rawStepCount = queryQuantities(type: .quantityType(forIdentifier: .stepCount)!)
-  async let _rawFlightsClimbed = queryQuantities(type: .quantityType(forIdentifier: .flightsClimbed)!)
-  async let _rawDistanceWalkingRunning = queryQuantities(type: .quantityType(forIdentifier: .distanceWalkingRunning)!)
-  async let _rawVo2Max = queryQuantities(type: .quantityType(forIdentifier: .vo2Max)!)
+  async let _rawActiveEnergyBurned = queryQuantities( .activeEnergyBurned)
+  async let _rawBasalEnergyBurned = queryQuantities(.basalEnergyBurned)
+  async let _rawStepCount = queryQuantities(.stepCount)
+  async let _rawFlightsClimbed = queryQuantities(.flightsClimbed)
+  async let _rawDistanceWalkingRunning = queryQuantities(.distanceWalkingRunning)
+  async let _rawVo2Max = queryQuantities(.vo2Max)
 
   let rawActiveEnergyBurned = try await _rawActiveEnergyBurned
   let rawBasalEnergyBurned = try await _rawBasalEnergyBurned
@@ -642,23 +647,23 @@ func handleActivity(
   anchors.appendOptional(rawVo2Max.1)
 
   async let _hourlyActiveEnergyBurned = queryHourlyStatistics(
-    type: .quantityType(forIdentifier: .activeEnergyBurned)!,
+    .activeEnergyBurned,
     discovered: rawActiveEnergyBurned.quantities
   )
   async let _hourlyBasalEnergyBurned = queryHourlyStatistics(
-    type: .quantityType(forIdentifier: .basalEnergyBurned)!,
+    .basalEnergyBurned,
     discovered: rawBasalEnergyBurned.quantities
   )
   async let _hourlyStepCount = queryHourlyStatistics(
-    type: .quantityType(forIdentifier: .stepCount)!,
+    .stepCount,
     discovered: rawStepCount.quantities
   )
   async let _hourlyFlightsClimbed = queryHourlyStatistics(
-    type: .quantityType(forIdentifier: .flightsClimbed)!,
+    .flightsClimbed,
     discovered: rawFlightsClimbed.quantities
   )
   async let _hourlyDistanceWalkingRunning = queryHourlyStatistics(
-    type: .quantityType(forIdentifier: .distanceWalkingRunning)!,
+    .distanceWalkingRunning,
     discovered: rawDistanceWalkingRunning.quantities
   )
 
@@ -856,6 +861,7 @@ func handleWorkouts(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .heartRate)!,
         sampleClass: HKQuantitySample.self,
+        unit: QuantityUnit(.heartRate),
         startDate: workout.startDate,
         endDate: workout.endDate,
         extraPredicates: predicates.wrapped,
@@ -866,6 +872,7 @@ func handleWorkouts(
         healthKitStore: healthKitStore,
         type: .quantityType(forIdentifier: .respiratoryRate)!,
         sampleClass: HKQuantitySample.self,
+        unit: QuantityUnit(.respiratoryRate),
         startDate: workout.startDate,
         endDate: workout.endDate,
         extraPredicates: predicates.wrapped,
@@ -893,7 +900,7 @@ func handleBloodPressure(
     vitalStorage: vitalStorage,
     type: bloodPressureIdentifier,
     sampleClass: HKCorrelation.self,
-    unit: HKUnit.millimeterOfMercury(),
+    unit: QuantityUnit(.bloodPressureSystolic),
     limit: AnchoredQueryChunkSize.timeseries,
     startDate: startDate,
     endDate: endDate,
@@ -907,7 +914,7 @@ func handleBloodPressure(
 }
 
 func handleTimeSeries(
-  type: HKSampleType,
+  _ id: HKQuantityTypeIdentifier,
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   startDate: Date,
@@ -917,9 +924,9 @@ func handleTimeSeries(
   let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
-    type: type,
+    type: .quantityType(forIdentifier: id)!,
     sampleClass: HKQuantitySample.self,
-    unit: type.toHealthKitUnits,
+    unit: QuantityUnit(id),
     limit: AnchoredQueryChunkSize.timeseries,
     startDate: startDate,
     endDate: endDate,
@@ -1435,17 +1442,18 @@ func queryActivityDaySummaries(
   return result
 }
 
-func querySample<Sample: HKSample, Result>(
+func querySample<Sample: HKSample, SampleUnit, Result>(
   healthKitStore: HKHealthStore,
   type: HKSampleType,
   sampleClass: Sample.Type,
+  unit: SampleUnit,
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,
   endDate: Date? = nil,
   ascending: Bool = true,
   extraPredicates: [NSPredicate] = [],
   options: HKQueryOptions = [.strictStartDate],
-  transform: @escaping (Sample, HKUnit) -> Result?
+  transform: @escaping (Sample, SampleUnit) -> Result?
 ) async throws -> [Result] {
 
   return try await withCheckedThrowingContinuation { continuation in
@@ -1457,8 +1465,7 @@ func querySample<Sample: HKSample, Result>(
         continuation.resume(with: .failure(error))
         return
       }
-      
-      let unit = type.toHealthKitUnits
+
       let samples = samples ?? []
       var results: [Result] = []
       results.reserveCapacity(samples.count)

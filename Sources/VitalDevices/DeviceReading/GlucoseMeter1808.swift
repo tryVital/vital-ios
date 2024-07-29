@@ -86,23 +86,17 @@ private func toGlucoseReading(data: Data) -> LocalQuantitySample? {
 
   if isUnitMolL { // mol/L
     value = deviceValue * 1000
-    unit = "mmol/L"
+
   } else { // kg/L
-    value = deviceValue * 100000
-    unit = "mg/dL"
+    // 1 mg/dL = 0.0555 mmol/L
+    value = deviceValue * 100000 * 0.0555
   }
 
   return LocalQuantitySample(
-    // Prefixed with epoch in seconds to avoid sequence number conflicts
-    // (due to new device and/or device reset)
-    id: "\(date.timeIntervalSince1970.rounded())-\(sequenceNumber)",
     value: value,
     startDate: date,
     endDate: date,
     type: .fingerprick,
-    unit: unit,
-    metadata: VitalAnyEncodable(
-      ["ble_time_offset": bleTimeOffset]
-    )
+    unit: .glucose
   )
 }

@@ -364,7 +364,7 @@ extension DeviceConnection {
                           Text("\(Int(point.systolic.value))")
                             .font(.title)
                             .fontWeight(.medium)
-                          Text("\(point.systolic.unit)")
+                          Text("\(point.systolic.unit.rawValue)")
                             .foregroundColor(.gray)
                             .font(.footnote)
                         }
@@ -373,7 +373,7 @@ extension DeviceConnection {
                           Text("\(Int(point.diastolic.value))")
                             .font(.title)
                             .fontWeight(.medium)
-                          Text("\(point.diastolic.unit)")
+                          Text("\(point.diastolic.unit.rawValue)")
                             .foregroundColor(.gray)
                             .font(.footnote)
                         }
@@ -405,7 +405,7 @@ extension DeviceConnection {
                           .font(.title)
                           .fontWeight(.medium)
                         
-                        Text("\(point.unit)")
+                        Text("\(point.unit.rawValue)")
                           .font(.footnote)
                       }
                       
