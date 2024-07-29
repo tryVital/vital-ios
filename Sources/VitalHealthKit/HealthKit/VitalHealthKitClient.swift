@@ -913,16 +913,8 @@ extension VitalHealthKitClient {
     let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
     pipelineScheduler.yield(.read())
     pipelineScheduler.onTermination = { reason in
-      switch reason {
-      case .cancelled:
+      if reason == .cancelled {
         progressStore.recordSync(remappedResource, .cancelled, for: syncID)
-
-      case .finished:
-        self.storage.markHistoricalStageDone(for: resource)
-        progressStore.recordSync(remappedResource, .completed, for: syncID)
-
-      @unknown default:
-        VitalLogger.healthKit.info("unknown AsyncStream state: \(reason)", source: "Sync")
       }
     }
 
@@ -979,6 +971,8 @@ extension VitalHealthKitClient {
               )
 
               if !hasMore {
+                self.storage.markHistoricalStageDone(for: resource)
+                progressStore.recordSync(remappedResource, .completed, for: syncID)
                 pipelineScheduler.finish()
               }
 
