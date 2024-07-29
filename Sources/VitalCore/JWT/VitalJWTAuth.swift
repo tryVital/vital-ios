@@ -511,12 +511,8 @@ public final class ParkingLot: @unchecked Sendable {
     }
 
     if !callersToRelease.isEmpty {
-      Task {
-        await withTaskGroup(of: Void.self) { group in
-          for continuation in callersToRelease {
-            group.addTask { continuation.resume() }
-          }
-        }
+      for continuation in callersToRelease {
+        continuation.resume()
       }
     }
 

@@ -27,14 +27,15 @@ public struct SyncProgress: Codable {
     case readChunk = 2
     case uploadedChunk = 3
     case noData = 6
-    case timeout = 4
+    case error = 7
+    case cancelled = 4
     case completed = 5
 
     public var isInProgress: Bool {
       switch self {
       case .deprioritized, .started, .readChunk, .uploadedChunk:
         return true
-      case .completed, .noData, .timeout:
+      case .completed, .noData, .cancelled, .error:
         return false
       }
     }
@@ -165,7 +166,7 @@ final class SyncProgressStore {
         $0.syncs[index].append(status, at: now)
 
         switch status {
-        case .completed, .timeout, .noData:
+        case .completed, .cancelled, .noData:
           $0.syncs[index].end = now
 
         default:

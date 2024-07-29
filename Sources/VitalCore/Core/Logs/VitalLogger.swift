@@ -93,6 +93,16 @@ public enum VitalLogger {
       os_signpost(.end, dso: dso, log: VitalLogger.signpost, name: name, signpostID: id, "%{public}@", description)
     }
 
+    public func endWith(_ action: () async throws -> Void) async throws -> Void {
+      do {
+        try await action()
+        end()
+      } catch let error {
+        end()
+        throw error
+      }
+    }
+
     deinit {
       if !ended {
         end()
