@@ -256,6 +256,28 @@ func read(
     )
     return (.timeSeries(.vo2Max(payload.samples)), payload.anchors)
 
+  case .vitals(.temperature):
+    let payload = try await handleTimeSeries(
+      .bodyTemperature,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.temperature(payload.samples)), payload.anchors)
+
+  case .vitals(.respiratoryRate):
+    let payload = try await handleTimeSeries(
+      .respiratoryRate,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.temperature(payload.samples)), payload.anchors)
+
   case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
     throw VitalHealthKitClientError.invalidRemappedResource
   }

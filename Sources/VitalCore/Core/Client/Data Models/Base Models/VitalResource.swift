@@ -41,7 +41,11 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case .workout:
       return BackfillType.workouts;
     case .menstrualCycle:
-      return BackfillType.menstrualCycle;
+      return BackfillType.menstrualCycle
+    case .vitals(.temperature):
+      return BackfillType.temperature
+    case .vitals(.respiratoryRate):
+      return .respiratoryRate
     }
   }
 
@@ -52,7 +56,9 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case heartRate
     case heartRateVariability
     case mindfulSession
-    
+    case respiratoryRate
+    case temperature
+
     public var logDescription: String {
       switch self {
         case .glucose:
@@ -67,6 +73,10 @@ public enum VitalResource: Equatable, Hashable, Codable {
           return "heartRateVariability"
         case .mindfulSession:
           return "mindfulSession"
+      case .respiratoryRate:
+        return "respiratory_rate"
+      case .temperature:
+        return "temperature"
       }
     }
   }
@@ -145,7 +155,9 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .vitals(.heartRate),
     .vitals(.heartRateVariability),
     .vitals(.mindfulSession),
-    
+    .vitals(.temperature),
+    .vitals(.respiratoryRate),
+
     .individual(.steps),
     .individual(.floorsClimbed),
     .individual(.distanceWalkingRunning),

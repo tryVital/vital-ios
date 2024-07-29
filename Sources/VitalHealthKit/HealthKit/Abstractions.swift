@@ -139,6 +139,12 @@ extension VitalHealthKitStore {
       HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!:
       return [.menstrualCycle]
 
+    case HKSampleType.quantityType(forIdentifier: .bodyTemperature)!:
+      return [.vitals(.temperature)]
+
+    case HKSampleType.quantityType(forIdentifier: .respiratoryRate)!:
+      return [.vitals(.respiratoryRate)]
+
     default:
       if #available(iOS 15.0, *) {
         switch type {
