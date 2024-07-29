@@ -40,13 +40,25 @@ public extension VitalClient.User {
   func sdkStateSync(body: UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
-    
+
     let path = "/\(configuration.apiVersion)/\(path)/\(userId)/sdk_sync_state/apple_health_kit"
     let request: Request<UserSDKSyncStateResponse> = .init(path: path, method: .post, body: body)
-    
+
     let response = try await configuration.apiClient.send(request)
-    
+
     return response.value
+  }
+
+
+  @_spi(VitalSDKInternals)
+  func sdkStartHistoricalStage(body: UserSDKHistoricalStageBeginBody) async throws {
+    let userId = try await self.client.getUserId()
+    let configuration = await self.client.configuration.get()
+
+    let path = "/\(configuration.apiVersion)/\(path)/\(userId)/sdk_start_historical_stage/apple_health_kit"
+    let request: Request<Void> = .init(path: path, method: .post, body: body)
+
+    try await configuration.apiClient.send(request)
   }
 
   func deregisterProvider(provider: Provider.Slug) async throws -> Void {
