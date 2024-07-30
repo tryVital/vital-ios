@@ -1147,7 +1147,7 @@ extension VitalHealthKitClient {
       healthKitStore:  HKHealthStore(),
       vitalStorage: VitalHealthKitStorage(storage: .debug),
       instruction: SyncInstruction(stage: .daily, query: startDate ..< endDate),
-      options: ReadOptions(embedTimeseries: true)
+      options: ReadOptions()
     )
 
     return data
