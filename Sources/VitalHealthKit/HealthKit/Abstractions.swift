@@ -377,7 +377,7 @@ struct StatisticsQueryDependencies {
           precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
 
           switch (error as? HKError)?.code {
-          case .errorNoData:
+          case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
             continuation.resume(returning: [])
           default:
             continuation.resume(throwing: error!)
