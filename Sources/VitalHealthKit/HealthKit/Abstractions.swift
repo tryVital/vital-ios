@@ -8,11 +8,9 @@ struct RemappedVitalResource: Hashable {
 
 struct ReadOptions {
   var perDeviceActivityTS: Bool = false
-  var embedTimeseries: Bool = false
 
-  internal init(perDeviceActivityTS: Bool = false, embedTimeseries: Bool = false) {
+  internal init(perDeviceActivityTS: Bool = false) {
     self.perDeviceActivityTS = perDeviceActivityTS
-    self.embedTimeseries = embedTimeseries
   }
 }
 

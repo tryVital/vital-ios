@@ -583,42 +583,6 @@ func handleSleep(
       var respiratoryRate: [LocalQuantitySample] = []
 
       let fromSameSourceRevision = NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, sourceRevision)
-
-      if options.embedTimeseries {
-        heartRate = try await querySample(
-          healthKitStore: healthKitStore,
-          type: .quantityType(forIdentifier: .heartRate)!,
-          sampleClass: HKQuantitySample.self,
-          unit: QuantityUnit(.heartRate),
-          startDate: sleep.startDate,
-          endDate: sleep.endDate,
-          extraPredicates: [fromSameSourceRevision],
-          transform: LocalQuantitySample.init
-        )
-
-        hearRateVariability = try await querySample(
-          healthKitStore: healthKitStore,
-          type: .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
-          sampleClass: HKQuantitySample.self,
-          unit: QuantityUnit(.heartRateVariabilitySDNN),
-          startDate: sleep.startDate,
-          endDate: sleep.endDate,
-          extraPredicates: [fromSameSourceRevision],
-          transform: LocalQuantitySample.init
-        )
-
-        respiratoryRate = try await querySample(
-          healthKitStore: healthKitStore,
-          type: .quantityType(forIdentifier: .respiratoryRate)!,
-          sampleClass: HKQuantitySample.self,
-          unit: QuantityUnit(.respiratoryRate),
-          startDate: sleep.startDate,
-          endDate: sleep.endDate,
-          extraPredicates: [fromSameSourceRevision],
-          transform: LocalQuantitySample.init
-        )
-      }
-
       let wristTemperature: [LocalQuantitySample]
 
       if #available(iOS 16.0, *) {
@@ -848,31 +812,6 @@ func handleWorkouts(
     }
 
     try await computeStatistics(&patch)
-
-    if options.embedTimeseries {
-      patch.heartRate = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .heartRate)!,
-        sampleClass: HKQuantitySample.self,
-        unit: QuantityUnit(.heartRate),
-        startDate: workout.startDate,
-        endDate: workout.endDate,
-        extraPredicates: predicates.wrapped,
-        transform: LocalQuantitySample.init
-      )
-
-      patch.respiratoryRate = try await querySample(
-        healthKitStore: healthKitStore,
-        type: .quantityType(forIdentifier: .respiratoryRate)!,
-        sampleClass: HKQuantitySample.self,
-        unit: QuantityUnit(.respiratoryRate),
-        startDate: workout.startDate,
-        endDate: workout.endDate,
-        extraPredicates: predicates.wrapped,
-        transform: LocalQuantitySample.init
-      )
-    }
-
     copies.append(patch)
   }
   
