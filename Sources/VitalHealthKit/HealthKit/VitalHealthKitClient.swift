@@ -304,7 +304,7 @@ extension VitalHealthKitClient {
           await withTaskGroup(of: Void.self) { group in
             for resource in payload.resources {
               group.addTask {
-                await self.sync(resource, payload.trigger)
+                await self.sync(resource, payload.tags)
               }
             }
           }
@@ -369,7 +369,7 @@ extension VitalHealthKitClient {
           await withTaskGroup(of: Void.self) { group in
             for resource in resources {
               group.addTask {
-                await self.sync(resource, .backgroundProcessingTask)
+                await self.sync(resource, SyncContextTag.current(with: .processingTask))
               }
             }
           }
@@ -421,7 +421,6 @@ extension VitalHealthKitClient {
     scope.task { @MainActor in
       // 1 seconds after app launch or Ask
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
-      let isInForeground = UIApplication.shared.applicationState != .background
 
       let resources = Set(
         resourcesAskedForPermission(store: self.store)
@@ -430,7 +429,7 @@ extension VitalHealthKitClient {
 
       let progress = SyncProgressStore.shared.get()
       let unnotifiedResources = resources.filter { resource in
-        guard let resourceProgress = progress.resources[resource.wrapped] else {
+        guard let resourceProgress = progress.backfillTypes[resource.wrapped.resourceToBackfillType()] else {
           // Doesn't even show up in `SyncProgress.resources`
           return true
         }
@@ -438,10 +437,12 @@ extension VitalHealthKitClient {
         return resourceProgress.syncs.isEmpty
       }
 
+      let tags = SyncContextTag.current(with: .maintenanceTask)
+
       // Rescue these resources
       await withTaskGroup(of: Void.self) { group in
         for resource in unnotifiedResources {
-          await self.sync(resource, isInForeground ? .foreground : .backgroundOther)
+          await self.sync(resource, tags)
         }
       }
     }
@@ -499,7 +500,7 @@ extension VitalHealthKitClient {
                     handler()
                   }
                 },
-                trigger: isForeground ? .foreground : .backgroundHealthKit
+                tags: SyncContextTag.current(with: .healthKit)
               )
               VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
@@ -561,7 +562,7 @@ extension VitalHealthKitClient {
                   handler()
                 }
               },
-              trigger: isForeground ? .foreground : .backgroundHealthKit
+              tags: SyncContextTag.current(with: .healthKit)
             )
             VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
@@ -595,11 +596,15 @@ extension VitalHealthKitClient {
   }
   
   public func syncData(for resources: [VitalResource]) {
-    scope.task(priority: .high) {
-      let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
+    let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
-      for resource in remappedResources {
-        await self.sync(resource, .foreground)
+    scope.task(priority: .high) { @MainActor in
+      let tags = SyncContextTag.current(with: .manual)
+
+      await withTaskGroup(of: Void.self) { group in
+        for resource in remappedResources {
+          group.addTask { await self.sync(resource, tags) }
+        }
       }
     }
   }
@@ -624,7 +629,7 @@ extension VitalHealthKitClient {
     VitalLogger.healthKit.info("done", source: "Reset")
   }
 
-  private func getLocalSyncState() async throws -> LocalSyncState {
+  private func getLocalSyncState(syncID: SyncProgress.SyncID) async throws -> LocalSyncState {
     // If we have a LocalSyncState with valid TTL, return it.
     if 
       let state = storage.getLocalSyncState(),
@@ -637,7 +642,7 @@ extension VitalHealthKitClient {
       try await backendSyncStateParkingLot.parkIfNeeded()
 
       // Try again
-      return try await getLocalSyncState()
+      return try await getLocalSyncState(syncID: syncID)
     }
 
     defer { _ = backendSyncStateParkingLot.tryTo(.disable) }
@@ -652,6 +657,7 @@ extension VitalHealthKitClient {
     }
 
     VitalLogger.healthKit.info("revalidating", source: "LocalSyncState")
+    SyncProgressStore.shared.recordSync(syncID, .revalidatingSyncState)
 
     let previousState = storage.getLocalSyncState()
     let configuration = await configuration.get()
@@ -701,8 +707,8 @@ extension VitalHealthKitClient {
     return state
   }
 
-  private func computeSyncInstruction(_ resource: VitalResource) async throws -> (SyncInstruction, LocalSyncState) {
-    let state = try await getLocalSyncState()
+  private func computeSyncInstruction(_ resource: VitalResource, syncID: SyncProgress.SyncID) async throws -> (SyncInstruction, LocalSyncState) {
+    let state = try await getLocalSyncState(syncID: syncID)
 
     let hasCompletedHistoricalStage = storage.historicalStageDone(for: resource)
       || resource == .profile
@@ -726,7 +732,7 @@ extension VitalHealthKitClient {
     return (instruction, state)
   }
 
-  private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ trigger: SyncTrigger) -> Bool {
+  private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) -> Bool {
     let waitForHistoricalDone: Set<VitalResource>
 
     switch remappedResource.wrapped {
@@ -750,10 +756,10 @@ extension VitalHealthKitClient {
     return resourcesToCheck.allSatisfy(storage.historicalStageDone(for:))
   }
 
-  private func sync(_ remappedResource: RemappedVitalResource, _ trigger: SyncTrigger) async {
+  private func sync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) async {
     let progressStore = SyncProgressStore.shared
 
-    let syncID = SyncProgress.SyncID(trigger: trigger)
+    var syncID = SyncProgress.SyncID(resource: remappedResource.wrapped, tags: tags)
     defer { progressStore.flush() }
 
     let resource = remappedResource.wrapped
@@ -764,10 +770,10 @@ extension VitalHealthKitClient {
       return
     }
 
-    guard self.prioritizeSync(remappedResource, trigger) else {
+    guard self.prioritizeSync(remappedResource, tags) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
-      progressStore.recordSync(remappedResource, .deprioritized, for: syncID)
+      progressStore.recordSync(syncID, .deprioritized)
       return
     }
 
@@ -790,31 +796,31 @@ extension VitalHealthKitClient {
     // apps saving each HKSample individually, rather than in batches.
     // (e.g., Oura as at July 2024)
     guard parkingLot.tryTo(.enable) else {
-      VitalLogger.healthKit.info("[\(description)] +1 parked; \(trigger)", source: "Sync")
+      VitalLogger.healthKit.info("[\(description)] +1 parked; \(tags)", source: "Sync")
 
       // Throw CancellationError, which we can gracefully ignore.
       try? await parkingLot.parkIfNeeded()
 
-      VitalLogger.healthKit.info("[\(description)] -1 parked; \(trigger)", source: "Sync")
+      VitalLogger.healthKit.info("[\(description)] -1 parked; \(tags)", source: "Sync")
       return
     }
     defer { _ = parkingLot.tryTo(.disable) }
 
-    VitalLogger.healthKit.info("[\(description)] begin \(trigger)", source: "Sync")
+    VitalLogger.healthKit.info("[\(description)] begin \(tags)", source: "Sync")
 
     guard let configuration = configuration.value else {
       VitalLogger.healthKit.info("[\(description)] configuration unavailable", source: "Sync")
       return
     }
 
-    progressStore.recordSync(remappedResource, .started, for: syncID)
+    progressStore.recordSync(syncID, .started)
 
     // If we receive this payload in foreground, wrap the sync work in
     // a UIKit background task, in case the user will move the app to background soon.
 
     let osBackgroundTask: ProtectedBox<UIBackgroundTaskIdentifier>?
 
-    if trigger == .foreground {
+    if tags.contains(.foreground) {
       osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
       osBackgroundTask!.start("vital-sync-\(description)", expiration: {})
       VitalLogger.healthKit.info("started: daily:\(description)", source: "UIKitBgTask")
@@ -836,11 +842,15 @@ extension VitalHealthKitClient {
     let state: LocalSyncState
 
     do {
-      (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped)
+      (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped, syncID: syncID)
+
+      if instruction.stage == .historical {
+        syncID.tags.insert(.historicalStage)
+      }
 
     } catch let error {
       VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(error)", source: "Sync")
-      progressStore.recordSync(remappedResource, .error, for: syncID)
+      progressStore.recordSync(syncID, .error)
       return
     }
 
@@ -924,9 +934,9 @@ extension VitalHealthKitClient {
 
     let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
     pipelineScheduler.yield(.read())
-    pipelineScheduler.onTermination = { reason in
+    pipelineScheduler.onTermination = { [syncID] reason in
       if reason == .cancelled {
-        progressStore.recordSync(remappedResource, .cancelled, for: syncID)
+        progressStore.recordSync(syncID, .cancelled)
       }
     }
 
@@ -936,7 +946,7 @@ extension VitalHealthKitClient {
       for await stage in pipeline {
         switch stage {
         case let .read(uncommittedAnchors):
-          _ = group.addTaskUnlessCancelled {
+          _ = group.addTaskUnlessCancelled { [syncID] in
             let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
             defer { signpost.end() }
 
@@ -949,14 +959,14 @@ extension VitalHealthKitClient {
 
             } catch let error {
               VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-              progressStore.recordSync(remappedResource, .error, for: syncID)
+              progressStore.recordSync(syncID, .error)
               pipelineScheduler.finish()
             }
           }
 
         case let .upload(data, anchors, hasMore: hasMore):
-          _ = group.addTaskUnlessCancelled {
-            progressStore.recordSync(remappedResource, .readChunk, for: syncID)
+          _ = group.addTaskUnlessCancelled { [syncID] in
+            progressStore.recordSync(syncID, .readChunk)
 
             do {
               try await VitalLogger.Signpost
@@ -976,15 +986,11 @@ extension VitalHealthKitClient {
               }
 
               let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
-              progressStore.recordSync(
-                remappedResource,
-                hasPosted ? .uploadedChunk : .noData,
-                for: syncID
-              )
+              progressStore.recordSync(syncID, hasPosted ? .uploadedChunk : .noData)
 
               if !hasMore {
                 self.storage.markHistoricalStageDone(for: resource)
-                progressStore.recordSync(remappedResource, .completed, for: syncID)
+                progressStore.recordSync(syncID, .completed)
                 pipelineScheduler.finish()
               }
 
@@ -993,7 +999,7 @@ extension VitalHealthKitClient {
 
             } catch let error {
               VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-              progressStore.recordSync(remappedResource, .error, for: syncID)
+              progressStore.recordSync(syncID, .error)
               pipelineScheduler.finish()
             }
           }
@@ -1006,7 +1012,9 @@ extension VitalHealthKitClient {
 
   private func scheduleDeprioritizedResourceRetries() {
     scope.task(priority: .high) { @MainActor in
-      guard UIApplication.shared.applicationState != .background else {
+      let tags = SyncContextTag.current(with: .maintenanceTask)
+
+      guard tags.contains(.foreground) else {
         return
       }
 
@@ -1023,7 +1031,7 @@ extension VitalHealthKitClient {
       await withTaskGroup(of: Void.self) { group in
         for resource in retries {
           group.addTask {
-            await self.sync(resource, .foreground)
+            await self.sync(resource, tags)
           }
         }
       }

@@ -32,7 +32,7 @@ private let timeFormatter = {
 /// }
 /// ```
 public struct ForEachVitalResource: View {
-  @State var items: [(key: VitalResource, value: SyncProgress.Resource)] = []
+  @State var items: [(key: BackfillType, value: SyncProgress.Resource)] = []
 
   public init() {}
 
@@ -46,7 +46,7 @@ public struct ForEachVitalResource: View {
       } label: {
         HStack {
           VStack(alignment: .leading) {
-            Text("\(key.logDescription)")
+            Text("\(key.rawValue)")
             if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
               Text(verbatim: dateFormatter.string(from: lastUpdated))
                 .foregroundColor(Color.secondary)
@@ -63,14 +63,14 @@ public struct ForEachVitalResource: View {
       .isDetailLink(false)
     }
     .onReceive(VitalHealthKitClient.shared.syncProgressPublisher().receive(on: RunLoop.main)) { progress in
-      self.items = progress.resources
-        .sorted(by: { $0.key.logDescription.compare($1.key.logDescription) == .orderedAscending })
+      self.items = progress.backfillTypes
+        .sorted(by: { $0.key.rawValue.compare($1.key.rawValue) == .orderedAscending })
     }
   }
 }
 
 private struct ResourceProgressDetailView: View {
-  let key: VitalResource
+  let key: BackfillType
   @Binding var resource: SyncProgress.Resource
 
   var body: some View {
@@ -117,7 +117,7 @@ private struct ResourceProgressDetailView: View {
 
               VStack(alignment: .leading) {
                 Text(verbatim: String(describing: sync.lastStatus))
-                Text(verbatim: String(describing: sync.trigger))
+                Text(verbatim: sync.tags.map(String.init(describing:)).sorted().joined(separator: ", "))
                   .foregroundColor(Color.secondary)
                   .font(.subheadline)
               }
@@ -134,12 +134,12 @@ private struct ResourceProgressDetailView: View {
         }
       }
     }
-    .navigationTitle(Text(key.logDescription))
+    .navigationTitle(Text(key.rawValue))
   }
 }
 
 private struct ResourceSystemEventView: View {
-  let key: VitalResource
+  let key: BackfillType
   @Binding var resource: SyncProgress.Resource
 
   public var body: some View {
@@ -160,7 +160,7 @@ private struct ResourceSystemEventView: View {
         }
       }
     }
-    .navigationTitle(Text(key.logDescription))
+    .navigationTitle(Text(key.rawValue))
   }
 }
 
@@ -183,7 +183,7 @@ private func icon(for status: SyncProgress.SyncStatus) -> some View {
     Image(systemName: "exclamationmark.triangle.fill")
       .foregroundColor(Color.yellow)
       .accessibilityLabel(Text("Error"))
-  case .started, .readChunk, .uploadedChunk, .noData:
+  case .started, .readChunk, .uploadedChunk, .noData, .revalidatingSyncState:
     ProgressView()
       .accessibilityLabel(Text("In Progress"))
   }
