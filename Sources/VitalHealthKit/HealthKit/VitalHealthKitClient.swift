@@ -697,7 +697,9 @@ extension VitalHealthKitClient {
       perDeviceActivityTS: backendState.perDeviceActivityTs ?? false,
 
       // When we should revalidate the LocalSyncState again.
-      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400))
+      expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400)),
+
+      reportingInterval: backendState.reportingInterval ?? previousState?.reportingInterval
     )
 
     try storage.setLocalSyncState(state)
@@ -758,6 +760,7 @@ extension VitalHealthKitClient {
 
   private func sync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) async {
     let progressStore = SyncProgressStore.shared
+    let progressReporter = SyncProgressReporter.shared
 
     var syncID = SyncProgress.SyncID(resource: remappedResource.wrapped, tags: tags)
     defer { progressStore.flush() }
@@ -814,6 +817,7 @@ extension VitalHealthKitClient {
     }
 
     progressStore.recordSync(syncID, .started)
+    progressReporter.syncBegin()
 
     // If we receive this payload in foreground, wrap the sync work in
     // a UIKit background task, in case the user will move the app to background soon.
@@ -829,8 +833,14 @@ extension VitalHealthKitClient {
       osBackgroundTask = nil
     }
 
-    defer {
-      scheduleDeprioritizedResourceRetries()
+    // IMPORTANT: Must be called on ALL exit paths below.
+    // Pay extra attention when doing early exits with returns and throws.
+    func syncEnded(success: Bool) async {
+      if success {
+        scheduleDeprioritizedResourceRetries()
+      }
+
+      await progressReporter.syncEnded()
 
       if let osBackgroundTask = osBackgroundTask {
         osBackgroundTask.endIfNeeded()
@@ -851,6 +861,7 @@ extension VitalHealthKitClient {
     } catch let error {
       VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(error)", source: "Sync")
       progressStore.recordSync(syncID, .error)
+      await syncEnded(success: false)
       return
     }
 
@@ -934,19 +945,16 @@ extension VitalHealthKitClient {
 
     let (pipeline, pipelineScheduler) = AsyncStream<PipelineStage>.makeStream()
     pipelineScheduler.yield(.read())
-    pipelineScheduler.onTermination = { [syncID] reason in
-      if reason == .cancelled {
-        progressStore.recordSync(syncID, .cancelled)
-      }
-    }
 
     let uploadSemaphore = ParkingLot().semaphore
 
-    await withTaskGroup(of: Void.self) { group in
+    let success = await withTaskGroup(of: Void.self, returning: Bool.self) { group in
+      defer { pipelineScheduler.finish() }
+
       for await stage in pipeline {
         switch stage {
         case let .read(uncommittedAnchors):
-          _ = group.addTaskUnlessCancelled { [syncID] in
+          _ = group.addTaskUnlessCancelled {
             let signpost = VitalLogger.Signpost.begin(name: "read", description: description)
             defer { signpost.end() }
 
@@ -955,19 +963,17 @@ extension VitalHealthKitClient {
               pipelineScheduler.yield(.upload(data, anchors, hasMore: hasMore))
 
             } catch is CancellationError {
-              return
+              pipelineScheduler.yield(.cancelled)
 
             } catch let error {
-              VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-              progressStore.recordSync(syncID, .error)
-              pipelineScheduler.finish()
+              pipelineScheduler.yield(.error(error))
             }
           }
 
         case let .upload(data, anchors, hasMore: hasMore):
-          _ = group.addTaskUnlessCancelled { [syncID] in
-            progressStore.recordSync(syncID, .readChunk)
+          progressStore.recordSync(syncID, .readChunk)
 
+          _ = group.addTaskUnlessCancelled { [syncID] in
             do {
               try await VitalLogger.Signpost
                 .begin(name: "wait-for-outstanding-upload", description: description)
@@ -989,25 +995,39 @@ extension VitalHealthKitClient {
               progressStore.recordSync(syncID, hasPosted ? .uploadedChunk : .noData)
 
               if !hasMore {
-                self.storage.markHistoricalStageDone(for: resource)
-                progressStore.recordSync(syncID, .completed)
-                pipelineScheduler.finish()
+                pipelineScheduler.yield(.success)
               }
 
             } catch is CancellationError {
-              return
+              pipelineScheduler.yield(.cancelled)
 
             } catch let error {
-              VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
-              progressStore.recordSync(syncID, .error)
-              pipelineScheduler.finish()
+              pipelineScheduler.yield(.error(error))
             }
           }
+
+        case .cancelled:
+          progressStore.recordSync(syncID, .cancelled)
+          VitalLogger.healthKit.info("[\(description)] cancelled", source: "Sync")
+          return false
+
+        case let .error(error):
+          progressStore.recordSync(syncID, .error)
+          VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+          return false
+
+        case .success:
+          self.storage.markHistoricalStageDone(for: resource)
+          progressStore.recordSync(syncID, .completed)
+          VitalLogger.healthKit.info("[\(description)] completed", source: "Sync")
+          return true
         }
       }
 
-      await group.waitForAll()
+      return false
     }
+
+    await syncEnded(success: success)
   }
 
   private func scheduleDeprioritizedResourceRetries() {
@@ -1099,12 +1119,22 @@ enum PipelineStage {
   case read(uncommittedAnchors: [StoredAnchor] = [])
   case upload(ProcessedResourceData?, [StoredAnchor], hasMore: Bool)
 
+  case error(Error)
+  case success
+  case cancelled
+
   var description: String {
     switch self {
     case .read:
       return "read"
     case let .upload(_, _, hasMore):
       return "upload(\(hasMore ? "hasMore" : "noMore"))"
+    case .error:
+      return "error"
+    case .cancelled:
+      return "cancelled"
+    case .success:
+      return "success"
     }
   }
 }

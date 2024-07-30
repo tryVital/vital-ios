@@ -9,10 +9,13 @@ public struct VitalBackStorage {
   
   public var flagResource: (VitalResource) -> Void
   public var isResourceFlagged: (VitalResource) -> Bool
-  
+
   public var store: (Data, String) -> Void
   public var read: (String) -> Data?
-  
+
+  public var storeDouble: (Double, String) -> Void
+  public var readDouble: (String) -> Double?
+
   public var storeDate: (Date, String) -> Void
   public var readDate: (String) -> Date?
   
@@ -22,8 +25,8 @@ public struct VitalBackStorage {
 
   public var dump: () -> [String: Any?]
   
-  public static var live: VitalBackStorage {
-    
+  public static let live: VitalBackStorage = {
+
     let userDefaults = UserDefaults(suiteName: "tryVital")!
     
     let defaultValue: [String: String] = [:]
@@ -52,6 +55,10 @@ public struct VitalBackStorage {
       userDefaults.set(data, forKey: key)
     } read: { key in
       userDefaults.data(forKey: key)
+    } storeDouble: { value, key in
+      userDefaults.set(value, forKey: key)
+    } readDouble: { key in
+      userDefaults.double(forKey: key)
     } storeDate: { date, key in
       userDefaults.set(date.timeIntervalSince1970, forKey: key)
     } readDate: { key in
@@ -67,13 +74,13 @@ public struct VitalBackStorage {
     } dump: {
       userDefaults.persistentDomain(forName: "tryVital") ?? [:]
     }
-  }
-  
+  }()
+
   public static var debug: VitalBackStorage {
     
     var storage: [String: Bool] = [:]
     var dataStorage: [String: Data] = [:]
-
+    var doubleStorage: [String: Double] = [:]
     var dateStorage: [String: Double] = [:]
 
     let generateKey: (String, Provider.Slug) -> String = { userId, provider in
@@ -94,6 +101,10 @@ public struct VitalBackStorage {
       dataStorage[key] = data
     } read: { key in
       return dataStorage[key]
+    } storeDouble: { value, key in
+      doubleStorage[key] = value
+    } readDouble: { key in
+      doubleStorage[key]
     } storeDate: { date, key in
       dateStorage[key] = date.timeIntervalSince1970
     } readDate: { key in

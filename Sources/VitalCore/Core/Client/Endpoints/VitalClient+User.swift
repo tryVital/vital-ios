@@ -49,13 +49,23 @@ public extension VitalClient.User {
     return response.value
   }
 
-
   @_spi(VitalSDKInternals)
   func sdkStartHistoricalStage(body: UserSDKHistoricalStageBeginBody) async throws {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
 
     let path = "/\(configuration.apiVersion)/\(path)/\(userId)/sdk_start_historical_stage/apple_health_kit"
+    let request: Request<Void> = .init(path: path, method: .post, body: body)
+
+    try await configuration.apiClient.send(request)
+  }
+
+  @_spi(VitalSDKInternals)
+  func sdkReportSyncProgress(body: some Encodable) async throws {
+    let userId = try await self.client.getUserId()
+    let configuration = await self.client.configuration.get()
+
+    let path = "/\(configuration.apiVersion)/\(path)/\(userId)/sdk_sync_progress/apple_health_kit"
     let request: Request<Void> = .init(path: path, method: .post, body: body)
 
     try await configuration.apiClient.send(request)
