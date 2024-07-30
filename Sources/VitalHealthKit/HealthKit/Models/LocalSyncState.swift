@@ -12,6 +12,7 @@ internal struct LocalSyncState: Codable {
   let perDeviceActivityTS: Bool
 
   let expiresAt: Date
+  let reportingInterval: Double?
 
   func historicalStartDate(for resource: VitalResource) -> Date {
     let backfillType = resource.resourceToBackfillType();

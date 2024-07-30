@@ -82,6 +82,7 @@ public struct UserSDKSyncStateResponse: Decodable {
   public var perDeviceActivityTs: Bool? = false
   public var expiresIn: Int?
   public var pullPreferences: TeamDataPullPreferences? = nil
+  public var reportingInterval: Double?
 }
 
 public enum Stage: String, Encodable {
