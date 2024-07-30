@@ -4,9 +4,29 @@ import UIKit
 import Combine
 
 public struct SyncProgress: Codable {
-  public var resources: [VitalResource: Resource] = [:]
+  public var backfillTypes: [BackfillType: Resource] = [:]
 
   public init() {}
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.backfillTypes = Dictionary(
+      uniqueKeysWithValues: (try container.decode([String: Resource].self, forKey: .backfillTypes))
+        .map { (BackfillType(rawValue: $0.key), $0.value) }
+    )
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(
+      Dictionary(uniqueKeysWithValues: backfillTypes.map { ($0.key.rawValue, $0.value) }),
+      forKey: .backfillTypes
+    )
+  }
+
+  public enum CodingKeys: String, CodingKey {
+    case backfillTypes
+  }
 
   public enum SystemEventType: Int, Codable {
     case healthKitCalloutBackground = 0
@@ -19,6 +39,11 @@ public struct SyncProgress: Codable {
     public let type: EventType
 
     public var id: Date { timestamp }
+
+    public init(timestamp: Date, type: EventType) {
+      self.timestamp = timestamp
+      self.type = type
+    }
   }
 
   public enum SyncStatus: Int, Codable {
@@ -30,10 +55,11 @@ public struct SyncProgress: Codable {
     case error = 7
     case cancelled = 4
     case completed = 5
+    case revalidatingSyncState = 8
 
     public var isInProgress: Bool {
       switch self {
-      case .deprioritized, .started, .readChunk, .uploadedChunk:
+      case .deprioritized, .started, .readChunk, .uploadedChunk, .revalidatingSyncState:
         return true
       case .completed, .noData, .cancelled, .error:
         return false
@@ -44,7 +70,7 @@ public struct SyncProgress: Codable {
   public struct Sync: Codable, Identifiable {
     public let start: Date
     public var end: Date?
-    public var trigger: SyncTrigger
+    public var tags: Set<SyncContextTag>
     public private(set) var statuses: [Event<SyncStatus>]
 
     public var lastStatus: SyncStatus {
@@ -53,24 +79,35 @@ public struct SyncProgress: Codable {
 
     public var id: Date { start }
 
-    public init(start: Date, status: SyncStatus, trigger: SyncTrigger) {
+    public init(start: Date, status: SyncStatus, tags: Set<SyncContextTag>) {
       self.start = start
       self.statuses = [Event(timestamp: start, type: status)]
-      self.trigger = trigger
+      self.tags = tags
     }
 
     public mutating func append(_ status: SyncStatus, at timestamp: Date = Date()) {
       statuses.append(Event(timestamp: timestamp, type: status))
     }
+
+    public mutating func pruneDeprioritizedStatus(afterFirst count: Int) {
+      let indicesToDelete = IndexSet(
+        statuses.dropFirst(count).indices.filter { statuses[$0].type == .deprioritized }
+      )
+
+      guard !indicesToDelete.isEmpty else { return }
+      statuses.remove(atOffsets: indicesToDelete)
+    }
   }
 
   public struct SyncID {
-    public let rawValue: Date
-    public let trigger: SyncTrigger
+    public let resource: VitalResource
+    public let start: Date
+    public var tags: Set<SyncContextTag>
 
-    public init(trigger: SyncTrigger) {
-      self.rawValue = Date()
-      self.trigger = trigger
+    public init(resource: VitalResource, tags: Set<SyncContextTag>) {
+      self.resource = resource
+      self.tags = tags
+      self.start = Date()
     }
   }
 
@@ -148,14 +185,14 @@ final class SyncProgressStore {
     didChange.send(())
   }
 
-  func recordSync(_ resource: RemappedVitalResource, _ status: SyncProgress.SyncStatus, for id: SyncProgress.SyncID) {
-    mutate(CollectionOfOne(resource)) {
+  func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus) {
+    mutate(CollectionOfOne(id.resource.resourceToBackfillType())) {
       let now = Date()
 
       let latestSync = $0.syncs.last
       let appendsToLatestSync = (
         // Shares the same start timestamp
-        latestSync?.start == id.rawValue
+        latestSync?.start == id.start
 
         // OR last status is deprioritized
         || status == .deprioritized && latestSync?.lastStatus == .deprioritized
@@ -164,10 +201,15 @@ final class SyncProgressStore {
       if appendsToLatestSync {
         let index = $0.syncs.count - 1
         $0.syncs[index].append(status, at: now)
+        $0.syncs[index].tags = id.tags
 
         switch status {
         case .completed, .error, .cancelled, .noData:
           $0.syncs[index].end = now
+
+        case .deprioritized:
+          // Drop any deprioritized events beyond the first 10
+          $0.syncs[index].pruneDeprioritizedStatus(afterFirst: 10)
 
         default:
           break
@@ -179,14 +221,14 @@ final class SyncProgressStore {
         }
 
         $0.syncs.append(
-          SyncProgress.Sync(start: id.rawValue, status: status, trigger: id.trigger)
+          SyncProgress.Sync(start: id.start, status: status, tags: id.tags)
         )
       }
     }
   }
 
   func recordSystem(_ resources: some Sequence<RemappedVitalResource>, _ eventType: SyncProgress.SystemEventType) {
-    mutate(resources) {
+    mutate(resources.map { $0.wrapped.resourceToBackfillType() }) {
       let now = Date()
 
       // Capture this new event if the event type is different or 2 seconds have elapsed.
@@ -203,10 +245,10 @@ final class SyncProgressStore {
     }
   }
 
-  private func mutate(_ resources: some Sequence<RemappedVitalResource>, action: (inout SyncProgress.Resource) -> Void) {
+  private func mutate(_ backfillTypes: some Sequence<BackfillType>, action: (inout SyncProgress.Resource) -> Void) {
     lock.withLock {
-      for resource in resources {
-        state.resources[resource.wrapped, default: SyncProgress.Resource()]
+      for backfillType in backfillTypes {
+        state.backfillTypes[backfillType, default: SyncProgress.Resource()]
           .with(action)
       }
     }

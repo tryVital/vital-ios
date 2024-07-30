@@ -195,7 +195,6 @@ public enum VitalResource: Equatable, Hashable, Codable {
   }
 }
 
-@_spi(VitalSDKInternals)
 public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable {
   public let rawValue: String
 
