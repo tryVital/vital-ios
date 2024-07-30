@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name = 'VitalLogging'
-    s.version = '1.1.2'
+    s.version = '1.2.0-rc.1'
     s.license = 'Apache 2.0'
     s.summary = 'Logging support for VitalCore'
     s.homepage = 'https://github.com/tryVital/vital-ios'
