@@ -770,13 +770,6 @@ extension VitalHealthKitClient {
       return
     }
 
-    guard self.prioritizeSync(remappedResource, tags) else {
-      VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
-      syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
-      progressStore.recordSync(syncID, .deprioritized)
-      return
-    }
-
     let parkingLot = self.syncSerializerLock.withLock {
       if let parkingLot = self.syncSerializer[remappedResource] {
         return parkingLot
@@ -805,6 +798,13 @@ extension VitalHealthKitClient {
       return
     }
     defer { _ = parkingLot.tryTo(.disable) }
+
+    guard self.prioritizeSync(remappedResource, tags) else {
+      VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
+      syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
+      progressStore.recordSync(syncID, .deprioritized)
+      return
+    }
 
     VitalLogger.healthKit.info("[\(description)] begin \(tags)", source: "Sync")
 
