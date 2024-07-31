@@ -9,6 +9,7 @@ final class SyncProgressReporter: @unchecked Sendable {
 
   static let shared = SyncProgressReporter()
   private static let scheduleKey = "SyncReportSchedule"
+  private let parkingLot = ParkingLot().semaphore
 
   init() {}
 
@@ -23,15 +24,27 @@ final class SyncProgressReporter: @unchecked Sendable {
     }
 
     if updatedCount == 0 {
-      await reportIfNeeded()
+      try? await reportIfNeeded(force: false)
     }
   }
 
-  private func reportIfNeeded() async {
+  func report() async throws {
+    try await reportIfNeeded(force: true)
+  }
+
+  func nextSchedule() -> Date? {
+    let storage = VitalBackStorage.live
+    return storage.readDate(Self.scheduleKey)
+  }
+
+  private func reportIfNeeded(force: Bool) async throws {
+    try await parkingLot.acquire()
+    defer { parkingLot.release() }
+
     let storage = VitalBackStorage.live
     let schedule = storage.readDate(Self.scheduleKey) ?? .distantPast
 
-    guard Date().timeIntervalSince(schedule) >= 0 else {
+    guard force || Date().timeIntervalSince(schedule) >= 0 else {
       VitalLogger.healthKit.info("skipped; next at \(schedule)", source: "SyncProgressReporter")
       return
     }
@@ -58,9 +71,9 @@ final class SyncProgressReporter: @unchecked Sendable {
     SyncProgressReport.DeviceInfo(
       osVersion: UIDevice.current.systemVersion,
       model: UIDevice.current.model,
-      bundle: Bundle.main.bundleIdentifier ?? "",
-      version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
-      build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+      appBundle: Bundle.main.bundleIdentifier ?? "",
+      appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+      appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
     )
   }
 }
@@ -72,8 +85,8 @@ private struct SyncProgressReport: Encodable {
   struct DeviceInfo: Encodable {
     let osVersion: String
     let model: String
-    let bundle: String
-    let version: String
-    let build: String
+    let appBundle: String
+    let appVersion: String
+    let appBuild: String
   }
 }

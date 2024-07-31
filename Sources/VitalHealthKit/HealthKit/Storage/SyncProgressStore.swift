@@ -37,6 +37,7 @@ public struct SyncProgress: Codable {
   public struct Event<EventType: Equatable & Codable>: Codable, Identifiable {
     public let timestamp: Date
     public let type: EventType
+    public var count: Int = 1
 
     public var id: Date { timestamp }
 
@@ -232,16 +233,20 @@ final class SyncProgressStore {
       let now = Date()
 
       // Capture this new event if the event type is different or 2 seconds have elapsed.
-      let shouldCapture = $0.systemEvents.first.map { $0.type != eventType || now.timeIntervalSince($0.timestamp) >= 2.0 } ?? true
-      guard shouldCapture else { return }
+      let appendsCount = $0.systemEvents.last.map { $0.type == eventType && now.timeIntervalSince($0.timestamp) <= 5.0 } ?? false
 
-      if $0.systemEvents.count > 25 {
-        $0.systemEvents.removeFirst()
+      if appendsCount {
+        $0.systemEvents[$0.systemEvents.endIndex - 1].count += 1
+
+      } else {
+        if $0.systemEvents.count > 25 {
+          $0.systemEvents.removeFirst()
+        }
+
+        $0.systemEvents.append(
+          SyncProgress.Event(timestamp: now, type: eventType)
+        )
       }
-
-      $0.systemEvents.append(
-        SyncProgress.Event(timestamp: now, type: eventType)
-      )
     }
   }
 
