@@ -947,11 +947,10 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
 
   let shortID = "Query,\(type.shortenedIdentifier)"
 
-  return try await withCheckedThrowingContinuation { continuation in
+  let handle = CancellableQueryHandle<(sample: [Result], anchor: StoredAnchor?)> { continuation in
     let currentAnchor = vitalStorage.read(key: String(describing: type.self))?.anchor
 
     let handler: AnchorQueryHandler = { (query, samples, deletedObject, newAnchor, error) in
-      healthKitStore.stop(query)
       VitalLogger.healthKit.info("anchor[out]: \((newAnchor?.description ?? "nil").dropFirst(16).prefix(16))", source: shortID)
 
       if let error = error {
@@ -967,6 +966,11 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
 
             VitalLogger.healthKit.info("no data or no permission", source: shortID)
             continuation.resume(with: .success(([], storedAnchor)))
+            return
+
+          case .errorUserCanceled:
+            VitalLogger.healthKit.info("cancelled", source: shortID)
+            continuation.resume(throwing: CancellationError())
             return
 
           default:
@@ -1026,8 +1030,10 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
 
     VitalLogger.healthKit.info("anchor[in]: \((currentAnchor?.description ?? "nil").dropFirst(16).prefix(16))", source: shortID)
 
-    healthKitStore.execute(query)
+    return query
   }
+
+  return try await handle.execute(in: healthKitStore)
 }
 
 @HealthKitActor
@@ -1069,10 +1075,9 @@ func queryMulti(
 
   // iOS 15+: Single query to match multiple HKSampleTypes
 
-  return try await withCheckedThrowingContinuation { continuation in
+  let handle = CancellableQueryHandle<[HKSampleType: [HKSample]]> { continuation in
 
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
-      healthKitStore.stop(query)
 
       if let error = error {
         if let error = error as? HKError {
@@ -1080,6 +1085,11 @@ func queryMulti(
           case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
             VitalLogger.healthKit.info("no data or no permission. \(error)", source: "QueryMulti")
             continuation.resume(with: .success([:]))
+            return
+
+          case .errorUserCanceled:
+            VitalLogger.healthKit.info("cancelled", source: "QueryMulti")
+            continuation.resume(throwing: CancellationError())
             return
 
           default:
@@ -1113,8 +1123,10 @@ func queryMulti(
       resultsHandler: handler
     )
 
-    healthKitStore.execute(query)
+    return query
   }
+
+  return try await handle.execute(in: healthKitStore)
 }
 
 @HealthKitActor
@@ -1131,9 +1143,8 @@ private func querySingle(
   let signpost = VitalLogger.Signpost.begin(name: "querySingle", description: shortID)
   defer { signpost.end() }
 
-  return try await withCheckedThrowingContinuation { continuation in
+  let handle = CancellableQueryHandle<[HKSample]> { continuation in
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
-      healthKitStore.stop(query)
 
       if let error = error {
         if let error = error as? HKError {
@@ -1141,6 +1152,11 @@ private func querySingle(
           case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
             VitalLogger.healthKit.info("no data or no permission for \(shortID)", source: "QuerySingle")
             continuation.resume(with: .success([]))
+            return
+
+          case .errorUserCanceled:
+            VitalLogger.healthKit.info("cancelled", source: "QuerySingle")
+            continuation.resume(throwing: CancellationError())
             return
 
           default:
@@ -1172,8 +1188,10 @@ private func querySingle(
       resultsHandler: handler
     )
 
-    healthKitStore.execute(query)
+    return query
   }
+
+  return try await handle.execute(in: healthKitStore)
 }
 
 
@@ -1401,14 +1419,35 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
   transform: @escaping (Sample, SampleUnit) -> Result?
 ) async throws -> [Result] {
 
-  return try await withCheckedThrowingContinuation { continuation in
-    
+  let shortID = "QuerySample,\(type.shortenedIdentifier)"
+
+  let handle = CancellableQueryHandle<[Result]> { continuation in
+
     let handler: SampleQueryHandler = { (query, samples, error) in
-      healthKitStore.stop(query)
-      
+
       if let error = error {
-        continuation.resume(with: .failure(error))
-        return
+        if let error = error as? HKError {
+          switch error.code {
+          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
+            VitalLogger.healthKit.info("no data or no permission for \(shortID)", source: shortID)
+            continuation.resume(with: .success([]))
+            return
+
+          case .errorUserCanceled:
+            VitalLogger.healthKit.info("cancelled", source: shortID)
+            continuation.resume(throwing: CancellationError())
+            return
+
+          default:
+            VitalLogger.healthKit.info("\(shortID) error = \(error.code)", source: shortID)
+            continuation.resume(with: .failure(error))
+            return
+          }
+        } else {
+          VitalLogger.healthKit.info("\(shortID) error = \(error)", source: shortID)
+          continuation.resume(with: .failure(error))
+          return
+        }
       }
 
       let samples = samples ?? []
@@ -1437,7 +1476,7 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
     let sort = [
       NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: ascending)
     ]
-    
+
     let query = HKSampleQuery(
       sampleType: type,
       predicate: predicate,
@@ -1446,8 +1485,10 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
       resultsHandler: handler
     )
     
-    healthKitStore.execute(query)
+    return query
   }
+
+  return try await handle.execute(in: healthKitStore)
 }
 
 func mergeSleeps(sleeps: [SleepPatch.Sleep]) -> [SleepPatch.Sleep] {

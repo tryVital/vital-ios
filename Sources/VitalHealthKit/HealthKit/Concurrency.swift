@@ -72,29 +72,48 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
     return scope
   }
 
+  func complete() async {
+    await closeAndWait(cancel: false)
+  }
+
   func cancel() async {
-    let (tasksToCancel, parentToUnregister) = lock.withLock {
+    await closeAndWait(cancel: true)
+  }
+
+  private func closeAndWait(cancel: Bool) async {
+    let (tasksToClose, subscopesToClose, parentToUnregister) = lock.withLock {
       isCancelled = true
       let parentToUnregister = parent
-      let tasksToCancel = activeTasks
+      let tasksToClose = activeTasks
+      let subscopesToClose = activeSubscopes
       activeTasks = []
+      activeSubscopes = []
       parent = nil
-      return (tasksToCancel, parentToUnregister)
+      return (tasksToClose, subscopesToClose, parentToUnregister)
     }
 
-    parentToUnregister?.unregisterChild(self)
-
-    guard !tasksToCancel.isEmpty else { return }
+    defer {
+      parentToUnregister?.unregisterChild(self)
+    }
 
     // Cancel all outstanding tasks, and wait for them to complete.
     await withTaskGroup(of: Void.self) { group in
-      for task in tasksToCancel {
+      for task in tasksToClose {
         group.addTask {
           if let task = task.wrapped {
-            task.cancel()
+            if cancel {
+              task.cancel()
+            }
+
             // Wait for it to complete, but don't care about the result.
             _ = await task.result
           }
+        }
+      }
+
+      for subscope in subscopesToClose {
+        group.addTask {
+          await subscope.closeAndWait(cancel: cancel)
         }
       }
     }
