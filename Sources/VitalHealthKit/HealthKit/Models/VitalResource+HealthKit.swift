@@ -346,18 +346,20 @@ func observedSampleTypes() -> [[HKSampleType]] {
   ]
 }
 
-func resourcesAskedForPermission(
+func authorizationState(
   store: VitalHealthKitStore
-) -> Set<VitalResource> {
+) -> (activeResources: Set<RemappedVitalResource>, determinedObjectTypes: Set<HKObjectType>) {
 
-  var resources: Set<VitalResource> = []
+  var resources: Set<RemappedVitalResource> = []
+  var determined: Set<HKObjectType> = []
 
   for resource in VitalResource.all {
-    let hasAskedPermission = store.hasAskedForPermission(resource)
-    if hasAskedPermission {
-      resources.insert(resource)
+    let state = store.authorizationState(resource)
+    if state.isActive {
+      resources.insert(VitalHealthKitStore.remapResource(resource))
     }
+    determined.formUnion(state.determined)
   }
   
-  return resources
+  return (resources, determined)
 }

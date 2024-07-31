@@ -37,12 +37,12 @@ class VitalHealthKitStorage: AnchorStorage {
     self.storage = storage
   }
   
-  func markHistoricalStageDone(for resource: VitalResource) {
-    storage.flagResource(resource)
+  func markHistoricalStageDone(for resource: RemappedVitalResource) {
+    storage.flagResource(resource.wrapped)
   }
   
-  func historicalStageDone(for resource: VitalResource) -> Bool {
-    return storage.isResourceFlagged(resource)
+  func historicalStageDone(for resource: RemappedVitalResource) -> Bool {
+    return storage.isResourceFlagged(resource.wrapped)
   }
 
   func setCompletedInitialSync() {

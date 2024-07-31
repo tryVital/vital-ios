@@ -214,6 +214,7 @@ public extension VitalHealthKitClient {
   private struct BackgroundDeliveryTask {
     let task: TaskHandle?
     let resources: Set<RemappedVitalResource>
+    let objectTypes: Set<HKObjectType>
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
     func cancel() {
@@ -228,37 +229,31 @@ extension VitalHealthKitClient {
   private func checkBackgroundUpdates(isBackgroundEnabled: Bool) {
     guard isBackgroundEnabled else { return }
 
-    let resources = Set(
-      resourcesAskedForPermission(store: self.store)
-        .map(VitalHealthKitStore.remapResource)
-    )
+    let state = authorizationState(store: self.store)
     let currentTask = self.backgroundDeliveryTask
 
     // Reconfigure the task only if the set of resources has changed, or we have not configured it
     // before.
-    guard resources != currentTask?.resources else { return }
-    
+    guard 
+      state.activeResources != currentTask?.resources
+        || state.determinedObjectTypes != currentTask?.objectTypes
+    else { return }
+
     /// If it's already running, cancel it
     currentTask?.cancel()
 
-    let allowedSampleTypes = Set(
-      resources.lazy.map(\.wrapped)
-        .map(toHealthKitTypes(resource:))
-        .flatMap(\.allObjectTypes)
+    let bundles: Set<[HKSampleType]> = Set(
+      observedSampleTypes()
+        .map { Set($0).intersection(state.determinedObjectTypes).compactMap { $0 as? HKSampleType } }
+        .filter { !$0.isEmpty }
     )
 
-    let set: [Set<HKObjectType>] = observedSampleTypes().map(Set.init)
-    let common: [[HKSampleType]] = set.map { $0.intersection(allowedSampleTypes) }.map { $0.compactMap { $0 as? HKSampleType } }
-    let cleaned: Set<[HKSampleType]> = Set(common.filter { $0.isEmpty == false })
-
-    let uniqueFlatenned: Set<HKSampleType> = Set(cleaned.flatMap { $0 })
-
-    if uniqueFlatenned.isEmpty {
+    if bundles.isEmpty {
       VitalLogger.healthKit.info("Not observing any type")
     }
 
     /// Enable background deliveries
-    enableBackgroundDelivery(for: uniqueFlatenned)
+    enableBackgroundDelivery(for: bundles.lazy.flatMap { $0 })
 
     /// Submit BGProcessingTasks
     scope.task { await self.submitProcessingTasks() }
@@ -267,9 +262,9 @@ extension VitalHealthKitClient {
     let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
 
     if #available(iOS 15.0, *) {
-      (stream, streamContinuation) = bundledBackgroundObservers(for: cleaned)
+      (stream, streamContinuation) = bundledBackgroundObservers(for: bundles)
     } else {
-      (stream, streamContinuation) = backgroundObservers(for: uniqueFlatenned)
+      (stream, streamContinuation) = backgroundObservers(for: bundles.lazy.flatMap { $0 })
     }
 
     let payloadListener = scope.task(priority: .userInitiated) {
@@ -314,12 +309,13 @@ extension VitalHealthKitClient {
 
     self.backgroundDeliveryTask = BackgroundDeliveryTask(
       task: payloadListener,
-      resources: Set(resources),
+      resources: state.activeResources,
+      objectTypes: state.determinedObjectTypes,
       streamContinuation: streamContinuation
     )
   }
   
-  private func enableBackgroundDelivery(for sampleTypes: Set<HKSampleType>) {
+  private func enableBackgroundDelivery(for sampleTypes: some Sequence<HKSampleType>) {
     for sampleType in sampleTypes {
       store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
         
@@ -359,15 +355,12 @@ extension VitalHealthKitClient {
             return
           }
 
-          let resources = Set(
-            resourcesAskedForPermission(store: self.store)
-              .map(VitalHealthKitStore.remapResource(_:))
-          )
+          let state = authorizationState(store: self.store)
 
-          SyncProgressStore.shared.recordSystem(resources, .backgroundProcessingTask)
+          SyncProgressStore.shared.recordSystem(state.activeResources, .backgroundProcessingTask)
 
           await withTaskGroup(of: Void.self) { group in
-            for resource in resources {
+            for resource in state.activeResources {
               group.addTask {
                 await self.sync(resource, SyncContextTag.current(with: .processingTask))
               }
@@ -422,13 +415,10 @@ extension VitalHealthKitClient {
       // 1 seconds after app launch or Ask
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
-      let resources = Set(
-        resourcesAskedForPermission(store: self.store)
-          .map(VitalHealthKitStore.remapResource)
-      )
+      let state = authorizationState(store: self.store)
 
       let progress = SyncProgressStore.shared.get()
-      let unnotifiedResources = resources.filter { resource in
+      let unnotifiedResources = state.activeResources.filter { resource in
         guard let resourceProgress = progress.backfillTypes[resource.wrapped.resourceToBackfillType()] else {
           // Doesn't even show up in `SyncProgress.resources`
           return true
@@ -468,13 +458,15 @@ extension VitalHealthKitClient {
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
 
-          guard let sampleTypes = sampleTypes else {
-            VitalLogger.healthKit.error("unexpected callout with no sample type", source: "HealthKit")
+          guard error == nil else {
+            VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).", source: "HealthKit")
             return
           }
 
-          guard error == nil else {
-            VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).", source: "HealthKit")
+          // Check this after checking error, because sampleTypes is usually nil when error is
+          // populated.
+          guard let sampleTypes = sampleTypes else {
+            VitalLogger.healthKit.error("unexpected callout with no sample type", source: "HealthKit")
             return
           }
 
@@ -530,7 +522,7 @@ extension VitalHealthKitClient {
   }
   
   private func backgroundObservers(
-    for sampleTypes: Set<HKSampleType>
+    for sampleTypes: some Sequence<HKSampleType>
   ) -> (AsyncStream<BackgroundDeliveryPayload>, AsyncStream<BackgroundDeliveryPayload>.Continuation) {
     var _continuation: AsyncStream<BackgroundDeliveryPayload>.Continuation!
 
@@ -591,10 +583,10 @@ extension VitalHealthKitClient {
   }
   
   public func syncData() {
-    let resources = resourcesAskedForPermission(store: store)
-    syncData(for: Array(resources))
+    let state = authorizationState(store: self.store)
+    syncData(for: state.activeResources.map(\.wrapped))
   }
-  
+
   public func syncData(for resources: [VitalResource]) {
     let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
@@ -709,14 +701,18 @@ extension VitalHealthKitClient {
     return state
   }
 
-  private func computeSyncInstruction(_ resource: VitalResource, syncID: SyncProgress.SyncID) async throws -> (SyncInstruction, LocalSyncState) {
+  private func computeSyncInstruction(
+    _ resource: RemappedVitalResource,
+    syncID: SyncProgress.SyncID
+  ) async throws -> (SyncInstruction, LocalSyncState) {
+
     let state = try await getLocalSyncState(syncID: syncID)
 
     let hasCompletedHistoricalStage = storage.historicalStageDone(for: resource)
-      || resource == .profile
+    || resource.wrapped == .profile
 
     let now = Date()
-    let query = state.historicalStartDate(for: resource) ..< (state.ingestionEnd ?? now)
+    let query = state.historicalStartDate(for: resource.wrapped) ..< (state.ingestionEnd ?? now)
 
     let instruction = SyncInstruction(stage: hasCompletedHistoricalStage ? .daily : .historical, query: query)
 
@@ -726,7 +722,7 @@ extension VitalHealthKitClient {
         UserSDKHistoricalStageBeginBody(
           rangeStart: query.lowerBound,
           rangeEnd: query.upperBound,
-          backfillType: resource.resourceToBackfillType()
+          backfillType: resource.wrapped.resourceToBackfillType()
         )
       )
     }
@@ -751,8 +747,9 @@ extension VitalHealthKitClient {
       waitForHistoricalDone = [.activity, .workout, .sleep, .menstrualCycle]
     }
 
-    let resourcesToCheck = resourcesAskedForPermission(store: store)
-      .intersection(waitForHistoricalDone)
+    let state = authorizationState(store: self.store)
+    let resourcesToCheck = state.activeResources
+      .intersection(waitForHistoricalDone.map(VitalHealthKitStore.remapResource))
 
     // Deprioritized until all prioritized resources have finished their historical stage.
     return resourcesToCheck.allSatisfy(storage.historicalStageDone(for:))
@@ -852,7 +849,7 @@ extension VitalHealthKitClient {
     let state: LocalSyncState
 
     do {
-      (instruction, state) = try await computeSyncInstruction(remappedResource.wrapped, syncID: syncID)
+      (instruction, state) = try await computeSyncInstruction(remappedResource, syncID: syncID)
 
       if instruction.stage == .historical {
         syncID.tags.insert(.historicalStage)
@@ -1017,7 +1014,7 @@ extension VitalHealthKitClient {
           return false
 
         case .success:
-          self.storage.markHistoricalStageDone(for: resource)
+          self.storage.markHistoricalStageDone(for: remappedResource)
           progressStore.recordSync(syncID, .completed)
           VitalLogger.healthKit.info("[\(description)] completed", source: "Sync")
           return true
@@ -1094,7 +1091,7 @@ extension VitalHealthKitClient {
   }
   
   public func hasAskedForPermission(resource: VitalResource) -> Bool {
-    store.hasAskedForPermission(resource)
+    store.authorizationState(resource).isActive
   }
   
   public func dateOfLastSync(for resource: VitalResource) -> Date? {
