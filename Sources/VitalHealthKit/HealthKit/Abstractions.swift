@@ -41,7 +41,7 @@ struct VitalHealthKitStore {
   
   var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource]) async throws -> Void
   
-  var hasAskedForPermission: (VitalResource) -> Bool
+  var authorizationState: (VitalResource) -> AuthorizationState
 
   var writeInput: (DataInput, Date, Date) async throws -> Void
   var readResource: (RemappedVitalResource, SyncInstruction, AnchorStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
@@ -52,6 +52,8 @@ struct VitalHealthKitStore {
   var execute: (HKObserverQuery) -> Void
   var stop: (HKObserverQuery) -> Void
 }
+
+typealias AuthorizationState = (isActive: Bool, determined: Set<HKObjectType>)
 
 extension VitalHealthKitStore {
   static func remapResource(_ resource: VitalResource) -> RemappedVitalResource {
@@ -177,9 +179,25 @@ extension VitalHealthKitStore {
   static var live: VitalHealthKitStore {
     let store = HKHealthStore()
     
-    let hasAskedForPermission: (VitalResource) -> Bool = { resource in
+    let authorizationState: (VitalResource) -> AuthorizationState = { resource in
       let requirements = toHealthKitTypes(resource: resource)
-      return requirements.isResourceActive { store.authorizationStatus(for: $0) != .notDetermined }
+
+      var determined: Set<HKObjectType> = []
+      let isActive = requirements.isResourceActive {
+        switch store.authorizationStatus(for: $0) {
+        case .notDetermined:
+          return false
+
+        case .sharingAuthorized, .sharingDenied:
+          determined.insert($0)
+          return true
+
+        @unknown default:
+          return false
+        }
+      }
+
+      return (isActive, determined)
     }
     
     return .init {
@@ -201,8 +219,8 @@ extension VitalHealthKitStore {
         try await store.__requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
       }
       
-    } hasAskedForPermission: { resource in
-      return hasAskedForPermission(resource)
+    } authorizationState: { resource in
+      return authorizationState(resource)
     } writeInput: { (dataInput, startDate, endDate) in
       try await write(
         healthKitStore: store,
@@ -234,8 +252,8 @@ extension VitalHealthKitStore {
       return true
     } requestReadWriteAuthorization: { _, _ in
       return
-    } hasAskedForPermission: { _ in
-      true
+    } authorizationState: { _ in
+      (true, [])
     } writeInput: { (dataInput, startDate, endDate) in
       return
     } readResource: { _,_,_, _  in
@@ -374,13 +392,20 @@ struct StatisticsQueryDependencies {
         healthKitStore.stop(query)
 
         guard let collection = collection else {
-          precondition(error != nil, "HKStatisticsCollectionQuery returns neither a result set nor an error.")
+          guard let error = error else {
+            continuation.resume(
+              throwing: VitalHealthKitClientError.healthKitInvalidState(
+                "HKStatisticsCollectionQuery returns neither a result set nor an error."
+              )
+            )
+            return
+          }
 
           switch (error as? HKError)?.code {
           case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
             continuation.resume(returning: [])
           default:
-            continuation.resume(throwing: error!)
+            continuation.resume(throwing: error)
           }
 
           return
@@ -467,17 +492,18 @@ struct StatisticsQueryDependencies {
             options: options
           ) { _, statistics, error in
             guard let statistics = statistics else {
+
               guard let error = error else {
                 continuation.resume(
                   throwing: VitalHealthKitClientError.healthKitInvalidState(
-                    "HKStatisticsCollectionQuery returns neither a result set nor an error."
+                    "HKStatisticsQuery returns neither a result set nor an error."
                   )
                 )
                 return
               }
 
               switch (error as? HKError)?.code {
-              case .errorNoData:
+              case .errorNoData, .errorAuthorizationDenied, .errorAuthorizationNotDetermined:
                 continuation.resume(with: .success(nil))
               default:
                 continuation.resume(with: .failure(error))
