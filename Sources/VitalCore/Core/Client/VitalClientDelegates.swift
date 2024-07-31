@@ -38,7 +38,7 @@ class VitalClientDelegate: APIClientDelegate {
 
     request.setValue(VitalClient.sdkVersion, forHTTPHeaderField: "x-vital-ios-sdk-version")
 
-    let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary"]))
+    let components = Set(request.url?.pathComponents ?? []).intersection(Set(["timeseries", "summary", "sdk_sync_progress"]))
     
     /// For summary and timeseries, we want to gzip its contents
     if components.isEmpty == false && request.httpMethod == "POST"  {

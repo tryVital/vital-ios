@@ -33,9 +33,11 @@ private let timeFormatter = {
 /// ```
 public struct ForEachVitalResource: View {
   @State var items: [(key: BackfillType, value: SyncProgress.Resource)] = []
+  @State var nextSchedule: Date? = nil
 
   public init() {}
 
+  @ViewBuilder
   public var body: some View {
     ForEach($items, id: \.key) { item in
       let (key, resource) = item.wrappedValue
@@ -65,6 +67,31 @@ public struct ForEachVitalResource: View {
     .onReceive(VitalHealthKitClient.shared.syncProgressPublisher().receive(on: RunLoop.main)) { progress in
       self.items = progress.backfillTypes
         .sorted(by: { $0.key.rawValue.compare($1.key.rawValue) == .orderedAscending })
+      self.nextSchedule = SyncProgressReporter.shared.nextSchedule()
+    }
+
+    Menu {
+      Button("Force Upload", systemImage: "chevron.up.square") {
+        Task { @MainActor in
+          try? await SyncProgressReporter.shared.report()
+          self.nextSchedule = SyncProgressReporter.shared.nextSchedule()
+        }
+
+      }
+
+    } label: {
+      HStack {
+        VStack(alignment: .leading) {
+          Text("Sync Log")
+          if let nextSchedule = nextSchedule {
+            Text(verbatim: "Next upload: " + dateFormatter.string(from: nextSchedule) + " " + timeFormatter.string(from: nextSchedule))
+              .foregroundColor(Color.secondary)
+              .font(Font.subheadline)
+          }
+        }
+        Spacer()
+        Image(systemName: "ellipsis.circle")
+      }
     }
   }
 }
@@ -149,7 +176,12 @@ private struct ResourceSystemEventView: View {
         let time = timeFormatter.string(from: event.timestamp)
 
         HStack(alignment: .firstTextBaseline) {
-          Text("\(String(describing: event.type))")
+          VStack(alignment: .leading) {
+            Text("\(String(describing: event.type))")
+            Text(verbatim: "Count: \(event.count)")
+              .foregroundColor(Color.secondary)
+              .font(.subheadline)
+          }
           Spacer()
           VStack(alignment: .trailing) {
             Text(verbatim: "\(time)")
