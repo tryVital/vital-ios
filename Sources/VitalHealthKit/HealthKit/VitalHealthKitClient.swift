@@ -342,6 +342,7 @@ extension VitalHealthKitClient {
 
         task.expirationHandler = {
           VitalLogger.healthKit.info("expired", source: "ProcessingTask")
+          SyncProgressStore.shared.flush()
           task.setTaskCompleted(success: false)
         }
 
@@ -760,7 +761,6 @@ extension VitalHealthKitClient {
     let progressReporter = SyncProgressReporter.shared
 
     var syncID = SyncProgress.SyncID(resource: remappedResource.wrapped, tags: tags)
-    defer { progressStore.flush() }
 
     let resource = remappedResource.wrapped
     let description = resource.logDescription
@@ -799,6 +799,8 @@ extension VitalHealthKitClient {
     }
     defer { _ = parkingLot.tryTo(.disable) }
 
+    defer { progressStore.flush() }
+
     guard self.prioritizeSync(remappedResource, tags) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
@@ -823,7 +825,9 @@ extension VitalHealthKitClient {
 
     if tags.contains(.foreground) {
       osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
-      osBackgroundTask!.start("vital-sync-\(description)", expiration: {})
+      osBackgroundTask!.start("vital-sync-\(description)", expiration: {
+        progressStore.flush()
+      })
       VitalLogger.healthKit.info("started: daily:\(description)", source: "UIKitBgTask")
 
     } else {

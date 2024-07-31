@@ -26,5 +26,8 @@ func makeClient(
     // Needed for UIKit background tasks to work as intended
     // i.e., Ongoing HTTP connection won't get cut-off when app moves into background
     configuration.sessionConfiguration.shouldUseExtendedBackgroundIdleMode = true
+
+    // 15 seconds timeout
+    configuration.sessionConfiguration.timeoutIntervalForResource = 15.0
   }
 }

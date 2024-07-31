@@ -18,6 +18,12 @@ private let timeFormatter = {
   return formatter
 }()
 
+private let durationFormatter = {
+  let formatter = DateComponentsFormatter()
+  formatter.unitsStyle = .abbreviated
+  return formatter
+}()
+
 /// A SwiftUI View that expands into a self-updating list of Vital SDK resources with their latest sync status.
 ///
 /// Use it in a container view, e.g. SwiftUI `List`.
@@ -97,8 +103,27 @@ public struct ForEachVitalResource: View {
 }
 
 private struct ResourceProgressDetailView: View {
+
+  struct ItemSection: Identifiable {
+    let id: String
+    let items: [SyncProgress.Sync]
+  }
+
   let key: BackfillType
   @Binding var resource: SyncProgress.Resource
+
+  var sections: [ItemSection] {
+    let calendar = GregorianCalendar(timeZone: .current)
+    let groups = Dictionary(grouping: resource.syncs) { calendar.floatingDate(of: $0.start) }
+    let sortedGroups = groups.sorted(by: { $0.key > $1.key })
+
+    return sortedGroups.map { date, items in
+      ItemSection(
+        id: dateFormatter.string(from: calendar.startOfDay(date)),
+        items: items.reversed()
+      )
+    }
+  }
 
   var body: some View {
     List {
@@ -112,49 +137,51 @@ private struct ResourceProgressDetailView: View {
         .isDetailLink(false)
       }
 
-      Section {
-        ForEach(resource.syncs.reversed()) { sync in
-          let timestamp = sync.statuses.last?.timestamp ?? sync.start
-          let date = dateFormatter.string(from: timestamp)
-          let time = timeFormatter.string(from: timestamp)
+      ForEach(sections) { section in
+        Section(header: Text(verbatim: section.id)) {
+          ForEach(section.items) { sync in
+            let timestamp = sync.statuses.last?.timestamp ?? sync.start
+            let time = timeFormatter.string(from: timestamp)
+            let duration = durationFormatter.string(from: sync.start, to: timestamp) ?? ""
 
-          DisclosureGroup {
-            VStack(alignment: .leading) {
-              ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
-                HStack(alignment: .firstTextBaseline) {
-                  if offset == 0 {
-                    Image(systemName: "arrowtriangle.right.fill")
-                  } else {
-                    Image(systemName: "arrowtriangle.up")
-                  }
-
-                  Text("\(String(describing: status.type))")
-                  Spacer()
-
-                  Text(verbatim: dateFormatter.string(from: status.timestamp))
-                }
-                .foregroundColor(offset == 0 ? Color.primary : Color.secondary)
-              }
-              .font(Font.subheadline)
-            }
-
-          } label: {
-            HStack(alignment: .center) {
-              icon(for: sync.lastStatus)
-
+            DisclosureGroup {
               VStack(alignment: .leading) {
-                Text(verbatim: String(describing: sync.lastStatus))
-                Text(verbatim: sync.tags.map(String.init(describing:)).sorted().joined(separator: ", "))
-                  .foregroundColor(Color.secondary)
-                  .font(.subheadline)
+                ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
+                  HStack(alignment: .firstTextBaseline) {
+                    if offset == 0 {
+                      Image(systemName: "arrowtriangle.right.fill")
+                    } else {
+                      Image(systemName: "arrowtriangle.up")
+                    }
+
+                    Text("\(String(describing: status.type))")
+                    Spacer()
+
+                    Text(verbatim: timeFormatter.string(from: status.timestamp))
+                  }
+                  .foregroundColor(offset == 0 ? Color.primary : Color.secondary)
+                }
+                .font(Font.subheadline)
               }
 
-              Spacer()
-              VStack(alignment: .trailing) {
-                Text(verbatim: "\(time)")
-                Text(verbatim: "\(date)")
-                  .foregroundColor(Color.secondary)
-                  .font(.subheadline)
+            } label: {
+              HStack(alignment: .center) {
+                icon(for: sync.lastStatus)
+
+                VStack(alignment: .leading) {
+                  Text(verbatim: String(describing: sync.lastStatus))
+                  Text(verbatim: sync.tags.map(String.init(describing:)).sorted().joined(separator: ", "))
+                    .foregroundColor(Color.secondary)
+                    .font(.subheadline)
+                }
+
+                Spacer()
+                VStack(alignment: .trailing) {
+                  Text(verbatim: duration)
+                  Text(verbatim: "\(time)")
+                    .foregroundColor(Color.secondary)
+                    .font(.subheadline)
+                }
               }
             }
           }
