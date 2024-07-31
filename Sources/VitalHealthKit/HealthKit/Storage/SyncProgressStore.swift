@@ -129,12 +129,9 @@ public struct SyncProgress: Codable {
 }
 
 final class SyncProgressStore {
-  private var state: SyncProgress {
-    didSet { hasChanges = true }
-  }
+  private let state = CurrentValueSubject<SyncProgress, Never>(SyncProgress())
   private var hasChanges = false
   private let lock = NSLock()
-  private let didChange = PassthroughSubject<Void, Never>()
 
   static let shared = SyncProgressStore()
 
@@ -142,13 +139,7 @@ final class SyncProgressStore {
   private var multicaster: AnyPublisher<SyncProgress, Never>!
 
   init() {
-    state = VitalGistStorage.shared.get(SyncProgressGistKey.self) ?? SyncProgress()
-
-    multicaster = didChange.prepend(())
-      .map { self.get() }
-      .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest)
-      .share()
-      .eraseToAnyPublisher()
+    state.value = VitalGistStorage.shared.get(SyncProgressGistKey.self) ?? SyncProgress()
 
     NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
       .sink { [weak self] _ in self?.flush() }
@@ -161,17 +152,19 @@ final class SyncProgressStore {
   }
 
   func get() -> SyncProgress {
-    lock.withLock { state }
+    lock.withLock { state.value }
   }
 
   func publisher() -> some Publisher<SyncProgress, Never> {
-    multicaster
+    // Force all values to be received asynchronously.
+    // This eliminates the possibility of deadlocks during subscriber callouts.
+    state.receive(on: RunLoop.main)
   }
 
   func flush() {
     lock.withLock {
       if hasChanges {
-        try? VitalGistStorage.shared.set(state, for: SyncProgressGistKey.self)
+        try? VitalGistStorage.shared.set(state.value, for: SyncProgressGistKey.self)
         hasChanges = false
       }
     }
@@ -179,11 +172,9 @@ final class SyncProgressStore {
 
   func clear() {
     lock.withLock {
-      state = SyncProgress()
+      state.value = SyncProgress()
       try? VitalGistStorage.shared.set(Optional<SyncProgress>.none, for: SyncProgressGistKey.self)
     }
-
-    didChange.send(())
   }
 
   func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus) {
@@ -252,13 +243,15 @@ final class SyncProgressStore {
 
   private func mutate(_ backfillTypes: some Sequence<BackfillType>, action: (inout SyncProgress.Resource) -> Void) {
     lock.withLock {
+      var copy = state.value
       for backfillType in backfillTypes {
-        state.backfillTypes[backfillType, default: SyncProgress.Resource()]
+        copy.backfillTypes[backfillType, default: SyncProgress.Resource()]
           .with(action)
       }
-    }
 
-    didChange.send(())
+      state.value = copy
+      hasChanges = true
+    }
   }
 }
 
