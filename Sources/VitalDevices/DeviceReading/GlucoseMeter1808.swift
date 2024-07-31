@@ -41,7 +41,7 @@ private func toGlucoseReading(data: Data) -> LocalQuantitySample? {
 
   guard isGlucoseDataPresent else { return nil }
 
-  let sequenceNumber: UInt16 = (UInt16(bytes[2]) << 8) | UInt16(bytes[1])
+  // let sequenceNumber: UInt16 = (UInt16(bytes[2]) << 8) | UInt16(bytes[1])
 
   // Little-endian
   let year: UInt16 = [bytes[3], bytes[4]].withUnsafeBytes { $0.load(as: UInt16.self) }
@@ -65,15 +65,15 @@ private func toGlucoseReading(data: Data) -> LocalQuantitySample? {
 
   var offset = 10
 
-  let bleTimeOffset: UInt16?
+  // let bleTimeOffset: UInt16?
 
   if isTimeOffsetPresent {
     let timeOffset = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
     date = calendar.date(byAdding: .minute, value: Int(timeOffset), to: date) ?? .init()
     offset += 2
-    bleTimeOffset = timeOffset
+    // bleTimeOffset = timeOffset
   } else {
-    bleTimeOffset = nil
+    // bleTimeOffset = nil
   }
 
   let glucoseSFloat = UInt16(bytes[offset + 1]) << 8 | UInt16(bytes[offset])
@@ -82,7 +82,7 @@ private func toGlucoseReading(data: Data) -> LocalQuantitySample? {
   // BLE Glucose Service spec: either kg/L or mol/L.
   let deviceValue = SFloat.read(data: glucoseSFloat)
   let value: Double
-  let unit: String
+  // let unit: String
 
   if isUnitMolL { // mol/L
     value = deviceValue * 1000
