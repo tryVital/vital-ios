@@ -387,7 +387,7 @@ struct StatisticsQueryDependencies {
         _ query: HKStatisticsCollectionQuery,
         collection: HKStatisticsCollection?,
         error: Error?,
-        continuation: CheckedContinuation<[VitalStatistics], Error>
+        continuation: CancellableQueryHandle<[VitalStatistics]>.Continuation
       ) {
 
         guard let collection = collection else {
@@ -522,15 +522,22 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     case idle
     case cancelled
     case completed
-    case running(HKHealthStore, HKQuery)
+    case running(HKHealthStore, HKQuery, CheckedContinuation<Result, any Error>)
   }
 
   private var state: State = .idle
   private let lock = NSLock()
-  let queryFactory: (CheckedContinuation<Result, any Error>) -> HKQuery
+  let queryFactory: (Continuation) -> HKQuery
+  var watchdog: Task<Void, any Error>?
+  let timeoutSeconds: UInt64
 
-  init(_ queryFactory: @escaping (CheckedContinuation<Result, any Error>) -> HKQuery) {
+  init(timeoutSeconds: UInt64 = 20, _ queryFactory: @escaping (Continuation) -> HKQuery) {
     self.queryFactory = queryFactory
+    self.timeoutSeconds = timeoutSeconds
+  }
+
+  deinit {
+    watchdog?.cancel()
   }
 
   func execute(in store: HKHealthStore) async throws -> Result {
@@ -538,8 +545,8 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
       try Task.checkCancellation()
 
       let result = try await withCheckedThrowingContinuation { continuation in
-        let query = queryFactory(continuation)
-        transition(to: .running(store, query))
+        let query = queryFactory(Continuation(query: self))
+        transition(to: .running(store, query, continuation))
       }
 
       transition(to: .completed)
@@ -550,20 +557,51 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     }
   }
 
-  func transition(to newState: State) {
+  func cancel(with error: any Error = CancellationError()) {
+    if let continuation = transition(to: .cancelled) {
+      continuation.resume(throwing: error)
+    }
+  }
+
+  @discardableResult
+  private func transition(to newState: State) -> CheckedContinuation<Result, any Error>? {
     lock.withLock {
       switch (state, newState) {
-      case let (.idle, .running(store, query)):
+      case let (.idle, .running(store, query, _)):
         store.execute(query)
         state = newState
+        watchdog = Task { [timeoutSeconds, weak self] in
+          try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
+          self?.cancel()
+        }
+        return nil
 
-      case let (.running(store, query), .cancelled), let (.running(store, query), .completed):
+      case let (.running(store, query, continuation), .cancelled), let (.running(store, query, continuation), .completed):
         store.stop(query)
         state = newState
+        watchdog?.cancel()
+        return continuation
 
       default:
-        break
+        return nil
       }
+    }
+  }
+
+  struct Continuation: @unchecked Sendable {
+    let query: CancellableQueryHandle<Result>
+
+    func resume(with result: Swift.Result<Result, any Error>) {
+      if let continuation = query.transition(to: .completed) {
+        continuation.resume(with: result)
+      }
+    }
+
+    func resume(returning value: Result) {
+      resume(with: .success(value))
+    }
+    func resume(throwing error: any Error) {
+      resume(with: .failure(error))
     }
   }
 }

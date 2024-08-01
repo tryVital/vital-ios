@@ -976,6 +976,9 @@ extension VitalHealthKitClient {
             } catch is CancellationError {
               pipelineScheduler.yield(.cancelled)
 
+            } catch is TimeoutError {
+              pipelineScheduler.yield(.timedOut)
+
             } catch let error {
               pipelineScheduler.yield(.error(error))
             }
@@ -1012,6 +1015,9 @@ extension VitalHealthKitClient {
             } catch is CancellationError {
               pipelineScheduler.yield(.cancelled)
 
+            } catch is TimeoutError {
+              pipelineScheduler.yield(.timedOut)
+
             } catch let error {
               pipelineScheduler.yield(.error(error))
             }
@@ -1020,6 +1026,11 @@ extension VitalHealthKitClient {
         case .cancelled:
           progressStore.recordSync(syncID, .cancelled)
           VitalLogger.healthKit.info("[\(description)] cancelled", source: "Sync")
+          return false
+
+        case .timedOut:
+          progressStore.recordSync(syncID, .timedOut)
+          VitalLogger.healthKit.info("[\(description)] timedOut", source: "Sync")
           return false
 
         case let .error(error):
@@ -1133,6 +1144,7 @@ enum PipelineStage {
   case error(Error)
   case success
   case cancelled
+  case timedOut
 
   var description: String {
     switch self {
@@ -1144,6 +1156,8 @@ enum PipelineStage {
       return "error"
     case .cancelled:
       return "cancelled"
+    case .timedOut:
+      return "timedOut"
     case .success:
       return "success"
     }

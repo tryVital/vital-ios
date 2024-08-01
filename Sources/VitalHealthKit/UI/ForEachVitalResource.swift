@@ -238,6 +238,10 @@ private func icon(for status: SyncProgress.SyncStatus) -> some View {
     Image(systemName: "minus.square")
       .foregroundColor(Color.yellow)
       .accessibilityLabel(Text("Cancelled"))
+  case .timedOut:
+    Image(systemName: "minus.square")
+      .foregroundColor(Color.yellow)
+      .accessibilityLabel(Text("Timed Out"))
   case .error:
     Image(systemName: "exclamationmark.triangle.fill")
       .foregroundColor(Color.yellow)
