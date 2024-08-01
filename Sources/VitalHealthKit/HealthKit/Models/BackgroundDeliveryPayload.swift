@@ -11,27 +11,8 @@ public enum SyncContextTag: Int, Codable {
   case lowPowerMode = 6
   case maintenanceTask = 7
   case manual = 8
-
-  static func current(with tags: SyncContextTag...) -> Set<SyncContextTag> {
-    precondition(Thread.isMainThread)
-    var tags = Set(tags)
-
-    if UIApplication.shared.applicationState == .background {
-      tags.insert(.background)
-    } else {
-      tags.insert(.foreground)
-    }
-
-    if ProcessInfo.processInfo.isLowPowerModeEnabled {
-      tags.insert(.lowPowerMode)
-    }
-
-    if UIApplication.shared.backgroundRefreshStatus != .available {
-      tags.insert(.barUnavailable)
-    }
-
-    return tags
-  }
+  case appLaunching = 9
+  case appTerminating = 10
 }
 
 struct BackgroundDeliveryPayload: CustomStringConvertible {

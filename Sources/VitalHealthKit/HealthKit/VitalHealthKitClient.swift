@@ -57,7 +57,7 @@ public enum PermissionOutcome: Equatable {
   let syncSerializerLock = NSLock()
   var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
 
-  var scope = SupervisorScope()
+  private var scope = SupervisorScope()
 
   private var isAutoSyncConfigured: Bool {
     backgroundDeliveryEnabled.value ?? false
@@ -92,12 +92,21 @@ public enum PermissionOutcome: Equatable {
 
     client.registerProcessingTaskHandlers()
 
-    NotificationCenter.default.addObserver(
-      client,
-      selector: #selector(appDidBecomeActive),
-      name: UIApplication.didBecomeActiveNotification,
-      object: nil
-    )
+    AppStateTracker.shared.register { state in
+      switch state.status {
+      case .background, .launching:
+        break
+
+      case .foreground:
+        client.scheduleDeprioritizedResourceRetries()
+
+      case .terminating:
+        Task(priority: .high) {
+          await client.scope.cancel()
+          SyncProgressStore.shared.flush()
+        }
+      }
+    }
   }
   
   /// Only use this method if you are working from Objc.
@@ -275,15 +284,8 @@ extension VitalHealthKitClient {
 
     let payloadListener = scope.task(priority: .userInitiated) {
       for await payload in stream {
-        // If the task is cancelled, we would break the endless iteration and end the task.
-        // Any buffered payload would not be processed, and is expected to be redelivered by
-        // HealthKit.
-        //
-        // > https://developer.apple.com/documentation/healthkit/hkhealthstore/1614175-enablebackgrounddelivery#3801028
-        // > If you don’t call the update’s completion handler, HealthKit continues to attempt to
-        // > launch your app using a backoff algorithm to increase the delay between attempts.
         if Task.isCancelled {
-          payload.completion(.cancelled)
+          payload.completion(.completed)
           continue
         }
 
@@ -309,6 +311,8 @@ extension VitalHealthKitClient {
               }
             }
           }
+        } onCancel: {
+          payload.completion(.completed)
         }
       }
     }
@@ -369,7 +373,7 @@ extension VitalHealthKitClient {
           await withTaskGroup(of: Void.self) { group in
             for resource in state.activeResources {
               group.addTask {
-                await self.sync(resource, SyncContextTag.current(with: .processingTask))
+                await self.sync(resource, [.processingTask])
               }
             }
           }
@@ -434,20 +438,13 @@ extension VitalHealthKitClient {
         return resourceProgress.syncs.isEmpty
       }
 
-      let tags = SyncContextTag.current(with: .maintenanceTask)
-
       // Rescue these resources
       await withTaskGroup(of: Void.self) { group in
         for resource in unnotifiedResources {
-          await self.sync(resource, tags)
+          await self.sync(resource, [.maintenanceTask])
         }
       }
     }
-  }
-
-  @objc
-  func appDidBecomeActive() {
-    scheduleDeprioritizedResourceRetries()
   }
 
   @available(iOS 15.0, *)
@@ -504,7 +501,7 @@ extension VitalHealthKitClient {
                     handler()
                   }
                 },
-                tags: SyncContextTag.current(with: .healthKit)
+                tags: [.healthKit]
               )
               VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
@@ -566,7 +563,7 @@ extension VitalHealthKitClient {
                   handler()
                 }
               },
-              tags: SyncContextTag.current(with: .healthKit)
+              tags: [.healthKit]
             )
             VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
@@ -603,11 +600,9 @@ extension VitalHealthKitClient {
     let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
     scope.task(priority: .high) { @MainActor in
-      let tags = SyncContextTag.current(with: .manual)
-
       await withTaskGroup(of: Void.self) { group in
         for resource in remappedResources {
-          group.addTask { await self.sync(resource, tags) }
+          group.addTask { await self.sync(resource, [.manual]) }
         }
       }
     }
@@ -833,7 +828,7 @@ extension VitalHealthKitClient {
 
     let osBackgroundTask: ProtectedBox<UIBackgroundTaskIdentifier>?
 
-    if tags.contains(.foreground) {
+    if AppStateTracker.shared.state.status == .foreground {
       osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
       osBackgroundTask!.start("vital-sync-\(description)", expiration: {
         progressStore.flush()
@@ -1054,9 +1049,7 @@ extension VitalHealthKitClient {
 
   private func scheduleDeprioritizedResourceRetries() {
     scope.task(priority: .high) { @MainActor in
-      let tags = SyncContextTag.current(with: .maintenanceTask)
-
-      guard tags.contains(.foreground) else {
+      guard AppStateTracker.shared.state.status == .foreground else {
         return
       }
 
@@ -1073,7 +1066,7 @@ extension VitalHealthKitClient {
       await withTaskGroup(of: Void.self) { group in
         for resource in Set(deprioritized) {
           group.addTask {
-            await self.sync(resource, tags)
+            await self.sync(resource, [.manual])
           }
         }
       }
