@@ -537,7 +537,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
   }
 
   deinit {
-    watchdog?.cancel()
+    cancel()
   }
 
   func execute(in store: HKHealthStore) async throws -> Result {
@@ -552,7 +552,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
       return result
 
     } onCancel: {
-      transition(to: .cancelled)
+      cancel()
     }
   }
 
@@ -567,6 +567,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     let (doWork, continuation): ((() -> Void)?, CheckedContinuation<Result, any Error>?) = lock.withLock {
       switch (state, newState) {
       case let (.idle, .running(store, query, _)):
+
         state = newState
         watchdog = Task { [timeoutSeconds, weak self] in
           try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
@@ -575,7 +576,10 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
         let doWork = { store.execute(query) }
         return (doWork, nil)
 
-      case let (.running(store, query, continuation), .cancelled), let (.running(store, query, continuation), .completed):
+      case 
+        let (.running(store, query, continuation), .cancelled),
+        let (.running(store, query, continuation), .completed):
+
         state = newState
         watchdog?.cancel()
         let doWork = { store.stop(query) }

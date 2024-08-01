@@ -179,7 +179,7 @@ private struct VitalPersistentLoggerWrapper: VitalLogging.LogHandler {
 
     logger.logSync(self.category) { writeString, writeData in
       let timeformatter = VitalPersistentLogger.timeFormatter
-      writeString("\(timeformatter.string(from: Date())) \(level) : \(message)")
+      writeString("\(timeformatter.string(from: Date())) \(level) : [\(source)] \(message)")
     }
   }
 }

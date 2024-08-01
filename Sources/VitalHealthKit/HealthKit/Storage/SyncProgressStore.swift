@@ -148,6 +148,10 @@ final class SyncProgressStore {
       .sink { [weak self] _ in self?.flush() }
       .store(in: &cancellables)
 
+    NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)
+      .sink { [weak self] _ in self?.flush() }
+      .store(in: &cancellables)
+
     Timer.publish(every: 10.0, on: RunLoop.main, in: .default)
       .autoconnect()
       .sink { [weak self] _ in self?.flush() }
@@ -181,6 +185,9 @@ final class SyncProgressStore {
   }
 
   func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus, dataCount: Int = 0) {
+    var augmentedTags = id.tags
+    insertAppStateTags(&augmentedTags)
+
     mutate(CollectionOfOne(id.resource.resourceToBackfillType())) {
       let now = Date()
 
@@ -196,7 +203,7 @@ final class SyncProgressStore {
       if appendsToLatestSync {
         let index = $0.syncs.count - 1
         $0.syncs[index].append(status, at: now)
-        $0.syncs[index].tags = id.tags
+        $0.syncs[index].tags.formUnion(augmentedTags)
         $0.syncs[index].dataCount += dataCount
 
         switch status {
@@ -217,7 +224,7 @@ final class SyncProgressStore {
         }
 
         $0.syncs.append(
-          SyncProgress.Sync(start: id.start, status: status, tags: id.tags, dataCount: dataCount)
+          SyncProgress.Sync(start: id.start, status: status, tags: augmentedTags, dataCount: dataCount)
         )
       }
 
@@ -273,4 +280,27 @@ enum SyncProgressGistKey: GistKey {
   typealias T = SyncProgress
 
   static var identifier: String = "vital_healthkit_progress"
+}
+
+func insertAppStateTags(_ tags: inout Set<SyncContextTag>) {
+  let appState = AppStateTracker.shared.state
+
+  if appState.lowPowerMode {
+    tags.insert(.lowPowerMode)
+  }
+
+  if appState.barRestricted {
+    tags.insert(.barUnavailable)
+  }
+
+  switch appState.status {
+  case .background:
+    tags.insert(.background)
+  case .foreground:
+    tags.insert(.foreground)
+  case .launching:
+    tags.insert(.appLaunching)
+  case .terminating:
+    tags.insert(.appTerminating)
+  }
 }

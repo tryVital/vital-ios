@@ -36,8 +36,12 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
   }
 
   @discardableResult
-  func task(priority: TaskPriority = .medium, _ action: @Sendable @escaping () async throws -> Void) -> TaskHandle? {
-    lock.withLock {
+  func task(
+    priority: TaskPriority = .medium,
+    _ action: @Sendable @escaping () async throws -> Void,
+    onCancel: (() -> Void)? = nil
+  ) -> TaskHandle? {
+    let handle: TaskHandle? = lock.withLock {
       guard !isCancelled else { return nil }
 
       let handle = TaskHandle()
@@ -45,7 +49,10 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
 
       handle.wrapped = Task<Void, Never>(priority: priority) {
         do {
+          try Task.checkCancellation()
           try await action()
+        } catch is CancellationError {
+          onCancel?()
         } catch _ {}
 
         self.lock.withLock {
@@ -55,6 +62,12 @@ final class SupervisorScope: Hashable, @unchecked Sendable {
 
       return handle
     }
+
+    if handle == nil {
+      onCancel?()
+    }
+
+    return handle
   }
 
   /// A sub-scope that imposes a timeout.
