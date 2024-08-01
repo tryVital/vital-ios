@@ -60,7 +60,7 @@ final class SyncProgressReporter: @unchecked Sendable {
 
     // Every 4 hours
     let healthKitStorage = VitalHealthKitStorage(storage: storage)
-    let reportingInterval = healthKitStorage.getLocalSyncState()?.reportingInterval ?? (4 * 3600)
+    let reportingInterval = healthKitStorage.getLocalSyncState()?.reportingInterval ?? 3600
     let newSchedule = Date().addingTimeInterval(reportingInterval)
     storage.storeDate(newSchedule, Self.scheduleKey)
     VitalLogger.healthKit.info("done; next at \(newSchedule)", source: "SyncProgressReporter")

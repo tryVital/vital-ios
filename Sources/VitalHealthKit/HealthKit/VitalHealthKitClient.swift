@@ -56,7 +56,6 @@ public enum PermissionOutcome: Equatable {
 
   let syncSerializerLock = NSLock()
   var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
-  var syncDeprioritizedQueue: Set<RemappedVitalResource> = []
 
   var scope = SupervisorScope()
 
@@ -92,6 +91,13 @@ public enum PermissionOutcome: Equatable {
     }
 
     client.registerProcessingTaskHandlers()
+
+    NotificationCenter.default.addObserver(
+      client,
+      selector: #selector(appDidBecomeActive),
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
   }
   
   /// Only use this method if you are working from Objc.
@@ -437,6 +443,11 @@ extension VitalHealthKitClient {
         }
       }
     }
+  }
+
+  @objc
+  func appDidBecomeActive() {
+    scheduleDeprioritizedResourceRetries()
   }
 
   @available(iOS 15.0, *)
@@ -803,7 +814,6 @@ extension VitalHealthKitClient {
 
     guard self.prioritizeSync(remappedResource, tags) else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
-      syncSerializerLock.withLock { _ = syncDeprioritizedQueue.insert(remappedResource) }
       progressStore.recordSync(syncID, .deprioritized)
       return
     }
@@ -1039,18 +1049,18 @@ extension VitalHealthKitClient {
         return
       }
 
-      let retries = self.syncSerializerLock.withLock {
-        let queue = self.syncDeprioritizedQueue
-        self.syncDeprioritizedQueue = []
-        return queue
-      }
+      let deprioritized = SyncProgressStore.shared.get().backfillTypes
+        .filter { $0.value.latestSync?.lastStatus == .deprioritized }
+        .map { $0.key }
+        .compactMap(VitalResource.init)
+        .map(VitalHealthKitStore.remapResource(_:))
 
       // Retry previously deprioritized resources.
       //
       // If their prerequisites still were not satisfied, they will re-enter
       // `syncDeprioritizedQueue` eventually.
       await withTaskGroup(of: Void.self) { group in
-        for resource in retries {
+        for resource in Set(deprioritized) {
           group.addTask {
             await self.sync(resource, tags)
           }

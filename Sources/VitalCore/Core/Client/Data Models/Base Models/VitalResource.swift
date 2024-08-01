@@ -1,4 +1,13 @@
 public enum VitalResource: Equatable, Hashable, Codable {
+
+  @_spi(VitalSDKInternals)
+  public init?(_ backfillType: BackfillType) {
+    guard let match = VitalResource.all.first(where: { $0.resourceToBackfillType() == backfillType })
+      else { return nil }
+
+    self = match
+  }
+
   @_spi(VitalSDKInternals)
   public func resourceToBackfillType() -> BackfillType {
     switch self {
