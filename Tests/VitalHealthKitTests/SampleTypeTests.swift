@@ -15,11 +15,16 @@ private class MockHealthStore: HKHealthStore {
         query.value(forKey: "completionHandler")! as AnyObject,
         to: CompletionHandler.self
       )
-      handler(query, [], [], nil, nil)
+      DispatchQueue.global().async {
+        handler(query, [], [], nil, nil)
+      }
 
     case let query as HKStatisticsCollectionQuery:
       let handler = query.initialResultsHandler!
-      handler(query, nil, ExpectedError())
+
+      DispatchQueue.global().async {
+        handler(query, nil, ExpectedError())
+      }
 
     case let query as HKSampleQuery:
       typealias ResultHandler = @convention(block) (HKSampleQuery, [HKSample]?, Error?) -> Void
@@ -27,7 +32,9 @@ private class MockHealthStore: HKHealthStore {
         query.value(forKey: "resultHandler")! as AnyObject,
         to: ResultHandler.self
       )
-      handler(query, [], nil)
+      DispatchQueue.global().async {
+        handler(query, [], nil)
+      }
 
     default:
       fatalError("Unsupported query type: \(type(of: query))")
@@ -58,6 +65,7 @@ class SampleTypeTests: XCTestCase {
 
         for resource in resources {
           do {
+            print(resource)
             _ = try await read(
               resource: VitalHealthKitStore.remapResource(resource),
               healthKitStore: MockHealthStore(),

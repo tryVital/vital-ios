@@ -549,7 +549,6 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
         transition(to: .running(store, query, continuation))
       }
 
-      transition(to: .completed)
       return result
 
     } onCancel: {
@@ -565,27 +564,31 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
 
   @discardableResult
   private func transition(to newState: State) -> CheckedContinuation<Result, any Error>? {
-    lock.withLock {
+    let (doWork, continuation): ((() -> Void)?, CheckedContinuation<Result, any Error>?) = lock.withLock {
       switch (state, newState) {
       case let (.idle, .running(store, query, _)):
-        store.execute(query)
         state = newState
         watchdog = Task { [timeoutSeconds, weak self] in
           try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
           self?.cancel()
         }
-        return nil
+        let doWork = { store.execute(query) }
+        return (doWork, nil)
 
       case let (.running(store, query, continuation), .cancelled), let (.running(store, query, continuation), .completed):
-        store.stop(query)
         state = newState
         watchdog?.cancel()
-        return continuation
+        let doWork = { store.stop(query) }
+        return (doWork, continuation)
 
       default:
-        return nil
+        return (nil, nil)
       }
     }
+
+    doWork?()
+
+    return continuation
   }
 
   struct Continuation: @unchecked Sendable {
