@@ -389,7 +389,6 @@ struct StatisticsQueryDependencies {
         error: Error?,
         continuation: CheckedContinuation<[VitalStatistics], Error>
       ) {
-        healthKitStore.stop(query)
 
         guard let collection = collection else {
           guard let error = error else {
@@ -404,6 +403,8 @@ struct StatisticsQueryDependencies {
           switch (error as? HKError)?.code {
           case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
             continuation.resume(returning: [])
+          case .errorUserCanceled:
+            continuation.resume(throwing: CancellationError())
           default:
             continuation.resume(throwing: error)
           }
@@ -452,16 +453,14 @@ struct StatisticsQueryDependencies {
         }
       }
 
-      // If task is already cancelled, don't bother with starting the query.
-      try Task.checkCancellation()
-
-      return try await withCheckedThrowingContinuation { continuation in
+      let handle = CancellableQueryHandle { continuation in
         query.initialResultsHandler = { query, collection, error in
           handle(query, collection: collection, error: error, continuation: continuation)
         }
-
-        healthKitStore.execute(query)
+        return query
       }
+
+      return try await handle.execute(in: healthKitStore)
 
     } executeSingleStatisticsQuery: { type, date, options, predicates in
 
@@ -480,43 +479,91 @@ struct StatisticsQueryDependencies {
       let signpost = VitalLogger.Signpost.begin(name: "statsSingle", description: shortID)
       defer { signpost.end() }
 
-      // If task is already cancelled, don't bother with starting the query.
-      try Task.checkCancellation()
+      let handle = CancellableQueryHandle<HKStatistics?> { continuation in
+        HKStatisticsQuery(
+          quantityType: type,
+          quantitySamplePredicate: predicate,
+          options: options
+        ) { _, statistics, error in
+          guard let statistics = statistics else {
 
-      return try await withCheckedThrowingContinuation { continuation in
-
-        healthKitStore.execute(
-          HKStatisticsQuery(
-            quantityType: type,
-            quantitySamplePredicate: predicate,
-            options: options
-          ) { _, statistics, error in
-            guard let statistics = statistics else {
-
-              guard let error = error else {
-                continuation.resume(
-                  throwing: VitalHealthKitClientError.healthKitInvalidState(
-                    "HKStatisticsQuery returns neither a result set nor an error."
-                  )
+            guard let error = error else {
+              continuation.resume(
+                throwing: VitalHealthKitClientError.healthKitInvalidState(
+                  "HKStatisticsQuery returns neither a result set nor an error."
                 )
-                return
-              }
-
-              switch (error as? HKError)?.code {
-              case .errorNoData, .errorAuthorizationDenied, .errorAuthorizationNotDetermined:
-                continuation.resume(with: .success(nil))
-              default:
-                continuation.resume(with: .failure(error))
-              }
-
+              )
               return
             }
 
-            continuation.resume(with: .success(statistics))
+            switch (error as? HKError)?.code {
+            case .errorNoData, .errorAuthorizationDenied, .errorAuthorizationNotDetermined:
+              continuation.resume(with: .success(nil))
+            case .errorUserCanceled:
+              continuation.resume(throwing: CancellationError())
+            default:
+              continuation.resume(with: .failure(error))
+            }
+
+            return
           }
-        )
+
+          continuation.resume(with: .success(statistics))
+        }
       }
 
+      return try await handle.execute(in: healthKitStore)
+    }
+  }
+}
+
+final class CancellableQueryHandle<Result>: @unchecked Sendable {
+  enum State {
+    case idle
+    case cancelled
+    case completed
+    case running(HKHealthStore, HKQuery)
+  }
+
+  private var state: State = .idle
+  private let lock = NSLock()
+  let queryFactory: (CheckedContinuation<Result, any Error>) -> HKQuery
+
+  init(_ queryFactory: @escaping (CheckedContinuation<Result, any Error>) -> HKQuery) {
+    self.queryFactory = queryFactory
+  }
+
+  func execute(in store: HKHealthStore) async throws -> Result {
+    try await withTaskCancellationHandler {
+      try Task.checkCancellation()
+
+      let result = try await withCheckedThrowingContinuation { continuation in
+        let query = queryFactory(continuation)
+        transition(to: .running(store, query))
+      }
+
+      transition(to: .completed)
+      return result
+
+    } onCancel: {
+      transition(to: .cancelled)
+    }
+  }
+
+  func transition(to newState: State) {
+    lock.withLock {
+      switch (state, newState) {
+      case let (.idle, .running(store, query)):
+        store.execute(query)
+        state = newState
+
+      case let (.running(store, query), .cancelled), let (.running(store, query), .completed):
+        store.stop(query)
+        state = newState
+
+      default:
+        break
+      }
     }
   }
 }
