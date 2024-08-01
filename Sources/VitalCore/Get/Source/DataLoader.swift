@@ -41,7 +41,20 @@ final class DataLoader: NSObject, URLSessionDataDelegate, URLSessionDownloadDele
 
         let handler = DataTaskHandler(delegate: delegate)
         handler.completion = { result in
-          continuation.resume(with: result)
+          if 
+            case let .failure(error) = result,
+            let error = error as? URLError,
+            error.code == .timedOut || error.code == .cancelled
+          {
+            if error.code == .timedOut {
+              continuation.resume(throwing: TimeoutError())
+            } else {
+              continuation.resume(throwing: CancellationError())
+            }
+
+          } else {
+            continuation.resume(with: result)
+          }
         }
         self.handlers[task] = handler
         

@@ -57,12 +57,13 @@ public struct SyncProgress: Codable {
     case cancelled = 4
     case completed = 5
     case revalidatingSyncState = 8
+    case timedOut = 9
 
     public var isInProgress: Bool {
       switch self {
       case .deprioritized, .started, .readChunk, .uploadedChunk, .revalidatingSyncState:
         return true
-      case .completed, .noData, .cancelled, .error:
+      case .completed, .noData, .cancelled, .error, .timedOut:
         return false
       }
     }

@@ -578,10 +578,6 @@ func handleSleep(
         fitSamples(sleep: &sleep)
       }
 
-      var heartRate: [LocalQuantitySample] = []
-      var hearRateVariability: [LocalQuantitySample] = []
-      var respiratoryRate: [LocalQuantitySample] = []
-
       let fromSameSourceRevision = NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, sourceRevision)
       let wristTemperature: [LocalQuantitySample]
 
@@ -633,9 +629,6 @@ func handleSleep(
       let hrvStatistics = try await _hrvStatistics
       copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: .secondUnit(with: .milli))
 
-      copy.heartRate = heartRate
-      copy.heartRateVariability = hearRateVariability
-      copy.respiratoryRate = respiratoryRate
       copy.wristTemperature = wristTemperature
 
       copies.append(copy)
