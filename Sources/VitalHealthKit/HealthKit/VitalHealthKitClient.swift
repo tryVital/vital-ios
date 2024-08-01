@@ -902,7 +902,7 @@ extension VitalHealthKitClient {
       data: ProcessedResourceData?,
       anchors: [StoredAnchor],
       hasMore: Bool
-    ) async throws -> Bool {
+    ) async throws -> Int {
 
       // We skip empty POST only in daily stage.
       // Empty POST is sent for historical stage, so we would consistently emit
@@ -915,7 +915,7 @@ extension VitalHealthKitClient {
         VitalLogger.healthKit.info("[\(description)] no data to upload", source: "Sync")
         _status.send(.nothingToSync(resource))
 
-        return false
+        return 0
       }
 
       if configuration.mode.isAutomatic {
@@ -944,7 +944,7 @@ extension VitalHealthKitClient {
       _status.send(.successSyncing(resource, data))
 
       VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
-      return true
+      return data.dataCount
     }
 
     // Overlap read and upload, so we maximize the use of limited background execution time.
@@ -1005,8 +1005,8 @@ extension VitalHealthKitClient {
                 pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
               }
 
-              let hasPosted = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
-              progressStore.recordSync(syncID, hasPosted ? .uploadedChunk : .noData)
+              let dataCount = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
+              progressStore.recordSync(syncID, dataCount >= 0 ? .uploadedChunk : .noData, dataCount: dataCount)
 
               if !hasMore {
                 pipelineScheduler.yield(.success)
@@ -1091,6 +1091,10 @@ extension VitalHealthKitClient {
     
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource)
+
+      let state = authorizationState(store: store)
+      SyncProgressStore.shared.recordAsk(state.activeResources)
+      SyncProgressStore.shared.flush()
 
       // We have gone through Ask successfully. Check if a connected source has been created.
       do {

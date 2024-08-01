@@ -74,6 +74,7 @@ public struct SyncProgress: Codable {
     public var end: Date?
     public var tags: Set<SyncContextTag>
     public private(set) var statuses: [Event<SyncStatus>]
+    public var dataCount: Int = 0
 
     public var lastStatus: SyncStatus {
       statuses.last!.type
@@ -81,10 +82,11 @@ public struct SyncProgress: Codable {
 
     public var id: Date { start }
 
-    public init(start: Date, status: SyncStatus, tags: Set<SyncContextTag>) {
+    public init(start: Date, status: SyncStatus, tags: Set<SyncContextTag>, dataCount: Int = 0) {
       self.start = start
       self.statuses = [Event(timestamp: start, type: status)]
       self.tags = tags
+      self.dataCount = dataCount
     }
 
     public mutating func append(_ status: SyncStatus, at timestamp: Date = Date()) {
@@ -116,7 +118,7 @@ public struct SyncProgress: Codable {
   public struct Resource: Codable {
     public var syncs: [Sync] = []
     public var systemEvents: [Event<SystemEventType>] = []
-    public var uploadedChunks: Int = 0
+    public var dataCount: Int = 0
     public var firstAsked: Date? = nil
 
     public var latestSync: Sync? {
@@ -178,7 +180,7 @@ final class SyncProgressStore {
     }
   }
 
-  func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus) {
+  func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus, dataCount: Int = 0) {
     mutate(CollectionOfOne(id.resource.resourceToBackfillType())) {
       let now = Date()
 
@@ -195,6 +197,7 @@ final class SyncProgressStore {
         let index = $0.syncs.count - 1
         $0.syncs[index].append(status, at: now)
         $0.syncs[index].tags = id.tags
+        $0.syncs[index].dataCount += dataCount
 
         switch status {
         case .completed, .error, .cancelled, .noData:
@@ -214,9 +217,19 @@ final class SyncProgressStore {
         }
 
         $0.syncs.append(
-          SyncProgress.Sync(start: id.start, status: status, tags: id.tags)
+          SyncProgress.Sync(start: id.start, status: status, tags: id.tags, dataCount: dataCount)
         )
       }
+
+      $0.dataCount += dataCount
+    }
+  }
+
+  func recordAsk(_ resources: some Sequence<RemappedVitalResource>) {
+    let date = Date()
+
+    mutate(resources.map { $0.wrapped.resourceToBackfillType() }) {
+      $0.firstAsked = date
     }
   }
 
