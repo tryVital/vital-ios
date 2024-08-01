@@ -10,16 +10,20 @@ public enum ProcessedResourceData: Equatable, Encodable {
         return timeSeriesData.payload
     }
   }
-  
+
   public var shouldSkipPost: Bool {
+    dataCount == 0
+  }
+
+  public var dataCount: Int {
     switch self {
       case let .summary(summaryData):
-        return summaryData.shouldSkipPost
+        return summaryData.dataCount
       case let .timeSeries(timeSeriesData):
-        return timeSeriesData.shouldSkipPost
+        return timeSeriesData.dataCount
     }
   }
-  
+
   public var name: String {
     switch self {
       case let .summary(summaryData):
@@ -95,7 +99,7 @@ public enum TimeSeriesData: Equatable, Encodable {
     }
   }
   
-  public var shouldSkipPost: Bool {
+  public var dataCount: Int {
     switch self {
     case
       let .glucose(samples), let .bloodOxygen(samples), let .heartRate(samples),
@@ -104,10 +108,10 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
       let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
       let .respiratoryRate(samples), let .temperature(samples):
-      return samples.isEmpty
+      return samples.count
 
     case let .bloodPressure(samples):
-      return samples.isEmpty
+      return samples.count
     }
   }
   
@@ -174,20 +178,20 @@ public enum SummaryData: Equatable, Encodable {
     }
   }
   
-  public var shouldSkipPost: Bool {
+  public var dataCount: Int {
     switch self {
       case let .profile(patch):
-        return patch.dateOfBirth.isNil && patch.height.isNil && patch.biologicalSex.isNil
+        return patch.dateOfBirth.isNil && patch.height.isNil && patch.biologicalSex.isNil ? 0 : 1
       case let .body(patch):
-        return patch.bodyFatPercentage.isEmpty && patch.bodyMass.isEmpty
+        return patch.bodyFatPercentage.count + patch.bodyMass.count
       case let .workout(patch):
-        return patch.workouts.isEmpty
+        return patch.workouts.count
       case let .activity(patch):
-        return patch.activities.isEmpty
+        return patch.activities.count
       case let .sleep(patch):
-        return patch.sleep.isEmpty
+        return patch.sleep.count
       case let .menstrualCycle(patch):
-        return patch.cycles.isEmpty
+        return patch.cycles.count
     }
   }
   

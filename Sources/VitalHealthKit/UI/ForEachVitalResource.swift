@@ -56,7 +56,7 @@ public struct ForEachVitalResource: View {
           VStack(alignment: .leading) {
             Text("\(key.rawValue)")
             if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
-              Text(verbatim: dateFormatter.string(from: lastUpdated))
+              Text(verbatim: "\(dateFormatter.string(from: lastUpdated)) \(timeFormatter.string(from: lastUpdated))")
                 .foregroundColor(Color.secondary)
                 .font(Font.subheadline)
             }
@@ -70,7 +70,11 @@ public struct ForEachVitalResource: View {
       }
       .isDetailLink(false)
     }
-    .onReceive(VitalHealthKitClient.shared.syncProgressPublisher().receive(on: RunLoop.main)) { progress in
+    .onReceive(
+      VitalHealthKitClient.shared.syncProgressPublisher()
+        .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
+        .receive(on: RunLoop.main)
+    ) { progress in
       self.items = progress.backfillTypes
         .sorted(by: { $0.key.rawValue.compare($1.key.rawValue) == .orderedAscending })
       self.nextSchedule = SyncProgressReporter.shared.nextSchedule()
@@ -135,6 +139,20 @@ private struct ResourceProgressDetailView: View {
           Text("System Events")
         }
         .isDetailLink(false)
+
+        if let firstAsked = resource.firstAsked {
+          HStack(alignment: .center) {
+            Text("First Asked")
+            Spacer()
+            Text("\(dateFormatter.string(from: firstAsked)) \(timeFormatter.string(from: firstAsked))")
+          }
+        }
+
+        HStack(alignment: .center) {
+          Text("Total Data Count")
+          Spacer()
+          Text("\(resource.dataCount)")
+        }
       }
 
       ForEach(sections) { section in
@@ -169,7 +187,12 @@ private struct ResourceProgressDetailView: View {
                 icon(for: sync.lastStatus)
 
                 VStack(alignment: .leading) {
-                  Text(verbatim: String(describing: sync.lastStatus))
+                  if sync.lastStatus.isInProgress {
+                    Text(verbatim: String(describing: sync.lastStatus))
+                  } else {
+                    Text(verbatim: "\(String(describing: sync.lastStatus)) (\(sync.dataCount) uploaded)")
+                  }
+
                   Text(verbatim: sync.tags.map(String.init(describing:)).sorted().joined(separator: ", "))
                     .foregroundColor(Color.secondary)
                     .font(.subheadline)
