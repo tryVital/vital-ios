@@ -12,8 +12,14 @@ private let dateFormatter = {
 
 private let timeFormatter = {
   let formatter = DateFormatter()
-  formatter.dateStyle = .none
-  formatter.timeStyle = .long
+  formatter.setLocalizedDateFormatFromTemplate("HH:mm")
+  formatter.timeZone = TimeZone.autoupdatingCurrent
+  return formatter
+}()
+
+private let timeWithSecondsFormatter = {
+  let formatter = DateFormatter()
+  formatter.setLocalizedDateFormatFromTemplate("HH:mm:ss")
   formatter.timeZone = TimeZone.autoupdatingCurrent
   return formatter
 }()
@@ -53,18 +59,28 @@ public struct ForEachVitalResource: View {
 
       } label: {
         HStack {
+          if let sync = resource.latestSync {
+            icon(for: sync.lastStatus)
+          }
+
           VStack(alignment: .leading) {
             Text("\(key.rawValue)")
-            if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
-              Text(verbatim: "\(dateFormatter.string(from: lastUpdated)) \(timeFormatter.string(from: lastUpdated))")
+            if let tags = resource.latestSync?.tags {
+              Text(verbatim: "\(tags.map(String.init(describing:)).joined(separator: ", "))")
                 .foregroundColor(Color.secondary)
                 .font(Font.subheadline)
             }
           }
-          Spacer()
 
-          if let sync = resource.latestSync {
-            icon(for: sync.lastStatus)
+          Spacer()
+          VStack(alignment: .trailing) {
+            if let lastUpdated = resource.latestSync?.statuses.last?.timestamp {
+              Text(verbatim: timeFormatter.string(from: lastUpdated))
+
+              Text(verbatim: dateFormatter.string(from: lastUpdated))
+                .foregroundColor(Color.secondary)
+                .font(Font.subheadline)
+            }
           }
         }
       }
@@ -175,7 +191,7 @@ private struct ResourceProgressDetailView: View {
                     Text("\(String(describing: status.type))")
                     Spacer()
 
-                    Text(verbatim: timeFormatter.string(from: status.timestamp))
+                    Text(verbatim: timeWithSecondsFormatter.string(from: status.timestamp))
                   }
                   .foregroundColor(offset == 0 ? Color.primary : Color.secondary)
                 }
@@ -200,8 +216,8 @@ private struct ResourceProgressDetailView: View {
 
                 Spacer()
                 VStack(alignment: .trailing) {
-                  Text(verbatim: duration)
                   Text(verbatim: "\(time)")
+                  Text(verbatim: duration)
                     .foregroundColor(Color.secondary)
                     .font(.subheadline)
                 }
