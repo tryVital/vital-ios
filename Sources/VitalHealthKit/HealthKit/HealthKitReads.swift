@@ -12,7 +12,7 @@ typealias StatisticsHandler = (HKStatisticsCollectionQuery, HKStatisticsCollecti
 
 typealias HourlyStatisticsResultHandler = (Result<[VitalStatistics], Error>) -> Void
 
-let activityStatsDaysToLookback = 10
+let activityStatsDaysToLookback = 3
 
 enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
@@ -293,7 +293,7 @@ func handleActivityTimeseries(
 ) async throws -> (ProcessedResourceData, [StoredAnchor]) {
   var anchors: [StoredAnchor] = []
 
-  let (hourlyStats, statsAnchor) = try await queryHourlyStatistics(healthKitStore, id, instruction)
+  let (hourlyStats, statsAnchor) = try await queryHourlyStatistics(healthKitStore, vitalStorage, id, instruction)
 
   var samples = hourlyStats
   anchors.appendOptional(statsAnchor)
@@ -315,6 +315,7 @@ func handleActivityTimeseries(
 
 func queryHourlyStatistics(
   _ store: HKHealthStore,
+  _ anchorStorage: AnchorStorage,
   _ id: HKQuantityTypeIdentifier,
   _ instruction: SyncInstruction
 ) async throws -> ([LocalQuantitySample], StoredAnchor?) {
@@ -323,13 +324,20 @@ func queryHourlyStatistics(
   // Round up latest to the next whole hour
   let earliest: Date
 
+  let lastSynced = anchorStorage.read(key: "hourly-\(id.rawValue)")?.date ?? .distantPast
+
   switch instruction.stage {
   case .historical:
     earliest = instruction.query.lowerBound.beginningHour
 
   case .daily:
+    // minimum of lastSynced or (upperBound - lookback),
+    // but should not be earlier than lowerBound
     earliest = max(
-      Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback),
+      min(
+        lastSynced,
+        Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback)
+      ),
       instruction.query.lowerBound
     ).beginningHour
   }
@@ -654,10 +662,17 @@ func handleActivity(
   let daySummaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]
   let lowerBound: Date
 
+  let lastSynced = vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
+
   switch instruction.stage {
   case .daily:
+    // minimum of lastSynced or (upperBound - lookback),
+    // but should not be earlier than lowerBound
     lowerBound = max(
-      Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback),
+      min(
+        lastSynced,
+        Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback)
+      ),
       instruction.query.lowerBound
     )
 

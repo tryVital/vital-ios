@@ -1066,7 +1066,7 @@ extension VitalHealthKitClient {
       await withTaskGroup(of: Void.self) { group in
         for resource in Set(deprioritized) {
           group.addTask {
-            await self.sync(resource, [.manual])
+            await self.sync(resource, [])
           }
         }
       }
