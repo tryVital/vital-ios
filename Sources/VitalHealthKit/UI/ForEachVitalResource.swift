@@ -61,12 +61,13 @@ public struct ForEachVitalResource: View {
         HStack {
           if let sync = resource.latestSync {
             icon(for: sync.lastStatus)
+              .frame(width: 22, height: 22)
           }
 
           VStack(alignment: .leading) {
             Text("\(key.rawValue)")
             if let tags = resource.latestSync?.tags {
-              Text(verbatim: "\(tags.map(String.init(describing:)).joined(separator: ", "))")
+              Text(verbatim: "\(tags.map(String.init(describing:)).sorted().joined(separator: ", "))")
                 .foregroundColor(Color.secondary)
                 .font(Font.subheadline)
             }
@@ -201,6 +202,7 @@ private struct ResourceProgressDetailView: View {
             } label: {
               HStack(alignment: .center) {
                 icon(for: sync.lastStatus)
+                  .frame(width: 22, height: 22)
 
                 VStack(alignment: .leading) {
                   if sync.lastStatus.isInProgress {
