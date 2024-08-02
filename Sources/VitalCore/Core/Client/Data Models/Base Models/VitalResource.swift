@@ -2,14 +2,33 @@ public enum VitalResource: Equatable, Hashable, Codable {
 
   @_spi(VitalSDKInternals)
   public init?(_ backfillType: BackfillType) {
-    guard let match = VitalResource.all.first(where: { $0.resourceToBackfillType() == backfillType })
+    guard let match = VitalResource.all.first(where: { $0.backfillType == backfillType })
       else { return nil }
 
     self = match
   }
 
   @_spi(VitalSDKInternals)
-  public func resourceToBackfillType() -> BackfillType {
+  public var priority: Int {
+    switch self {
+    case .activity, .body, .workout, .menstrualCycle, .profile:
+      return 0
+    case .sleep, .individual(.vo2Max), .vitals(.bloodOxygen), .vitals(.bloodPressure),
+        .vitals(.glucose), .vitals(.heartRateVariability),
+        .nutrition(.water), .nutrition(.caffeine),
+        .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate):
+      return 1
+    case .individual(.distanceWalkingRunning), .individual(.steps), .individual(.floorsClimbed):
+      return 2
+    case .vitals(.heartRate), .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
+      return 3
+    case .individual(.exerciseTime), .individual(.weight), .individual(.bodyFat):
+      return Int.max
+    }
+  }
+
+  @_spi(VitalSDKInternals)
+  public var backfillType: BackfillType {
     switch self {
     case .activity, .individual(.exerciseTime):
       return BackfillType.activity;

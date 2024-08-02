@@ -188,7 +188,7 @@ final class SyncProgressStore {
     var augmentedTags = id.tags
     insertAppStateTags(&augmentedTags)
 
-    mutate(CollectionOfOne(id.resource.resourceToBackfillType())) {
+    mutate(CollectionOfOne(id.resource.backfillType)) {
       let now = Date()
 
       let latestSync = $0.syncs.last
@@ -235,13 +235,13 @@ final class SyncProgressStore {
   func recordAsk(_ resources: some Sequence<RemappedVitalResource>) {
     let date = Date()
 
-    mutate(resources.map { $0.wrapped.resourceToBackfillType() }) {
+    mutate(resources.map { $0.wrapped.backfillType }) {
       $0.firstAsked = date
     }
   }
 
   func recordSystem(_ resources: some Sequence<RemappedVitalResource>, _ eventType: SyncProgress.SystemEventType) {
-    mutate(resources.map { $0.wrapped.resourceToBackfillType() }) {
+    mutate(resources.map { $0.wrapped.backfillType }) {
       let now = Date()
 
       // Capture this new event if the event type is different or 2 seconds have elapsed.

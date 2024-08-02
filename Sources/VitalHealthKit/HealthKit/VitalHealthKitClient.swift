@@ -430,7 +430,7 @@ extension VitalHealthKitClient {
 
       let progress = SyncProgressStore.shared.get()
       let unnotifiedResources = state.activeResources.filter { resource in
-        guard let resourceProgress = progress.backfillTypes[resource.wrapped.resourceToBackfillType()] else {
+        guard let resourceProgress = progress.backfillTypes[resource.wrapped.backfillType] else {
           // Doesn't even show up in `SyncProgress.resources`
           return true
         }
@@ -490,28 +490,27 @@ extension VitalHealthKitClient {
 
             let matches = Set(filteredSampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
             let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
+              .sorted(by: { $0.wrapped.priority < $1.wrapped.priority })
 
-            self.scope.task(priority: .userInitiated) { @MainActor in
-              let isForeground = UIApplication.shared.applicationState != .background
+            let payload = BackgroundDeliveryPayload(
+              resources: remapped,
+              completion: { completion in
+                if completion == .completed {
+                  handler()
+                }
+              },
+              tags: [.healthKit]
+            )
+            VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-              let payload = BackgroundDeliveryPayload(
-                resources: remapped,
-                completion: { completion in
-                  if completion == .completed {
-                    handler()
-                  }
-                },
-                tags: [.healthKit]
-              )
-              VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
+            continuation.yield(payload)
 
-              continuation.yield(payload)
-
-              SyncProgressStore.shared.recordSystem(
-                remapped,
-                isForeground ? .healthKitCalloutForeground : .healthKitCalloutBackground
-              )
-            }
+            SyncProgressStore.shared.recordSystem(
+              remapped,
+              AppStateTracker.shared.state.status == .background
+                ? .healthKitCalloutBackground
+                : .healthKitCalloutForeground
+            )
           }
         }
 
@@ -550,30 +549,29 @@ extension VitalHealthKitClient {
 
           let matches = Set(VitalHealthKitStore.sampleTypeToVitalResource(type: sampleType))
           let remapped = Set(matches.map(VitalHealthKitStore.remapResource))
+            .sorted(by: { $0.wrapped.priority < $1.wrapped.priority })
 
           VitalLogger.healthKit.info("notified: \(remapped.map(\.wrapped.logDescription).joined(separator: ","))", source: "HealthKit")
 
-          self.scope.task(priority: .userInitiated) { @MainActor in
-            let isForeground = UIApplication.shared.applicationState != .background
+          let payload = BackgroundDeliveryPayload(
+            resources: remapped,
+            completion: { completion in
+              if completion == .completed {
+                handler()
+              }
+            },
+            tags: [.healthKit]
+          )
+          VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-            let payload = BackgroundDeliveryPayload(
-              resources: remapped,
-              completion: { completion in
-                if completion == .completed {
-                  handler()
-                }
-              },
-              tags: [.healthKit]
-            )
-            VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
+          continuation.yield(payload)
 
-            continuation.yield(payload)
-
-            SyncProgressStore.shared.recordSystem(
-              remapped,
-              isForeground ? .healthKitCalloutForeground : .healthKitCalloutBackground
-            )
-          }
+          SyncProgressStore.shared.recordSystem(
+            remapped,
+            AppStateTracker.shared.state.status == .background
+              ? .healthKitCalloutBackground
+              : .healthKitCalloutForeground
+          )
         }
 
         queries.append(query)
@@ -729,7 +727,7 @@ extension VitalHealthKitClient {
         UserSDKHistoricalStageBeginBody(
           rangeStart: query.lowerBound,
           rangeEnd: query.upperBound,
-          backfillType: resource.wrapped.resourceToBackfillType()
+          backfillType: resource.wrapped.backfillType
         )
       )
     }
@@ -738,27 +736,15 @@ extension VitalHealthKitClient {
   }
 
   private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) -> Bool {
-    let waitForHistoricalDone: Set<VitalResource>
-
-    switch remappedResource.wrapped {
-    case .activity, .workout, .sleep, .menstrualCycle:
-      // Always sync first
-      return true
-
-    case .individual(.activeEnergyBurned), .individual(.basalEnergyBurned), .vitals(.heartRate):
-      // These heavy hitters wait until steps are done.
-      waitForHistoricalDone = [.individual(.steps)]
-
-    default:
-      // Everything else must sync only after the summaries historical are done
-      waitForHistoricalDone = [.activity, .workout, .sleep, .menstrualCycle]
-    }
+    let priority = remappedResource.wrapped.priority
+    let prerequisites = VitalResource.all.filter { $0.priority < priority }
 
     let state = authorizationState(store: self.store)
     let resourcesToCheck = state.activeResources
-      .intersection(waitForHistoricalDone.map(VitalHealthKitStore.remapResource))
+      .intersection(prerequisites.map(VitalHealthKitStore.remapResource))
 
     // Deprioritized until all prioritized resources have finished their historical stage.
+    // If resourcesToCheck is empty, this returns true, i.e., no waiting.
     return resourcesToCheck.allSatisfy(storage.historicalStageDone(for:))
   }
 
