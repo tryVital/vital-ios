@@ -230,7 +230,7 @@ public extension VitalHealthKitClient {
     let task: TaskHandle?
     let resources: Set<RemappedVitalResource>
     let objectTypes: Set<HKObjectType>
-    let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
+    let streamContinuation: AsyncStream<BackgroundDeliveryStage>.Continuation
 
     func cancel() {
       streamContinuation.finish()
@@ -273,8 +273,8 @@ extension VitalHealthKitClient {
     /// Submit BGProcessingTasks
     scope.task { await self.submitProcessingTasks() }
 
-    let stream: AsyncStream<BackgroundDeliveryPayload>
-    let streamContinuation: AsyncStream<BackgroundDeliveryPayload>.Continuation
+    let stream: AsyncStream<BackgroundDeliveryStage>
+    let streamContinuation: AsyncStream<BackgroundDeliveryStage>.Continuation
 
     if #available(iOS 15.0, *) {
       (stream, streamContinuation) = bundledBackgroundObservers(for: bundles)
@@ -283,14 +283,40 @@ extension VitalHealthKitClient {
     }
 
     let payloadListener = scope.task(priority: .userInitiated) {
-      for await payload in stream {
-        if Task.isCancelled {
-          payload.completion(.completed)
-          continue
-        }
+      var bufferedPayloads: [BackgroundDeliveryPayload] = []
+      var timer: Task<Void, Never>?
 
-        // Allow multiple resource sync to run concurrently.
-        self.scope.task(priority: .userInitiated) {
+      defer {
+        // If there is any accidential leftover payload, make the completion callback anyway.
+        bufferedPayloads.forEach { $0.completion(.completed) }
+        timer?.cancel()
+      }
+
+      for await stage in stream {
+        switch stage {
+        case let .received(payload):
+          if Task.isCancelled {
+            payload.completion(.completed)
+            continue
+          }
+
+          bufferedPayloads.append(payload)
+          VitalLogger.healthKit.info("buffered: \(payload)", source: "BgDelivery")
+
+          if timer == nil {
+            timer = Task(priority: .high) {
+              // Throttle by 16ms
+              // Catch as many parallel HealthKit observer callouts as possible.
+              try? await Task.sleep(nanoseconds: NSEC_PER_MSEC * 16)
+              streamContinuation.yield(.evaluate)
+            }
+          }
+
+        case .evaluate:
+          timer = nil
+          let payloads = bufferedPayloads
+          bufferedPayloads = []
+
           // Task is not cancelled — we must call the HealthKit completion handler irrespective of
           // the sync process outcome. This is to avoid triggering the "strike on 3rd missed delivery"
           // rule of HealthKit background delivery.
@@ -300,19 +326,30 @@ extension VitalHealthKitClient {
           // behaviour adds little to no value in maintaining data freshness.
           //
           // (except for the task cancellation redelivery expectation stated above).
-          defer { payload.completion(.completed) }
+          defer { payloads.forEach { $0.completion(.completed) } }
 
-          VitalLogger.healthKit.info("received: \(payload)", source: "BgDelivery")
+          let prioritizedResources = Set(payloads.flatMap(\.resources))
+            .sorted(by: { $0.wrapped.priority < $1.wrapped.priority })
+          let syncsConcurrently = AppStateTracker.shared.state.status == .foreground
 
-          await withTaskGroup(of: Void.self) { group in
-            for resource in payload.resources {
-              group.addTask {
-                await self.sync(resource, payload.tags)
+          VitalLogger.healthKit.info(
+            "dequeued: \(prioritizedResources); will sync \(syncsConcurrently ? "concurrent" : "serially")",
+            source: "BgDelivery"
+          )
+
+          if syncsConcurrently {
+            await withTaskGroup(of: Void.self) { group in
+              for resource in prioritizedResources {
+                group.addTask {
+                  await self.sync(resource, [.healthKit])
+                }
               }
             }
+          } else {
+            for resource in prioritizedResources {
+              await self.sync(resource, [.healthKit])
+            }
           }
-        } onCancel: {
-          payload.completion(.completed)
         }
       }
     }
@@ -450,11 +487,11 @@ extension VitalHealthKitClient {
   @available(iOS 15.0, *)
   private func bundledBackgroundObservers(
     for typesBundle: Set<[HKSampleType]>
-  ) -> (AsyncStream<BackgroundDeliveryPayload>, AsyncStream<BackgroundDeliveryPayload>.Continuation) {
+  ) -> (AsyncStream<BackgroundDeliveryStage>, AsyncStream<BackgroundDeliveryStage>.Continuation) {
 
-    var _continuation: AsyncStream<BackgroundDeliveryPayload>.Continuation!
+    var _continuation: AsyncStream<BackgroundDeliveryStage>.Continuation!
 
-    let stream = AsyncStream<BackgroundDeliveryPayload> { continuation in
+    let stream = AsyncStream<BackgroundDeliveryStage> { continuation in
       _continuation = continuation
 
       var queries: [HKObserverQuery] = []
@@ -498,12 +535,11 @@ extension VitalHealthKitClient {
                 if completion == .completed {
                   handler()
                 }
-              },
-              tags: [.healthKit]
+              }
             )
             VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-            continuation.yield(payload)
+            continuation.yield(.received(payload))
 
             SyncProgressStore.shared.recordSystem(
               remapped,
@@ -531,10 +567,10 @@ extension VitalHealthKitClient {
   
   private func backgroundObservers(
     for sampleTypes: some Sequence<HKSampleType>
-  ) -> (AsyncStream<BackgroundDeliveryPayload>, AsyncStream<BackgroundDeliveryPayload>.Continuation) {
-    var _continuation: AsyncStream<BackgroundDeliveryPayload>.Continuation!
+  ) -> (AsyncStream<BackgroundDeliveryStage>, AsyncStream<BackgroundDeliveryStage>.Continuation) {
+    var _continuation: AsyncStream<BackgroundDeliveryStage>.Continuation!
 
-    let stream = AsyncStream<BackgroundDeliveryPayload> { continuation in
+    let stream = AsyncStream<BackgroundDeliveryStage> { continuation in
       _continuation = continuation
 
       var queries: [HKObserverQuery] = []
@@ -559,12 +595,11 @@ extension VitalHealthKitClient {
               if completion == .completed {
                 handler()
               }
-            },
-            tags: [.healthKit]
+            }
           )
           VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-          continuation.yield(payload)
+          continuation.yield(.received(payload))
 
           SyncProgressStore.shared.recordSystem(
             remapped,
@@ -1118,6 +1153,11 @@ extension VitalHealthKitClient {
     /// In this case, we pick up the most recent one.
     return dates.sorted { $0.compare($1) == .orderedDescending }.first
   }
+}
+
+enum BackgroundDeliveryStage {
+  case received(BackgroundDeliveryPayload)
+  case evaluate
 }
 
 enum PipelineStage {

@@ -18,10 +18,9 @@ public enum SyncContextTag: Int, Codable {
 struct BackgroundDeliveryPayload: CustomStringConvertible {
   let resources: [RemappedVitalResource]
   let completion: (Completion) -> Void
-  let tags: Set<SyncContextTag>
 
   var description: String {
-    "\(resources.map(\.wrapped.logDescription).joined(separator: ",")) \(tags.map(String.init(describing:)).joined(separator: ","))"
+    "\(resources.map(\.wrapped.logDescription).joined(separator: ",")))"
   }
 
   enum Completion {
