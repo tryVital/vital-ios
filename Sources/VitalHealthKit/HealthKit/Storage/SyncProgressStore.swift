@@ -29,6 +29,8 @@ public struct SyncProgress: Codable {
   }
 
   public enum SystemEventType: Int, Codable {
+    case healthKitCalloutAppTerminating = 4
+    case healthKitCalloutAppLaunching = 3
     case healthKitCalloutBackground = 0
     case healthKitCalloutForeground = 1
     case backgroundProcessingTask = 2

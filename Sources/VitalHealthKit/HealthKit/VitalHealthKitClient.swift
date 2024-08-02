@@ -543,9 +543,7 @@ extension VitalHealthKitClient {
 
             SyncProgressStore.shared.recordSystem(
               remapped,
-              AppStateTracker.shared.state.status == .background
-                ? .healthKitCalloutBackground
-                : .healthKitCalloutForeground
+              healthkitCalloutEventType(AppStateTracker.shared.state.status)
             )
           }
         }
@@ -603,9 +601,7 @@ extension VitalHealthKitClient {
 
           SyncProgressStore.shared.recordSystem(
             remapped,
-            AppStateTracker.shared.state.status == .background
-              ? .healthKitCalloutBackground
-              : .healthKitCalloutForeground
+            healthkitCalloutEventType(AppStateTracker.shared.state.status)
           )
         }
 
@@ -1261,5 +1257,18 @@ extension ProtectedBox<UIBackgroundTaskIdentifier> {
     if let taskId = clean() {
       UIApplication.shared.endBackgroundTask(taskId)
     }
+  }
+}
+
+private func healthkitCalloutEventType(_ state: AppState.Status) -> SyncProgress.SystemEventType {
+  switch state {
+  case .background:
+    return .healthKitCalloutBackground
+  case .foreground:
+    return .healthKitCalloutForeground
+  case .launching:
+    return .healthKitCalloutAppLaunching
+  case .terminating:
+    return .healthKitCalloutAppTerminating
   }
 }
