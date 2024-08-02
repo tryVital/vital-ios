@@ -15,7 +15,7 @@ internal struct LocalSyncState: Codable {
   let reportingInterval: Double?
 
   func historicalStartDate(for resource: VitalResource) -> Date {
-    let backfillType = resource.resourceToBackfillType();
+    let backfillType = resource.backfillType
     let daysToBackfill = teamDataPullPreferences?.backfillTypeOverrides?[backfillType]?.historicalDaysToPull ?? teamDataPullPreferences?.historicalDaysToPull;
 
     let calculatedDate = Date.dateAgo(historicalStageAnchor, days: daysToBackfill ?? defaultDaysToBackfill)

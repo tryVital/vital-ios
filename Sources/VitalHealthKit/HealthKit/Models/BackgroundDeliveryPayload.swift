@@ -16,7 +16,7 @@ public enum SyncContextTag: Int, Codable {
 }
 
 struct BackgroundDeliveryPayload: CustomStringConvertible {
-  let resources: Set<RemappedVitalResource>
+  let resources: [RemappedVitalResource]
   let completion: (Completion) -> Void
   let tags: Set<SyncContextTag>
 
