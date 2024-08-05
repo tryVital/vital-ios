@@ -17,6 +17,13 @@ final class AppStateTracker {
   init() {
     NotificationCenter.default.addObserver(
       self,
+      selector: #selector(appDidFinishLaunching),
+      name: UIApplication.didFinishLaunchingNotification,
+      object: nil
+    )
+
+    NotificationCenter.default.addObserver(
+      self,
       selector: #selector(appWillEnterForeground),
       name: UIApplication.willEnterForegroundNotification,
       object: nil
@@ -46,6 +53,13 @@ final class AppStateTracker {
 
   func register(_ onChange: @escaping (AppState) -> Void) {
     lock.withLock { self.onChange = onChange }
+  }
+
+  @objc
+  func appDidFinishLaunching() {
+    if UIApplication.shared.applicationState == .background {
+      transition(to: .background)
+    }
   }
 
   @objc
