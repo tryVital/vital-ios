@@ -585,8 +585,27 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
         let doWork = { store.stop(query) }
         return (doWork, continuation)
 
-      default:
+      case
+        let (.cancelled, .running(_, _, continuation)),
+        let (.completed, .running(_, _, continuation)):
+
+        // The handle is cancelled before it started running.
+        // Don't start the query, but make sure the continuation is called.
+        let doWork = { continuation.resume(throwing: CancellationError()) }
+        return (doWork, nil)
+
+      case (.completed, .cancelled), (.cancelled, .cancelled), (.idle, .cancelled):
+        // Not illegal, can gracefully ignore
         return (nil, nil)
+
+      case (.cancelled, .completed):
+        // Not illgeal, can gracefully ignore
+        // Any registered continuation would have been called backed already
+        // during running -> cancelled|completed.
+        return (nil, nil)
+
+      case (.completed, .completed), (.running, .running), (.idle, .completed), (_, .idle):
+        fatalError("Illegal CancellableQueryHandle state transition")
       }
     }
 
