@@ -132,7 +132,7 @@ public struct Provider: Equatable {
     case oura
     case garmin
     case fitbit
-    case whoop_v2
+    case whoopV2
     case strava
     case renpho
     case peloton
@@ -143,6 +143,7 @@ public struct Provider: Equatable {
     case googleFit
     case hammerhead
     case dexcom
+    case dexcomV3
     case myFitnessPal
     case healthConnect
     case kardia
@@ -167,7 +168,7 @@ public struct Provider: Equatable {
       case .oura: return "oura"
       case .garmin: return "garmin"
       case .fitbit: return "fitbit"
-      case .whoop_v2: return "whoop_v2"
+      case .whoopV2: return "whoop_v2"
       case .strava: return "strava"
       case .renpho: return "renpho"
       case .peloton: return "peloton"
@@ -178,6 +179,7 @@ public struct Provider: Equatable {
       case .googleFit: return "google_fit"
       case .hammerhead: return "hammerhead"
       case .dexcom: return "dexcom"
+      case .dexcomV3: return "dexcom_v3"
       case .myFitnessPal: return "my_fitness_pal"
       case .healthConnect: return "health_connect"
       case .kardia: return "kardia"
@@ -204,7 +206,7 @@ public struct Provider: Equatable {
       case "oura": self = .oura
       case "garmin": self = .garmin
       case "fitbit": self = .fitbit
-      case "whoop_v2": self = .whoop_v2
+      case "whoop_v2": self = .whoopV2
       case "strava": self = .strava
       case "renpho": self = .renpho
       case "peloton": self = .peloton
@@ -215,6 +217,7 @@ public struct Provider: Equatable {
       case "google_fit": self = .googleFit
       case "hammerhead": self = .hammerhead
       case "dexcom": self = .dexcom
+      case "dexcom_v3": self = .dexcomV3
       case "my_fitness_pal": self = .myFitnessPal
       case "health_connect": self = .healthConnect
       case "kardia": self = .kardia
