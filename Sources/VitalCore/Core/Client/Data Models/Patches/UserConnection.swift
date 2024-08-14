@@ -119,6 +119,7 @@ public struct Provider: Equatable {
   public enum Slug: Hashable, Codable, RawRepresentable {
     case beurerBLE
     case beurer
+    case omron
     case omronBLE
     case oneTouchBLE
     case accuchekBLE
@@ -131,7 +132,7 @@ public struct Provider: Equatable {
     case oura
     case garmin
     case fitbit
-    case whoop
+    case whoopV2
     case strava
     case renpho
     case peloton
@@ -142,14 +143,19 @@ public struct Provider: Equatable {
     case googleFit
     case hammerhead
     case dexcom
+    case dexcomV3
     case myFitnessPal
     case healthConnect
+    case kardia
+    case cronometer
+    case polar
     case unknown(String)
 
     public var rawValue: String {
       switch self {
       case .beurerBLE: return "beurer_ble"
       case .beurer: return "beurer_api"
+      case .omron: return "omron"
       case .omronBLE: return "omron_ble"
       case .oneTouchBLE: return "onetouch_ble"
       case .accuchekBLE: return "accuchek_ble"
@@ -162,7 +168,7 @@ public struct Provider: Equatable {
       case .oura: return "oura"
       case .garmin: return "garmin"
       case .fitbit: return "fitbit"
-      case .whoop: return "whoop"
+      case .whoopV2: return "whoop_v2"
       case .strava: return "strava"
       case .renpho: return "renpho"
       case .peloton: return "peloton"
@@ -173,8 +179,12 @@ public struct Provider: Equatable {
       case .googleFit: return "google_fit"
       case .hammerhead: return "hammerhead"
       case .dexcom: return "dexcom"
+      case .dexcomV3: return "dexcom_v3"
       case .myFitnessPal: return "my_fitness_pal"
       case .healthConnect: return "health_connect"
+      case .kardia: return "kardia"
+      case .cronometer: return "cronometer"
+      case .polar: return "polar"
       case let .unknown(rawValue): return rawValue
       }
     }
@@ -183,6 +193,7 @@ public struct Provider: Equatable {
       switch rawValue {
       case "beurer_ble": self = .beurerBLE
       case "beurer_api": self = .beurer
+      case "omron": self = .omron
       case "omron_ble": self = .omronBLE
       case "onetouch_ble": self = .oneTouchBLE
       case "accuchek_ble": self = .accuchekBLE
@@ -195,7 +206,7 @@ public struct Provider: Equatable {
       case "oura": self = .oura
       case "garmin": self = .garmin
       case "fitbit": self = .fitbit
-      case "whoop": self = .whoop
+      case "whoop_v2": self = .whoopV2
       case "strava": self = .strava
       case "renpho": self = .renpho
       case "peloton": self = .peloton
@@ -206,8 +217,12 @@ public struct Provider: Equatable {
       case "google_fit": self = .googleFit
       case "hammerhead": self = .hammerhead
       case "dexcom": self = .dexcom
+      case "dexcom_v3": self = .dexcomV3
       case "my_fitness_pal": self = .myFitnessPal
       case "health_connect": self = .healthConnect
+      case "kardia": self = .kardia
+      case "cronometer": self = .cronometer
+      case "polar": self = .polar
       default: self = .unknown(rawValue)
       }
     }
