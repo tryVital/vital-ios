@@ -767,11 +767,11 @@ func handleWorkouts(
       precondition(durations.count == values.count)
 
       let zone1Range = 0.0 ..< zoneMaxHr * 0.5
-      let zone2Range = 0.5 ..< zoneMaxHr * 0.6
-      let zone3Range = 0.6 ..< zoneMaxHr * 0.7
-      let zone4Range = 0.7 ..< zoneMaxHr * 0.8
-      let zone5Range = 0.8 ..< zoneMaxHr * 0.9
-      let zone6Range = 0.9 ..< zoneMaxHr
+      let zone2Range = zoneMaxHr * 0.5 ..< zoneMaxHr * 0.6
+      let zone3Range = zoneMaxHr * 0.6 ..< zoneMaxHr * 0.7
+      let zone4Range = zoneMaxHr * 0.7 ..< zoneMaxHr * 0.8
+      let zone5Range = zoneMaxHr * 0.8 ..< zoneMaxHr * 0.9
+      let zone6Range = zoneMaxHr * 0.9 ..< zoneMaxHr
 
       var zones = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
       var minHr = Double.greatestFiniteMagnitude
