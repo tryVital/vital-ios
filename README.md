@@ -36,7 +36,11 @@ pod "VitalHealthKit", "~> 1.2.2"
 
 ## Documentation
 
-Please refer to the [official Vital](https://docs.tryvital.io/wearables/sdks/iOS) docs provide a full reference on using this library.
+* [Installation](https://docs.tryvital.io/wearables/sdks/installation)
+* [Authentication](https://docs.tryvital.io/wearables/sdks/authentication)
+* [Core SDK](https://docs.tryvital.io/wearables/sdks/vital-core)
+* [Health SDK](https://docs.tryvital.io/wearables/sdks/vital-health)
+* [Devices SDK](https://docs.tryvital.io/wearables/sdks/vital-devices)
 
 ## License
 
