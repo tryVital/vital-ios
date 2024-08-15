@@ -11,11 +11,18 @@ import VitalCore
 /// * A VitalResource is "asked" if and only if all `required` sample types have been asked.
 /// If `required` is empty:
 /// * A VitalResource is "asked" if at least one `optional` sample types have been asked.
+///
 /// In both cases, `supplementary` is not considered at all.
 ///
+/// A rule of thumb is that `supplementary` should be used over `optional` when the VitalResource should
+/// be considered as INACTIVE iff:
+/// 1. ONLY one or more supplementary sample types are granted;
+/// 2. NONE of the optional sample types are granted;
+/// 3. the resource has no required sample types.
+///
 /// Some sample types may appear in multiple `VitalResource`s:
-/// 1. Each sample type can only be associated with ** one** VitalResource as their `required` or `optional` types.
-/// 2. A sample type can optionally be marked as a `supplementary` type of any other VitalResource.
+/// 1. Each sample type can only be associated with ** one** VitalResource as their `required` types.
+/// 2. A sample type can be present an `optional` or `supplementary` type as many VitalResource as needed.
 ///
 /// Example:
 /// * `VitalResource.heartrate` is the primary resource for `HKQuantityType(.heartRate)`.
