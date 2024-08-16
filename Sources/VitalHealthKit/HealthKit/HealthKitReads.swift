@@ -276,7 +276,7 @@ func read(
       endDate: instruction.query.upperBound
     )
 
-    return (.timeSeries(.temperature(payload.samples)), payload.anchors)
+    return (.timeSeries(.respiratoryRate(payload.samples)), payload.anchors)
 
   case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
     throw VitalHealthKitClientError.invalidRemappedResource
