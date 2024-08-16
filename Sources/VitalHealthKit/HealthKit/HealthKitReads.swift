@@ -626,16 +626,28 @@ func handleSleep(
         predicates
       )
 
+      async let _respiratoryRateStatistics = try await stats.executeSingleStatisticsQuery(
+        HKQuantityType.quantityType(forIdentifier: .respiratoryRate)!,
+        queryInterval,
+        [.discreteAverage],
+        predicates
+      )
+
       var copy = sleep
 
       let heartRateStatistics = try await _heartRateStatistics
-      let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
+      let heartRateUnit = QuantityUnit(.heartRate).healthKitRepresentation
       copy.heartRateMean = (heartRateStatistics?.averageQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
       copy.heartRateMinimum = (heartRateStatistics?.minimumQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
       copy.heartRateMaximum = (heartRateStatistics?.maximumQuantity()?.doubleValue(for: heartRateUnit)).map(Int.init)
 
+      let respiratoryRateStatistics = try await _respiratoryRateStatistics
+      let respiratoryRateUnit = QuantityUnit(.respiratoryRate).healthKitRepresentation
+      copy.respiratoryRateMean = respiratoryRateStatistics?.averageQuantity()?.doubleValue(for: respiratoryRateUnit)
+
       let hrvStatistics = try await _hrvStatistics
-      copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: .secondUnit(with: .milli))
+      let hrvUnit = QuantityUnit(.heartRateVariabilitySDNN).healthKitRepresentation
+      copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: hrvUnit)
 
       copy.wristTemperature = wristTemperature
 
