@@ -206,21 +206,15 @@ class SampleTypeTests: XCTestCase {
     var claimedObjectTypes = Set<HKObjectType>()
 
     for resource in VitalResource.all {
-      if case .individual = resource {
-        continue
-      }
-
       let requirements = toHealthKitTypes(resource: resource)
 
       let isNonoverlapping = requirements.required.intersection(claimedObjectTypes).isEmpty
-        && requirements.optional.intersection(claimedObjectTypes).isEmpty
 
       XCTAssertTrue(isNonoverlapping, "\(resource.logDescription) overlaps with another VitalResource.")
 
-      // NOTE: A VitalResource can declare `requirements.supplementary` that overlaps with other
-      //       resource.
+      // NOTE: A VitalResource can declare `requirements.optional` or `requirements.supplementary`
+      // that overlaps with other resource.
       claimedObjectTypes.formUnion(requirements.required)
-      claimedObjectTypes.formUnion(requirements.optional)
     }
   }
 }
