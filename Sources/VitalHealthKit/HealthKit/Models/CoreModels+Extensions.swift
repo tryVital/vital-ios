@@ -148,6 +148,20 @@ extension LocalQuantitySample {
       doubleValue = doubleValue * 100
     }
 
+    var metadata: [String: String] = [:]
+
+    if let meal = sample.metadata?["Meal"] as? String  {
+      metadata["meal"] = meal
+    }
+
+    if let meal = sample.metadata?["HKFoodMeal"] as? String {
+      metadata["meal"] = meal
+    }
+
+    if let foodItem = sample.metadata?["HKFoodType"] as? String {
+      metadata["food_item"] = foodItem
+    }
+
     self.init(
       value: doubleValue,
       startDate: sample.startDate,
@@ -155,7 +169,8 @@ extension LocalQuantitySample {
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
       type: nil,
-      unit: unit.vitalRepresentation
+      unit: unit.vitalRepresentation,
+      metadata: metadata
     )
   }
 }
@@ -220,7 +235,7 @@ struct QuantityUnit {
     mapping[.basalEnergyBurned] = .kcal
     mapping[.stepCount] = .count
     mapping[.flightsClimbed] = .count
-    mapping[ .distanceWalkingRunning] = .meter
+    mapping[.distanceWalkingRunning] = .meter
     mapping[.vo2Max] = .vo2Max
     mapping[.bloodGlucose] = .glucose
     mapping[.bloodPressureSystolic] = .mmHg
@@ -230,10 +245,49 @@ struct QuantityUnit {
     mapping[.appleExerciseTime] = .minute
     mapping[.bodyTemperature] = .degreeCelsius
     mapping[.basalBodyTemperature] = .degreeCelsius
+    mapping[.dietaryEnergyConsumed] = .kcal
+    mapping[.dietaryBiotin] = .ug
+    mapping[.dietaryCarbohydrates] = .gram
+    mapping[.dietaryFiber] = .gram
+    mapping[.dietarySugar] = .gram
+    mapping[.dietaryFatTotal] = .gram
+    mapping[.dietaryFatMonounsaturated] = .gram
+    mapping[.dietaryFatPolyunsaturated] = .gram
+    mapping[.dietaryFatSaturated] = .gram
+    mapping[.dietaryCholesterol] = .mg
+    mapping[.dietaryProtein] = .gram
+    mapping[.dietaryVitaminA] = .ug
+    mapping[.dietaryThiamin] = .mg
+    mapping[.dietaryRiboflavin] = .mg
+    mapping[.dietaryNiacin] = .mg
+    mapping[.dietaryPantothenicAcid] = .mg
+    mapping[.dietaryVitaminB6] = .mg
+    mapping[.dietaryVitaminB12] = .ug
+    mapping[.dietaryVitaminC] = .mg
+    mapping[.dietaryVitaminD] = .ug
+    mapping[.dietaryVitaminE] = .mg
+    mapping[.dietaryVitaminK] = .ug
+    mapping[.dietaryFolate] = .ug
+    mapping[.dietaryCalcium] = .mg
+    mapping[.dietaryChloride] = .mg
+    mapping[.dietaryIron] = .mg
+    mapping[.dietaryMagnesium] = .mg
+    mapping[.dietaryPhosphorus] = .mg
+    mapping[.dietaryPotassium] = .mg
+    mapping[.dietarySodium] = .mg
+    mapping[.dietaryZinc] = .mg
+    mapping[.dietaryChromium] = .ug
+    mapping[.dietaryCopper] = .mg
+    mapping[.dietaryIodine] = .ug
+    mapping[.dietaryManganese] = .mg
+    mapping[.dietaryMolybdenum] = .ug
+    mapping[.dietarySelenium] = .ug
+    mapping[.dietaryWater] = .mL
+    mapping[.dietaryCaffeine] = .mg
 
     return mapping
   }()
-
+  
   static let vitalStandardUnits: [HKQuantityTypeIdentifier: HKUnit] = {
     var mapping = [HKQuantityTypeIdentifier: HKUnit]()
 
@@ -263,6 +317,45 @@ struct QuantityUnit {
     mapping[.appleExerciseTime] = .minute()
     mapping[.bodyTemperature] = .degreeCelsius()
     mapping[.basalBodyTemperature] = .degreeCelsius()
+    mapping[.dietaryEnergyConsumed] = .kilocalorie()
+    mapping[.dietaryBiotin] = .gramUnit(with: .micro)
+    mapping[.dietaryCarbohydrates] = .gram()
+    mapping[.dietaryFiber] = .gram()
+    mapping[.dietarySugar] = .gram()
+    mapping[.dietaryFatTotal] = .gram()
+    mapping[.dietaryFatMonounsaturated] = .gram()
+    mapping[.dietaryFatPolyunsaturated] = .gram()
+    mapping[.dietaryFatSaturated] = .gram()
+    mapping[.dietaryCholesterol] = .gramUnit(with: .milli)
+    mapping[.dietaryProtein] = .gram()
+    mapping[.dietaryVitaminA] = .gramUnit(with: .micro)
+    mapping[.dietaryThiamin] = .gramUnit(with: .milli)
+    mapping[.dietaryRiboflavin] = .gramUnit(with: .milli)
+    mapping[.dietaryNiacin] = .gramUnit(with: .milli)
+    mapping[.dietaryPantothenicAcid] = .gramUnit(with: .milli)
+    mapping[.dietaryVitaminB6] = .gramUnit(with: .milli)
+    mapping[.dietaryVitaminB12] = .gramUnit(with: .micro)
+    mapping[.dietaryVitaminC] = .gramUnit(with: .milli)
+    mapping[.dietaryVitaminD] = .gramUnit(with: .micro)
+    mapping[.dietaryVitaminE] = .gramUnit(with: .milli)
+    mapping[.dietaryVitaminK] = .gramUnit(with: .micro)
+    mapping[.dietaryFolate] = .gramUnit(with: .micro)
+    mapping[.dietaryCalcium] = .gramUnit(with: .milli)
+    mapping[.dietaryChloride] = .gramUnit(with: .milli)
+    mapping[.dietaryIron] = .gramUnit(with: .milli)
+    mapping[.dietaryMagnesium] = .gramUnit(with: .milli)
+    mapping[.dietaryPhosphorus] = .gramUnit(with: .milli)
+    mapping[.dietaryPotassium] = .gramUnit(with: .milli)
+    mapping[.dietarySodium] = .gramUnit(with: .milli)
+    mapping[.dietaryZinc] = .gramUnit(with: .milli)
+    mapping[.dietaryChromium] = .gramUnit(with: .micro)
+    mapping[.dietaryCopper] = .gramUnit(with: .milli)
+    mapping[.dietaryIodine] = .gramUnit(with: .micro)
+    mapping[.dietaryManganese] = .gramUnit(with: .milli)
+    mapping[.dietaryMolybdenum] = .gramUnit(with: .micro)
+    mapping[.dietarySelenium] = .gramUnit(with: .micro)
+    mapping[.dietaryWater] = .literUnit(with: .milli)
+    mapping[.dietaryCaffeine] = .gramUnit(with: .milli)
 
     return mapping
   }()

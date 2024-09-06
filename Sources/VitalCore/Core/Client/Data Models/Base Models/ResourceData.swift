@@ -160,6 +160,7 @@ public enum SummaryData: Equatable, Encodable {
   case sleep(SleepPatch)
   case workout(WorkoutPatch)
   case menstrualCycle(MenstrualCyclePatch)
+  case meal(MealPatch)
 
   public var payload: Encodable {
     switch self {
@@ -175,6 +176,8 @@ public enum SummaryData: Equatable, Encodable {
         return patch.workouts
       case let .menstrualCycle(patch):
         return patch.cycles
+      case let .meal(patch):
+        return patch.meals
     }
   }
   
@@ -192,6 +195,8 @@ public enum SummaryData: Equatable, Encodable {
         return patch.sleep.count
       case let .menstrualCycle(patch):
         return patch.cycles.count
+      case let .meal(patch):
+        return patch.dataCount()
     }
   }
   
@@ -209,6 +214,8 @@ public enum SummaryData: Equatable, Encodable {
         return "workouts"
       case .menstrualCycle:
         return "menstrual_cycle"
+      case .meal:
+        return "meal"
     }
   }
 }

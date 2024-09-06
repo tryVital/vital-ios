@@ -16,7 +16,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     case .sleep, .individual(.vo2Max), .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
         .nutrition(.water), .nutrition(.caffeine),
-        .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate):
+        .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate), .meal:
       return 1
     case .individual(.distanceWalkingRunning), .individual(.steps), .individual(.floorsClimbed):
       return 2
@@ -74,6 +74,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
       return BackfillType.temperature
     case .vitals(.respiratoryRate):
       return .respiratoryRate
+    case .meal:
+      return BackfillType.meal
     }
   }
 
@@ -168,6 +170,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
   case vitals(Vitals)
   case individual(Individual)
   case nutrition(Nutrition)
+  case meal
   
   public static var all: [VitalResource] = [
     .profile,
@@ -176,6 +179,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     .activity,
     .sleep,
     .menstrualCycle,
+    .meal,
 
     .vitals(.glucose),
     .vitals(.bloodPressure),
@@ -213,6 +217,8 @@ public enum VitalResource: Equatable, Hashable, Codable {
         return "sleep"
       case .menstrualCycle:
         return "menstrualCycle"
+      case .meal:
+        return "meal"
       case let .vitals(vitals):
         return vitals.logDescription
       case let .individual(individual):

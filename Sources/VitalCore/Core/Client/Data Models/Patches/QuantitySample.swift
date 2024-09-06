@@ -9,6 +9,7 @@ public struct LocalQuantitySample: Hashable, Encodable {
   public var productType: String?
   public var type: SourceType?
   public var unit: Unit
+  public var metadata: [String: String]?
 
   public var sourceType: SourceType {
     switch type {
@@ -28,7 +29,8 @@ public struct LocalQuantitySample: Hashable, Encodable {
     productType: String? = nil,
     type: SourceType? = nil,
     timezoneOffset: Int? = nil,
-    unit: Unit
+    unit: Unit,
+    metadata: [String: String]? = nil
   ) {
     self.value = value
     self.startDate = startDate
@@ -37,6 +39,7 @@ public struct LocalQuantitySample: Hashable, Encodable {
     self.productType = productType
     self.type = type
     self.unit = unit
+    self.metadata = metadata
   }
   
   public init(
@@ -46,7 +49,8 @@ public struct LocalQuantitySample: Hashable, Encodable {
     productType: String? = nil,
     type: SourceType? = nil,
     timezoneOffset: Int? = nil,
-    unit: Unit
+    unit: Unit,
+    metadata: [String: String]? = nil
   ) {
     self.init(
       value: value,
@@ -55,8 +59,31 @@ public struct LocalQuantitySample: Hashable, Encodable {
       sourceBundle: sourceBundle,
       productType: productType,
       type: type,
-      unit: unit
+      unit: unit,
+      metadata: metadata
     )
+  }
+
+  public static func == (lhs: LocalQuantitySample, rhs: LocalQuantitySample) -> Bool {
+    lhs.value == rhs.value &&
+    lhs.startDate == rhs.startDate &&
+    lhs.endDate == rhs.endDate &&
+    lhs.sourceBundle == rhs.sourceBundle &&
+    lhs.productType == rhs.productType &&
+    lhs.type == rhs.type &&
+    lhs.unit == rhs.unit &&
+    lhs.metadata == lhs.metadata
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(value)
+    hasher.combine(startDate)
+    hasher.combine(endDate)
+    hasher.combine(sourceBundle)
+    hasher.combine(productType)
+    hasher.combine(type)
+    hasher.combine(unit)
+    hasher.combine(metadata)
   }
 
   public enum Unit: String, Encodable, CustomStringConvertible {
@@ -76,6 +103,8 @@ public struct LocalQuantitySample: Hashable, Encodable {
     case minute
     case degreeCelsius = "\u{00B0}C"
     case stage
+    case mg
+    case ug = "\u{03BC}g"
 
     public var description: String {
       rawValue
