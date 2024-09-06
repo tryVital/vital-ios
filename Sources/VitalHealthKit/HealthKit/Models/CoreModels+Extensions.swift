@@ -150,16 +150,12 @@ extension LocalQuantitySample {
 
     var metadata: [String: String] = [:]
 
-    if let meal = sample.metadata?["Meal"] as? String  {
-      metadata["meal"] = meal
-    }
-
-    if let meal = sample.metadata?["HKFoodMeal"] as? String {
-      metadata["meal"] = meal
-    }
-
-    if let foodItem = sample.metadata?["HKFoodType"] as? String {
-      metadata["food_item"] = foodItem
+    if let metadataDict = sample.metadata {
+      for (key, value) in metadataDict {
+        if let stringValue = value as? String {
+          metadata[key] = stringValue
+        }
+      }
     }
 
     self.init(
