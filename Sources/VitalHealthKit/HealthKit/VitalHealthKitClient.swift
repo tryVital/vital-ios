@@ -472,7 +472,9 @@ extension VitalHealthKitClient {
           return true
         }
         // OR has no sync attempt
-        return resourceProgress.syncs.isEmpty
+        // OR has errored
+        let lastStatus = resourceProgress.latestSync?.lastStatus
+        return lastStatus == nil || lastStatus == .error || lastStatus == .cancelled || lastStatus == .timedOut
       }
 
       // Rescue these resources
