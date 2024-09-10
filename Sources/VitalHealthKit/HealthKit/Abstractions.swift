@@ -118,10 +118,10 @@ extension VitalHealthKitStore {
         return [.vitals(.heartRate)]
 
       case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
-      return [.meal, .vitals(.heartRateVariability)]
+        return [.vitals(.heartRateVariability)]
 
       case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
-      return [.meal, .nutrition(.water)]
+        return [.nutrition(.water)]
 
       case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
         return [.nutrition(.caffeine)]
