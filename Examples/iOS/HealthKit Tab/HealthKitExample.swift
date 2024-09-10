@@ -41,6 +41,8 @@ struct HealthKitExample: View {
 
             makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
 
+            makePermissionRow("Meal", resources: [.meal], permissions: $permissions)
+
             makePermissionRow("Menstrual Cycle", resources: [.menstrualCycle], permissions: $permissions)
 
             makePermissionRow("Temperature", resources: [.vitals(.temperature)], permissions: $permissions)
