@@ -118,10 +118,10 @@ extension VitalHealthKitStore {
         return [.vitals(.heartRate)]
 
       case HKSampleType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!:
-        return [.vitals(.heartRateVariability)]
+      return [.meal, .vitals(.heartRateVariability)]
 
       case HKSampleType.quantityType(forIdentifier: .dietaryWater)!:
-        return [.nutrition(.water)]
+      return [.meal, .nutrition(.water)]
 
       case HKSampleType.quantityType(forIdentifier: .dietaryCaffeine)!:
         return [.nutrition(.caffeine)]
@@ -183,9 +183,7 @@ extension VitalHealthKitStore {
       HKQuantityType.quantityType(forIdentifier: .dietaryIodine)!,
       HKQuantityType.quantityType(forIdentifier: .dietaryManganese)!,
       HKQuantityType.quantityType(forIdentifier: .dietaryMolybdenum)!,
-      HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!,
-      HKQuantityType.quantityType(forIdentifier: .dietaryWater)!,
-      HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!:
+      HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!:
       return [.meal]
 
     default:

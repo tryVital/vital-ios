@@ -273,8 +273,6 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
         HKQuantityType.quantityType(forIdentifier: .dietaryManganese)!,
         HKQuantityType.quantityType(forIdentifier: .dietaryMolybdenum)!,
         HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!,
-        HKQuantityType.quantityType(forIdentifier: .dietaryWater)!,
-        HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!
       ],
       supplementary: []
     )

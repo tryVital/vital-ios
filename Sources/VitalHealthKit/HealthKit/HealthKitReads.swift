@@ -528,8 +528,6 @@ func handleMeal(
       HKQuantityType.quantityType(forIdentifier: .dietaryManganese)!,
       HKQuantityType.quantityType(forIdentifier: .dietaryMolybdenum)!,
       HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!,
-      HKQuantityType.quantityType(forIdentifier: .dietaryWater)!,
-      HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!
     ]
 
   let sampleGroups = try await queryMulti(
@@ -655,12 +653,6 @@ func handleMeal(
             },
             selenium: groups[HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!]?.map { nutrient in
               LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietarySelenium))
-            },
-            water: groups[HKQuantityType.quantityType(forIdentifier: .dietaryWater)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryWater))
-            },
-            caffeine: groups[HKQuantityType.quantityType(forIdentifier: .dietaryCaffeine)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryCaffeine))
             }
           )
         ]
