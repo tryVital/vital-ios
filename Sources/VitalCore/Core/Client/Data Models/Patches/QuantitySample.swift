@@ -64,28 +64,6 @@ public struct LocalQuantitySample: Hashable, Encodable {
     )
   }
 
-  public static func == (lhs: LocalQuantitySample, rhs: LocalQuantitySample) -> Bool {
-    lhs.value == rhs.value &&
-    lhs.startDate == rhs.startDate &&
-    lhs.endDate == rhs.endDate &&
-    lhs.sourceBundle == rhs.sourceBundle &&
-    lhs.productType == rhs.productType &&
-    lhs.type == rhs.type &&
-    lhs.unit == rhs.unit &&
-    lhs.metadata == lhs.metadata
-  }
-
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(value)
-    hasher.combine(startDate)
-    hasher.combine(endDate)
-    hasher.combine(sourceBundle)
-    hasher.combine(productType)
-    hasher.combine(type)
-    hasher.combine(unit)
-    hasher.combine(metadata)
-  }
-
   public enum Unit: String, Encodable, CustomStringConvertible {
     case kg
     case centimeter
