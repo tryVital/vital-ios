@@ -39,8 +39,8 @@ struct Predicates: @unchecked Sendable {
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   
-  var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource]) async throws -> Void
-  
+  var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource], [HKObjectType], [HKSampleType]) async throws -> Void
+
   var authorizationState: (VitalResource) -> AuthorizationState
 
   var writeInput: (DataInput, Date, Date) async throws -> Void
@@ -243,21 +243,25 @@ extension VitalHealthKitStore {
     
     return .init {
       HKHealthStore.isHealthDataAvailable()
-    } requestReadWriteAuthorization: { readResources, writeResources in
-      let readTypes: [HKObjectType] = readResources
+    } requestReadWriteAuthorization: { readResources, writeResources, extraReadTypes, extraWriteTypes in
+      let readTypes = Set(
+        readResources
         .map(toHealthKitTypes)
         .flatMap(\.allObjectTypes)
+      ).union(extraReadTypes)
 
-      let writeTypes: [HKSampleType] = writeResources
+      let writeTypes = Set(
+        writeResources
         .map(\.toResource)
         .map(toHealthKitTypes)
         .flatMap(\.allObjectTypes)
         .compactMap { $0 as? HKSampleType }
+      ).union(extraWriteTypes)
 
       if #available(iOS 15.0, *) {
-        try await store.requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
+        try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
       } else {
-        try await store.__requestAuthorization(toShare: Set(writeTypes), read: Set(readTypes))
+        try await store.__requestAuthorization(toShare: writeTypes, read: readTypes)
       }
       
     } authorizationState: { resource in
@@ -291,7 +295,7 @@ extension VitalHealthKitStore {
   static var debug: VitalHealthKitStore {
     return .init {
       return true
-    } requestReadWriteAuthorization: { _, _ in
+    } requestReadWriteAuthorization: { _, _, _, _ in
       return
     } authorizationState: { _ in
       (true, [])

@@ -1092,9 +1092,25 @@ extension VitalHealthKitClient {
     }
   }
 
+  /// Ask for health data read and write permission from the user.
+  ///
+  /// The interactive permission prompt is managed by the operating system (Apple iOS). Vital SDK cannot customize
+  /// its appearance or behaviour.
+  ///
+  /// The prompt only appears for resources being asked for the first time. iOS typically ignores any subsequent attempts,
+  /// regardless of whether permission has been granted or denied during that first time. You will have to direct your users to
+  /// either the Settings ap or the Apple Health app for reviewing and updating the permissions.
+  ///
+  /// - Parameter readPermissions: `VitalResource`s to request read permission for.
+  /// - Parameter writePermissions: `VitalResource`s to request write permission for.
+  /// - Parameter extraReadPermissions: Extra HealthKit object types whose read permissions should be requested in addition to the needs of Vital SDK.
+  /// - Parameter extraWritePermissions: Extra HealthKit sample types whose write permissions should be requested in addition to the needs of Vital SDK.
+  ///
   public func ask(
     readPermissions readResources: [VitalResource],
-    writePermissions writeResource: [WritableVitalResource]
+    writePermissions writeResource: [WritableVitalResource],
+    extraReadPermissions: [HKObjectType] = [],
+    extraWritePermissions: [HKSampleType] = []
   ) async -> PermissionOutcome {
     
     guard store.isHealthDataAvailable() else {
@@ -1102,7 +1118,7 @@ extension VitalHealthKitClient {
     }
     
     do {
-      try await store.requestReadWriteAuthorization(readResources, writeResource)
+      try await store.requestReadWriteAuthorization(readResources, writeResource, extraReadPermissions, extraWritePermissions)
 
       let state = authorizationState(store: store)
       SyncProgressStore.shared.recordAsk(state.activeResources)
