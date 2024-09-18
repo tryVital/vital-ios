@@ -476,7 +476,7 @@ internal struct VitalSignInTokenClaims: Decodable {
 @_spi(VitalSDKInternals)
 public final class ParkingLot: @unchecked Sendable {
   enum State: Sendable {
-    case mustPark([UUID: CheckedContinuation<Void, any Error>] = [:])
+    case mustPark([UUID: UnsafeContinuation<Void, any Error>] = [:])
     case disabled
   }
 
@@ -495,7 +495,7 @@ public final class ParkingLot: @unchecked Sendable {
   public init() {}
 
   public func tryTo(_ action: Action) -> Bool {
-    let (callersToRelease, hasTransitioned): ([CheckedContinuation<Void, any Error>], Bool) = lock.withLock {
+    let (callersToRelease, hasTransitioned): ([UnsafeContinuation<Void, any Error>], Bool) = lock.withLock {
       switch (self.state, action) {
       case (.disabled, .enable):
         self.state = .mustPark()
@@ -525,7 +525,7 @@ public final class ParkingLot: @unchecked Sendable {
     return try await withTaskCancellationHandler {
       try Task.checkCancellation()
 
-      return try await withCheckedThrowingContinuation { continuation in
+      return try await withUnsafeThrowingContinuation { continuation in
         let mustPark = lock.withLock {
           switch self.state {
           case let .mustPark(parked):

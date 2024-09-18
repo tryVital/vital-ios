@@ -567,7 +567,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     case idle
     case cancelled
     case completed
-    case running(HKHealthStore, HKQuery, CheckedContinuation<Result, any Error>)
+    case running(HKHealthStore, HKQuery, UnsafeContinuation<Result, any Error>)
   }
 
   private var state: State = .idle
@@ -589,7 +589,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     try await withTaskCancellationHandler {
       try Task.checkCancellation()
 
-      let result = try await withCheckedThrowingContinuation { continuation in
+      let result = try await withUnsafeThrowingContinuation { continuation in
         let query = queryFactory(Continuation(query: self))
         transition(to: .running(store, query, continuation))
       }
@@ -608,8 +608,8 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
   }
 
   @discardableResult
-  private func transition(to newState: State) -> CheckedContinuation<Result, any Error>? {
-    let (doWork, continuation): ((() -> Void)?, CheckedContinuation<Result, any Error>?) = lock.withLock {
+  private func transition(to newState: State) -> UnsafeContinuation<Result, any Error>? {
+    let (doWork, continuation): ((() -> Void)?, UnsafeContinuation<Result, any Error>?) = lock.withLock {
       switch (state, newState) {
       case let (.idle, .running(store, query, _)):
 
