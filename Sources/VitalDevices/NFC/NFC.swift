@@ -121,7 +121,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
   let readingMessage: String
   let errorMessage: String
   let completionMessage: String
-  private var continuation: CheckedContinuation<(Sensor, [Glucose]), Error>?
+  private var continuation: UnsafeContinuation<(Sensor, [Glucose]), Error>?
   private let queue: DispatchQueue
   
   var taskRequest: TaskRequest? {
@@ -139,7 +139,7 @@ class NFC: NSObject, NFCTagReaderSessionDelegate {
     readingMessage: String,
     errorMessage: String,
     completionMessage: String,
-    continuation: CheckedContinuation<(Sensor, [Glucose]), Error>?,
+    continuation: UnsafeContinuation<(Sensor, [Glucose]), Error>?,
     queue: DispatchQueue
   ) {
     self.readingMessage = readingMessage

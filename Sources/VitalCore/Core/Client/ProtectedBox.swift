@@ -37,7 +37,7 @@ public final class ProtectedBox<T>: @unchecked Sendable {
 
   /// Get the current value, or wait until it is set.
   public func get() async -> T {
-    return await withCheckedContinuation { continuation in
+    return await withUnsafeContinuation { continuation in
       lock.withLock {
         switch self.state {
         case let .awaiting(continuations):
@@ -50,7 +50,7 @@ public final class ProtectedBox<T>: @unchecked Sendable {
   }
 
   public func set(value: T) {
-    let continuationsToCall: [CheckedContinuation<T, Never>] = lock.withLock {
+    let continuationsToCall: [UnsafeContinuation<T, Never>] = lock.withLock {
       defer {
         self.state = .ready(value)
       }
@@ -84,7 +84,7 @@ public final class ProtectedBox<T>: @unchecked Sendable {
 
 private enum BoxState<T> {
   case ready(T)
-  case awaiting([CheckedContinuation<T, Never>])
+  case awaiting([UnsafeContinuation<T, Never>])
 
   var isReady: Bool {
     switch self {

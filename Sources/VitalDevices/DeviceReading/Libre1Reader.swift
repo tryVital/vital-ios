@@ -21,10 +21,10 @@ public class Libre1Reader {
   }
   
   public func read() async throws -> (Libre1Read) {
-    /// We need to retain the NFC object, otherwise it's released inside `withCheckedThrowingContinuation`
+    /// We need to retain the NFC object, otherwise it's released inside `withUnsafeThrowingContinuation`
     var nfc: NFC!
     
-    let payload: (Sensor, [Glucose]) = try await withCheckedThrowingContinuation { continuation in
+    let payload: (Sensor, [Glucose]) = try await withUnsafeThrowingContinuation { continuation in
       nfc = NFC(
         readingMessage: readingMessage,
         errorMessage: errorMessage,

@@ -68,7 +68,7 @@ class VitalClientTests: XCTestCase {
   }
 
   func testAutomaticConfiguration_autoMigrateFromLegacyAPIMode() async throws {
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
@@ -98,7 +98,7 @@ class VitalClientTests: XCTestCase {
     let newClient = VitalClient(secureStorage: secureStorage)
     VitalClient.setClient(newClient)
 
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
@@ -115,7 +115,7 @@ class VitalClientTests: XCTestCase {
   }
 
   func testAutomaticConfiguration_userJWTMode() async throws {
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
@@ -142,7 +142,7 @@ class VitalClientTests: XCTestCase {
     let newClient = VitalClient(secureStorage: secureStorage)
     VitalClient.setClient(newClient)
 
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
@@ -159,7 +159,7 @@ class VitalClientTests: XCTestCase {
   }
 
   func testAutoConfigurationDoesNotFailWithUserIdWithoutConfiguration() async {
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
@@ -176,7 +176,7 @@ class VitalClientTests: XCTestCase {
     let newClient = VitalClient(secureStorage: secureStorage)
     VitalClient.setClient(newClient)
 
-    let _: Void = await withCheckedContinuation { continuation in
+    let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
       }
