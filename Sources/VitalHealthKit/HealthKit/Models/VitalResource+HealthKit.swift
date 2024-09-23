@@ -28,26 +28,26 @@ import VitalCore
 /// * `VitalResource.heartrate` is the primary resource for `HKQuantityType(.heartRate)`.
 /// * Activity, workouts and sleeps all need _supplementary_ heartrate permission for statistics, but can function without it.
 ///   So they list `HKQuantityType(.heartRate)` as their `supplementary` types.
-struct HealthKitObjectTypeRequirements {
+public struct HealthKitObjectTypeRequirements {
   /// The required set of HKObjectTypes of a `VitalResource`.
   ///
   /// This must not change once the `VitalResource` is introduced, especially if
   /// the `VitalResource` is a fully computed resource like `activity`.
-  let required: Set<HKObjectType>
+  public let required: Set<HKObjectType>
 
   /// An optional set of HKObjectTypes of a `VitalResource`.
   /// New types can be added or removed from this list.
-  let optional: Set<HKObjectType>
+  public let optional: Set<HKObjectType>
 
   /// An "supplementary" set of HKObjectTypes of a `VitalResource`.
   /// New types can be added or removed from this list.
-  let supplementary: Set<HKObjectType>
+  public let supplementary: Set<HKObjectType>
 
-  var isIndividualType: Bool {
+  public var isIndividualType: Bool {
     required.count == 1 && optional.isEmpty && supplementary.isEmpty
   }
 
-  func isResourceActive(_ query: (HKObjectType) -> Bool) -> Bool {
+  public func isResourceActive(_ query: (HKObjectType) -> Bool) -> Bool {
     if self.required.isEmpty {
       return self.optional.contains(where: query)
     } else {
@@ -55,7 +55,7 @@ struct HealthKitObjectTypeRequirements {
     }
   }
 
-  var allObjectTypes: Set<HKObjectType> {
+  public var allObjectTypes: Set<HKObjectType> {
     var objectTypes = self.required
     objectTypes.formUnion(self.optional)
     objectTypes.formUnion(self.supplementary)
