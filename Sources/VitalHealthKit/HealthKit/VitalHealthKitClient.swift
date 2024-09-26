@@ -1151,10 +1151,10 @@ extension VitalHealthKitClient {
     store.authorizationState(resource).isActive
   }
 
-  public func healthKitRequirements(for resource: VitalResource) -> HealthKitObjectTypeRequirements {
+  public static func healthKitRequirements(for resource: VitalResource) -> HealthKitObjectTypeRequirements {
     return toHealthKitTypes(resource: resource)
   }
-  
+
   public func dateOfLastSync(for resource: VitalResource) -> Date? {
     guard hasAskedForPermission(resource: resource) else {
       return nil
