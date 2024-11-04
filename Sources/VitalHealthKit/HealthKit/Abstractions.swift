@@ -429,8 +429,7 @@ struct StatisticsQueryDependencies {
       )
 
       @Sendable func handle(
-        _ query: HKStatisticsCollectionQuery,
-        collection: HKStatisticsCollection?,
+        _ collection: HKStatisticsCollection?,
         error: Error?,
         continuation: CancellableQueryHandle<[VitalStatistics]>.Continuation
       ) {
@@ -500,7 +499,7 @@ struct StatisticsQueryDependencies {
 
       let handle = CancellableQueryHandle { continuation in
         query.initialResultsHandler = { query, collection, error in
-          handle(query, collection: collection, error: error, continuation: continuation)
+          handle(collection, error: error, continuation: continuation)
         }
         return query
       }
@@ -609,7 +608,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
 
   @discardableResult
   private func transition(to newState: State) -> UnsafeContinuation<Result, any Error>? {
-    let (doWork, continuation): ((() -> Void)?, UnsafeContinuation<Result, any Error>?) = lock.withLock {
+    let continuation: UnsafeContinuation<Result, any Error>? = lock.withLock {
       switch (state, newState) {
       case let (.idle, .running(store, query, _)):
 
@@ -618,17 +617,22 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
           try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
           self?.cancel()
         }
-        let doWork = { store.execute(query) }
-        return (doWork, nil)
+        store.execute(query)
+        return nil
 
       case 
-        let (.running(store, query, continuation), .cancelled),
-        let (.running(store, query, continuation), .completed):
+        let (.running(_, _, continuation), .cancelled),
+        let (.running(_, _, continuation), .completed):
 
         state = newState
         watchdog?.cancel()
-        let doWork = { store.stop(query) }
-        return (doWork, continuation)
+
+        // IMPORTANT:
+        // `HKHealthStore.stop(_:)` is NOT called here. As per documentation, `stop(_:)` is only
+        // intended for long-running queries with active store observation.
+        // The query is "cancelled" by being left orphaned with its callback being ignored.
+
+        return continuation
 
       case
         let (.cancelled, .running(_, _, continuation)),
@@ -636,25 +640,23 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
 
         // The handle is cancelled before it started running.
         // Don't start the query, but make sure the continuation is called.
-        let doWork = { continuation.resume(throwing: CancellationError()) }
-        return (doWork, nil)
+        continuation.resume(throwing: CancellationError())
+        return nil
 
       case (.completed, .cancelled), (.cancelled, .cancelled), (.idle, .cancelled):
         // Not illegal, can gracefully ignore
-        return (nil, nil)
+        return nil
 
       case (.cancelled, .completed):
         // Not illgeal, can gracefully ignore
         // Any registered continuation would have been called backed already
         // during running -> cancelled|completed.
-        return (nil, nil)
+        return nil
 
       case (.completed, .completed), (.running, .running), (.idle, .completed), (_, .idle):
         fatalError("Illegal CancellableQueryHandle state transition")
       }
     }
-
-    doWork?()
 
     return continuation
   }

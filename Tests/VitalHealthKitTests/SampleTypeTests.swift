@@ -16,7 +16,7 @@ private class MockHealthStore: HKHealthStore {
         to: CompletionHandler.self
       )
       DispatchQueue.global().async {
-        handler(query, [], [], nil, nil)
+        handler(query, nil, nil, nil, ExpectedError())
       }
 
     case let query as HKStatisticsCollectionQuery:
@@ -33,7 +33,7 @@ private class MockHealthStore: HKHealthStore {
         to: ResultHandler.self
       )
       DispatchQueue.global().async {
-        handler(query, [], nil)
+        handler(query, nil, ExpectedError())
       }
 
     default:
@@ -53,43 +53,29 @@ private class MockHealthStore: HKHealthStore {
 class SampleTypeTests: XCTestCase {
 
   @available(iOS 16.0, *)
-  func test_observed_types_are_mappable_to_resources() {
-    let success = self.expectation(description: "test_body")
-    let thrownError = OSAllocatedUnfairLock<Error?>(initialState: nil)
+  func test_observed_types_are_mappable_to_resources() async throws {
+    let resources = observedSampleTypes()
+      .flatMap({ $0 })
+      .flatMap(VitalHealthKitStore.sampleTypeToVitalResource)
 
-    Task {
+    for resource in resources {
       do {
-        let resources = observedSampleTypes()
-          .flatMap({ $0 })
-          .flatMap(VitalHealthKitStore.sampleTypeToVitalResource)
-
-        for resource in resources {
-          do {
-            print(resource)
-            _ = try await read(
-              resource: VitalHealthKitStore.remapResource(resource),
-              healthKitStore: MockHealthStore(),
-              vitalStorage: VitalHealthKitStorage(storage: .debug),
-              instruction: SyncInstruction(stage: .daily, query: Date() ..< Date()),
-              options: ReadOptions()
-            )
-          } catch let error {
-            switch error {
-            case is ExpectedError:
-              continue
-            default:
-              throw error
-            }
-          }
-        }
-        success.fulfill()
+        _ = try await read(
+          resource: VitalHealthKitStore.remapResource(resource),
+          healthKitStore: MockHealthStore(),
+          vitalStorage: VitalHealthKitStorage(storage: .debug),
+          instruction: SyncInstruction(stage: .daily, query: Date() ..< Date()),
+          options: ReadOptions()
+        )
       } catch let error {
-        thrownError.withLock { $0 = error }
+        switch error {
+        case is ExpectedError:
+          continue
+        default:
+          throw error
+        }
       }
     }
-
-    wait(for: [success], timeout: 3.0)
-    XCTAssertNil(thrownError.withLock { $0 })
   }
 
   func test_all_quantity_sample_types_have_mapped_unit() async {
