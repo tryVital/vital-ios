@@ -429,8 +429,7 @@ struct StatisticsQueryDependencies {
       )
 
       @Sendable func handle(
-        _ query: HKStatisticsCollectionQuery,
-        collection: HKStatisticsCollection?,
+        _ collection: HKStatisticsCollection?,
         error: Error?,
         continuation: CancellableQueryHandle<[VitalStatistics]>.Continuation
       ) {
@@ -500,7 +499,7 @@ struct StatisticsQueryDependencies {
 
       let handle = CancellableQueryHandle { continuation in
         query.initialResultsHandler = { query, collection, error in
-          handle(query, collection: collection, error: error, continuation: continuation)
+          handle(collection, error: error, continuation: continuation)
         }
         return query
       }
@@ -618,24 +617,29 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
           try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
           self?.cancel()
         }
-        let doWork = { store.execute(query) }
-        return (doWork, nil)
+        store.execute(query)
+        return (nil, nil)
 
       case 
-        let (.running(store, query, continuation), .cancelled),
-        let (.running(store, query, continuation), .completed):
+        let (.running(_, _, continuation), .cancelled),
+        let (.running(_, _, continuation), .completed):
 
         state = newState
         watchdog?.cancel()
-        let doWork = { store.stop(query) }
-        return (doWork, continuation)
+
+        // IMPORTANT:
+        // `HKHealthStore.stop(_:)` is NOT called here. As per documentation, `stop(_:)` is only
+        // intended for long-running queries with active store observation.
+        // The query is "cancelled" by being left orphaned with its callback being ignored.
+
+        return (nil, continuation)
 
       case
         let (.cancelled, .running(_, _, continuation)),
         let (.completed, .running(_, _, continuation)):
 
         // The handle is cancelled before it started running.
-        // Don't start the query, but make sure the continuation is called.
+        // Don't start the query, but make sure the continuation is resumed with CancellationError.
         let doWork = { continuation.resume(throwing: CancellationError()) }
         return (doWork, nil)
 
