@@ -608,7 +608,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
 
   @discardableResult
   private func transition(to newState: State) -> UnsafeContinuation<Result, any Error>? {
-    let continuation: UnsafeContinuation<Result, any Error>? = lock.withLock {
+    let (doWork, continuation): ((() -> Void)?, UnsafeContinuation<Result, any Error>?) = lock.withLock {
       switch (state, newState) {
       case let (.idle, .running(store, query, _)):
 
@@ -618,7 +618,7 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
           self?.cancel()
         }
         store.execute(query)
-        return nil
+        return (nil, nil)
 
       case 
         let (.running(_, _, continuation), .cancelled),
@@ -632,31 +632,33 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
         // intended for long-running queries with active store observation.
         // The query is "cancelled" by being left orphaned with its callback being ignored.
 
-        return continuation
+        return (nil, continuation)
 
       case
         let (.cancelled, .running(_, _, continuation)),
         let (.completed, .running(_, _, continuation)):
 
         // The handle is cancelled before it started running.
-        // Don't start the query, but make sure the continuation is called.
-        continuation.resume(throwing: CancellationError())
-        return nil
+        // Don't start the query, but make sure the continuation is resumed with CancellationError.
+        let doWork = { continuation.resume(throwing: CancellationError()) }
+        return (doWork, nil)
 
       case (.completed, .cancelled), (.cancelled, .cancelled), (.idle, .cancelled):
         // Not illegal, can gracefully ignore
-        return nil
+        return (nil, nil)
 
       case (.cancelled, .completed):
         // Not illgeal, can gracefully ignore
         // Any registered continuation would have been called backed already
         // during running -> cancelled|completed.
-        return nil
+        return (nil, nil)
 
       case (.completed, .completed), (.running, .running), (.idle, .completed), (_, .idle):
         fatalError("Illegal CancellableQueryHandle state transition")
       }
     }
+
+    doWork?()
 
     return continuation
   }
