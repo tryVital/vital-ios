@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name = 'VitalCore'
-    s.version = '1.2.10'
+    s.version = '1.2.11'
     s.license = 'AGPL v3.0'
     s.summary = 'The official Swift Library for Vital API, HealthKit and Devices'
     s.homepage = 'https://github.com/tryVital/vital-ios'
@@ -15,6 +15,6 @@ Pod::Spec.new do |s|
 
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 
-    s.dependency 'VitalLogging', '~> 1.2.10'
+    s.dependency 'VitalLogging', '~> 1.2.11'
 end
 
