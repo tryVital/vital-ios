@@ -183,3 +183,10 @@ private struct VitalPersistentLoggerWrapper: VitalLogging.LogHandler {
     }
   }
 }
+
+@objc public class VitalLoggerObjC: NSObject {
+  @objc public static var stdOutEnabled: Bool {
+    get { VitalLogger.stdOutEnabled }
+    set { VitalLogger.stdOutEnabled = newValue }
+  }
+}
