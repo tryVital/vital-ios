@@ -57,8 +57,10 @@ final class AppStateTracker {
 
   @objc
   func appDidFinishLaunching() {
-    if UIApplication.shared.applicationState == .background {
-      transition(to: .background)
+    // UIApplication.applicationState is always `.background` in this moment.
+    // Schedule a check on the next runloop iteration.
+    DispatchQueue.main.async {
+      self.powerStateDidChange()
     }
   }
 
@@ -74,7 +76,8 @@ final class AppStateTracker {
 
   @objc
   func powerStateDidChange() {
-    transition(to: UIApplication.shared.applicationState == .background ? .background : .foreground)
+    let state = UIApplication.shared.applicationState
+    transition(to: state == .background ? .background : .foreground)
   }
 
   func transition(to newStatus: AppState.Status) {
