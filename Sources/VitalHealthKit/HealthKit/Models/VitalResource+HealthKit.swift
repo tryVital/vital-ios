@@ -276,6 +276,25 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       ],
       supplementary: []
     )
+
+  case .electrocardiogram:
+    return single(HKElectrocardiogramType.electrocardiogramType())
+  case .afibBurden:
+    if #available(iOS 16, *) {
+      return single(HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!)
+    } else {
+      return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
+    }
+  case .heartRateAlert:
+    return HealthKitObjectTypeRequirements(
+      required: [],
+      optional: [
+        HKCategoryType.categoryType(forIdentifier: .irregularHeartRhythmEvent)!,
+        HKCategoryType.categoryType(forIdentifier: .highHeartRateEvent)!,
+        HKCategoryType.categoryType(forIdentifier: .lowHeartRateEvent)!,
+      ],
+      supplementary: []
+    )
   }
 }
 
@@ -304,6 +323,14 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
       HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!,
     ])
+  }
+
+  var afibBurdenTypes = [HKSampleType]()
+
+  if #available(iOS 16.0, *) {
+    afibBurdenTypes = [
+      HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!
+    ]
   }
 
   return [
@@ -441,6 +468,21 @@ func observedSampleTypes() -> [[HKSampleType]] {
     [
       HKSampleType.quantityType(forIdentifier: .respiratoryRate)!
     ],
+
+    /// AFib Burden
+    afibBurdenTypes,
+
+    /// Electrocardiogram
+    [
+      HKElectrocardiogramType.electrocardiogramType()
+    ],
+
+    /// Heart rate alerts
+    [
+      HKCategoryType.categoryType(forIdentifier: .irregularHeartRhythmEvent)!,
+      HKCategoryType.categoryType(forIdentifier: .highHeartRateEvent)!,
+      HKCategoryType.categoryType(forIdentifier: .lowHeartRateEvent)!,
+    ]
   ]
 }
 

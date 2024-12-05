@@ -82,6 +82,7 @@ public enum TimeSeriesData: Equatable, Encodable {
   case steps([LocalQuantitySample])
   case vo2Max([LocalQuantitySample])
   case temperature([LocalQuantitySample])
+  case afibBurden([LocalQuantitySample])
 
   public var payload: Encodable {
     switch self {
@@ -91,7 +92,7 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .nutrition(.water(samples)), let .mindfulSession(samples),
       let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
       let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
-      let .respiratoryRate(samples), let .temperature(samples):
+      let .respiratoryRate(samples), let .temperature(samples), let .afibBurden(samples):
       return samples
 
     case let .bloodPressure(samples):
@@ -107,7 +108,7 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .nutrition(.water(samples)), let .mindfulSession(samples),
       let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
       let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
-      let .respiratoryRate(samples), let .temperature(samples):
+      let .respiratoryRate(samples), let .temperature(samples), let .afibBurden(samples):
       return samples.count
 
     case let .bloodPressure(samples):
@@ -149,6 +150,8 @@ public enum TimeSeriesData: Equatable, Encodable {
       return "respiratory_rate"
     case .temperature:
       return "temperature"
+    case .afibBurden:
+      return "afib_burden"
     }
   }
 }

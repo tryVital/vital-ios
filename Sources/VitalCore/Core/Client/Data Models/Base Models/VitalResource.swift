@@ -11,17 +11,22 @@ public enum VitalResource: Equatable, Hashable, Codable {
   @_spi(VitalSDKInternals)
   public var priority: Int {
     switch self {
-    case .activity, .body, .workout, .menstrualCycle, .profile:
-      return 0
-    case .sleep, .individual(.vo2Max), .vitals(.bloodOxygen), .vitals(.bloodPressure),
-        .vitals(.glucose), .vitals(.heartRateVariability),
-        .nutrition(.water), .nutrition(.caffeine),
-        .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate), .meal:
+    case .activity, .body, .profile:
       return 1
+    case .sleep, .menstrualCycle, .meal:
+      return 4
+    case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
+      return 8
+    case .electrocardiogram, .heartRateAlert, .afibBurden:
+      return 12
+    case .vitals(.bloodOxygen), .vitals(.bloodPressure),
+        .vitals(.glucose), .vitals(.heartRateVariability),
+        .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate):
+      return 16
     case .individual(.distanceWalkingRunning), .individual(.steps), .individual(.floorsClimbed):
-      return 2
+      return 32
     case .vitals(.heartRate), .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
-      return 3
+      return 64
     case .individual(.exerciseTime), .individual(.weight), .individual(.bodyFat):
       return Int.max
     }
@@ -76,6 +81,12 @@ public enum VitalResource: Equatable, Hashable, Codable {
       return .respiratoryRate
     case .meal:
       return BackfillType.meal
+    case .afibBurden:
+      return .afibBurden
+    case .electrocardiogram:
+      return .electrocardiogram
+    case .heartRateAlert:
+      return .heartRateAlert
     }
   }
 
@@ -171,7 +182,10 @@ public enum VitalResource: Equatable, Hashable, Codable {
   case individual(Individual)
   case nutrition(Nutrition)
   case meal
-  
+  case electrocardiogram
+  case heartRateAlert
+  case afibBurden
+
   public static var all: [VitalResource] = [
     .profile,
     .body,
@@ -201,6 +215,10 @@ public enum VitalResource: Equatable, Hashable, Codable {
     
     .nutrition(.water),
     .nutrition(.caffeine),
+
+    .electrocardiogram,
+    .heartRateAlert,
+    .afibBurden,
   ]
   
   public var logDescription: String {
@@ -225,6 +243,12 @@ public enum VitalResource: Equatable, Hashable, Codable {
         return individual.logDescription
       case let .nutrition(nutrition):
         return nutrition.logDescription
+    case .electrocardiogram:
+      return "electrocardiogram"
+    case .heartRateAlert:
+      return "heartRateAlert"
+    case .afibBurden:
+      return "afibBurden"
     }
   }
 }
@@ -265,4 +289,6 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable {
   public static let electrocardiogram = BackfillType(rawValue: "electrocardiogram")
   public static let temperature = BackfillType(rawValue: "temperature")
   public static let menstrualCycle = BackfillType(rawValue: "menstrual_cycle")
+  public static let heartRateAlert = BackfillType(rawValue: "heart_rate_alert")
+  public static let afibBurden = BackfillType(rawValue: "afib_burden")
 }
