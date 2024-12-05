@@ -23,6 +23,7 @@ enum VitalHealthKitClientError: Error {
 
 enum AnchoredQueryChunkSize {
   static let timeseries = 10000
+  static let electrocardiogram = 4
   static let workout = 5
   // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
   static let sleep = HKObjectQueryNoLimit
@@ -289,8 +290,8 @@ func read(
 
 
   case .electrocardiogram:
-    // VIT-7905: To be implemented
-    return (nil, [])
+    let payload = try await handleElectrocardiogram(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
+    return (.summary(.electrocardiogram(payload.electrocardiograms)), payload.anchors)
 
   case .heartRateAlert:
     let payload = try await handleHeartRateAlerts(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
