@@ -22,34 +22,36 @@ func handleElectrocardiogram(
   var electrocardiogram = [ManualElectrocardiogram]()
 
   for ecg in ecg {
-    let stream = AsyncThrowingStream<(TimeInterval, Double?), any Error> { continuation in
+    let handle = CancellableQueryHandle { continuation in
+      var offsets = [Int]()
+      var lead1 = [Double?]()
+
+      offsets.reserveCapacity(ecg.numberOfVoltageMeasurements)
+      lead1.reserveCapacity(ecg.numberOfVoltageMeasurements)
+
       let query = HKElectrocardiogramQuery(ecg) { query, result in
         switch result {
         case .done:
-          continuation.finish()
+          continuation.resume(returning: (offsets, lead1))
+
         case let .error(error):
-          continuation.finish(throwing: error)
+          continuation.resume(throwing: error)
+
         case let .measurement(measurement):
-          continuation.yield((
-            measurement.timeSinceSampleStart,
+          offsets.append(Int(measurement.timeSinceSampleStart * 1000))
+          lead1.append(
             measurement.quantity(for: .appleWatchSimilarToLeadI)?
-              .doubleValue(for: .voltUnit(with: .milli)))
+              .doubleValue(for: .voltUnit(with: .milli))
           )
         @unknown default:
           break
         }
       }
 
-      healthKitStore.execute(query)
+      return query
     }
 
-    let (offsets, lead1) = try await stream.reduce(into: ([Int](), [Double?]())) { accumulator, value in
-      let (offset, value) = value
-      // seconds -> milliseconds
-      accumulator.0.append(Int(offset * 1000))
-      // millivolt
-      accumulator.1.append(value)
-    }
+    let (offsets, lead1) = try await handle.execute(in: healthKitStore)
 
     let (classification, inconclusiveCause) = ManualElectrocardiogram.mapClassification(
       ecg.classification
