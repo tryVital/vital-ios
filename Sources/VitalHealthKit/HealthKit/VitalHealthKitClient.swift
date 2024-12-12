@@ -771,6 +771,12 @@ extension VitalHealthKitClient {
   }
 
   private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) -> Bool {
+    if storage.historicalStageDone(for: remappedResource) {
+      // Prioritization only affects historical stage.
+      // If the resource is done with historical stage, it should not be subject to prioritization.
+      return true
+    }
+
     let priority = remappedResource.wrapped.priority
     let prerequisites = VitalResource.all.filter { $0.priority < priority }
 
@@ -1140,6 +1146,7 @@ extension VitalHealthKitClient {
         checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled
         )
+        scheduleUnnotifiedResourceRescue()
       }
 
       return .success

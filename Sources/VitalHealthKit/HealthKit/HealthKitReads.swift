@@ -293,8 +293,12 @@ func read(
     return (nil, [])
 
   case .heartRateAlert:
-    // VIT-7905: To be implemented
-    return (nil, [])
+    let payload = try await handleHeartRateAlerts(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
+    return (
+      .timeSeries(.heartRateAlert(payload.samples)),
+      payload.anchors
+    )
+
 
   case .afibBurden:
     if #available(iOS 16.0, *) {
@@ -1124,7 +1128,7 @@ func handleTimeSeries(
   return (payload.sample ,anchors)
 }
 
-private func anchoredQuery<Sample: HKSample, Result, SampleUnit>(
+func anchoredQuery<Sample: HKSample, Result, SampleUnit>(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   type: HKSampleType,
