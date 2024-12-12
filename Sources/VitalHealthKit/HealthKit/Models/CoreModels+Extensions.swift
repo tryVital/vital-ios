@@ -217,6 +217,7 @@ struct QuantityUnit {
 
     if #available(iOS 16.0, *) {
       mapping[.appleSleepingWristTemperature] = .degreeCelsius
+      mapping[.atrialFibrillationBurden] = .percentage
     }
 
     mapping[.bodyMass] = .kg
@@ -289,6 +290,7 @@ struct QuantityUnit {
 
     if #available(iOS 16.0, *) {
       mapping[.appleSleepingWristTemperature] = .degreeCelsius()
+      mapping[.atrialFibrillationBurden] = .percent()
     }
 
     mapping[.bodyMass] = .gramUnit(with: .kilo)

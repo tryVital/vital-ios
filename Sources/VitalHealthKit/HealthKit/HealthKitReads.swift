@@ -287,6 +287,30 @@ func read(
 
     return (.timeSeries(.respiratoryRate(payload.samples)), payload.anchors)
 
+
+  case .electrocardiogram:
+    // VIT-7905: To be implemented
+    return (nil, [])
+
+  case .heartRateAlert:
+    // VIT-7905: To be implemented
+    return (nil, [])
+
+  case .afibBurden:
+    if #available(iOS 16.0, *) {
+      let payload = try await handleTimeSeries(
+        .atrialFibrillationBurden,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
+      )
+
+      return (.timeSeries(.afibBurden(payload.samples)), payload.anchors)
+    } else {
+      return (nil, [])
+    }
+
   case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
     throw VitalHealthKitClientError.invalidRemappedResource
   }

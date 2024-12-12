@@ -186,6 +186,15 @@ extension VitalHealthKitStore {
       HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!:
       return [.meal]
 
+    case
+      HKCategoryType.categoryType(forIdentifier: .irregularHeartRhythmEvent)!,
+      HKCategoryType.categoryType(forIdentifier: .lowHeartRateEvent)!,
+      HKCategoryType.categoryType(forIdentifier: .highHeartRateEvent)!:
+      return [.heartRateAlert]
+
+    case HKElectrocardiogramType.electrocardiogramType():
+      return [.electrocardiogram]
+
     default:
       if #available(iOS 15.0, *) {
         switch type {
@@ -208,6 +217,12 @@ extension VitalHealthKitStore {
           HKCategoryType.categoryType(forIdentifier: .irregularMenstrualCycles)!,
           HKCategoryType.categoryType(forIdentifier: .infrequentMenstrualCycles)!:
           return [.menstrualCycle]
+
+
+        case
+          HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!:
+          return [.afibBurden]
+
         default:
           break
         }
