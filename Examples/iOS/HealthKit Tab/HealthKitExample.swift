@@ -18,13 +18,6 @@ struct HealthKitExample: View {
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
 
-            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession], permissions: $permissions)
-            
-            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water], permissions: $permissions)
-
-            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine], permissions: $permissions)
-
-            
             makePermissionRow("Profile", resources: [.profile], permissions: $permissions)
             
             makePermissionRow("Body", resources: [.body], permissions: $permissions)
@@ -34,20 +27,32 @@ struct HealthKitExample: View {
             makePermissionRow("Activity", resources: [.activity], permissions: $permissions)
             
             makePermissionRow("Workout", resources: [.workout], permissions: $permissions)
-            
-            makePermissionRow("HeartRate", resources: [.vitals(.heartRate)], permissions: $permissions)
-
-            makePermissionRow("Weight", resources: [.individual(.weight)], permissions: $permissions)
-
-            makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
-
-            makePermissionRow("Meal", resources: [.meal], permissions: $permissions)
 
             makePermissionRow("Menstrual Cycle", resources: [.menstrualCycle], permissions: $permissions)
 
-            makePermissionRow("Temperature", resources: [.vitals(.temperature)], permissions: $permissions)
+            makePermissionRow("Meal", resources: [.meal], permissions: $permissions)
+
+            makePermissionRow("HeartRate", resources: [.vitals(.heartRate)], permissions: $permissions)
+
+            makePermissionRow("Electrocardiogram", resources: [.electrocardiogram], permissions: $permissions)
+
+            makePermissionRow("AFib Burden", resources: [.afibBurden], permissions: $permissions)
+
+            makePermissionRow("Heart Rate Alert", resources: [.heartRateAlert], permissions: $permissions)
 
             makePermissionRow("Respiratory Rate", resources: [.vitals(.respiratoryRate)], permissions: $permissions)
+
+            makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
+
+            makePermissionRow("Temperature", resources: [.vitals(.temperature)], permissions: $permissions)
+
+            makePermissionRow("Weight", resources: [.individual(.weight)], permissions: $permissions)
+
+            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession], permissions: $permissions)
+
+            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water], permissions: $permissions)
+
+            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine], permissions: $permissions)
 
           }
           .buttonStyle(PlainButtonStyle())
