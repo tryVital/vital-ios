@@ -1,4 +1,4 @@
-enum DataSource: String, CaseIterable {
+enum SleepDataSource: String, CaseIterable {
   case appleHealthKit = "com.apple.health"
   case oura = "com.ouraring.oura"
   case withings = "com.withings.wiScaleNG"
@@ -12,4 +12,5 @@ enum DataSource: String, CaseIterable {
   case muse = "com.interaxon.muse"
   case biostrap = "com.biostrap.Biostrap"
   case cardiomood = "com.corsanohealth.cardiomood"
+  case eightsleep = "com.eightsleep.Eight"
 }
