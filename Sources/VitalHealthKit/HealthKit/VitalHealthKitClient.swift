@@ -100,6 +100,13 @@ public enum PermissionOutcome: Equatable {
       case .foreground:
         client.scheduleDeprioritizedResourceRetries()
 
+        // Sync profile since most of the content is not observable.
+        if client.hasAskedForPermission(resource: .profile) {
+          Task(priority: .high) {
+            await client.sync(RemappedVitalResource(wrapped: .profile), [.maintenanceTask])
+          }
+        }
+
       case .terminating:
         Task(priority: .high) {
           await client.scope.cancel()
