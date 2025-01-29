@@ -15,6 +15,10 @@ struct HealthKitExample: View {
           ForEachVitalResource()
         }
 
+        Section(header: Text("Core SDK State")) {
+          CoreSDKStateView()
+        }
+
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
 
@@ -76,6 +80,10 @@ struct HealthKitExample: View {
           Task {
             try await VitalHealthKitClient.shared.write(input: .mindfulSession, startDate: Date().addingTimeInterval(-(60 * 60)), endDate: Date())
           }
+        }
+
+        Button("Show Sync Progress View") {
+          SyncProgressViewController.presentInKeyWindow()
         }
 
 
