@@ -15,6 +15,10 @@ struct HealthKitExample: View {
           ForEachVitalResource()
         }
 
+        Section(header: Text("Core SDK State")) {
+          CoreSDKStateView()
+        }
+
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
 

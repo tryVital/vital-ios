@@ -123,6 +123,36 @@ public struct ForEachVitalResource: View {
   }
 }
 
+public struct CoreSDKStateView: View {
+
+  @State var status: VitalClient.Status = []
+  @State var currentUserId: String? = nil
+
+  public init() {}
+
+  public var body: some View {
+    Group {
+      VStack(alignment: .leading) {
+        Text("Vital User ID")
+
+        Text("\(currentUserId ?? "-")")
+          .font(Font.system(.footnote, design: .monospaced))
+      }
+
+      VStack(alignment: .leading) {
+        Text("Core SDK Status")
+
+        Text("\(status.description)")
+          .font(Font.system(.footnote, design: .monospaced))
+      }
+    }
+    .onReceive(VitalClient.statusDidChange.prepend(())) {
+      self.status = VitalClient.status
+      self.currentUserId = VitalClient.currentUserId
+    }
+  }
+}
+
 private struct ResourceProgressDetailView: View {
 
   struct ItemSection: Identifiable {
