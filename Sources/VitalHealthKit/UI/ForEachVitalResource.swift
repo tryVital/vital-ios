@@ -211,6 +211,12 @@ private struct ResourceProgressDetailView: View {
 
             DisclosureGroup {
               VStack(alignment: .leading) {
+
+                if let errorDetails = sync.statuses.last?.errorDetails {
+                  Text("Cause: \(errorDetails)")
+                    .font(.footnote)
+                }
+
                 ForEach(Array(sync.statuses.reversed().enumerated()), id: \.element.id) { offset, status in
                   HStack(alignment: .firstTextBaseline) {
                     if offset == 0 {
