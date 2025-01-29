@@ -899,8 +899,10 @@ extension VitalHealthKitClient {
       }
 
     } catch let error {
-      VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(error)", source: "Sync")
-      progressStore.recordSync(syncID, .error)
+      let errorDetails = summarizeError(error)
+      progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
+      VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(errorDetails)", source: "Sync")
+
       await syncEnded(success: false)
       return
     }
@@ -1063,8 +1065,9 @@ extension VitalHealthKitClient {
           return false
 
         case let .error(error):
-          progressStore.recordSync(syncID, .error)
-          VitalLogger.healthKit.info("[\(description)] failed; error = \(error)", source: "Sync")
+          let errorDetails = summarizeError(error)
+          progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
+          VitalLogger.healthKit.info("[\(description)] failed; error = \(errorDetails)", source: "Sync")
           return false
 
         case .success:

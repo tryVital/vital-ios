@@ -249,6 +249,11 @@ private struct ResourceSystemEventView: View {
             Text(verbatim: "Count: \(event.count)")
               .foregroundColor(Color.secondary)
               .font(.subheadline)
+
+            if let errorDetails = event.errorDetails {
+              Text("Cause: \(errorDetails)")
+                .font(.footnote)
+            }
           }
           Spacer()
           VStack(alignment: .trailing) {
