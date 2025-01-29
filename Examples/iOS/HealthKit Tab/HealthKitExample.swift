@@ -82,6 +82,10 @@ struct HealthKitExample: View {
           }
         }
 
+        Button("Show Sync Progress View") {
+          SyncProgressViewController.presentInKeyWindow()
+        }
+
 
       }
       .listStyle(GroupedListStyle())
