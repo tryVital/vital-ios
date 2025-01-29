@@ -40,12 +40,14 @@ public struct SyncProgress: Codable {
     public let timestamp: Date
     public let type: EventType
     public var count: Int = 1
+    public var errorDetails: String?
 
     public var id: Date { timestamp }
 
-    public init(timestamp: Date, type: EventType) {
+    public init(timestamp: Date, type: EventType, errorDetails: String? = nil) {
       self.timestamp = timestamp
       self.type = type
+      self.errorDetails = errorDetails
     }
   }
 
@@ -91,8 +93,8 @@ public struct SyncProgress: Codable {
       self.dataCount = dataCount
     }
 
-    public mutating func append(_ status: SyncStatus, at timestamp: Date = Date()) {
-      statuses.append(Event(timestamp: timestamp, type: status))
+    public mutating func append(_ status: SyncStatus, at timestamp: Date = Date(), errorDetails: String? = nil) {
+      statuses.append(Event(timestamp: timestamp, type: status, errorDetails: errorDetails))
     }
 
     public mutating func pruneDeprioritizedStatus(afterFirst count: Int) {
@@ -186,7 +188,7 @@ final class SyncProgressStore {
     }
   }
 
-  func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus, dataCount: Int = 0) {
+  func recordSync(_ id: SyncProgress.SyncID, _ status: SyncProgress.SyncStatus, errorDetails: String? = nil, dataCount: Int = 0) {
     var augmentedTags = id.tags
     insertAppStateTags(&augmentedTags)
 
@@ -204,7 +206,7 @@ final class SyncProgressStore {
 
       if appendsToLatestSync {
         let index = $0.syncs.count - 1
-        $0.syncs[index].append(status, at: now)
+        $0.syncs[index].append(status, at: now, errorDetails: errorDetails)
         $0.syncs[index].tags.formUnion(augmentedTags)
         $0.syncs[index].dataCount += dataCount
 
