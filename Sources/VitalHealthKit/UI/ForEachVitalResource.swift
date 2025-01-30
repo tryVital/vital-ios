@@ -127,6 +127,7 @@ public struct CoreSDKStateView: View {
 
   @State var status: VitalClient.Status = []
   @State var currentUserId: String? = nil
+  @State var identifiedExternalUser: String? = nil
 
   public init() {}
 
@@ -140,15 +141,23 @@ public struct CoreSDKStateView: View {
       }
 
       VStack(alignment: .leading) {
+        Text("Identified External User")
+
+        Text("\(identifiedExternalUser ?? "-")")
+          .font(Font.system(.footnote, design: .monospaced))
+      }
+
+      VStack(alignment: .leading) {
         Text("Core SDK Status")
 
         Text("\(status.description)")
           .font(Font.system(.footnote, design: .monospaced))
       }
     }
-    .onReceive(VitalClient.statusDidChange.prepend(())) {
+    .onReceive(VitalClient.statusDidChange.receive(on: RunLoop.main).prepend(())) {
       self.status = VitalClient.status
       self.currentUserId = VitalClient.currentUserId
+      self.identifiedExternalUser = VitalClient.identifiedExternalUser
     }
   }
 }

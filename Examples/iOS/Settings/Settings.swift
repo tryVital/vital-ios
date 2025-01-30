@@ -25,7 +25,7 @@ extension Settings {
     }
   }
 
-  struct Credentials: Equatable, Codable {
+  struct Credentials: Equatable, Codable, Sendable {
     var apiKey: String = ""
     var userId: String = ""
     var authMode: AuthMode = .apiKey
@@ -33,8 +33,8 @@ extension Settings {
     var environment: VitalCore.Environment = .sandbox(.us)
   }
   
-  struct State: Equatable {
-    enum Status: Equatable {
+  struct State: Equatable, Sendable {
+    enum Status: Equatable, Sendable {
       case start
       case failed(String)
       case saved
@@ -190,12 +190,12 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
 
           case .userJWTDemo:
             let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
-            let tokenCreationResponse = try await controlPlane.createSignInToken(userId: UUID(uuidString: credentials.userId)!)
 
-            try await VitalClient.signIn(
-              withRawToken: tokenCreationResponse.signInToken,
-              configuration: configuration
-            )
+            try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
+              let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
+              let response = try await controlPlane.createSignInToken(userId: UUID(uuidString: userId)!)
+              return .signInToken(rawToken: response.signInToken)
+            }
           }
           
 
@@ -241,6 +241,19 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
         let decoded = try? JSONDecoder().decode(Settings.Credentials.self, from: data)
       {
         state.credentials = decoded
+      }
+
+      // Re-identify the user on app launch
+      if UUID(uuidString: state.credentials.userId) != nil {
+        let credentials = state.credentials
+        Task {
+          try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
+            let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
+            let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
+            let response = try await controlPlane.createSignInToken(userId: UUID(uuidString: userId)!)
+            return .signInToken(rawToken: response.signInToken)
+          }
+        }
       }
 
       // NOTE: We use automaticConfiguration(), so we need not repeatedly configure the SDK

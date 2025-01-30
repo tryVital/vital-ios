@@ -55,8 +55,8 @@ enum ConfigurationStrategy: Hashable, Codable {
   }
 }
 
-public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible {
-  public enum Region: String, Equatable, Hashable, Codable {
+public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible, Sendable {
+  public enum Region: String, Equatable, Hashable, Codable, Sendable {
     case eu
     case us
     
@@ -155,6 +155,11 @@ let user_secureStorageKey: String = "user_secureStorageKey"
 @_spi(VitalSDKInternals)
 public let health_secureStorageKey: String = "health_secureStorageKey"
 
+public enum AuthenticateRequest {
+  case apiKey(key: String, userId: String, Environment)
+  case signInToken(rawToken: String)
+}
+
 @objc public class VitalClient: NSObject {
   public static let sdkVersion = "1.3.2"
   
@@ -182,6 +187,8 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   // Get: runSignoutTasks()
   // Set: registerSignoutTask()
   private var signoutTasks: [@Sendable () async -> Void] = []
+
+  private static let identifyParkingLot = ParkingLot()
 
   public static var shared: VitalClient {
     let sharedClient = sharedNoAutoConfig
@@ -243,8 +250,99 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       fatalError("Wrong environment and/or region. Acceptable values for environment: dev, sandbox, production. Region: eu, us")
     }
 
-    configure(apiKey: apiKey, environment: environment, configuration: .init(logsEnable: isLogsEnable))
+    self.shared.setConfiguration(
+      strategy: .apiKey(apiKey, environment),
+      configuration: Configuration(),
+      apiVersion: "v2"
+    )
   }
+
+
+  /// Identify your user to the Vital Mobile SDK with an external user identifier from your system.
+  ///
+  /// This is _external_ with respect to the SDK. From your perspective, this would be your _internal_ user identifier.
+  ///
+  /// If the identified external user is not what the SDK has last seen, or has last successfully signed-in:
+  /// 1. The SDK calls your supplied `fetchSignInToken` closure.
+  /// 2. Your closure obtains a Vital Sign-In Token **from your backend service** and returns it.
+  /// 3. The SDK performs the following actions:
+  ///
+  /// | SDK Signed-In User | The supplied Sign-In Token | Outcome |
+  /// | ------ | ------ | ------ |
+  /// | User A | User B | Sign out user A, then Sign in user B |
+  /// | User A | User A | No-op |
+  /// | None | User A | Sign In user A |
+  ///
+  /// Your `fetchSignInToken` can throw CancellationError to abort the identify operation.
+  ///
+  /// You should identify at regular and signficant moments in your app user lifecycle to ensure that it stays in sync with
+  /// the Vital Mobile SDK user state. For example:
+  ///
+  /// 1. Identify your user after you signed in a new user.
+  /// 2. Identify your user again after you have reloaded user state from persistent storage (e.g. Keychain or UserDefaults) post app launch.
+  ///
+  /// You can query the current identified user through `VitalClient.identifiedExternalUser`.
+  ///
+  /// ## Notes on migrating from `signIn(withRawToken:configuration:)`
+  ///
+  /// `identifyExternalUser` does not perform any action or `signOut()` when the Sign-In Token you supplied belongs
+  /// to the already signed-in Vital User — regardless of whether the sign-in happened prior to or after the introduction of
+  /// `identifyExternalUser`.
+  ///
+  /// Because of this behaviour, you can migrate by simply replacing `signIn(...)` with `identifyExternalUser(...)`.
+  /// There is no precaution in SDK State — e.g., the Health SDK data sync state — being unintentionally reset.
+  public static func identifyExternalUser(
+    _ externalUserId: String,
+    authenticate: @Sendable (_ externalUserId: String) async throws -> AuthenticateRequest
+  ) async throws {
+
+    // Only one `identify` is allowed to run at any given time.
+    try await identifyParkingLot.semaphore.acquire()
+    defer { identifyParkingLot.semaphore.release() }
+
+    let currentExternalUserId = SDKStartupParamsStorage.live.get()?.externalUserId
+
+    VitalLogger.core.info("input=<\(externalUserId)> current=<\(currentExternalUserId ?? "nil")>", source: "Identify")
+
+    guard currentExternalUserId != externalUserId else { return }
+
+    let request = try await authenticate(externalUserId)
+
+    switch request {
+    case let .apiKey(key, userId, environment):
+      let status = self.status
+
+      if !status.contains(.configured) {
+        self.shared.setConfiguration(
+          strategy: .apiKey(key, environment),
+          configuration: Configuration(),
+          apiVersion: "v2"
+        )
+      }
+
+      if status.contains(.signedIn), currentUserId?.lowercased() != userId.lowercased() {
+        await shared.signOut()
+      }
+
+      self.shared._setUserId(UUID(uuidString: userId)!)
+
+    case let .signInToken(rawToken):
+        do {
+          try await Self._signIn(withRawToken: rawToken)
+
+        } catch VitalJWTSignInError.alreadySignedIn {
+          // Sign-out the current user, then sign-in again.
+          await shared.signOut()
+          try await Self._signIn(withRawToken: rawToken)
+        }
+    }
+
+    // Sign-in is successful; record the externalUserId.
+    try SDKStartupParamsStorage.live.set(SDKStartupParams(externalUserId: externalUserId))
+
+    shared.statusDidChange.send(())
+  }
+
 
   /// Sign-in the SDK with a User JWT — no API Key is needed.
   ///
@@ -252,7 +350,15 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   /// your user sign-ins with your backend service. This allows your backend service to keep the API Key as a private secret.
   ///
   /// The environment and region is inferred from the User JWT. You need not specify them explicitly
+  @available(*, deprecated, message:"Use `identify(_:authenticate:)`.")
   public static func signIn(
+    withRawToken token: String,
+    configuration: Configuration = .init()
+  ) async throws {
+    try await Self._signIn(withRawToken: token, configuration: configuration)
+  }
+
+  internal static func _signIn(
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws {
@@ -277,6 +383,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   /// Configure the SDK in the legacy API Key mode.
   ///
   /// API Key mode will continue to be supported. But users should plan to migrate to the User JWT mode.
+  @available(*, deprecated, message:"Use `identify(_:authenticate:)`.")
   public static func configure(
     apiKey: String,
     environment: Environment,
@@ -368,7 +475,14 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
       return nil
     }
   }
-  
+
+  /// The last identified external user that is successfully processed by `identifyExternalUser`.
+  ///
+  /// This is `nil` if you have never used `identifyExternalUser`, or if you have signed out the user explicitly.
+  public static var identifiedExternalUser: String? {
+    return SDKStartupParamsStorage.live.get()?.externalUserId
+  }
+
   @objc(automaticConfigurationWithCompletion:)
   public static func automaticConfiguration(completion: (() -> Void)? = nil) {
     defer {
@@ -593,6 +707,10 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
   }
 
   public func signOut() async {
+    VitalLogger.core.info("begin", source: "SignOut")
+    defer {
+      VitalLogger.core.info("end", source: "SignOut")
+    }
 
     // First make sure all child SDKs have done their cleanup and closed off ALL outstanding work.
     await runSignoutTasks()
@@ -600,6 +718,7 @@ public let health_secureStorageKey: String = "health_secureStorageKey"
     // Then we clear the storage and persistent user session.
     self.storage.clean()
     try? await self.jwtAuth.signOut()
+    try? SDKStartupParamsStorage.live.set(nil)
 
     self.secureStorage.clean(key: core_secureStorageKey)
     self.secureStorage.clean(key: user_secureStorageKey)
