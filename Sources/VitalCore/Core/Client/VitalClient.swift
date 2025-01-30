@@ -478,6 +478,12 @@ public enum AuthenticateRequest {
       automaticConfigurationLock.unlock()
     }
 
+    // Check again; skip automatic configuration if configured.
+    // Previous lock holder could have completed auto configuration.
+    guard client.configuration.isNil() else {
+      return
+    }
+
     @discardableResult
     func evaluateParams() -> Bool {
       if let params = Current.startupParamsStorage.get() {
