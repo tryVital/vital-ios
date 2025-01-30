@@ -1,7 +1,7 @@
 import Foundation
 
 extension VitalClient {
-  public struct ControlPlane {
+  public struct ControlPlane: Sendable {
     let client: APIClient
 
     /// Create a Vital user, given a unique user identifier in your domain.

@@ -63,17 +63,19 @@ internal actor VitalJWTAuth {
   }
 
   func signIn(with signInToken: VitalSignInToken) async throws {
-    let record = try getRecord()
+    let gist = getGist()
     let claims = try signInToken.unverifiedClaims()
 
-    if let record = record {
-      if record.pendingReauthentication {
-        // Check that we are reauthenticating the current user.
-        if claims.teamId != record.teamId || claims.userId != record.userId || claims.environment != record.environment {
-          throw VitalJWTSignInError.invalidSignInToken
+    if let gist = gist {
+      if isSameUser(claims, gist) {
+        if !gist.pendingReauthentication {
+          // No recorded need for reauthentication
+          // Early exit gracefully.
+          return
         }
+
       } else {
-        // No reauthentication request and already signed-in - Abort.
+        // Not the same user.
         throw VitalJWTSignInError.alreadySignedIn
       }
     }
@@ -603,4 +605,8 @@ internal struct VitalJWTAuthStorage {
 enum JWTAuthRecordGistKey: GistKey {
   typealias T = VitalJWTAuthRecordGist
   static var identifier: String { "vital_jwt_auth_gist" }
+}
+
+private func isSameUser(_ claims: VitalSignInTokenClaims, _ gist: VitalJWTAuthRecordGist) -> Bool {
+  return claims.teamId == gist.teamId && claims.userId == gist.userId && claims.environment == gist.environment
 }
