@@ -68,10 +68,15 @@ internal actor VitalJWTAuth {
         if !gist.pendingReauthentication {
           // No recorded need for reauthentication
           // Early exit gracefully.
+          VitalLogger.core.info("re-signing-in current user; skipping exchange", source: "VitalJWTAuth")
           return
         }
 
+        VitalLogger.core.info("re-signing-in current user; will re-exchange", source: "VitalJWTAuth")
+
       } else {
+        VitalLogger.core.info("already signed in as \(gist.userId); token belongs to \(claims.userId)", source: "VitalJWTAuth")
+
         // Not the same user.
         throw VitalJWTSignInError.alreadySignedIn
       }

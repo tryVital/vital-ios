@@ -268,11 +268,11 @@ public enum AuthenticateRequest {
     try await identifyParkingLot.semaphore.acquire()
     defer { identifyParkingLot.semaphore.release() }
 
-    let currentExternalUserId = Current.startupParamsStorage.get()?.externalUserId
+    let existingParams = Current.startupParamsStorage.get()
 
-    VitalLogger.core.info("input=<\(externalUserId)> current=<\(currentExternalUserId ?? "nil")>", source: "Identify")
+    VitalLogger.core.info("input=<\(externalUserId)> current=<\(existingParams?.externalUserId ?? "nil")>", source: "Identify")
 
-    guard currentExternalUserId != externalUserId else { return }
+    guard existingParams?.externalUserId != externalUserId else { return }
 
     let request = try await authenticate(externalUserId)
     let authStrategy: ConfigurationStrategy
@@ -293,9 +293,13 @@ public enum AuthenticateRequest {
         )
       }
 
-      if status.contains(.signedIn), let currentId = currentUserId?.lowercased(), currentId != userId.lowercased() {
-        VitalLogger.core.info("signing out current user \(currentId)", source: "Identify")
-        await shared.signOut()
+      if status.contains(.signedIn) {
+        if let existingUserId = existingParams?.userId.uuidString, existingUserId.lowercased() != userId.lowercased() {
+          VitalLogger.core.info("signing out current user \(existingUserId)", source: "Identify")
+          await shared.signOut()
+        } else {
+          VitalLogger.core.info("identified same user_id; no-op", source: "Identify")
+        }
       }
 
       resolvedUserId = UUID(uuidString: userId)!
