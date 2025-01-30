@@ -137,7 +137,6 @@ extension VitalHealthKitClient {
       ] as [String: Any?],
       "Core": [
         "Env": (vitalCoreConfiguration?.environment).map(String.init(describing:)) ?? "nil",
-        "AuthMode": vitalCoreConfiguration?.authMode.rawValue ?? "nil",
         "CurrentUserId": userId,
         "CurrentSDKStatus": String(describing: sdkStatus),
       ] as [String: Any?],

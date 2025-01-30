@@ -30,7 +30,7 @@ public struct Keychain {
   }
 }
 
-public class VitalSecureStorage {
+public class VitalSecureStorage: @unchecked Sendable {
   
   private let keychain: Keychain
   private let encoder: JSONEncoder
