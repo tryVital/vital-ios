@@ -135,8 +135,6 @@ public enum AuthenticateRequest {
 
 @objc public class VitalClient: NSObject {
   public static let sdkVersion = "1.3.2"
-  
-  private let secureStorage: VitalSecureStorage
 
   @_spi(VitalSDKInternals)
   public let configuration: ProtectedBox<VitalCoreConfiguration>
@@ -270,7 +268,7 @@ public enum AuthenticateRequest {
     try await identifyParkingLot.semaphore.acquire()
     defer { identifyParkingLot.semaphore.release() }
 
-    let currentExternalUserId = SDKStartupParamsStorage.live.get()?.externalUserId
+    let currentExternalUserId = Current.startupParamsStorage.get()?.externalUserId
 
     VitalLogger.core.info("input=<\(externalUserId)> current=<\(currentExternalUserId ?? "nil")>", source: "Identify")
 
@@ -282,6 +280,8 @@ public enum AuthenticateRequest {
 
     switch request {
     case let .apiKey(key, userId, environment):
+      VitalLogger.core.info("authenticating with API Key", source: "Identify")
+
       authStrategy = .apiKey(key, environment)
       let status = self.status
 
@@ -293,13 +293,15 @@ public enum AuthenticateRequest {
         )
       }
 
-      if status.contains(.signedIn), currentUserId?.lowercased() != userId.lowercased() {
+      if status.contains(.signedIn), let currentId = currentUserId?.lowercased(), currentId != userId.lowercased() {
+        VitalLogger.core.info("signing out current user \(currentId)", source: "Identify")
         await shared.signOut()
       }
 
       resolvedUserId = UUID(uuidString: userId)!
 
     case let .signInToken(rawToken):
+      VitalLogger.core.info("authenticating with Sign In Token", source: "Identify")
 
       let claims: VitalSignInTokenClaims
 
@@ -307,6 +309,9 @@ public enum AuthenticateRequest {
         claims = try await Self._signIn(withRawToken: rawToken)
 
       } catch VitalJWTSignInError.alreadySignedIn {
+
+        VitalLogger.core.info("signing out current user", source: "Identify")
+
         // Sign-out the current user, then sign-in again.
         await shared.signOut()
 
@@ -317,9 +322,11 @@ public enum AuthenticateRequest {
       resolvedUserId = UUID(uuidString: claims.userId)!
     }
 
-    try SDKStartupParamsStorage.live.set(
+    try Current.startupParamsStorage.set(
       SDKStartupParams(externalUserId: externalUserId, userId: resolvedUserId, authStrategy: authStrategy)
     )
+
+    VitalLogger.core.info("identified external user \(externalUserId); user_id = \(resolvedUserId))", source: "Identify")
 
     shared.statusDidChange.send(())
   }
@@ -408,7 +415,7 @@ public enum AuthenticateRequest {
       status.insert(.configured)
     }
 
-    switch SDKStartupParamsStorage.live.get()?.authStrategy {
+    switch Current.startupParamsStorage.get()?.authStrategy {
     case .apiKey?:
       status.insert(.useApiKey)
       status.insert(.signedIn)
@@ -438,14 +445,14 @@ public enum AuthenticateRequest {
   }
 
   public static var currentUserId: String? {
-    SDKStartupParamsStorage.live.get()?.userId.uuidString
+    Current.startupParamsStorage.get()?.userId.uuidString
   }
 
   /// The last identified external user that is successfully processed by `identifyExternalUser`.
   ///
   /// This is `nil` if you have never used `identifyExternalUser`, or if you have signed out the user explicitly.
   public static var identifiedExternalUser: String? {
-    SDKStartupParamsStorage.live.get()?.externalUserId
+    Current.startupParamsStorage.get()?.externalUserId
   }
 
   @objc(automaticConfigurationWithCompletion:)
@@ -469,7 +476,7 @@ public enum AuthenticateRequest {
 
     @discardableResult
     func evaluateParams() -> Bool {
-      if let params = SDKStartupParamsStorage.live.get() {
+      if let params = Current.startupParamsStorage.get() {
         client.setConfiguration(
           strategy: params.authStrategy,
           configuration: Configuration(),
@@ -542,12 +549,10 @@ public enum AuthenticateRequest {
   }
 
   init(
-    secureStorage: VitalSecureStorage = .init(keychain: .live),
     configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
     storage: VitalCoreStorage = .init(storage: .live),
     jwtAuth: VitalJWTAuth = .live
   ) {
-    self.secureStorage = secureStorage
     self.configuration = configuration
     self.storage = storage
     self.jwtAuth = jwtAuth
@@ -669,9 +674,9 @@ public enum AuthenticateRequest {
     // Then we clear the storage and persistent user session.
     self.storage.clean()
     try? await self.jwtAuth.signOut()
-    try? SDKStartupParamsStorage.live.set(nil)
+    try? Current.startupParamsStorage.set(nil)
 
-    self.secureStorage.clean(key: health_secureStorageKey)
+    Current.secureStorage.clean(key: health_secureStorageKey)
 
     self.configuration.clean()
 
@@ -679,7 +684,7 @@ public enum AuthenticateRequest {
   }
 
   internal func getUserId() async throws -> String {
-    guard let userId = SDKStartupParamsStorage.live.get()?.userId else {
+    guard let userId = Current.startupParamsStorage.get()?.userId else {
       throw VitalClient.Error.notConfigured
     }
 

@@ -179,14 +179,10 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
 
           switch state.credentials.authMode {
           case .apiKey:
-            await VitalClient.configure(
-              apiKey: state.credentials.apiKey,
-              environment: state.credentials.environment,
-              configuration: configuration
-            )
-
-            let userId = UUID(uuidString: state.credentials.userId)!
-            await VitalClient.setUserId(userId)
+            try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
+              let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
+              return .apiKey(key: credentials.apiKey, userId: userId, credentials.environment)
+            }
 
           case .userJWTDemo:
             let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
@@ -246,12 +242,22 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
       // Re-identify the user on app launch
       if UUID(uuidString: state.credentials.userId) != nil {
         let credentials = state.credentials
+
         Task {
-          try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
-            let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
-            let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
-            let response = try await controlPlane.createSignInToken(userId: UUID(uuidString: userId)!)
-            return .signInToken(rawToken: response.signInToken)
+          switch credentials.authMode {
+          case .apiKey:
+            try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
+              let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
+              return .apiKey(key: credentials.apiKey, userId: userId, credentials.environment)
+            }
+
+          case .userJWTDemo:
+            try await VitalClient.identifyExternalUser("exampleapp:\(credentials.userId)") { uniqueId in
+              let controlPlane = VitalClient.controlPlane(apiKey: credentials.apiKey, environment: credentials.environment)
+              let userId = uniqueId.replacingOccurrences(of: "exampleapp:", with: "")
+              let response = try await controlPlane.createSignInToken(userId: UUID(uuidString: userId)!)
+              return .signInToken(rawToken: response.signInToken)
+            }
           }
         }
       }

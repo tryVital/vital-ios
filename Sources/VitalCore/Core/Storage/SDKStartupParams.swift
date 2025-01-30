@@ -14,15 +14,13 @@ internal struct SDKStartupParams: Codable {
 }
 
 internal struct SDKStartupParamsStorage {
-  static let live = SDKStartupParamsStorage()
-
   init() {}
 
-  func get() -> SDKStartupParams? {
-    return VitalGistStorage.shared.get(SDKStartupParamsGistKey.self)
+  var get: () -> SDKStartupParams? = {
+    VitalGistStorage.shared.get(SDKStartupParamsGistKey.self)
   }
 
-  func set(_ newValue: SDKStartupParams?) throws {
+  var set: (_ newValue: SDKStartupParams?) throws -> Void = { newValue in
     try VitalGistStorage.shared.set(newValue, for: SDKStartupParamsGistKey.self)
   }
 }

@@ -9,16 +9,29 @@ let apiKey = UUID().uuidString
 let apiVersion = "2.0"
 let provider = Provider.Slug.strava
 
+
+
 class VitalClientTests: XCTestCase {
   let storage = VitalCoreStorage(storage: .debug)
   let secureStorage = VitalSecureStorage(keychain: .debug)
-  lazy var client = VitalClient(secureStorage: secureStorage, storage: storage)
+  lazy var client = VitalClient(storage: storage)
+
+  var startupParams: SDKStartupParams?
 
   override func setUp() async throws {
+    Current.secureStorage = secureStorage
+    Current.startupParamsStorage = SDKStartupParamsStorage()
+    Current.startupParamsStorage.get = { self.startupParams }
+    Current.startupParamsStorage.set = { self.startupParams = $0 }
+
     await VitalClient.shared.signOut()
     VitalClient.setClient(client)
   }
-  
+
+  override func tearDown() async throws {
+    Current.startupParamsStorage = SDKStartupParamsStorage()
+  }
+
   func testInitSetsSharedInstance() throws {
     XCTAssertTrue(client === VitalClient.shared)
   }
@@ -46,11 +59,10 @@ class VitalClientTests: XCTestCase {
       strategy: nil
     )
 
-    let secureStorage = VitalSecureStorage(keychain: .debug)
-    try! secureStorage.set(value: userId, key: legacyUserIdKey)
-    try! secureStorage.set(value: securePayload, key: legacyRestorationStateKey)
+    try secureStorage.set(value: userId, key: legacyUserIdKey)
+    try secureStorage.set(value: securePayload, key: legacyRestorationStateKey)
 
-    let newClient = VitalClient(secureStorage: secureStorage)
+    let newClient = VitalClient()
     VitalClient.setClient(newClient)
 
     let _: Void = await withUnsafeContinuation { continuation in
@@ -66,7 +78,7 @@ class VitalClientTests: XCTestCase {
     XCTAssertEqual(VitalClient.currentUserId, userId)
   }
 
-  func testAutomaticConfiguration_userJWTMode() async throws {
+  func testAutomaticConfiguration_ignoreRestorationStateForJWTMode() async throws {
     let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
         continuation.resume(returning: ())
@@ -90,7 +102,7 @@ class VitalClientTests: XCTestCase {
     try! secureStorage.set(value: userId, key: legacyUserIdKey)
     try! secureStorage.set(value: securePayload, key: legacyRestorationStateKey)
 
-    let newClient = VitalClient(secureStorage: secureStorage)
+    let newClient = VitalClient()
     VitalClient.setClient(newClient)
 
     let _: Void = await withUnsafeContinuation { continuation in
@@ -100,10 +112,10 @@ class VitalClientTests: XCTestCase {
     }
 
     // TEST: Auth Mode is JWT
-    XCTAssertEqual(VitalClient.status, [.configured, .signedIn, .useSignInToken])
+    XCTAssertEqual(VitalClient.status, [])
 
     // TEST: User ID equals to fake user ID
-    XCTAssertEqual(VitalClient.currentUserId, userId)
+    XCTAssertNil(VitalClient.currentUserId)
   }
 
   func testAutoConfigurationDoesNotFailWithUserIdWithoutConfiguration() async {
@@ -120,7 +132,7 @@ class VitalClientTests: XCTestCase {
     let secureStorage = VitalSecureStorage(keychain: .debug)
     try! secureStorage.set(value: userId, key: legacyUserIdKey)
 
-    let newClient = VitalClient(secureStorage: secureStorage)
+    let newClient = VitalClient()
     VitalClient.setClient(newClient)
 
     let _: Void = await withUnsafeContinuation { continuation in

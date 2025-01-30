@@ -44,7 +44,6 @@ internal actor VitalJWTAuth {
   }
 
   private let storage: VitalJWTAuthStorage
-  private let secureStorage: VitalSecureStorage
   private let session: URLSession
 
   private let parkingLot = ParkingLot()
@@ -54,11 +53,9 @@ internal actor VitalJWTAuth {
   internal nonisolated let statusDidChange = PassthroughSubject<VitalJWTAuthChangeReason, Never>()
 
   init(
-    storage: VitalJWTAuthStorage = VitalJWTAuthStorage(),
-    secureStorage: VitalSecureStorage = VitalSecureStorage(keychain: .live)
+    storage: VitalJWTAuthStorage = VitalJWTAuthStorage()
   ) {
     self.storage = storage
-    self.secureStorage = secureStorage
     self.session = URLSession(configuration: .ephemeral)
   }
 
@@ -237,7 +234,7 @@ internal actor VitalJWTAuth {
 
     do {
       // Try to backfill gist from keychain VitalJWTAuthRecord
-      let record: VitalJWTAuthRecord? = try secureStorage.get(key: Self.keychainKey)
+      let record: VitalJWTAuthRecord? = try Current.secureStorage.get(key: Self.keychainKey)
       return record?.gist
 
     } catch VitalKeychainError.interactionNotAllowed {
@@ -256,10 +253,28 @@ internal actor VitalJWTAuth {
       return record
     }
 
+    let storedGist = storage.getGist()
+
     // Backfill from keychain
     do {
-      let record: VitalJWTAuthRecord? = try secureStorage.get(key: Self.keychainKey)
-      try self.storage.setGist(record?.gist)
+      var record: VitalJWTAuthRecord? = try Current.secureStorage.get(key: Self.keychainKey)
+      var derivedGist = record?.gist
+
+      if storedGist != derivedGist {
+        // Stored Gist disagrees with Derived Gist.
+        //
+        // This is not expected to happen except when app uninstallation has cleared the gist files
+        // but not the keychain items.
+        //
+        // We erase the keychain item in this case.
+        VitalLogger.core.error("gist disagrees with keychain; app reinstalled?", source: "VitalJWTAuth")
+
+        record = nil
+        derivedGist = nil
+        Current.secureStorage.clean(key: Self.keychainKey)
+      }
+
+      try self.storage.setGist(derivedGist)
       self.cachedRecord = record
 
       return record
@@ -277,9 +292,9 @@ internal actor VitalJWTAuth {
 
   private func setRecord(_ record: VitalJWTAuthRecord?, reason: VitalJWTAuthChangeReason) throws {
     if let record = record {
-      try secureStorage.set(value: record, key: Self.keychainKey)
+      try Current.secureStorage.set(value: record, key: Self.keychainKey)
     } else {
-      secureStorage.clean(key: Self.keychainKey)
+      Current.secureStorage.clean(key: Self.keychainKey)
     }
 
     try self.storage.setGist(record?.gist)
@@ -292,7 +307,7 @@ internal actor VitalJWTAuth {
 
 /// A gist of `VitalJWTAuthRecord` without the token secrets.
 /// This is stored in the UserDefaults (instead of Keychain).
-internal struct VitalJWTAuthRecordGist: Codable {
+internal struct VitalJWTAuthRecordGist: Equatable, Codable {
   let environment: Environment
   let userId: String
   let teamId: String

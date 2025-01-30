@@ -35,7 +35,7 @@ extension VitalClient {
     // Check for JWT sign-in state.
     if let jwtGist = VitalJWTAuth.live.getGist() {
       // Signed in as JWT User.
-      try SDKStartupParamsStorage.live.set(
+      try Current.startupParamsStorage.set(
         SDKStartupParams(
           userId: UUID(uuidString: jwtGist.userId)!,
           authStrategy: .jwt(jwtGist.environment)
@@ -47,17 +47,17 @@ extension VitalClient {
     }
 
     // Check for VitalClientRestorationState
-    let secureStorage = VitalSecureStorage(keychain: .live)
+    let secureStorage = Current.secureStorage
 
     let restorationState: VitalClientRestorationState? = try secureStorage.get(key: legacyRestorationStateKey)
 
     if
       let state = restorationState,
-      case let .apiKey(apiKey, environment) = state.strategy,
+      case let .apiKey(apiKey, environment) = try state.resolveStrategy(),
       let rawUserId: String = try secureStorage.get(key: legacyUserIdKey),
       let userId = UUID(uuidString: rawUserId)
     {
-      try SDKStartupParamsStorage.live.set(
+      try Current.startupParamsStorage.set(
         SDKStartupParams(userId: userId, authStrategy: .apiKey(apiKey, environment))
       )
 
