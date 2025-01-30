@@ -1,6 +1,7 @@
 import Foundation
 import os.log
 import Combine
+import UIKit
 
 struct Credentials: Equatable, Hashable {
   let apiKey: String
@@ -12,40 +13,15 @@ public struct VitalCoreConfiguration {
   public let apiVersion: String
   let apiClient: APIClient
   public let environment: Environment
-  public let authMode: VitalClient.AuthMode
+  public let authStrategy: ConfigurationStrategy
 }
 
-struct VitalClientRestorationState: Equatable, Codable {
-  let configuration: VitalClient.Configuration
-  let apiVersion: String
-
-  // Backward compatibility with Legacy API Key mode
-  let apiKey: String?
-  let environment: Environment?
-
-  // Nullable for compatibility
-  let strategy: ConfigurationStrategy?
-
-  func resolveStrategy() throws -> ConfigurationStrategy {
-    if let strategy = strategy {
-      return strategy
-    }
-
-    if let apiKey = apiKey, let environment = environment {
-      return .apiKey(apiKey, environment)
-    }
-
-    throw DecodingError.dataCorrupted(
-      .init(codingPath: [], debugDescription: "persisted SDK configuration seems corrupted")
-    )
-  }
-}
-
-enum ConfigurationStrategy: Hashable, Codable {
+@_spi(VitalSDKInternals)
+public enum ConfigurationStrategy: Hashable, Codable {
   case apiKey(String, Environment)
   case jwt(Environment)
 
-  var environment: Environment {
+  public var environment: Environment {
     switch self {
     case let .apiKey(_, environment):
       return environment
@@ -149,9 +125,6 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible, 
   }
 }
 
-let core_secureStorageKey: String = "core_secureStorageKey"
-let user_secureStorageKey: String = "user_secureStorageKey"
-
 @_spi(VitalSDKInternals)
 public let health_secureStorageKey: String = "health_secureStorageKey"
 
@@ -175,9 +148,6 @@ public enum AuthenticateRequest {
 
   // Moments that would materially affect `VitalClient.Type.status`.
   let statusDidChange = PassthroughSubject<Void, Never>()
-
-  // @testable
-  internal let apiKeyModeUserId: ProtectedBox<UUID>
 
   private static var client: VitalClient?
   private static let clientInitLock = NSLock()
@@ -307,9 +277,12 @@ public enum AuthenticateRequest {
     guard currentExternalUserId != externalUserId else { return }
 
     let request = try await authenticate(externalUserId)
+    let authStrategy: ConfigurationStrategy
+    let resolvedUserId: UUID
 
     switch request {
     case let .apiKey(key, userId, environment):
+      authStrategy = .apiKey(key, environment)
       let status = self.status
 
       if !status.contains(.configured) {
@@ -324,21 +297,29 @@ public enum AuthenticateRequest {
         await shared.signOut()
       }
 
-      self.shared._setUserId(UUID(uuidString: userId)!)
+      resolvedUserId = UUID(uuidString: userId)!
 
     case let .signInToken(rawToken):
-        do {
-          try await Self._signIn(withRawToken: rawToken)
 
-        } catch VitalJWTSignInError.alreadySignedIn {
-          // Sign-out the current user, then sign-in again.
-          await shared.signOut()
-          try await Self._signIn(withRawToken: rawToken)
-        }
+      let claims: VitalSignInTokenClaims
+
+      do {
+        claims = try await Self._signIn(withRawToken: rawToken)
+
+      } catch VitalJWTSignInError.alreadySignedIn {
+        // Sign-out the current user, then sign-in again.
+        await shared.signOut()
+
+        claims = try await Self._signIn(withRawToken: rawToken)
+      }
+
+      authStrategy = .jwt(claims.environment)
+      resolvedUserId = UUID(uuidString: claims.userId)!
     }
 
-    // Sign-in is successful; record the externalUserId.
-    try SDKStartupParamsStorage.live.set(SDKStartupParams(externalUserId: externalUserId))
+    try SDKStartupParamsStorage.live.set(
+      SDKStartupParams(externalUserId: externalUserId, userId: resolvedUserId, authStrategy: authStrategy)
+    )
 
     shared.statusDidChange.send(())
   }
@@ -358,10 +339,11 @@ public enum AuthenticateRequest {
     try await Self._signIn(withRawToken: token, configuration: configuration)
   }
 
+  @discardableResult
   internal static func _signIn(
     withRawToken token: String,
     configuration: Configuration = .init()
-  ) async throws {
+  ) async throws -> VitalSignInTokenClaims {
 
     let signInToken = try VitalSignInToken.decode(from: token)
     let claims = try signInToken.unverifiedClaims()
@@ -376,8 +358,7 @@ public enum AuthenticateRequest {
       apiVersion: "v2"
     )
 
-    let configuration = await shared.configuration.get()
-    precondition(configuration.authMode == .userJwt)
+    return claims
   }
 
   /// Configure the SDK in the legacy API Key mode.
@@ -423,26 +404,19 @@ public enum AuthenticateRequest {
   private static func computeStatus(_ client: VitalClient) -> Status {
     var status = Status()
 
-    if let configuration = client.configuration.value {
+    if client.configuration.value != nil {
       status.insert(.configured)
+    }
 
-      switch configuration.authMode {
-      case .apiKey:
-        if self.shared.apiKeyModeUserId.value != nil {
-          status.insert(.signedIn)
-          status.insert(.useApiKey)
-        }
-
-      case .userJwt:
-        if shared.jwtAuth.currentUserId != nil {
-          status.insert(.signedIn)
-          status.insert(.useSignInToken)
-
-          if shared.jwtAuth.pendingReauthentication {
-            status.insert(.pendingReauthentication)
-          }
-        }
-      }
+    switch SDKStartupParamsStorage.live.get()?.authStrategy {
+    case .apiKey?:
+      status.insert(.useApiKey)
+      status.insert(.signedIn)
+    case .jwt?:
+      status.insert(.useSignInToken)
+      status.insert(.signedIn)
+    case nil:
+      break
     }
 
     return status
@@ -464,23 +438,14 @@ public enum AuthenticateRequest {
   }
 
   public static var currentUserId: String? {
-    if let configuration = self.shared.configuration.value {
-      switch configuration.authMode {
-      case .apiKey:
-        return self.shared.apiKeyModeUserId.value?.uuidString
-      case .userJwt:
-        return self.shared.jwtAuth.currentUserId
-      }
-    } else {
-      return nil
-    }
+    SDKStartupParamsStorage.live.get()?.userId.uuidString
   }
 
   /// The last identified external user that is successfully processed by `identifyExternalUser`.
   ///
   /// This is `nil` if you have never used `identifyExternalUser`, or if you have signed out the user explicitly.
   public static var identifiedExternalUser: String? {
-    return SDKStartupParamsStorage.live.get()?.externalUserId
+    SDKStartupParamsStorage.live.get()?.externalUserId
   }
 
   @objc(automaticConfigurationWithCompletion:)
@@ -500,40 +465,58 @@ public enum AuthenticateRequest {
 
     defer {
       automaticConfigurationLock.unlock()
-      VitalLogger.core.info("postAutoConfig: \(Self.computeStatus(client))", source: "CoreStatus")
+    }
+
+    @discardableResult
+    func evaluateParams() -> Bool {
+      if let params = SDKStartupParamsStorage.live.get() {
+        client.setConfiguration(
+          strategy: params.authStrategy,
+          configuration: Configuration(),
+          apiVersion: "v2"
+        )
+        VitalLogger.core.info("applied from startup params", source: "AutoConfig")
+        return true
+      } else {
+        return false
+      }
+    }
+
+    if evaluateParams() {
+      return
     }
 
     do {
-      /// Order is important. `configure` should happen before `setUserId`,
-      /// because the latter depends on the former. If we don't do this, the app crash.
-      if let restorationState: VitalClientRestorationState = try client.secureStorage.get(key: core_secureStorageKey) {
-        
-        let strategy = try restorationState.resolveStrategy()
+      try migrateSecretsIfNeeded()
+      evaluateParams()
 
-        /// 1) Set the configuration
-        client.setConfiguration(
-          strategy: strategy,
-          configuration: restorationState.configuration,
-          apiVersion: "v2"
-        )
+    } catch VitalKeychainError.interactionNotAllowed {
 
-        if
-          case .apiKey = strategy,
-          let userId: UUID = try client.secureStorage.get(key: user_secureStorageKey)
-        {
-          /// 2) If and only if there's a `userId`, we set it.
-          ///
-          /// Note that this is only applicable to the Legacy API Key mode.
-          /// In User JWT mode, user ID is part of the JWT claims, and VitalJWTAuth is fully responsible for its persistence.
-          client._setUserId(userId)
-        }
-      }
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(protectedDataDidBecomeAvailable),
+        name: UIApplication.protectedDataDidBecomeAvailableNotification,
+        object: nil
+      )
+
+      VitalLogger.core.info("keychain inaccessible; scheduled retry on protectedDataDidBecomeAvailable", source: "AutoConfig")
 
     } catch let error {
-      /// Bailout, there's nothing else to do here.
-      /// (But still try to log it if we have a logger around)
-      VitalLogger.core.error("Failed to perform automatic configuration: \(error)")
+      VitalLogger.core.error("unexpected: \(error)", source: "AutoConfig")
     }
+  }
+
+  @objc(protectedDataDidBecomeAvailableNotification:)
+  private static func protectedDataDidBecomeAvailable(_ notification: Notification) {
+
+    VitalLogger.core.info("protectedDataDidBecomeAvailable", source: "AutoConfig")
+    VitalClient.automaticConfiguration()
+
+    NotificationCenter.default.removeObserver(
+      self,
+      name: UIApplication.protectedDataDidBecomeAvailableNotification,
+      object: nil
+    )
   }
 
   private static func bind(_ client: VitalClient, jwtAuth: VitalJWTAuth) {
@@ -561,13 +544,11 @@ public enum AuthenticateRequest {
   init(
     secureStorage: VitalSecureStorage = .init(keychain: .live),
     configuration: ProtectedBox<VitalCoreConfiguration> = .init(),
-    userId: ProtectedBox<UUID> = .init(),
     storage: VitalCoreStorage = .init(storage: .live),
     jwtAuth: VitalJWTAuth = .live
   ) {
     self.secureStorage = secureStorage
     self.configuration = configuration
-    self.apiKeyModeUserId = userId
     self.storage = storage
     self.jwtAuth = jwtAuth
     
@@ -587,7 +568,6 @@ public enum AuthenticateRequest {
     
     VitalLogger.core.info("VitalClient setup for environment \(String(describing: strategy.environment))")
 
-    let authMode: VitalClient.AuthMode
     let authStrategy: VitalClientAuthStrategy
     let actualEnvironment: Environment
 
@@ -604,11 +584,9 @@ public enum AuthenticateRequest {
     switch strategy {
     case let .apiKey(key, _):
       authStrategy = .apiKey(key)
-      authMode = .apiKey
 
     case .jwt:
       authStrategy = .jwt(jwtAuth)
-      authMode = .userJwt
     }
 
     let apiClientDelegate = VitalClientDelegate(
@@ -618,71 +596,44 @@ public enum AuthenticateRequest {
 
     let apiClient = makeClient(environment: actualEnvironment, delegate: apiClientDelegate)
     
-    let restorationState = VitalClientRestorationState(
-      configuration: configuration,
-      apiVersion: apiVersion,
-      apiKey: nil,
-      environment: nil,
-      strategy: strategy
-    )
-    
-    do {
-      try secureStorage.set(value: restorationState, key: core_secureStorageKey)
-    }
-    catch {
-      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error)")
-    }
-    
     let coreConfiguration = VitalCoreConfiguration(
       apiVersion: apiVersion,
       apiClient: apiClient,
       environment: actualEnvironment,
-      authMode: authMode
+      authStrategy: strategy
     )
     
     self.configuration.set(value: coreConfiguration)
     statusDidChange.send(())
   }
 
-  private func _setUserId(_ newUserId: UUID) {
-
-    guard let configuration = configuration.value else {
-      /// We don't have a configuration at this point, the only realistic thing to do is tell the user to
-      fatalError("You need to call `VitalClient.configure` before setting the `userId`")
+  private static func _legacySetUserId(_ newUserId: UUID) async {
+    guard let config = shared.configuration.value else {
+      fatalError("You must first call configure(...) on the SDK before calling setUserId(_:).")
     }
 
-    guard configuration.authMode == .apiKey else {
-      VitalLogger.core.error("VitalClient.setUserId(_:) is ignored when the SDK is configured by a Vital Sign-In Token.")
-      return
+    guard case let .apiKey(apiKey, environment) = config.authStrategy else {
+      fatalError("Calling setUserId(_:) is unneessary if you are using the Sign-In Token scheme.")
     }
 
-    do {
-      if
-        let existingValue: UUID = try secureStorage.get(key: user_secureStorageKey), existingValue != newUserId {
-        self.storage.clean()
+    try? await identifyExternalUser(
+      "legacySetUserId:\(newUserId)",
+      authenticate: { _ in
+        return .apiKey(key: apiKey, userId: newUserId.uuidString, environment)
       }
-    }
-    catch {
-      VitalLogger.core.info("We weren't able to get the stored userId VitalClientRestorationState: \(error)")
-    }
-    
-    self.apiKeyModeUserId.set(value: newUserId)
-    statusDidChange.send(())
-    
-    do {
-      try secureStorage.set(value: newUserId, key: user_secureStorageKey)
-    }
-    catch {
-      VitalLogger.core.info("We weren't able to securely store VitalClientRestorationState: \(error)")
-    }
+    )
   }
 
+  @available(*, deprecated, message:"Use `identifyExternalUser(_:authenticate:)`.")
   @objc(setUserId:) public static func objc_setUserId(_ newUserId: UUID) {
-    shared._setUserId(newUserId)
+    Task(priority: .high) {
+      await _legacySetUserId(newUserId)
+    }
   }
 
+  @available(*, deprecated, message:"Use `identifyExternalUser(_:authenticate:)`.")
   @nonobjc public static func setUserId(_ newUserId: UUID) async {
-    shared._setUserId(newUserId)
+    await _legacySetUserId(newUserId)
   }
   
   public func isUserConnected(to provider: Provider.Slug) async throws -> Bool {
@@ -720,45 +671,28 @@ public enum AuthenticateRequest {
     try? await self.jwtAuth.signOut()
     try? SDKStartupParamsStorage.live.set(nil)
 
-    self.secureStorage.clean(key: core_secureStorageKey)
-    self.secureStorage.clean(key: user_secureStorageKey)
     self.secureStorage.clean(key: health_secureStorageKey)
 
-    self.apiKeyModeUserId.clean()
     self.configuration.clean()
 
     statusDidChange.send(())
   }
 
   internal func getUserId() async throws -> String {
-    /// SDK now attempts automatic configuration on singleton creation to recover API Key +
-    /// userID from keychain. (See: `VitalClient.shared`)
-    ///
-    /// So it is no longer necessary to await on the user ID and configuration.
-
-    guard let configuration = configuration.value else {
+    guard let userId = SDKStartupParamsStorage.live.get()?.userId else {
       throw VitalClient.Error.notConfigured
     }
 
-    switch configuration.authMode {
-    case .apiKey:
-      guard let userId = apiKeyModeUserId.value?.uuidString else {
-        throw VitalClient.Error.notSignedIn
-      }
-      return userId
-
-    case .userJwt:
-      // In User JWT mode, we need not wait for user ID to be set.
-      // VitalUserJWT will lazy load the authenticated user from Keychain on first access.
-      return try await jwtAuth.userContext().userId
-    }
+    return userId.uuidString
   }
 }
 
 extension VitalClient {
   @_spi(VitalTesting) public static func forceRefreshToken() async throws {
-    let configuration = await shared.configuration.get()
-    precondition(configuration.authMode == .userJwt)
+    guard Self.status.contains(.useSignInToken) else {
+      VitalLogger.core.error("trying to force refresh token w/o active JWT sign-in")
+      return
+    }
 
     try await shared.jwtAuth.refreshToken()
   }
