@@ -127,11 +127,6 @@ internal actor VitalJWTAuth {
     try setRecord(nil, reason: .signingOut)
   }
 
-  func userContext() throws -> VitalJWTAuthUserContext {
-    guard let gist = getGist() else { throw VitalJWTAuthError.notSignedIn }
-    return VitalJWTAuthUserContext(userId: gist.userId, teamId: gist.teamId)
-  }
-
   /// If the action encounters 401 Unauthorized, throw `VitalJWTAuthNeedsRefresh` to initiate
   /// the token refresh flow.
   func withAccessToken<Result>(action: (String) async throws -> Result) async throws -> Result {
@@ -235,7 +230,7 @@ internal actor VitalJWTAuth {
     }
   }
 
-  nonisolated private func getGist() -> VitalJWTAuthRecordGist? {
+  nonisolated func getGist() -> VitalJWTAuthRecordGist? {
     if let gist = storage.getGist() {
       return gist
     }
