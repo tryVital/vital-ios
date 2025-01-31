@@ -264,6 +264,9 @@ public enum AuthenticateRequest {
     authenticate: @Sendable (_ externalUserId: String) async throws -> AuthenticateRequest
   ) async throws {
 
+    // Make sure client has been setup & automaticConfiguration has been ran once
+    _ = shared
+
     // Only one `identify` is allowed to run at any given time.
     try await identifyParkingLot.semaphore.acquire()
     defer { identifyParkingLot.semaphore.release() }
@@ -310,7 +313,7 @@ public enum AuthenticateRequest {
       let claims: VitalSignInTokenClaims
 
       do {
-        claims = try await Self._signIn(withRawToken: rawToken)
+        claims = try await Self._privateSignIn(withRawToken: rawToken)
 
       } catch VitalJWTSignInError.alreadySignedIn {
 
@@ -319,7 +322,7 @@ public enum AuthenticateRequest {
         // Sign-out the current user, then sign-in again.
         await shared.signOut()
 
-        claims = try await Self._signIn(withRawToken: rawToken)
+        claims = try await Self._privateSignIn(withRawToken: rawToken)
       }
 
       authStrategy = .jwt(claims.environment)
@@ -347,11 +350,15 @@ public enum AuthenticateRequest {
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws {
-    try await Self._signIn(withRawToken: token, configuration: configuration)
+
+    // Make sure client has been setup & automaticConfiguration has been ran once
+    _ = shared
+
+    try await Self._privateSignIn(withRawToken: token, configuration: configuration)
   }
 
   @discardableResult
-  internal static func _signIn(
+  internal static func _privateSignIn(
     withRawToken token: String,
     configuration: Configuration = .init()
   ) async throws -> VitalSignInTokenClaims {
@@ -409,7 +416,10 @@ public enum AuthenticateRequest {
   }
 
   public static var status: Status {
-    computeStatus(Self.shared)
+    // Make sure client has been initialized & automaticConfiguration has been ran once
+    let client = Self.shared
+
+    return computeStatus(client)
   }
 
   private static func computeStatus(_ client: VitalClient) -> Status {
@@ -449,14 +459,20 @@ public enum AuthenticateRequest {
   }
 
   public static var currentUserId: String? {
-    Current.startupParamsStorage.get()?.userId.uuidString
+    // Make sure client has been setup & automaticConfiguration has been ran once
+    _ = shared
+
+    return Current.startupParamsStorage.get()?.userId.uuidString
   }
 
   /// The last identified external user that is successfully processed by `identifyExternalUser`.
   ///
   /// This is `nil` if you have never used `identifyExternalUser`, or if you have signed out the user explicitly.
   public static var identifiedExternalUser: String? {
-    Current.startupParamsStorage.get()?.externalUserId
+    // Make sure client has been setup & automaticConfiguration has been ran once
+    _ = shared
+
+    return Current.startupParamsStorage.get()?.externalUserId
   }
 
   @objc(automaticConfigurationWithCompletion:)
@@ -487,14 +503,17 @@ public enum AuthenticateRequest {
     @discardableResult
     func evaluateParams() -> Bool {
       if let params = Current.startupParamsStorage.get() {
+        VitalLogger.core.info("apply from startup params", source: "AutoConfig")
+
         client.setConfiguration(
           strategy: params.authStrategy,
           configuration: Configuration(),
           apiVersion: "v2"
         )
-        VitalLogger.core.info("applied from startup params", source: "AutoConfig")
         return true
       } else {
+        VitalLogger.core.info("no startup params", source: "AutoConfig")
+
         return false
       }
     }
