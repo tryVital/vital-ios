@@ -60,12 +60,12 @@ internal actor VitalJWTAuth {
   }
 
   func signIn(with signInToken: VitalSignInToken) async throws {
-    let gist = getGist()
+    let record = try getRecord()
     let claims = try signInToken.unverifiedClaims()
 
-    if let gist = gist {
-      if isSameUser(claims, gist) {
-        if !gist.pendingReauthentication {
+    if let recordGist = record?.gist {
+      if isSameUser(claims, recordGist) {
+        if !recordGist.pendingReauthentication {
           // No recorded need for reauthentication
           // Early exit gracefully.
           VitalLogger.core.info("re-signing-in current user; skipping exchange", source: "VitalJWTAuth")
@@ -75,7 +75,7 @@ internal actor VitalJWTAuth {
         VitalLogger.core.info("re-signing-in current user; will re-exchange", source: "VitalJWTAuth")
 
       } else {
-        VitalLogger.core.info("already signed in as \(gist.userId); token belongs to \(claims.userId)", source: "VitalJWTAuth")
+        VitalLogger.core.info("already signed in as \(recordGist.userId); token belongs to \(claims.userId)", source: "VitalJWTAuth")
 
         // Not the same user.
         throw VitalJWTSignInError.alreadySignedIn
@@ -233,22 +233,35 @@ internal actor VitalJWTAuth {
   }
 
   nonisolated func getGist() -> VitalJWTAuthRecordGist? {
-    if let gist = storage.getGist() {
-      return gist
-    }
+    let storedGist = storage.getGist()
 
+    // Try Keychain first
+    // If it fails, then we fallback to the gist
     do {
-      // Try to backfill gist from keychain VitalJWTAuthRecord
-      let record: VitalJWTAuthRecord? = try Current.secureStorage.get(key: Self.keychainKey)
-      return record?.gist
+      var record: VitalJWTAuthRecord? = try Current.secureStorage.get(key: Self.keychainKey)
+      var derivedGist = record?.gist
 
-    } catch VitalKeychainError.interactionNotAllowed {
-      VitalLogger.core.error("failed to backfill gist from record because keychain is inaccessible currently", source: "VitalJWTAuth")
-      return nil
+      if storedGist != derivedGist {
+        // Stored Gist disagrees with Derived Gist.
+        //
+        // This is not expected to happen except when app uninstallation has cleared the gist files
+        // but not the keychain items.
+        //
+        // We erase both the gist and the keychain item in this case.
+        VitalLogger.core.error("gist disagrees with keychain; app reinstalled? gist & keychain cleared", source: "VitalJWTAuth")
 
-    } catch let error {
-      VitalLogger.core.error("failed to backfill gist from record: \(error)", source: "VitalJWTAuth")
-      return nil
+        record = nil
+        derivedGist = nil
+        Current.secureStorage.clean(key: Self.keychainKey)
+        try? storage.setGist(nil)
+      }
+
+      return derivedGist
+
+    } catch _ {
+
+      // Failed to load from keychain. Serve the gist for the time being.
+      return storedGist
     }
   }
 
@@ -271,12 +284,13 @@ internal actor VitalJWTAuth {
         // This is not expected to happen except when app uninstallation has cleared the gist files
         // but not the keychain items.
         //
-        // We erase the keychain item in this case.
-        VitalLogger.core.error("gist disagrees with keychain; app reinstalled?", source: "VitalJWTAuth")
+        // We erase both the gist and the keychain item in this case.
+        VitalLogger.core.error("gist disagrees with keychain; app reinstalled? gist & keychain cleared", source: "VitalJWTAuth")
 
         record = nil
         derivedGist = nil
         Current.secureStorage.clean(key: Self.keychainKey)
+        try? storage.setGist(nil)
       }
 
       try self.storage.setGist(derivedGist)
@@ -308,7 +322,6 @@ internal actor VitalJWTAuth {
     statusDidChange.send(reason)
   }
 }
-
 
 /// A gist of `VitalJWTAuthRecord` without the token secrets.
 /// This is stored in the UserDefaults (instead of Keychain).
