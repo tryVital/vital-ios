@@ -41,7 +41,8 @@ struct VitalHealthKitStore {
   
   var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource], [HKObjectType], [HKSampleType]) async throws -> Void
 
-  var authorizationState: (VitalResource) -> AuthorizationState
+  var authorizationState: (VitalResource) async throws -> AuthorizationState
+  var authorizationStateSync: (VitalResource) -> AuthorizationState
 
   var writeInput: (DataInput, Date, Date) async throws -> Void
   var readResource: (RemappedVitalResource, SyncInstruction, AnchorStorage, ReadOptions) async throws -> (ProcessedResourceData?, [StoredAnchor])
@@ -234,17 +235,17 @@ extension VitalHealthKitStore {
   
   static var live: VitalHealthKitStore {
     let store = HKHealthStore()
-    
-    let authorizationState: (VitalResource) -> AuthorizationState = { resource in
+
+    let authorizationState: (VitalResource) async throws -> AuthorizationState = { resource in
       let requirements = toHealthKitTypes(resource: resource)
 
       var determined: Set<HKObjectType> = []
-      let isActive = requirements.isResourceActive {
-        switch store.authorizationStatus(for: $0) {
-        case .notDetermined:
+      let isActive = try await requirements.isResourceActive {
+        switch try await store.statusForAuthorizationRequest(toShare: [], read: [$0]) {
+        case .unknown, .shouldRequest:
           return false
 
-        case .sharingAuthorized, .sharingDenied:
+        case .unnecessary:
           determined.insert($0)
           return true
 
@@ -255,7 +256,28 @@ extension VitalHealthKitStore {
 
       return (isActive, determined)
     }
-    
+
+    let authorizationStateSync: (VitalResource) -> AuthorizationState = { resource in
+      let requirements = toHealthKitTypes(resource: resource)
+
+      var determined: Set<HKObjectType> = []
+      let isActive = requirements.isResourceActive {
+        switch store.authorizationStatus(for: $0) {
+        case .notDetermined:
+          return false
+
+        case .sharingDenied, .sharingAuthorized:
+          determined.insert($0)
+          return true
+
+        @unknown default:
+          return false
+        }
+      }
+
+      return (isActive, determined)
+    }
+
     return .init {
       HKHealthStore.isHealthDataAvailable()
     } requestReadWriteAuthorization: { readResources, writeResources, extraReadTypes, extraWriteTypes in
@@ -280,7 +302,11 @@ extension VitalHealthKitStore {
       }
       
     } authorizationState: { resource in
-      return authorizationState(resource)
+      return try await authorizationState(resource)
+
+    } authorizationStateSync: { resource in
+      return authorizationStateSync(resource)
+
     } writeInput: { (dataInput, startDate, endDate) in
       try await write(
         healthKitStore: store,
@@ -313,6 +339,8 @@ extension VitalHealthKitStore {
     } requestReadWriteAuthorization: { _, _, _, _ in
       return
     } authorizationState: { _ in
+      (true, [])
+    } authorizationStateSync: { _ in
       (true, [])
     } writeInput: { (dataInput, startDate, endDate) in
       return

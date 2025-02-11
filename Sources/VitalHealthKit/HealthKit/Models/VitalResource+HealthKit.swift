@@ -55,6 +55,25 @@ public struct HealthKitObjectTypeRequirements {
     }
   }
 
+  internal func isResourceActive(_ query: (HKObjectType) async throws -> Bool) async throws -> Bool {
+    if self.required.isEmpty {
+      for sampleType in self.optional {
+        if try await query(sampleType) {
+          return true
+        }
+      }
+      return false
+
+    } else {
+      for sampleType in self.required {
+        if !(try await query(sampleType)) {
+          return false
+        }
+      }
+      return true
+    }
+  }
+
   public var allObjectTypes: Set<HKObjectType> {
     var objectTypes = self.required
     objectTypes.formUnion(self.optional)
@@ -488,13 +507,13 @@ func observedSampleTypes() -> [[HKSampleType]] {
 
 func authorizationState(
   store: VitalHealthKitStore
-) -> (activeResources: Set<RemappedVitalResource>, determinedObjectTypes: Set<HKObjectType>) {
+) async throws -> (activeResources: Set<RemappedVitalResource>, determinedObjectTypes: Set<HKObjectType>) {
 
   var resources: Set<RemappedVitalResource> = []
   var determined: Set<HKObjectType> = []
 
   for resource in VitalResource.all {
-    let state = store.authorizationState(resource)
+    let state = try await store.authorizationState(resource)
     if state.isActive {
       resources.insert(VitalHealthKitStore.remapResource(resource))
     }
