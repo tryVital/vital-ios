@@ -7,7 +7,12 @@ import BackgroundTasks
 
 let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
 
-public enum PermissionOutcome: Equatable {
+public enum PermissionStatus: Equatable, Sendable {
+  case asked
+  case notAsked
+}
+
+public enum PermissionOutcome: Equatable, Sendable {
   case success
   case failure(String)
   case healthKitNotAvailable
@@ -101,8 +106,8 @@ public enum PermissionOutcome: Equatable {
         client.scheduleDeprioritizedResourceRetries()
 
         // Sync profile since most of the content is not observable.
-        if client.hasAskedForPermission(resource: .profile) {
-          Task(priority: .high) {
+        Task(priority: .high) {
+          if try await client.store.authorizationState(.profile).isActive {
             await client.sync(RemappedVitalResource(wrapped: .profile), [.maintenanceTask])
           }
         }
@@ -189,8 +194,11 @@ public enum PermissionOutcome: Equatable {
     if backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
 
-      checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled)
-      scheduleUnnotifiedResourceRescue()
+      Task {
+        // TODO: REVIEW
+        try await checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled)
+        scheduleUnnotifiedResourceRescue()
+      }
     }
   }
 }
@@ -247,11 +255,12 @@ public extension VitalHealthKitClient {
 }
 
 extension VitalHealthKitClient {
-  
-  private func checkBackgroundUpdates(isBackgroundEnabled: Bool) {
+
+  @MainActor
+  private func checkBackgroundUpdates(isBackgroundEnabled: Bool) async throws {
     guard isBackgroundEnabled else { return }
 
-    let state = authorizationState(store: self.store)
+    let state = try await authorizationState(store: self.store)
     let currentTask = self.backgroundDeliveryTask
 
     // Reconfigure the task only if the set of resources has changed, or we have not configured it
@@ -410,7 +419,7 @@ extension VitalHealthKitClient {
             return
           }
 
-          let state = authorizationState(store: self.store)
+          let state = try await authorizationState(store: self.store)
 
           SyncProgressStore.shared.recordSystem(state.activeResources, .backgroundProcessingTask)
 
@@ -470,7 +479,7 @@ extension VitalHealthKitClient {
       // 1 seconds after app launch or Ask
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
-      let state = authorizationState(store: self.store)
+      let state = try await authorizationState(store: self.store)
 
       let progress = SyncProgressStore.shared.get()
       let unnotifiedResources = state.activeResources.filter { resource in
@@ -632,8 +641,10 @@ extension VitalHealthKitClient {
   }
   
   public func syncData() {
-    let state = authorizationState(store: self.store)
-    syncData(for: state.activeResources.map(\.wrapped))
+    scope.task(priority: .high) {
+      let state = try await authorizationState(store: self.store)
+      self.syncData(for: state.activeResources.map(\.wrapped))
+    }
   }
 
   public func syncData(for resources: [VitalResource]) {
@@ -777,7 +788,7 @@ extension VitalHealthKitClient {
     return (instruction, state)
   }
 
-  private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) -> Bool {
+  private func prioritizeSync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) async throws -> Bool {
     if storage.historicalStageDone(for: remappedResource) {
       // Prioritization only affects historical stage.
       // If the resource is done with historical stage, it should not be subject to prioritization.
@@ -787,7 +798,7 @@ extension VitalHealthKitClient {
     let priority = remappedResource.wrapped.priority
     let prerequisites = VitalResource.all.filter { $0.priority < priority }
 
-    let state = authorizationState(store: self.store)
+    let state = try await authorizationState(store: self.store)
     let resourcesToCheck = state.activeResources
       .intersection(prerequisites.map(VitalHealthKitStore.remapResource))
 
@@ -841,7 +852,18 @@ extension VitalHealthKitClient {
 
     defer { progressStore.flush() }
 
-    guard self.prioritizeSync(remappedResource, tags) else {
+    let canProceed: Bool
+
+    do {
+      canProceed = try await self.prioritizeSync(remappedResource, tags)
+    } catch let error {
+      let errorDetails = summarizeError(error)
+      VitalLogger.healthKit.error("[\(description)] error in prioritizeSync: \(errorDetails)", source: "Sync")
+      progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
+      return
+    }
+
+    guard canProceed else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync deprioritized)", source: "Sync")
       progressStore.recordSync(syncID, .deprioritized)
       return
@@ -1138,7 +1160,7 @@ extension VitalHealthKitClient {
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource, extraReadPermissions, extraWritePermissions)
 
-      let state = authorizationState(store: store)
+      let state = try await authorizationState(store: store)
       SyncProgressStore.shared.recordAsk(state.activeResources)
       SyncProgressStore.shared.flush()
 
@@ -1153,7 +1175,7 @@ extension VitalHealthKitClient {
       if configuration.isNil() == false {
         let configuration = await configuration.get()
         
-        checkBackgroundUpdates(
+        try await checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled
         )
         scheduleUnnotifiedResourceRescue()
@@ -1165,9 +1187,26 @@ extension VitalHealthKitClient {
       return .failure(error.localizedDescription)
     }
   }
-  
+
+  @available(*, deprecated, message: "Use `permissionStatus(for:)`.")
   public func hasAskedForPermission(resource: VitalResource) -> Bool {
-    store.authorizationState(resource).isActive
+    store.authorizationStateSync(resource).isActive
+  }
+
+  public func permissionStatus(for resources: [VitalResource]) async throws -> [VitalResource: PermissionStatus] {
+    try await withThrowingTaskGroup(of: (VitalResource, PermissionStatus).self, returning: [VitalResource: PermissionStatus].self) { group in
+      for resource in resources {
+        group.addTask {
+          let state = try await self.store.authorizationState(resource)
+          return (
+            resource,
+            state.isActive ? PermissionStatus.asked : PermissionStatus.notAsked
+          )
+        }
+      }
+
+      return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
+    }
   }
 
   public static func healthKitRequirements(for resource: VitalResource) -> HealthKitObjectTypeRequirements {
@@ -1175,7 +1214,7 @@ extension VitalHealthKitClient {
   }
 
   public func dateOfLastSync(for resource: VitalResource) -> Date? {
-    guard hasAskedForPermission(resource: resource) else {
+    guard store.authorizationStateSync(resource).isActive else {
       return nil
     }
     

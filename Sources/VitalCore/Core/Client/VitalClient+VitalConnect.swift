@@ -8,7 +8,11 @@ extension VitalClient {
   public static func signInWithInviteCode(_ code: String) async throws -> InviteCodeMetadata {
     let environment = try detectEnvironment(fromCode: code)
     let credentials = try await exchangeInviteCode(code: code, environment: environment)
-    try await VitalClient.signIn(withRawToken: credentials.signInToken)
+
+    // Make sure client has been setup & automaticConfiguration has been ran once
+    _ = shared
+
+    try await VitalClient._privateSignIn(withRawToken: credentials.signInToken)
     return InviteCodeMetadata(
       team: credentials.team,
       userId: credentials.userId,
