@@ -7,12 +7,12 @@ import BackgroundTasks
 
 let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
 
-public enum PermissionStatus: Equatable {
+public enum PermissionStatus: Equatable, Sendable {
   case asked
   case notAsked
 }
 
-public enum PermissionOutcome: Equatable {
+public enum PermissionOutcome: Equatable, Sendable {
   case success
   case failure(String)
   case healthKitNotAvailable

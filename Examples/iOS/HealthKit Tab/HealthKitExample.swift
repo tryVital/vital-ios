@@ -5,7 +5,7 @@ import VitalCore
 
 
 struct HealthKitExample: View {
-  @State var permissions: [VitalResource: Bool] = [:]
+  @State var permissions: [VitalResource: PermissionStatus] = [:]
   @State var pauseSync = VitalHealthKitClient.shared.pauseSynchronization
 
   var body: some View {
@@ -90,12 +90,12 @@ struct HealthKitExample: View {
       }
       .listStyle(GroupedListStyle())
       .navigationBarTitle(Text("HealthKit"), displayMode: .large)
-      .onAppear {
-        permissions = Dictionary(
-          uniqueKeysWithValues: VitalResource.all.map {
-            ($0, VitalHealthKitClient.shared.hasAskedForPermission(resource: $0))
-          }
-        )
+      .task {
+        do {
+          self.permissions = try await VitalHealthKitClient.shared.permissionStatus(for: VitalResource.all)
+        } catch let _ {
+          
+        }
       }
       .onChange(of: self.pauseSync) { pauseSync in
         VitalHealthKitClient.shared.pauseSynchronization = pauseSync
@@ -108,7 +108,7 @@ struct HealthKitExample: View {
   _ text: String,
   resources: [VitalResource],
   writeResources: [WritableVitalResource] = [],
-  permissions: Binding<[VitalResource: Bool]>
+  permissions: Binding<[VitalResource: PermissionStatus]>
 ) -> some View {
   HStack {
     Text(text)
@@ -116,15 +116,15 @@ struct HealthKitExample: View {
     
 
     Button(
-      resources.allSatisfy({ permissions.wrappedValue[$0] == true })
-        ? "Permission requested"
-        : "Request permission"
+      resources.allSatisfy({ permissions.wrappedValue[$0] == .asked })
+        ? "Permission asked"
+        : "Ask for permission"
     ) {
       Task { @MainActor in
         await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
 
         for resource in resources {
-          permissions.wrappedValue[resource] = true
+          permissions.wrappedValue[resource] = .asked
         }
       }
     }
