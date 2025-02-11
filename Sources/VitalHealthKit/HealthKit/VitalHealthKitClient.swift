@@ -194,10 +194,10 @@ public enum PermissionOutcome: Equatable, Sendable {
     if backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
 
-      Task {
-        // TODO: REVIEW
-        try await checkBackgroundUpdates(isBackgroundEnabled: configuration.backgroundDeliveryEnabled)
-        scheduleUnnotifiedResourceRescue()
+      scope.task(priority: .high) {
+        let enabled = await self.backgroundDeliveryEnabled.get()
+        try await self.checkBackgroundUpdates(isBackgroundEnabled: enabled)
+        self.scheduleUnnotifiedResourceRescue()
       }
     }
   }
