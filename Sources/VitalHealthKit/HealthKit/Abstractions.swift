@@ -235,18 +235,29 @@ extension VitalHealthKitStore {
   
   static var live: VitalHealthKitStore {
     let store = HKHealthStore()
+    let queue = DispatchQueue(label: "io.tryvital.VitalHealth.HealthKitAuthorizationChecks", qos: .userInteractive)
 
     let authorizationState: (VitalResource) async throws -> AuthorizationState = { resource in
       let requirements = toHealthKitTypes(resource: resource)
 
       var determined: Set<HKObjectType> = []
-      let isActive = try await requirements.isResourceActive {
-        switch try await store.statusForAuthorizationRequest(toShare: [], read: [$0]) {
+      let isActive = try await requirements.isResourceActive { resource in
+        let status: HKAuthorizationRequestStatus = try await withUnsafeThrowingContinuation { continuation in
+          // It seems there is a non-zero chance that authorizationStatus and
+          // getRequestStatusForAuthorization would be stuck on older devices within HealthKit
+          // on semaphores related to XPC and entitlements checking.
+          //
+          // So avoid doing these checks on the main thread and Swift Concurrency cooperative thread pool.
+          // We fallback to good old GCD, and request userInteractive QoS for the queue.
+          checkAuthorizationStatus(for: resource, store: store, continuation: continuation, executingOn: queue)
+        }
+
+        switch status {
         case .unknown, .shouldRequest:
           return false
 
         case .unnecessary:
-          determined.insert($0)
+          determined.insert(resource)
           return true
 
         @unknown default:
@@ -720,6 +731,23 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
     }
     func resume(throwing error: any Error) {
       resume(with: .failure(error))
+    }
+  }
+}
+
+func checkAuthorizationStatus(
+  for type: HKObjectType,
+  store: HKHealthStore,
+  continuation: UnsafeContinuation<HKAuthorizationRequestStatus, any Error>,
+  executingOn queue: DispatchQueue
+) {
+  queue.async {
+    store.getRequestStatusForAuthorization(toShare: [], read: [type]) { status, error in
+      if let error = error {
+        continuation.resume(throwing: error)
+      }
+
+      continuation.resume(returning: status)
     }
   }
 }
