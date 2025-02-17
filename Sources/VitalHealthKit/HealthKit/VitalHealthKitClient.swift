@@ -67,7 +67,8 @@ public enum PermissionOutcome: Equatable, Sendable {
   private var isAutoSyncConfigured: Bool {
     backgroundDeliveryEnabled.value ?? false
   }
-  
+
+  @available(*, deprecated, message:"Use `VitalHealthKitClient.shared.syncProgressPublisher`.")
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
   }
@@ -1213,21 +1214,9 @@ extension VitalHealthKitClient {
     return toHealthKitTypes(resource: resource)
   }
 
+  @available(*, deprecated, message:"Use `VitalHealthKitClient.shared.syncProgress`.")
   public func dateOfLastSync(for resource: VitalResource) -> Date? {
-    guard store.authorizationStateSync(resource).isActive else {
-      return nil
-    }
-    
-    let requirements = toHealthKitTypes(resource: resource)
-    let dates: [Date] = requirements.allObjectTypes.map {
-      String(describing: $0.self)
-    }.compactMap { key in
-      storage.read(key: key)?.date
-    }
-    
-    /// This is not technically correct, because a resource (e.g. activity) can be made up of many types.
-    /// In this case, we pick up the most recent one.
-    return dates.sorted { $0.compare($1) == .orderedDescending }.first
+    return SyncProgressStore.shared.get().backfillTypes[resource.backfillType]?.latestSync?.end
   }
 }
 
