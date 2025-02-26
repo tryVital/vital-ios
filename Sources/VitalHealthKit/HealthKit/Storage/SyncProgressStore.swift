@@ -66,6 +66,7 @@ public struct SyncProgress: Codable {
     public var isInProgress: Bool {
       switch self {
       case .deprioritized, .started, .readChunk, .uploadedChunk, .revalidatingSyncState:
+        // NOTE: prioritizeSync() relies on `.deprioritized` being considered as in progress here
         return true
       case .completed, .noData, .cancelled, .error, .timedOut:
         return false

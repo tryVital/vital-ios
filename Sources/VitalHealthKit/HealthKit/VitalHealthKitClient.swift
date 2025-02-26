@@ -821,15 +821,19 @@ extension VitalHealthKitClient {
     // Can proceed only when all higher priority resources have finished their historical stage.
     // If resourcesToCheck is empty, this returns true, i.e., no waiting.
     return resourcesToCheck.allSatisfy { resource in
-      if let latestSync = syncProgress.backfillTypes[resource.wrapped.backfillType]?.latestSync {
-        // Not Historical Stage OR (Is Historical Stage AND Last Status is Error)
-        // The second part ensures overall forward progress if one particular resource is erroring
-        // for unforseen issues.
-        return !latestSync.tags.contains(.historicalStage) || !latestSync.lastStatus.isInProgress
-      } else {
-        // Fallback check
-        return storage.historicalStageDone(for: resource)
+      if storage.historicalStageDone(for: resource) {
+        return true
       }
+
+      if let latestSync = syncProgress.backfillTypes[resource.wrapped.backfillType]?.latestSync {
+        // IF historical stage not done, but last status is not in progress (incl. deprioritized)
+        // We will let it through.
+        // This ensures overall forward progress if one particular resource is erroring or stuck
+        // for unforseen issues.
+        return !latestSync.lastStatus.isInProgress
+      }
+
+      return false
     }
   }
 
