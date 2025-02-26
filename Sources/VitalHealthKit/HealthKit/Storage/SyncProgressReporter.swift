@@ -4,7 +4,7 @@ import UIKit
 
 final class SyncProgressReporter: @unchecked Sendable {
   
-  private var active: Int = 0
+  private var active: Set<SyncProgress.SyncID> = []
   private let lock = NSLock()
 
   static let shared = SyncProgressReporter()
@@ -13,19 +13,23 @@ final class SyncProgressReporter: @unchecked Sendable {
 
   init() {}
 
-  func syncBegin() {
-    lock.withLock { active += 1 }
+  func syncBegin(_ id: SyncProgress.SyncID) {
+    lock.withLock { _ = active.insert(id) }
   }
 
-  func syncEnded() async {
+  func syncEnded(_ id: SyncProgress.SyncID) async {
     let updatedCount = lock.withLock {
-      active -= 1
-      return active
+      _ = active.remove(id)
+      return active.count
     }
 
     if updatedCount == 0 {
       try? await reportIfNeeded(force: false)
     }
+  }
+
+  func syncingResources() -> Set<VitalResource> {
+    return Set(lock.withLock { active }.map { $0.resource })
   }
 
   func report() async throws {

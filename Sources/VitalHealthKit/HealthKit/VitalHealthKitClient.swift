@@ -482,7 +482,9 @@ extension VitalHealthKitClient {
 
       let state = try await authorizationState(store: self.store)
 
+      let knownSyncingResources = SyncProgressReporter.shared.syncingResources()
       let progress = SyncProgressStore.shared.get()
+
       let unnotifiedResources = state.activeResources.filter { resource in
         guard let resourceProgress = progress.backfillTypes[resource.wrapped.backfillType] else {
           // Doesn't even show up in `SyncProgress.resources`
@@ -490,9 +492,20 @@ extension VitalHealthKitClient {
         }
         // OR has no sync attempt
         // OR has errored
-        let lastStatus = resourceProgress.latestSync?.lastStatus
+        guard let lastStatus = resourceProgress.latestSync?.lastStatus else {
+          return true
+        }
 
-        return lastStatus == nil || lastStatus == .error || lastStatus == .cancelled
+        if lastStatus.isInProgress {
+          // The persisted SyncProgress could say in progress. But the resource sync might not be
+          // actually active in the current process. e.g. the process was terminated or crashed
+          // while the sync was progressing.
+          //
+          // Cross-check with the in-process syncing resource set from SyncProgressReporter.
+          return !knownSyncingResources.contains(resource.wrapped)
+        }
+
+        return lastStatus == .error || lastStatus == .cancelled
         || lastStatus == .timedOut || lastStatus == .started || lastStatus == .deprioritized
       }
 
@@ -890,7 +903,7 @@ extension VitalHealthKitClient {
     }
 
     progressStore.recordSync(syncID, .started)
-    progressReporter.syncBegin()
+    progressReporter.syncBegin(syncID)
 
     // If we receive this payload in foreground, wrap the sync work in
     // a UIKit background task, in case the user will move the app to background soon.
@@ -915,7 +928,7 @@ extension VitalHealthKitClient {
         scheduleDeprioritizedResourceRetries()
       }
 
-      await progressReporter.syncEnded()
+      await progressReporter.syncEnded(syncID)
 
       if let osBackgroundTask = osBackgroundTask {
         osBackgroundTask.endIfNeeded()
