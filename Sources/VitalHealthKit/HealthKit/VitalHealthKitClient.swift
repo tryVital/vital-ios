@@ -192,7 +192,7 @@ public enum PermissionOutcome: Equatable, Sendable {
     
     self.configuration.set(value: configuration)
     
-    if backgroundDeliveryEnabled.value != true {
+    if configuration.backgroundDeliveryEnabled && backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
 
       scope.task(priority: .high) {

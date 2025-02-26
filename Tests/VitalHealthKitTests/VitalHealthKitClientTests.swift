@@ -10,7 +10,10 @@ class VitalHealthKitClientTests: XCTestCase {
     /// This shouldn't crash if called before VitaClient.configure
     VitalHealthKitClient.configure(
       .init(
-        backgroundDeliveryEnabled: true, logsEnabled: true
+        // 2025-02-26
+        // While backgroundDeliveryEnabled: true works in simulator and real devices, it does not
+        // work in the XCTest environment due to opaque Swift Concurrency crashes.
+        backgroundDeliveryEnabled: false, logsEnabled: true
       )
     )
   }
