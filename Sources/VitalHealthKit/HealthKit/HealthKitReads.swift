@@ -917,8 +917,13 @@ func handleActivity(
   let proposedUpperBound = deviceTimeZoneCalendar.floatingDate(
     of: instruction.query.upperBound
   )
-  let lastSynced = GregorianCalendar.utc.floatingDate(
-    of: vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
+
+  // lastSynced cannot exceed the proposedUpperBound (typically today)
+  let lastSynced = min(
+    GregorianCalendar.utc.floatingDate(
+      of: vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
+    ),
+    proposedUpperBound
   )
 
   // The query bound this iteration would work on:

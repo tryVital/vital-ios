@@ -501,9 +501,6 @@ struct StatisticsQueryDependencies {
           switch (error as? HKError)?.code {
           case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
             continuation.resume(returning: [])
-          case .errorInvalidArgument:
-            // Unable to invalidate interval: no data source available.
-            continuation.resume(returning: [])
           case .errorUserCanceled:
             continuation.resume(throwing: CancellationError())
           default:
