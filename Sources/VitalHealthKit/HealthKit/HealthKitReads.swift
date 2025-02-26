@@ -917,7 +917,7 @@ func handleActivity(
   let proposedUpperBound = deviceTimeZoneCalendar.floatingDate(
     of: instruction.query.upperBound
   )
-  let lastSynced = deviceTimeZoneCalendar.floatingDate(
+  let lastSynced = GregorianCalendar.utc.floatingDate(
     of: vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
   )
 
@@ -973,7 +973,15 @@ func handleActivity(
   // `date` saves the exclusive upper bound of this iteration, a la the inclusive lower bound of
   // the next iteration.
   let nextLowerBound = deviceTimeZoneCalendar.offset(workingUpperBound, byDays: 1)
-  let anchors = [StoredAnchor(key: "activityDaySummary", anchor: nil, date: deviceTimeZoneCalendar.startOfDay(nextLowerBound), vitalAnchors: nil, hasMore: hasMore)]
+  let anchors = [
+    StoredAnchor(
+      key: "activityDaySummary",
+      anchor: nil,
+      date: GregorianCalendar.utc.startOfDay(nextLowerBound),
+      vitalAnchors: nil,
+      hasMore: hasMore
+    )
+  ]
 
   return (patch, anchors: anchors)
 }
