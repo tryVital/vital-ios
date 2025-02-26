@@ -909,35 +909,71 @@ func handleActivity(
   let deviceTimeZoneCalendar = GregorianCalendar(timeZone: .current)
 
   let daySummaries: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]
-  let lowerBound: Date
 
-  let lastSynced = vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
+  // The daily/historical stage query bound in full
+  let proposedLowerBound = deviceTimeZoneCalendar.floatingDate(
+    of: instruction.query.lowerBound
+  )
+  let proposedUpperBound = deviceTimeZoneCalendar.floatingDate(
+    of: instruction.query.upperBound
+  )
+  let lastSynced = deviceTimeZoneCalendar.floatingDate(
+    of: vitalStorage.read(key: "activityDaySummary")?.date ?? .distantPast
+  )
+
+  // The query bound this iteration would work on:
+  // - inclusive lower bound
+  let workingLowerBound: GregorianCalendar.FloatingDate
+  // - inclusive upper bound
+  let workingUpperBound: GregorianCalendar.FloatingDate
+  let hasMore: Bool
 
   switch instruction.stage {
   case .daily:
     // minimum of lastSynced or (upperBound - lookback),
     // but should not be earlier than lowerBound
-    lowerBound = max(
+    workingLowerBound = max(
       min(
         lastSynced,
-        Date.dateAgo(instruction.query.upperBound, days: activityStatsDaysToLookback)
+        deviceTimeZoneCalendar.offset(proposedUpperBound, byDays: -activityStatsDaysToLookback)
       ),
-      instruction.query.lowerBound
+      proposedLowerBound
     )
+    workingUpperBound = proposedUpperBound
+    hasMore = false
 
   case .historical:
-    lowerBound = instruction.query.lowerBound
+    // instruction.query.lowerBound is frozen wrt LocalSyncState.historicalStageAnchor
+    // instruction.query.upperBound however can change across iterations wrt `Date.now()`.
+    workingLowerBound = max(
+      lastSynced,
+      proposedLowerBound
+    )
+    workingUpperBound = min(
+      deviceTimeZoneCalendar.offset(workingLowerBound, byDays: 30),
+      proposedUpperBound
+    )
+
+    // If workingUpperBound reaches proposedUpperBound, this iteration is the last 30-day period.
+    hasMore = workingUpperBound < proposedUpperBound
   }
 
   daySummaries = try await queryActivityDaySummaries(
     dependencies: dependencies,
-    startTime: lowerBound,
-    endTime: instruction.query.upperBound,
+    start: workingLowerBound,
+    end: workingUpperBound,
     in: deviceTimeZoneCalendar
   )
 
   let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: ActivityPatch.Activity(), in: deviceTimeZoneCalendar)
-  let anchors = [StoredAnchor(key: "activityDaySummary", anchor: nil, date: instruction.query.upperBound, vitalAnchors: nil, hasMore: false)]
+
+  // [ Daily stage ]
+  // `date` has no meaning.
+  // [ Historical stage ]
+  // `date` saves the exclusive upper bound of this iteration, a la the inclusive lower bound of
+  // the next iteration.
+  let nextLowerBound = deviceTimeZoneCalendar.offset(workingUpperBound, byDays: 1)
+  let anchors = [StoredAnchor(key: "activityDaySummary", anchor: nil, date: deviceTimeZoneCalendar.startOfDay(nextLowerBound), vitalAnchors: nil, hasMore: hasMore)]
 
   return (patch, anchors: anchors)
 }
@@ -1545,16 +1581,15 @@ private func populateAnchorsForStatisticalQuery(
 /// time zones pretty easily and consistently.
 func queryActivityDaySummaries(
   dependencies: StatisticsQueryDependencies,
-  startTime: Date,
-  endTime: Date,
+  start: GregorianCalendar.FloatingDate,
+  end: GregorianCalendar.FloatingDate,
   in calendar: GregorianCalendar
 ) async throws -> [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary] {
   // System wall time can go backwards. Cap the start time just in case.
-  let datesToCompute = calendar.floatingDate(of: min(startTime, endTime))
-    ... calendar.floatingDate(of: endTime)
+  let datesToCompute = start ... end
   let queryInterval = calendar.timeRange(of: datesToCompute)
 
-  VitalLogger.healthKit.info("lastComputed = \(startTime) now = \(endTime)", source: "DaySummary")
+  VitalLogger.healthKit.info("lastComputed = \(start) now = \(end)", source: "DaySummary")
   VitalLogger.healthKit.info("recomputing \(queryInterval.lowerBound) ..< \(queryInterval.upperBound)", source: "DaySummary")
 
   async let _activeEnergyBurnedSum = dependencies.executeStatisticalQuery(

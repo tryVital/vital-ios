@@ -107,7 +107,7 @@ public struct SyncProgress: Codable {
     }
   }
 
-  public struct SyncID {
+  public struct SyncID: Hashable {
     public let resource: VitalResource
     public let start: Date
     public var tags: Set<SyncContextTag>
