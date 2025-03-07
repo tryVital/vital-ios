@@ -10,22 +10,22 @@ class VitalHealthKitClientTests: XCTestCase {
     /// This shouldn't crash if called before VitaClient.configure
     VitalHealthKitClient.configure(
       .init(
-        // 2025-02-26
-        // While backgroundDeliveryEnabled: true works in simulator and real devices, it does not
-        // work in the XCTest environment due to opaque Swift Concurrency crashes.
-        backgroundDeliveryEnabled: false, logsEnabled: true
+        backgroundDeliveryEnabled: true, logsEnabled: true
       )
     )
   }
-  
-  func testAskingForPermissionsContinuesWithoutAuthentication() async {
-    
+
+  func testAskingForPermissionsContinuesWithoutAuthentication() async throws {
+
     await VitalClient.shared.signOut()
     let value = VitalHealthKitClient(store: .debug)
-    
+
     _ = value.hasAskedForPermission(resource: .body)
+    let status = try await value.permissionStatus(for: [.body])
+    XCTAssertTrue(status.keys.contains(.body))
+
     let permission = await value.ask(readPermissions: [.body], writePermissions: [])
-    
+
     XCTAssertEqual(permission, PermissionOutcome.success)
   }
 }

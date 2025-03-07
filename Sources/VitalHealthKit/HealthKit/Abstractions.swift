@@ -242,7 +242,7 @@ extension VitalHealthKitStore {
 
       var determined: Set<HKObjectType> = []
       let isActive = try await requirements.isResourceActive { resource in
-        let status: HKAuthorizationRequestStatus = try await withUnsafeThrowingContinuation { continuation in
+        let status: HKAuthorizationStatus = try await withUnsafeThrowingContinuation { continuation in
           // It seems there is a non-zero chance that authorizationStatus and
           // getRequestStatusForAuthorization would be stuck on older devices within HealthKit
           // on semaphores related to XPC and entitlements checking.
@@ -253,10 +253,10 @@ extension VitalHealthKitStore {
         }
 
         switch status {
-        case .unknown, .shouldRequest:
+        case .notDetermined:
           return false
 
-        case .unnecessary:
+        case .sharingDenied, .sharingAuthorized:
           determined.insert(resource)
           return true
 
@@ -738,16 +738,11 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
 func checkAuthorizationStatus(
   for type: HKObjectType,
   store: HKHealthStore,
-  continuation: UnsafeContinuation<HKAuthorizationRequestStatus, any Error>,
+  continuation: UnsafeContinuation<HKAuthorizationStatus, any Error>,
   executingOn queue: DispatchQueue
 ) {
   queue.async {
-    store.getRequestStatusForAuthorization(toShare: [], read: [type]) { status, error in
-      if let error = error {
-        continuation.resume(throwing: error)
-      }
-
-      continuation.resume(returning: status)
-    }
+    let status = store.authorizationStatus(for: type)
+    continuation.resume(returning: status)
   }
 }
