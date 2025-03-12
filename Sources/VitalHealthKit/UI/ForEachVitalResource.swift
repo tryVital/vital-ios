@@ -327,12 +327,16 @@ private func icon(for status: SyncProgress.SyncStatus) -> some View {
       .accessibilityLabel(Text("Deprioritized"))
   case .cancelled:
     Image(systemName: "minus.square")
-      .foregroundColor(Color.yellow)
+      .foregroundColor(Color.gray)
       .accessibilityLabel(Text("Cancelled"))
   case .timedOut:
     Image(systemName: "minus.square")
-      .foregroundColor(Color.yellow)
+      .foregroundColor(Color.gray)
       .accessibilityLabel(Text("Timed Out"))
+  case .expectedError:
+    Image(systemName: "minus.square")
+      .foregroundColor(Color.gray)
+      .accessibilityLabel(Text("Expected Error"))
   case .error:
     Image(systemName: "exclamationmark.triangle.fill")
       .foregroundColor(Color.yellow)

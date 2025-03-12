@@ -887,9 +887,7 @@ extension VitalHealthKitClient {
     do {
       canProceed = try await self.prioritizeSync(remappedResource, tags)
     } catch let error {
-      let errorDetails = summarizeError(error)
-      VitalLogger.healthKit.error("[\(description)] error in prioritizeSync: \(errorDetails)", source: "Sync")
-      progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
+      progressStore.recordError(syncID, error, context: "prioritizeSync")
       return
     }
 
@@ -951,10 +949,7 @@ extension VitalHealthKitClient {
       }
 
     } catch let error {
-      let errorDetails = summarizeError(error)
-      progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
-      VitalLogger.healthKit.info("[\(description)] failed to compute sync instruction; error = \(errorDetails)", source: "Sync")
-
+      progressStore.recordError(syncID, error, context: "[\(description)] sync instruction")
       await syncEnded(success: false)
       return
     }
@@ -1117,9 +1112,7 @@ extension VitalHealthKitClient {
           return false
 
         case let .error(error):
-          let errorDetails = summarizeError(error)
-          progressStore.recordSync(syncID, .error, errorDetails: errorDetails)
-          VitalLogger.healthKit.info("[\(description)] failed; error = \(errorDetails)", source: "Sync")
+          progressStore.recordError(syncID, error, context: "ReadAndUpload")
           return false
 
         case .success:
@@ -1368,5 +1361,45 @@ private func healthkitCalloutEventType(_ state: AppState.Status) -> SyncProgress
     return .healthKitCalloutAppLaunching
   case .terminating:
     return .healthKitCalloutAppTerminating
+  }
+}
+
+extension SyncProgressStore {
+  fileprivate func recordError(
+    _ syncID: SyncProgress.SyncID,
+    _ error: any Error,
+    context: String
+  ) {
+    let errorSummary = "\(context) \(summarizeError(error))"
+
+    var status = SyncProgress.SyncStatus.error
+
+    if let error = error as? HKError {
+      if error.code == .errorDatabaseInaccessible {
+        // Device is locked. Sync fails expectedly.
+        status = .expectedError
+      }
+
+    } else if let error = error as? VitalKeychainError {
+      if case .interactionNotAllowed = error {
+        // Device is locked. Sync fails expectedly.
+        status = .expectedError
+      }
+
+    } else if let error = error as? VitalHealthKitClientError {
+      if case .connectionPaused = error {
+        // Connection is paused. Sync fails expectedly.
+        status = .expectedError
+      }
+
+    } else if let error = error as? VitalClient.Error {
+      if case .notConfigured = error {
+        // SDK is not configured or is being reset due to sign-out. Sync fails expectedly.
+        status = .expectedError
+      }
+    }
+
+    recordSync(syncID, status, errorDetails: errorSummary)
+    VitalLogger.healthKit.error("\(status) \(errorSummary)", source: "Sync")
   }
 }
