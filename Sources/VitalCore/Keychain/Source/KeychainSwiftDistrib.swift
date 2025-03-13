@@ -16,7 +16,7 @@
 import Security
 import Foundation
 
-enum VitalKeychainError: Error {
+public enum VitalKeychainError: Error {
   case interactionNotAllowed
   case otherError(OSStatus)
 }

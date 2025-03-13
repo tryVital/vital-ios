@@ -63,12 +63,16 @@ public struct SyncProgress: Codable {
     case revalidatingSyncState = 8
     case timedOut = 9
 
+    /// Error that is expected to happen occasionally.
+    /// e.g. errors around data protection
+    case expectedError = 10
+
     public var isInProgress: Bool {
       switch self {
       case .deprioritized, .started, .readChunk, .uploadedChunk, .revalidatingSyncState:
         // NOTE: prioritizeSync() relies on `.deprioritized` being considered as in progress here
         return true
-      case .completed, .noData, .cancelled, .error, .timedOut:
+      case .completed, .noData, .cancelled, .error, .timedOut, .expectedError:
         return false
       }
     }
