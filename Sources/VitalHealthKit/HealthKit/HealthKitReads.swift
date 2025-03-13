@@ -1260,35 +1260,21 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
       VitalLogger.healthKit.info("anchor[out]: \((newAnchor?.description ?? "nil").dropFirst(16).prefix(16))", source: shortID)
 
       if let error = error {
-        if let error = error as? HKError {
-          switch error.code {
-          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
+        handleHealthKitError(
+          error: error,
+          noDataRepresentation: {
             let storedAnchor = StoredAnchor(
               key: String(describing: type),
               anchor: newAnchor,
               date: Date(),
               vitalAnchors: nil
             )
-
-            VitalLogger.healthKit.info("no data or no permission", source: shortID)
-            continuation.resume(with: .success(([], storedAnchor)))
-            return
-
-          case .errorUserCanceled:
-            VitalLogger.healthKit.info("cancelled", source: shortID)
-            continuation.resume(throwing: CancellationError())
-            return
-
-          default:
-            VitalLogger.healthKit.info("HealthKit error = \(error.code)", source: shortID)
-            continuation.resume(with: .failure(error))
-            return
-          }
-        } else {
-          VitalLogger.healthKit.info("error = \(error)", source: shortID)
-          continuation.resume(with: .failure(error))
-          return
-        }
+            return ([], storedAnchor)
+          },
+          continuation: continuation,
+          source: shortID
+        )
+        return
       }
 
       let samples = samples ?? []
@@ -1386,28 +1372,8 @@ func queryMulti(
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
 
       if let error = error {
-        if let error = error as? HKError {
-          switch error.code {
-          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
-            VitalLogger.healthKit.info("no data or no permission. \(error)", source: "QueryMulti")
-            continuation.resume(with: .success([:]))
-            return
-
-          case .errorUserCanceled:
-            VitalLogger.healthKit.info("cancelled", source: "QueryMulti")
-            continuation.resume(throwing: CancellationError())
-            return
-
-          default:
-            VitalLogger.healthKit.info("error[\(error.code)] = \(error)", source: "QueryMulti")
-            continuation.resume(with: .failure(error))
-            return
-          }
-        } else {
-          VitalLogger.healthKit.info("error = \(error)", source: "QueryMulti")
-          continuation.resume(with: .failure(error))
-          return
-        }
+        handleHealthKitError(error: error, noDataRepresentation: { [:] }, continuation: continuation, source: "queryMulti,\(shortIDs)")
+        return
       }
 
       let samples = Dictionary.init(grouping: samples ?? [], by: \.sampleType)
@@ -1453,28 +1419,8 @@ private func querySingle(
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
 
       if let error = error {
-        if let error = error as? HKError {
-          switch error.code {
-          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
-            VitalLogger.healthKit.info("no data or no permission for \(shortID)", source: "QuerySingle")
-            continuation.resume(with: .success([]))
-            return
-
-          case .errorUserCanceled:
-            VitalLogger.healthKit.info("cancelled", source: "QuerySingle")
-            continuation.resume(throwing: CancellationError())
-            return
-
-          default:
-            VitalLogger.healthKit.info("\(shortID) error = \(error.code)", source: "QuerySingle")
-            continuation.resume(with: .failure(error))
-            return
-          }
-        } else {
-          VitalLogger.healthKit.info("\(shortID) error = \(error)", source: "QuerySingle")
-          continuation.resume(with: .failure(error))
-          return
-        }
+        handleHealthKitError(error: error, noDataRepresentation: { [] }, continuation: continuation, source: "querySingle,\(shortID)")
+        return
       }
 
       continuation.resume(with: .success(samples ?? []))
@@ -1731,28 +1677,8 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
     let handler: SampleQueryHandler = { (query, samples, error) in
 
       if let error = error {
-        if let error = error as? HKError {
-          switch error.code {
-          case .errorAuthorizationNotDetermined, .errorAuthorizationDenied, .errorNoData:
-            VitalLogger.healthKit.info("no data or no permission for \(shortID)", source: shortID)
-            continuation.resume(with: .success([]))
-            return
-
-          case .errorUserCanceled:
-            VitalLogger.healthKit.info("cancelled", source: shortID)
-            continuation.resume(throwing: CancellationError())
-            return
-
-          default:
-            VitalLogger.healthKit.info("\(shortID) error = \(error.code)", source: shortID)
-            continuation.resume(with: .failure(error))
-            return
-          }
-        } else {
-          VitalLogger.healthKit.info("\(shortID) error = \(error)", source: shortID)
-          continuation.resume(with: .failure(error))
-          return
-        }
+        handleHealthKitError(error: error, noDataRepresentation: { [] }, continuation: continuation, source: shortID)
+        return
       }
 
       let samples = samples ?? []

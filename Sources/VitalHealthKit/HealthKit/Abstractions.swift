@@ -498,14 +498,12 @@ struct StatisticsQueryDependencies {
             return
           }
 
-          switch (error as? HKError)?.code {
-          case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
-            continuation.resume(returning: [])
-          case .errorUserCanceled:
-            continuation.resume(throwing: CancellationError())
-          default:
-            continuation.resume(throwing: error)
-          }
+          handleHealthKitError(
+            error: error,
+            noDataRepresentation: { [] },
+            continuation: continuation,
+            source: "statsMulti,\(shortID)"
+          )
 
           return
         }
@@ -594,14 +592,12 @@ struct StatisticsQueryDependencies {
               return
             }
 
-            switch (error as? HKError)?.code {
-            case .errorNoData, .errorAuthorizationDenied, .errorAuthorizationNotDetermined:
-              continuation.resume(with: .success(nil))
-            case .errorUserCanceled:
-              continuation.resume(throwing: CancellationError())
-            default:
-              continuation.resume(with: .failure(error))
-            }
+            handleHealthKitError(
+              error: error,
+              noDataRepresentation: { nil },
+              continuation: continuation,
+              source: "statsSingle,\(shortID)"
+            )
 
             return
           }
@@ -744,5 +740,36 @@ func checkAuthorizationStatus(
   queue.async {
     let status = store.authorizationStatus(for: type)
     continuation.resume(returning: status)
+  }
+}
+
+func handleHealthKitError<T>(
+  error: any Error,
+  noDataRepresentation: () -> T,
+  continuation: CancellableQueryHandle<T>.Continuation,
+  source: String,
+  file: String = #fileID,
+  function: String = #function,
+  line: UInt = #line
+) {
+  let code = (error as? HKError)?.code
+
+  switch code {
+  case .errorNoData, .errorAuthorizationNotDetermined, .errorAuthorizationDenied:
+    continuation.resume(returning: noDataRepresentation())
+    VitalLogger.healthKit.info("no data or no authorization [\(code!.rawValue)]", source: source, file: file, function: function, line: line)
+
+  case .errorInvalidArgument where error.localizedDescription.contains("no data source available"):
+    // Treat this as no data
+    continuation.resume(returning: noDataRepresentation())
+    VitalLogger.healthKit.info("no data source [\(code!.rawValue)]", source: source, file: file, function: function, line: line)
+
+  case .errorUserCanceled:
+    continuation.resume(throwing: CancellationError())
+    VitalLogger.healthKit.info("cancelled", source: source, file: file, function: function, line: line)
+
+  default:
+    continuation.resume(throwing: error)
+    VitalLogger.healthKit.info("error: \(summarizeError(error))", source: source, file: file, function: function, line: line)
   }
 }
