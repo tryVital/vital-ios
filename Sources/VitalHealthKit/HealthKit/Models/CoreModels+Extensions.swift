@@ -220,6 +220,28 @@ struct QuantityUnit {
       mapping[.atrialFibrillationBurden] = .percentage
     }
 
+    if #available(iOS 17.0, *) {
+      mapping[.timeInDaylight] = .minute
+    }
+
+    if #available(iOS 18.0, *) {
+      mapping[.appleSleepingBreathingDisturbances] = .count
+    }
+
+    mapping[.appleStandTime] = .minute
+    mapping[.swimmingStrokeCount] = .count
+    mapping[.pushCount] = .count
+    mapping[.forcedExpiratoryVolume1] = .L
+    mapping[.forcedVitalCapacity] = .L
+    mapping[.peakExpiratoryFlowRate] = .flowRate
+    mapping[.inhalerUsage] = .count
+    mapping[.numberOfTimesFallen] = .count
+    mapping[.uvExposure] = .count
+    mapping[.basalBodyTemperature] = .degreeCelsius
+    mapping[.distanceWheelchair] = .m
+    mapping[.distanceCycling] = .m
+    mapping[.distanceSwimming] = .m
+
     mapping[.bodyMass] = .kg
     mapping[.bodyFatPercentage] = .percentage
     mapping[.height] = .centimeter
@@ -292,6 +314,26 @@ struct QuantityUnit {
       mapping[.appleSleepingWristTemperature] = .degreeCelsius()
       mapping[.atrialFibrillationBurden] = .percent()
     }
+
+    if #available(iOS 18.0, *) {
+      mapping[.appleSleepingBreathingDisturbances] = .count()
+    }
+    mapping[.appleStandTime] = .minute()
+    mapping[.swimmingStrokeCount] = .count()
+    mapping[.pushCount] = .count()
+    mapping[.forcedExpiratoryVolume1] = .liter()
+    mapping[.forcedVitalCapacity] = .liter()
+    mapping[.peakExpiratoryFlowRate] = .liter().unitDivided(by: .minute())
+    mapping[.inhalerUsage] = .count()
+    mapping[.numberOfTimesFallen] = .count()
+    mapping[.uvExposure] = .count()
+    if #available(iOS 17.0, *) {
+      mapping[.timeInDaylight] = .minute()
+    }
+    mapping[.basalBodyTemperature] = .degreeCelsius()
+    mapping[.distanceWheelchair] = .meter()
+    mapping[.distanceCycling] = .meter()
+    mapping[.distanceSwimming] = .meter()
 
     mapping[.bodyMass] = .gramUnit(with: .kilo)
     mapping[.bodyFatPercentage] = .percent()
@@ -532,6 +574,21 @@ extension LocalQuantitySample {
       productType: sample.sourceRevision.productType,
       type: nil,
       unit: .minute
+    )
+  }
+}
+
+extension LocalQuantitySample {
+  static func fromCategorySample(sample: HKCategorySample) -> LocalQuantitySample? {
+
+    return self.init(
+      value: Double(sample.value), // The raw category value
+      startDate: sample.startDate,
+      endDate: sample.endDate,
+      sourceBundle: sample.sourceRevision.source.bundleIdentifier,
+      productType: sample.sourceRevision.productType,
+      type: nil,
+      unit: .count
     )
   }
 }

@@ -300,6 +300,183 @@ func read(
       payload.anchors
     )
 
+  case .standHour:
+    let payload = try await handleCategoryTimeSeries(
+      .appleStandHour,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+    return (.timeSeries(.standHour(payload.samples)), payload.anchors)
+
+  case .standTime:
+    let payload = try await handleTimeSeries(
+      .appleStandTime,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.standTime(payload.samples)), payload.anchors)
+
+   case .sleepApneaAlert:
+     if #available(iOS 18.0, *){
+       let payload = try await handleCategoryTimeSeries(
+         .sleepApneaEvent,
+         healthKitStore: healthKitStore,
+         vitalStorage: vitalStorage,
+         startDate: instruction.query.lowerBound,
+         endDate: instruction.query.upperBound
+       )
+       return (.timeSeries(.sleepApneaAlert(payload.samples)), payload.anchors)
+     }
+    else {
+      return (nil, [])
+    }
+
+  case .sleepBreathingDisturbance:
+    if #available(iOS 18.0, *){
+      let payload = try await handleTimeSeries(
+        .appleSleepingBreathingDisturbances,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
+      )
+
+      return (.timeSeries(.sleepBreathingDisturbance(payload.samples)), payload.anchors)
+    }
+    else {
+      return (nil, [])
+    }
+
+  case .swimmingStroke:
+    let payload = try await handleTimeSeries(
+      .swimmingStrokeCount,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.swimmingStroke(payload.samples)), payload.anchors)
+
+  case .wheelchairPush:
+    let payload = try await handleTimeSeries(
+      .pushCount,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.wheelchairPush(payload.samples)), payload.anchors)
+
+  case .forcedExpiratoryVolume1:
+    let payload = try await handleTimeSeries(
+      .forcedExpiratoryVolume1,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.forcedExpiratoryVolume1(payload.samples)), payload.anchors)
+
+  case .forcedVitalCapacity:
+    let payload = try await handleTimeSeries(
+      .forcedVitalCapacity,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.forcedVitalCapacity(payload.samples)), payload.anchors)
+
+  case .peakExpiratoryFlowRate:
+    let payload = try await handleTimeSeries(
+      .peakExpiratoryFlowRate,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.peakExpiratoryFlowRate(payload.samples)), payload.anchors)
+
+  case .inhalerUsage:
+    let payload = try await handleTimeSeries(
+      .inhalerUsage,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.inhalerUsage(payload.samples)), payload.anchors)
+
+  case .fall:
+    let payload = try await handleTimeSeries(
+      .numberOfTimesFallen,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.fall(payload.samples)), payload.anchors)
+
+  case .uvExposure:
+    let payload = try await handleTimeSeries(
+      .uvExposure,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.uvExposure(payload.samples)), payload.anchors)
+
+  case .daylightExposure:
+    if #available(iOS 17.0, *){
+      let payload = try await handleTimeSeries(
+        .timeInDaylight,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
+      )
+
+    return (.timeSeries(.daylightExposure(payload.samples)), payload.anchors)
+    }
+    else {
+      return (nil, [])
+    }
+
+  case .handwashing:
+    let payload = try await handleCategoryTimeSeries(
+      .handwashingEvent,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.handwashing(payload.samples)), payload.anchors)
+
+   case .basalBodyTemperature:
+    let payload = try await handleTimeSeries(
+      .basalBodyTemperature,
+      healthKitStore: healthKitStore,
+      vitalStorage: vitalStorage,
+      startDate: instruction.query.lowerBound,
+      endDate: instruction.query.upperBound
+    )
+
+    return (.timeSeries(.basalBodyTemperature(payload.samples)), payload.anchors)
 
   case .afibBurden:
     if #available(iOS 16.0, *) {
@@ -394,6 +571,33 @@ func queryHourlyStatistics(
   }
   let anchor = StoredAnchor(key: "hourly-\(id.rawValue)", anchor: nil, date: latest, vitalAnchors: nil)
   return (samples, anchor)
+}
+
+func handleCategoryTimeSeries(
+  _ id: HKCategoryTypeIdentifier,
+  healthKitStore: HKHealthStore,
+  vitalStorage: AnchorStorage,
+  startDate: Date,
+  endDate: Date
+) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
+
+  var anchors: [StoredAnchor] = []
+
+  let payload = try await anchoredQuery(
+    healthKitStore: healthKitStore,
+    vitalStorage: vitalStorage,
+    type: .categoryType(forIdentifier: id)!,
+    sampleClass: HKCategorySample.self,
+    unit: (),
+    limit: AnchoredQueryChunkSize.timeseries,
+    startDate: startDate,
+    endDate: endDate,
+    transform: { sample, _ in LocalQuantitySample.fromCategorySample(sample: sample) }
+  )
+
+  anchors.appendOptional(payload.anchor)
+
+  return (samples: payload.sample, anchors: anchors)
 }
 
 func handleMindfulSessions(

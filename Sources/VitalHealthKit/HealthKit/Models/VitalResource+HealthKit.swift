@@ -314,6 +314,63 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       ],
       supplementary: []
     )
+
+  case .standHour:
+    return single(HKSampleType.categoryType(forIdentifier: .appleStandHour)!)
+
+  case .standTime:
+    return single(HKSampleType.quantityType(forIdentifier: .appleStandTime)!)
+
+  case .sleepApneaAlert:
+    if #available(iOS 18.0, *) {
+      return single(HKSampleType.categoryType(forIdentifier: .sleepApneaEvent)!)
+    } else {
+      return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
+    }
+
+  case .sleepBreathingDisturbance:
+    if #available(iOS 18.0, *) {
+      return single(HKSampleType.quantityType(forIdentifier: .appleSleepingBreathingDisturbances)!)
+    } else {
+      return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
+    }
+
+  case .swimmingStroke:
+    return single(HKSampleType.quantityType(forIdentifier: .swimmingStrokeCount)!)
+
+  case .wheelchairPush:
+    return single(HKSampleType.quantityType(forIdentifier: .pushCount)!)
+
+  case .forcedExpiratoryVolume1:
+    return single(HKSampleType.quantityType(forIdentifier: .forcedExpiratoryVolume1)!)
+
+  case .forcedVitalCapacity:
+    return single(HKSampleType.quantityType(forIdentifier: .forcedVitalCapacity)!)
+
+  case .peakExpiratoryFlowRate:
+    return single(HKSampleType.quantityType(forIdentifier: .peakExpiratoryFlowRate)!)
+
+  case .inhalerUsage:
+    return single(HKSampleType.quantityType(forIdentifier: .inhalerUsage)!)
+
+  case .fall:
+    return single(HKSampleType.quantityType(forIdentifier: .numberOfTimesFallen)!)
+
+  case .uvExposure:
+    return single(HKSampleType.quantityType(forIdentifier: .uvExposure)!)
+
+  case .daylightExposure:
+    if #available(iOS 17.0, *) {
+      return single(HKSampleType.quantityType(forIdentifier: .timeInDaylight)!)
+    } else {
+      return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
+    }
+
+  case .handwashing:
+    return single(HKSampleType.categoryType(forIdentifier: .handwashingEvent)!)
+
+  case .basalBodyTemperature:
+    return single(HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!)
   }
 }
 
@@ -345,10 +402,30 @@ func observedSampleTypes() -> [[HKSampleType]] {
   }
 
   var afibBurdenTypes = [HKSampleType]()
+  var wristTemperatureTypes = [HKSampleType]()
+  var timeInDayLightTypes = [HKSampleType]()
 
   if #available(iOS 16.0, *) {
     afibBurdenTypes = [
       HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!
+    ]
+
+    wristTemperatureTypes = [
+      HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!
+    ]
+  }
+
+  if #available(iOS 17.0, *) {
+
+    timeInDayLightTypes = [
+      HKSampleType.quantityType(forIdentifier: .timeInDaylight)!
+    ]
+  }
+
+  var sleepApneaTypes = [HKSampleType]()
+  if #available(iOS 18.0, *) {
+    sleepApneaTypes = [
+      HKCategoryType.categoryType(forIdentifier: .sleepApneaEvent)!
     ]
   }
 
@@ -501,7 +578,27 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKCategoryType.categoryType(forIdentifier: .irregularHeartRhythmEvent)!,
       HKCategoryType.categoryType(forIdentifier: .highHeartRateEvent)!,
       HKCategoryType.categoryType(forIdentifier: .lowHeartRateEvent)!,
-    ]
+    ],
+
+    // Misc
+    [
+      HKSampleType.categoryType(forIdentifier: .appleStandHour)!,
+      HKSampleType.quantityType(forIdentifier: .appleStandTime)!,
+      HKSampleType.quantityType(forIdentifier: .swimmingStrokeCount)!,
+      HKSampleType.quantityType(forIdentifier: .pushCount)!,
+      HKSampleType.quantityType(forIdentifier: .forcedExpiratoryVolume1)!,
+      HKSampleType.quantityType(forIdentifier: .forcedVitalCapacity)!,
+      HKSampleType.quantityType(forIdentifier: .peakExpiratoryFlowRate)!,
+      HKSampleType.quantityType(forIdentifier: .inhalerUsage)!,
+      HKSampleType.quantityType(forIdentifier: .numberOfTimesFallen)!,
+      HKSampleType.quantityType(forIdentifier: .uvExposure)!,
+      HKSampleType.categoryType(forIdentifier: .handwashingEvent)!,
+      HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!,
+      HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!
+    ],
+    sleepApneaTypes,
+    wristTemperatureTypes,
+    timeInDayLightTypes,
   ]
 }
 
