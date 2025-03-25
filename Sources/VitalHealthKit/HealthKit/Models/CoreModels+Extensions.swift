@@ -238,9 +238,6 @@ struct QuantityUnit {
     mapping[.numberOfTimesFallen] = .count
     mapping[.uvExposure] = .count
     mapping[.basalBodyTemperature] = .degreeCelsius
-    mapping[.distanceWheelchair] = .m
-    mapping[.distanceCycling] = .m
-    mapping[.distanceSwimming] = .m
 
     mapping[.bodyMass] = .kg
     mapping[.bodyFatPercentage] = .percentage
@@ -330,10 +327,6 @@ struct QuantityUnit {
     if #available(iOS 17.0, *) {
       mapping[.timeInDaylight] = .minute()
     }
-    mapping[.basalBodyTemperature] = .degreeCelsius()
-    mapping[.distanceWheelchair] = .meter()
-    mapping[.distanceCycling] = .meter()
-    mapping[.distanceSwimming] = .meter()
 
     mapping[.bodyMass] = .gramUnit(with: .kilo)
     mapping[.bodyFatPercentage] = .percent()

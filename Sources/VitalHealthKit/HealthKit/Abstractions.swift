@@ -138,8 +138,7 @@ extension VitalHealthKitStore {
       HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
       HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
       HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
-      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
-      HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!:
       return [.menstrualCycle]
 
     case HKSampleType.quantityType(forIdentifier: .bodyTemperature)!:
@@ -229,7 +228,7 @@ extension VitalHealthKitStore {
       return [.handwashing]
 
     case HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
-      return [.basalBodyTemperature]
+      return [.basalBodyTemperature, .menstrualCycle]
 
     case HKElectrocardiogramType.electrocardiogramType():
       return [.electrocardiogram]

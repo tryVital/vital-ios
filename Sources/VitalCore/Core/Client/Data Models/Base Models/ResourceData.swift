@@ -181,7 +181,7 @@ public enum TimeSeriesData: Equatable, Encodable {
     case .standHour:
       return "stand_hour"
     case .standTime:
-      return "stand_time"
+      return "stand_duration"
     case .sleepApneaAlert:
       return "sleep_apnea_alert"
     case .sleepBreathingDisturbance:
