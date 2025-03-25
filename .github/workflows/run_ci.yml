@@ -4,13 +4,13 @@ on: [push]
 
 jobs:
   build-sdks:
-    runs-on: macos-14
+    runs-on: macos-15-arm64
     strategy:
       matrix:
         scheme: ["VitalDevices"]
     steps:
       - name: Xcode Select
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
       - name: Checkout
         uses: actions/checkout@master
       - name: Build
@@ -20,17 +20,17 @@ jobs:
           scheme: ${{ matrix.scheme }}
 
   test-sdks:
-    runs-on: macos-14
+    runs-on: macos-15-arm64
     strategy:
       matrix:
         scheme: ["VitalHealthKit", "VitalCore"]
     steps:
       - name: Xcode Select
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
       - name: Checkout
         uses: actions/checkout@master
       - name: Test
         run: |
-          xcodebuild clean test -scheme "${scheme}" -destination platform=iOS\ Simulator,OS=17.5,name=iPhone\ 15
+          xcodebuild clean test -scheme "${scheme}" -destination platform=iOS\ Simulator,OS=18.2,name=iPhone\ 16
         env:
           scheme: ${{ matrix.scheme }}
