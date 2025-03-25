@@ -1168,12 +1168,15 @@ extension VitalHealthKitClient {
   /// - Parameter writePermissions: `VitalResource`s to request write permission for.
   /// - Parameter extraReadPermissions: Extra HealthKit object types whose read permissions should be requested in addition to the needs of Vital SDK.
   /// - Parameter extraWritePermissions: Extra HealthKit sample types whose write permissions should be requested in addition to the needs of Vital SDK.
+  /// - Parameter dataTypeAllowlist: If not `nil`, only the specified data types would be requested. This applies to both
+  ///   SDK originated requests as well as extra permissions you specified above.
   ///
   public func ask(
     readPermissions readResources: [VitalResource],
     writePermissions writeResource: [WritableVitalResource],
     extraReadPermissions: [HKObjectType] = [],
-    extraWritePermissions: [HKSampleType] = []
+    extraWritePermissions: [HKSampleType] = [],
+    dataTypeAllowlist: Set<HKObjectType>? = nil
   ) async -> PermissionOutcome {
     
     guard store.isHealthDataAvailable() else {
@@ -1181,7 +1184,7 @@ extension VitalHealthKitClient {
     }
     
     do {
-      try await store.requestReadWriteAuthorization(readResources, writeResource, extraReadPermissions, extraWritePermissions)
+      try await store.requestReadWriteAuthorization(readResources, writeResource, extraReadPermissions, extraWritePermissions, dataTypeAllowlist)
 
       let state = try await authorizationState(store: store)
       SyncProgressStore.shared.recordAsk(state.activeResources)
@@ -1197,7 +1200,7 @@ extension VitalHealthKitClient {
 
       if configuration.isNil() == false {
         let configuration = await configuration.get()
-        
+
         try await checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled
         )
@@ -1205,8 +1208,13 @@ extension VitalHealthKitClient {
       }
 
       return .success
-    }
-    catch let error {
+
+    } catch is NothingToRequest {
+      let message = "No data type to request due to data type allowlist"
+      VitalLogger.healthKit.info("\(message)", source: "Ask")
+      return .failure(message)
+
+    } catch let error {
       return .failure(error.localizedDescription)
     }
   }

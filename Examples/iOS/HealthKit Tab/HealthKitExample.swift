@@ -3,10 +3,15 @@ import VitalHealthKit
 import HealthKit
 import VitalCore
 
+extension EnvironmentValues {
+  @Entry var permissions: Binding<[VitalResource: PermissionStatus]> = Binding(get: { [:] }, set: { _ in })
+  @Entry var requestRestrictionDemo: Binding<Bool> = Binding(get: { false }, set: { _ in })
+}
 
 struct HealthKitExample: View {
   @State var permissions: [VitalResource: PermissionStatus] = [:]
   @State var pauseSync = VitalHealthKitClient.shared.pauseSynchronization
+  @State var requestRestrictionDemo = false
 
   var body: some View {
     NavigationView {
@@ -21,45 +26,53 @@ struct HealthKitExample: View {
 
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {
+            Toggle(isOn: $requestRestrictionDemo) {
+              VStack(alignment: .leading) {
+                Text("Request Restriction Demo")
+                Text("Only activeEnergyBurned, stepCount and sleepAnalysis").font(.footnote)
+              }
+            }
 
-            makePermissionRow("Profile", resources: [.profile], permissions: $permissions)
+            makePermissionRow("Profile", resources: [.profile])
             
-            makePermissionRow("Body", resources: [.body], permissions: $permissions)
+            makePermissionRow("Body", resources: [.body])
             
-            makePermissionRow("Sleep", resources: [.sleep], permissions: $permissions)
+            makePermissionRow("Sleep", resources: [.sleep])
             
-            makePermissionRow("Activity", resources: [.activity], permissions: $permissions)
+            makePermissionRow("Activity", resources: [.activity])
             
-            makePermissionRow("Workout", resources: [.workout], permissions: $permissions)
+            makePermissionRow("Workout", resources: [.workout])
 
-            makePermissionRow("Menstrual Cycle", resources: [.menstrualCycle], permissions: $permissions)
+            makePermissionRow("Menstrual Cycle", resources: [.menstrualCycle])
 
-            makePermissionRow("Meal", resources: [.meal], permissions: $permissions)
+            makePermissionRow("Meal", resources: [.meal])
 
-            makePermissionRow("HeartRate", resources: [.vitals(.heartRate)], permissions: $permissions)
+            makePermissionRow("HeartRate", resources: [.vitals(.heartRate)])
 
-            makePermissionRow("Electrocardiogram", resources: [.electrocardiogram], permissions: $permissions)
+            makePermissionRow("Electrocardiogram", resources: [.electrocardiogram])
 
-            makePermissionRow("AFib Burden", resources: [.afibBurden], permissions: $permissions)
+            makePermissionRow("AFib Burden", resources: [.afibBurden])
 
-            makePermissionRow("Heart Rate Alert", resources: [.heartRateAlert], permissions: $permissions)
+            makePermissionRow("Heart Rate Alert", resources: [.heartRateAlert])
 
-            makePermissionRow("Respiratory Rate", resources: [.vitals(.respiratoryRate)], permissions: $permissions)
+            makePermissionRow("Respiratory Rate", resources: [.vitals(.respiratoryRate)])
 
-            makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)], permissions: $permissions)
+            makePermissionRow("Blood Pressure", resources: [.vitals(.bloodPressure)])
 
-            makePermissionRow("Temperature", resources: [.vitals(.temperature)], permissions: $permissions)
+            makePermissionRow("Temperature", resources: [.vitals(.temperature)])
 
-            makePermissionRow("Weight", resources: [.individual(.weight)], permissions: $permissions)
+            makePermissionRow("Weight", resources: [.individual(.weight)])
 
-            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession], permissions: $permissions)
+            makePermissionRow("Mindful Session", resources: [.vitals(.mindfulSession)], writeResources: [.mindfulSession])
 
-            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water], permissions: $permissions)
+            makePermissionRow("Water", resources: [.nutrition(.water)], writeResources: [.water])
 
-            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine], permissions: $permissions)
+            makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
 
           }
           .buttonStyle(PlainButtonStyle())
+          .environment(\.requestRestrictionDemo, $requestRestrictionDemo)
+          .environment(\.permissions, $permissions)
         }
 
         Toggle(isOn: $pauseSync) { Text("Pause Synchronization") }
@@ -93,8 +106,8 @@ struct HealthKitExample: View {
       .task {
         do {
           self.permissions = try await VitalHealthKitClient.shared.permissionStatus(for: VitalResource.all)
-        } catch let _ {
-          
+        } catch let error {
+          print(error)
         }
       }
       .onChange(of: self.pauseSync) { pauseSync in
@@ -104,30 +117,60 @@ struct HealthKitExample: View {
   }
 }
 
-@ViewBuilder func makePermissionRow(
-  _ text: String,
-  resources: [VitalResource],
-  writeResources: [WritableVitalResource] = [],
-  permissions: Binding<[VitalResource: PermissionStatus]>
-) -> some View {
-  HStack {
-    Text(text)
-    Spacer()
-    
+struct makePermissionRow: View {
 
-    Button(
-      resources.allSatisfy({ permissions.wrappedValue[$0] == .asked })
+  let text: String
+  let resources: [VitalResource]
+  let writeResources: [WritableVitalResource]
+
+  init(_ text: String, resources: [VitalResource], writeResources: [WritableVitalResource] = []) {
+    self.text = text
+    self.resources = resources
+    self.writeResources = writeResources
+  }
+
+  @SwiftUI.Environment(\.permissions) var permissions
+  @SwiftUI.Environment(\.requestRestrictionDemo) var requestRestrictionDemo
+
+  var body: some View {
+    HStack {
+      Text(text)
+      Spacer()
+
+      Button(
+        resources.allSatisfy({ permissions.wrappedValue[$0] == .asked })
         ? "Permission asked"
         : "Ask for permission"
-    ) {
-      Task { @MainActor in
-        await VitalHealthKitClient.shared.ask(readPermissions: resources, writePermissions: writeResources)
+      ) {
+        Task {
+          let allowlist: Set<HKObjectType>?
 
-        for resource in resources {
-          permissions.wrappedValue[resource] = .asked
+          if requestRestrictionDemo.wrappedValue {
+            allowlist = [
+              HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+              HKObjectType.quantityType(forIdentifier: .stepCount)!,
+              HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
+            ]
+          } else {
+            allowlist = nil
+          }
+
+          let outcome = await VitalHealthKitClient.shared.ask(
+            readPermissions: resources,
+            writePermissions: writeResources,
+            dataTypeAllowlist: allowlist
+          )
+
+          print(outcome)
+
+          if outcome == .success {
+            for resource in resources {
+              permissions.wrappedValue[resource] = .asked
+            }
+          }
         }
       }
+      .buttonStyle(PermissionStyle())
     }
-    .buttonStyle(PermissionStyle())
   }
 }

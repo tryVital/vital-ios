@@ -36,10 +36,12 @@ struct Predicates: @unchecked Sendable {
   }
 }
 
+struct NothingToRequest: Error {}
+
 struct VitalHealthKitStore {
   var isHealthDataAvailable: () -> Bool
   
-  var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource], [HKObjectType], [HKSampleType]) async throws -> Void
+  var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource], [HKObjectType], [HKSampleType], Set<HKObjectType>?) async throws -> Void
 
   var authorizationState: (VitalResource) async throws -> AuthorizationState
   var authorizationStateSync: (VitalResource) -> AuthorizationState
@@ -291,20 +293,31 @@ extension VitalHealthKitStore {
 
     return .init {
       HKHealthStore.isHealthDataAvailable()
-    } requestReadWriteAuthorization: { readResources, writeResources, extraReadTypes, extraWriteTypes in
-      let readTypes = Set(
+    } requestReadWriteAuthorization: { readResources, writeResources, extraReadTypes, extraWriteTypes, allowlist in
+      var readTypes = Set(
         readResources
         .map(toHealthKitTypes)
         .flatMap(\.allObjectTypes)
       ).union(extraReadTypes)
 
-      let writeTypes = Set(
+      var writeTypes = Set(
         writeResources
         .map(\.toResource)
         .map(toHealthKitTypes)
         .flatMap(\.allObjectTypes)
         .compactMap { $0 as? HKSampleType }
       ).union(extraWriteTypes)
+
+      if let allowlist = allowlist {
+        readTypes = readTypes.filter(allowlist.contains)
+        writeTypes = writeTypes.filter(allowlist.contains)
+      }
+
+      if readTypes.isEmpty && writeTypes.isEmpty {
+        // Nothing to request
+        // Early out since requestAuthorization would throw NSException otherwise.
+        throw NothingToRequest()
+      }
 
       if #available(iOS 15.0, *) {
         try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
@@ -347,7 +360,7 @@ extension VitalHealthKitStore {
   static var debug: VitalHealthKitStore {
     return .init {
       return true
-    } requestReadWriteAuthorization: { _, _, _, _ in
+    } requestReadWriteAuthorization: { _, _, _, _, _ in
       return
     } authorizationState: { _ in
       (true, [])
