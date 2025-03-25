@@ -5,7 +5,7 @@ import HealthKit
 @testable import VitalCore
 
 class VitalHealthKitReadsTests: XCTestCase {
-  
+
   func testMerge_nonConsecutiveSleep() {
     let sleep = SleepPatch.Sleep(
       startDate: Date("2022-08-07 00:27:00"),
