@@ -20,7 +20,7 @@ jobs:
           scheme: ${{ matrix.scheme }}
 
   test-sdks:
-    runs-on: macos-15-arm64
+    runs-on: macos-15
     strategy:
       matrix:
         scheme: ["VitalHealthKit", "VitalCore"]
