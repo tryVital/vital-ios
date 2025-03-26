@@ -14,7 +14,7 @@ public protocol GistKey<T> {
 /// first unlock time window.
 @_spi(VitalSDKInternals)
 public final class VitalGistStorage: @unchecked Sendable {
-  private static let directoryURL = {
+  private static let defaultDirectoryURL = {
     let applicationSupport: URL
 
     if #available(iOS 16.0, *) {
@@ -26,14 +26,20 @@ public final class VitalGistStorage: @unchecked Sendable {
     return applicationSupport.appendingPathComponent("io.tryvital.VitalCore", isDirectory: true)
   }()
 
-  private static func fileURL(forKey key: String) -> URL {
-    Self.directoryURL.appendingPathComponent("\(key).json", isDirectory: false)
+  private func fileURL(forKey key: String) -> URL {
+    directoryURL.appendingPathComponent("\(key).json", isDirectory: false)
   }
 
   private var state: [ObjectIdentifier: State] = [:]
   private let lock = NSLock()
 
-  public static let shared = VitalGistStorage()
+  private let directoryURL: URL
+
+  public static let shared = VitalGistStorage(directoryURL: VitalGistStorage.defaultDirectoryURL)
+
+  public init(directoryURL: URL) {
+    self.directoryURL = directoryURL
+  }
 
   public func get<Key: GistKey>(_ key: Key.Type) -> Key.T? {
     let typeKey = ObjectIdentifier(key)
@@ -50,7 +56,7 @@ public final class VitalGistStorage: @unchecked Sendable {
         case .uninitialized:
           do {
             // Hydrate gist from disk
-            let data = try Data(contentsOf: Self.fileURL(forKey: key.identifier))
+            let data = try Data(contentsOf: fileURL(forKey: key.identifier))
             let gist = try JSONDecoder().decode(Key.T.self, from: data)
             self.state[typeKey] = .hasGist(gist)
             return gist
@@ -74,13 +80,13 @@ public final class VitalGistStorage: @unchecked Sendable {
 
   public func set<Key: GistKey>(_ newValue: (some Encodable)?, for key: Key.Type) throws {
     let typeKey = ObjectIdentifier(key)
-    let url = Self.fileURL(forKey: key.identifier)
+    let url = fileURL(forKey: key.identifier)
 
     try lock.withLock {
       if let newValue = newValue {
-        let directoryUrl = Self.directoryURL
+        let directoryUrl = self.directoryURL
         if !FileManager.default.fileExists(atPath: directoryUrl.path) {
-          try FileManager.default.createDirectory(at: Self.directoryURL, withIntermediateDirectories: true)
+          try FileManager.default.createDirectory(at: self.directoryURL, withIntermediateDirectories: true)
         }
 
         let data = try JSONEncoder().encode(newValue)

@@ -1527,6 +1527,46 @@ private func populateAnchorsForStatisticalQuery(
   return newAnchors
 }
 
+func queryActivityDaySummariesUsingUserTimeZoneHistory(
+  dependencies: StatisticsQueryDependencies,
+  start: GregorianCalendar.FloatingDate,
+  end: GregorianCalendar.FloatingDate
+) async throws -> [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary] {
+  let resolver = UserHistoryStore.shared.resolver()
+  let startTimeZone = resolver.timeZone(for: start)
+  let endTimeZone = resolver.timeZone(for: end)
+
+  let deviceCurrentCalendar = GregorianCalendar(timeZone: endTimeZone)
+
+  if startTimeZone == endTimeZone {
+    // Fast path
+    return try await queryActivityDaySummaries(
+      dependencies: dependencies,
+      start: start,
+      end: end,
+      in: deviceCurrentCalendar
+    )
+  }
+
+  // Slow path; query each day individually
+  return try await withThrowingTaskGroup(of: [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary].self) { group in
+    for day in deviceCurrentCalendar.enumerate(start ... end) {
+      group.addTask {
+        try await queryActivityDaySummaries(
+          dependencies: dependencies,
+          start: day,
+          end: day,
+          in: GregorianCalendar(timeZone: resolver.timeZone(for: day))
+        )
+      }
+    }
+
+    return try await group.reduce(into: [:]) { accumulator, result in
+      accumulator.merge(result, uniquingKeysWith: { lhs, rhs in rhs })
+    }
+  }
+}
+
 /// We compute one summary per quantity type for the calendar day in the
 /// **CURRENT DEVICE TIME ZONE**. After all, a (floating) day cannot be
 /// projected into UTC time without a time zone, and the user intuition is
