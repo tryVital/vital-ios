@@ -352,17 +352,6 @@ func read(
       return (nil, [])
     }
 
-  case .swimmingStroke:
-    let payload = try await handleTimeSeries(
-      .swimmingStrokeCount,
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
-    )
-
-    return (.timeSeries(.swimmingStroke(payload.samples)), payload.anchors)
-
   case .wheelchairPush:
     let payload = try await handleTimeSeries(
       .pushCount,

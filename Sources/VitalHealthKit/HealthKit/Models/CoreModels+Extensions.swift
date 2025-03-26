@@ -229,7 +229,6 @@ struct QuantityUnit {
     }
 
     mapping[.appleStandTime] = .minute
-    mapping[.swimmingStrokeCount] = .count
     mapping[.pushCount] = .count
     mapping[.forcedExpiratoryVolume1] = .L
     mapping[.forcedVitalCapacity] = .L
@@ -316,7 +315,6 @@ struct QuantityUnit {
       mapping[.appleSleepingBreathingDisturbances] = .count()
     }
     mapping[.appleStandTime] = .minute()
-    mapping[.swimmingStrokeCount] = .count()
     mapping[.pushCount] = .count()
     mapping[.forcedExpiratoryVolume1] = .liter()
     mapping[.forcedVitalCapacity] = .liter()

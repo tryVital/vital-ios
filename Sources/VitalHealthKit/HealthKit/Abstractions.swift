@@ -200,9 +200,6 @@ extension VitalHealthKitStore {
     case HKSampleType.quantityType(forIdentifier: .appleStandTime)!:
       return [.standTime]
 
-    case HKSampleType.quantityType(forIdentifier: .swimmingStrokeCount)!:
-      return [.swimmingStroke]
-
     case HKSampleType.quantityType(forIdentifier: .pushCount)!:
       return [.wheelchairPush]
 

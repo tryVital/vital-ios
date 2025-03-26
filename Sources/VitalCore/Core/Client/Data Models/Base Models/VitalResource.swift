@@ -17,7 +17,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
-    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standTime, .sleepApneaAlert, .sleepBreathingDisturbance, .swimmingStroke, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
+    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standTime, .sleepApneaAlert, .sleepBreathingDisturbance, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
       return 12
     case .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
@@ -95,8 +95,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return .sleepApneaAlert
     case .sleepBreathingDisturbance:
       return .sleepBreathingDisturbance
-    case .swimmingStroke:
-      return .swimmingStroke
     case .wheelchairPush:
       return .wheelchairPush
     case .forcedExpiratoryVolume1:
@@ -219,7 +217,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case standTime
   case sleepApneaAlert
   case sleepBreathingDisturbance
-  case swimmingStroke
   case wheelchairPush
   case forcedExpiratoryVolume1
   case forcedVitalCapacity
@@ -268,7 +265,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .standTime,
     .sleepApneaAlert,
     .sleepBreathingDisturbance,
-    .swimmingStroke,
     .wheelchairPush,
     .forcedExpiratoryVolume1,
     .forcedVitalCapacity,
@@ -317,8 +313,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return "sleepApneaAlert"
     case .sleepBreathingDisturbance:
       return "sleepBreathingDisturbance"
-    case .swimmingStroke:
-      return "swimmingStroke"
     case .wheelchairPush:
       return "wheelchairPush"
     case .forcedExpiratoryVolume1:
@@ -385,7 +379,6 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let standTime = BackfillType(rawValue: "stand_duration")
   public static let sleepApneaAlert = BackfillType(rawValue: "sleep_apnea_alert")
   public static let sleepBreathingDisturbance = BackfillType(rawValue: "sleep_breathing_disturbance")
-  public static let swimmingStroke = BackfillType(rawValue: "swimming_stroke")
   public static let wheelchairPush = BackfillType(rawValue: "wheelchair_push")
   public static let forcedExpiratoryVolume1 = BackfillType(rawValue: "forced_expiratory_volume_1")
   public static let forcedVitalCapacity = BackfillType(rawValue: "forced_vital_capacity")

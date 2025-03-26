@@ -335,9 +335,6 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
     }
 
-  case .swimmingStroke:
-    return single(HKSampleType.quantityType(forIdentifier: .swimmingStrokeCount)!)
-
   case .wheelchairPush:
     return single(HKSampleType.quantityType(forIdentifier: .pushCount)!)
 
@@ -584,7 +581,6 @@ func observedSampleTypes() -> [[HKSampleType]] {
     [
       HKSampleType.categoryType(forIdentifier: .appleStandHour)!,
       HKSampleType.quantityType(forIdentifier: .appleStandTime)!,
-      HKSampleType.quantityType(forIdentifier: .swimmingStrokeCount)!,
       HKSampleType.quantityType(forIdentifier: .pushCount)!,
       HKSampleType.quantityType(forIdentifier: .forcedExpiratoryVolume1)!,
       HKSampleType.quantityType(forIdentifier: .forcedVitalCapacity)!,
