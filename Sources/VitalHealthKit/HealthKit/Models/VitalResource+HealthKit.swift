@@ -399,16 +399,11 @@ func observedSampleTypes() -> [[HKSampleType]] {
   }
 
   var afibBurdenTypes = [HKSampleType]()
-  var wristTemperatureTypes = [HKSampleType]()
   var timeInDayLightTypes = [HKSampleType]()
 
   if #available(iOS 16.0, *) {
     afibBurdenTypes = [
       HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!
-    ]
-
-    wristTemperatureTypes = [
-      HKSampleType.quantityType(forIdentifier: .appleSleepingWristTemperature)!
     ]
   }
 
@@ -590,10 +585,9 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .uvExposure)!,
       HKSampleType.categoryType(forIdentifier: .handwashingEvent)!,
       HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!,
-      HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!
+      HKSampleType.quantityType(forIdentifier: .pushCount)!
     ],
     sleepApneaTypes,
-    wristTemperatureTypes,
     timeInDayLightTypes,
   ]
 }
