@@ -1,4 +1,4 @@
-public enum VitalResource: Equatable, Hashable, Codable {
+public enum VitalResource: Equatable, Hashable, Codable, Sendable {
 
   @_spi(VitalSDKInternals)
   public init?(_ backfillType: BackfillType) {
@@ -90,7 +90,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     }
   }
 
-  public enum Vitals: Equatable, Hashable, Codable {
+  public enum Vitals: Equatable, Hashable, Codable, Sendable {
     case glucose
     case bloodPressure
     case bloodOxygen
@@ -122,7 +122,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     }
   }
   
-  public enum Nutrition: Equatable, Hashable, Codable {
+  public enum Nutrition: Equatable, Hashable, Codable, Sendable {
     case water
     case caffeine
     
@@ -136,7 +136,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
     }
   }
   
-  public enum Individual: Equatable, Hashable, Codable {
+  public enum Individual: Equatable, Hashable, Codable, Sendable {
     case steps
     case activeEnergyBurned
     case basalEnergyBurned
@@ -186,7 +186,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
   case heartRateAlert
   case afibBurden
 
-  public static var all: [VitalResource] = [
+  public static let all: [VitalResource] = [
     .profile,
     .body,
     .workout,
@@ -253,7 +253,7 @@ public enum VitalResource: Equatable, Hashable, Codable {
   }
 }
 
-public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable {
+public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Sendable {
   public let rawValue: String
 
   public init(rawValue: String) {

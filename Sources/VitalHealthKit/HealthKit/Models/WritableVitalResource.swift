@@ -40,7 +40,7 @@ public enum DataInput {
   }
 }
 
-public enum WritableVitalResource {
+public enum WritableVitalResource: Sendable {
   case water
   case caffeine
   case mindfulSession
