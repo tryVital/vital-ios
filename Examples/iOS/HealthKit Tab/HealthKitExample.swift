@@ -69,6 +69,36 @@ struct HealthKitExample: View {
 
             makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
 
+            makePermissionRow("Stand Hour", resources: [.standHour], permissions: $permissions)
+
+            makePermissionRow("Stand Time", resources: [.standTime], permissions: $permissions)
+
+            makePermissionRow("Sleep Apnea Alert", resources: [.sleepApneaAlert], permissions: $permissions)
+
+            makePermissionRow("Slee Breathing Disturbance", resources: [.sleepBreathingDisturbance], permissions: $permissions)
+
+            makePermissionRow("Swimming Stroke", resources: [.swimmingStroke], permissions: $permissions)
+
+            makePermissionRow("Wheelchair Push", resources: [.wheelchairPush], permissions: $permissions)
+
+            makePermissionRow("Forced Expiratory Volume", resources: [.forcedExpiratoryVolume1], permissions: $permissions)
+
+            makePermissionRow("Forced Vital Capacity", resources: [.forcedVitalCapacity], permissions: $permissions)
+
+            makePermissionRow("Peak Expiratory Flow Rate", resources: [.peakExpiratoryFlowRate], permissions: $permissions)
+
+            makePermissionRow("Inhaler Usage", resources: [.inhalerUsage], permissions: $permissions)
+
+            makePermissionRow("Fall", resources: [.fall], permissions: $permissions)
+
+            makePermissionRow("UV Exposure", resources: [.uvExposure], permissions: $permissions)
+
+            makePermissionRow("Daylight Exposure", resources: [.daylightExposure], permissions: $permissions)
+
+            makePermissionRow("Handwashing", resources: [.handwashing], permissions: $permissions)
+
+            makePermissionRow("Basal Body Temperature", resources: [.basalBodyTemperature], permissions: $permissions)
+
           }
           .buttonStyle(PlainButtonStyle())
           .environment(\.requestRestrictionDemo, $requestRestrictionDemo)

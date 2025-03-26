@@ -264,6 +264,21 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .electrocardiogram,
     .heartRateAlert,
     .afibBurden,
+    .standHour,
+    .standTime,
+    .sleepApneaAlert,
+    .sleepBreathingDisturbance,
+    .swimmingStroke,
+    .wheelchairPush,
+    .forcedExpiratoryVolume1,
+    .forcedVitalCapacity,
+    .peakExpiratoryFlowRate,
+    .inhalerUsage,
+    .fall,
+    .uvExposure,
+    .daylightExposure,
+    .handwashing,
+    .basalBodyTemperature
   ]
   
   public var logDescription: String {
@@ -367,7 +382,7 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let heartRateAlert = BackfillType(rawValue: "heart_rate_alert")
   public static let afibBurden = BackfillType(rawValue: "afib_burden")
   public static let standHour = BackfillType(rawValue: "stand_hour")
-  public static let standTime = BackfillType(rawValue: "stand_time")
+  public static let standTime = BackfillType(rawValue: "stand_duration")
   public static let sleepApneaAlert = BackfillType(rawValue: "sleep_apnea_alert")
   public static let sleepBreathingDisturbance = BackfillType(rawValue: "sleep_breathing_disturbance")
   public static let swimmingStroke = BackfillType(rawValue: "swimming_stroke")
