@@ -6,6 +6,11 @@ import VitalCore
 final class AppStateTracker {
   static let shared = AppStateTracker()
 
+  private let historyStoreUpdateQueue = DispatchQueue(
+    label: "com.junction.AppStateTracker.historyStoreUpdateQueue",
+    qos: .userInteractive
+  )
+
   private let lock = NSLock()
   private var _state: AppState = AppState()
   private var onChange: ((AppState) -> Void)? = nil
@@ -47,6 +52,13 @@ final class AppStateTracker {
       self,
       selector: #selector(powerStateDidChange),
       name: NSNotification.Name.NSProcessInfoPowerStateDidChange,
+      object: nil
+    )
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(significantTimeChange),
+      name: UIApplication.significantTimeChangeNotification,
       object: nil
     )
   }
@@ -94,6 +106,9 @@ final class AppStateTracker {
     VitalLogger.healthKit.info("\(state)", source: "AppState")
 
     onChange?(state)
+    historyStoreUpdateQueue.async {
+      UserHistoryStore.shared.record(TimeZone.current)
+    }
   }
 
   @objc
@@ -106,6 +121,13 @@ final class AppStateTracker {
     VitalLogger.healthKit.info("\(state)", source: "AppState")
 
     onChange?(state)
+  }
+
+  @objc
+  func significantTimeChange() {
+    historyStoreUpdateQueue.async {
+      UserHistoryStore.shared.record(TimeZone.current)
+    }
   }
 }
 

@@ -907,6 +907,9 @@ extension VitalHealthKitClient {
     progressStore.recordSync(syncID, .started)
     progressReporter.syncBegin(syncID)
 
+    // Make sure the entry in UserHistoryStore for today is up to date.
+    UserHistoryStore.shared.record(TimeZone.current)
+
     // If we receive this payload in foreground, wrap the sync work in
     // a UIKit background task, in case the user will move the app to background soon.
 
