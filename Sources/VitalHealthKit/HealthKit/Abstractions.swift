@@ -101,6 +101,9 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .stepCount)!,
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
+        // TODO: https://github.com/tryVital/vital-ios/pull/295
+        // HKSampleType.quantityType(forIdentifier: .pushCount)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
 

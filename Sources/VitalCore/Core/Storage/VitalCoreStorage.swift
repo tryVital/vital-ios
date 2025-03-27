@@ -1,8 +1,5 @@
 import Foundation
 
-// String(describing: VitalResource.vitals(.hearthRate))
-private let heartRateFlagOldKey = "vitals(VitalCore.VitalResource.Vitals.hearthRate)"
-
 public struct VitalBackStorage {
   public var isConnectedSourceStored: (String, Provider.Slug) -> Bool
   public var storeConnectedSource: (String, Provider.Slug) -> Void
@@ -39,18 +36,18 @@ public struct VitalBackStorage {
     return .init { userId, provider in
       let key = generateKey(userId, provider)
       return userDefaults.bool(forKey: key)
+
     } storeConnectedSource: { userId, provider in
       let key = generateKey(userId, provider)
       userDefaults.set(true, forKey: key)
-    } flagResource: { resource in
-      userDefaults.set(true, forKey: String(describing: resource))
-    } isResourceFlagged: { resource in
-      if resource == .vitals(.heartRate) {
-        return userDefaults.bool(forKey: String(describing: resource))
-          || userDefaults.bool(forKey: heartRateFlagOldKey)
-      }
 
-      return userDefaults.bool(forKey: String(describing: resource))
+    } flagResource: { resource in
+      userDefaults.set(true, forKey: resource.storageWriteKey)
+
+    } isResourceFlagged: { resource in
+      let keys = resource.storageReadKeys
+      return keys.contains(where: userDefaults.bool(forKey:))
+
     } store: { data, key in
       userDefaults.set(data, forKey: key)
     } read: { key in
@@ -94,9 +91,9 @@ public struct VitalBackStorage {
       let key = generateKey(userId, provider)
       storage[key] = true
     } flagResource: { resource in
-      storage[String(describing: resource)] = true
+      storage[resource.storageWriteKey] = true
     } isResourceFlagged: { resource in
-      return storage[String(describing: resource)] != nil
+      return resource.storageReadKeys.contains { storage[$0] == true }
     } store: { data, key in
       dataStorage[key] = data
     } read: { key in

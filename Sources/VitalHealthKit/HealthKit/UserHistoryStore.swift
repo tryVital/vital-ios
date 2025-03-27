@@ -66,11 +66,39 @@ class UserHistoryStore: @unchecked Sendable {
       return self.data
     }
 
-    return Resolver(data: current)
+    let currentWheelchairUse = (try? HKHealthStore().wheelchairUse())?.wheelchairUse == .yes ? true : nil
+    let currentTimezone = UserHistoryStore.getCurrentTimeZone()
+
+    return Resolver(
+      data: current,
+      fallbackTimeZone: currentTimezone,
+      fallbackWheelchairUse: currentWheelchairUse
+    )
   }
 
   struct Resolver {
     let data: [GregorianCalendar.FloatingDate: UserHistoryRecord]
+    let fallbackTimeZone: TimeZone
+    let fallbackWheelchairUse: Bool?
+
+    /// - returns: Either `true` or `nil`. `false` is illegal value.
+    func wheelchairUse(for date: GregorianCalendar.FloatingDate) -> Bool? {
+      if let use = data[date]?.wheelchairUse, use {
+        return use
+      }
+
+      // Find the closest observation
+      if
+        let closestDate = data.keys.lazy.filter({ $0 < date }).max(),
+        let use = data[closestDate]?.wheelchairUse,
+        use
+      {
+        return use
+      }
+
+      // No match, fallback to current time zone
+      return fallbackWheelchairUse
+    }
 
     func timeZone(for date: GregorianCalendar.FloatingDate) -> TimeZone {
 
@@ -88,7 +116,7 @@ class UserHistoryStore: @unchecked Sendable {
       }
 
       // No match, fallback to current time zone
-      return UserHistoryStore.getCurrentTimeZone()
+      return fallbackTimeZone
     }
   }
 }

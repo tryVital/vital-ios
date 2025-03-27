@@ -86,14 +86,17 @@ extension HKSampleType {
         return .individual(.floorsClimbed)
         
       case HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!:
-        return .individual(.distanceWalkingRunning)
+        return .individual(.distance)
 
       case HKSampleType.quantityType(forIdentifier: .vo2Max)!:
         return .individual(.vo2Max)
 
       case HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
         return .individual(.exerciseTime)
-        
+
+      case HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!:
+          return .individual(.distance)
+
       default:
         fatalError("\(String(describing: self)) is not supported. This is a developer error")
     }
@@ -250,6 +253,9 @@ struct QuantityUnit {
     mapping[.stepCount] = .count
     mapping[.flightsClimbed] = .count
     mapping[.distanceWalkingRunning] = .meter
+    mapping[.distanceWheelchair] = .meter
+    mapping[.pushCount] = .count
+    mapping[.distanceWalkingRunning] = .meter
     mapping[.vo2Max] = .vo2Max
     mapping[.bloodGlucose] = .glucose
     mapping[.bloodPressureSystolic] = .mmHg
@@ -338,6 +344,8 @@ struct QuantityUnit {
     mapping[.stepCount] = .count()
     mapping[.flightsClimbed] = .count()
     mapping[.distanceWalkingRunning] = .meter()
+    mapping[.distanceWheelchair] = .meter()
+    mapping[.pushCount] = .count()
     mapping[.vo2Max] = .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
     mapping[.bloodGlucose] = .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
     mapping[.bloodPressureSystolic] = .millimeterOfMercury()

@@ -236,7 +236,7 @@ func read(
       options: options
     )
 
-  case .individual(.distanceWalkingRunning):
+  case .individual(.distance):
     return try await handleActivityTimeseries(
       healthKitStore,
       vitalStorage,
@@ -506,6 +506,60 @@ func read(
     throw VitalHealthKitClientError.invalidRemappedResource
   }
 }
+
+func handleDistanceTimeseries(
+  _ healthKitStore: HKHealthStore,
+  _ vitalStorage: AnchorStorage,
+  _ instruction: SyncInstruction,
+  transform: ([LocalQuantitySample]) -> TimeSeriesData,
+  options: ReadOptions
+) async throws -> (ProcessedResourceData, [StoredAnchor]) {
+
+  async let distanceWalkingRunning = handleActivityTimeseries(
+    healthKitStore,
+    vitalStorage,
+    .distanceWalkingRunning,
+    instruction,
+    transform: TimeSeriesData.distance,
+    options: options
+  )
+
+  async let distanceWheelchair = handleActivityTimeseries(
+    healthKitStore,
+    vitalStorage,
+    .distanceWheelchair,
+    instruction,
+    transform: makeDistanceForWheelchairMode,
+    options: options
+  )
+
+  let (samples0, anchor0) = try await distanceWalkingRunning
+  let (samples1, anchor1) = try await distanceWheelchair
+
+  guard
+    case let .timeSeries(.distance(data0)) = samples0,
+    case let .timeSeries(.distance(data1)) = samples1
+  else {
+    throw VitalHealthKitClientError.healthKitInvalidState(
+      "distanceWalkingRunning and distanceWheelchair should have both returned .timeSeries(.distance(samples))"
+    )
+  }
+
+  return (.timeSeries(.distance(data0 + data1)), anchor0 + anchor1)
+}
+
+private func makeDistanceForWheelchairMode(_ samples: [LocalQuantitySample]) -> TimeSeriesData {
+  var samples = samples
+
+  for offset in samples.indices {
+    var metadata = (samples[offset].metadata ?? [:])
+    metadata["wheelchair"] = "1"
+    samples[offset].metadata = metadata
+  }
+
+  return .distance(samples)
+}
+
 
 func handleActivityTimeseries(
   _ healthKitStore: HKHealthStore,
@@ -1176,11 +1230,10 @@ func handleActivity(
     hasMore = workingUpperBound < proposedUpperBound
   }
 
-  daySummaries = try await queryActivityDaySummaries(
+  daySummaries = try await queryActivityDaySummariesUsingUserTimeZoneHistory(
     dependencies: dependencies,
     start: workingLowerBound,
-    end: workingUpperBound,
-    in: deviceTimeZoneCalendar
+    end: workingUpperBound
   )
 
   let patch = activityPatchGroupedByDay(summaries: daySummaries, samples: ActivityPatch.Activity(), in: deviceTimeZoneCalendar)
@@ -1834,6 +1887,18 @@ func queryActivityDaySummaries(
     .daily,
     nil
   )
+  async let _distanceWheelchair = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .distanceWheelchair)!,
+    queryInterval,
+    .daily,
+    nil
+  )
+  async let _pushCount = dependencies.executeStatisticalQuery(
+    HKQuantityType.quantityType(forIdentifier: .pushCount)!,
+    queryInterval,
+    .daily,
+    nil
+  )
   async let _maxHeartRate = dependencies.executeStatisticalQuery(
     HKQuantityType.quantityType(forIdentifier: .heartRate)!,
     queryInterval,
@@ -1887,6 +1952,10 @@ func queryActivityDaySummaries(
   let averageHeartRate = keyedByDate(try await _averageHeartRate)
   let restingHeartRate = keyedByDate(try await _restingHeartRate)
   let appleExerciseTime = keyedByDate(try await _appleExerciseTime)
+  let distanceWheelchair = keyedByDate(try await _distanceWheelchair)
+  let pushCount = keyedByDate(try await _pushCount)
+
+  let resolver = UserHistoryStore.shared.resolver()
 
   var result = [GregorianCalendar.FloatingDate: ActivityPatch.DaySummary]()
   for date in calendar.enumerate(datesToCompute) {
@@ -1902,7 +1971,10 @@ func queryActivityDaySummaries(
       minHeartRate: (minHeartRate[date]?.value.rounded(.down)).map(Int.init),
       avgHeartRate: (averageHeartRate[date]?.value.rounded(.down)).map(Int.init),
       restingHeartRate: (restingHeartRate[date]?.value.rounded(.down)).map(Int.init),
-      exerciseTime: (appleExerciseTime[date]?.value.rounded(.down)).map(Int.init)
+      exerciseTime: (appleExerciseTime[date]?.value.rounded(.down)).map(Int.init),
+      distanceWheelchair: (distanceWheelchair[date]?.value.rounded(.down)),
+      wheelchairUse: resolver.wheelchairUse(for: date),
+      wheelchairPush: (pushCount[date]?.value.rounded(.down)).map(Int.init)
     )
   }
 
