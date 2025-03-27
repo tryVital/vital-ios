@@ -17,7 +17,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
-    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standTime, .sleepApneaAlert, .sleepBreathingDisturbance, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
+    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
       return 12
     case .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
@@ -89,8 +89,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return .heartRateAlert
     case .standHour:
       return .standHour
-    case .standTime:
-      return .standTime
+    case .standDuration:
+      return .standDuration
     case .sleepApneaAlert:
       return .sleepApneaAlert
     case .sleepBreathingDisturbance:
@@ -214,7 +214,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case heartRateAlert
   case afibBurden
   case standHour
-  case standTime
+  case standDuration
   case sleepApneaAlert
   case sleepBreathingDisturbance
   case wheelchairPush
@@ -262,7 +262,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .heartRateAlert,
     .afibBurden,
     .standHour,
-    .standTime,
+    .standDuration,
     .sleepApneaAlert,
     .sleepBreathingDisturbance,
     .wheelchairPush,
@@ -307,8 +307,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return "afibBurden"
     case .standHour:
       return "standHour"
-    case .standTime:
-      return "standTime"
+    case .standDuration:
+      return "standDuration"
     case .sleepApneaAlert:
       return "sleepApneaAlert"
     case .sleepBreathingDisturbance:
@@ -376,7 +376,7 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let heartRateAlert = BackfillType(rawValue: "heart_rate_alert")
   public static let afibBurden = BackfillType(rawValue: "afib_burden")
   public static let standHour = BackfillType(rawValue: "stand_hour")
-  public static let standTime = BackfillType(rawValue: "stand_duration")
+  public static let standDuration = BackfillType(rawValue: "stand_duration")
   public static let sleepApneaAlert = BackfillType(rawValue: "sleep_apnea_alert")
   public static let sleepBreathingDisturbance = BackfillType(rawValue: "sleep_breathing_disturbance")
   public static let wheelchairPush = BackfillType(rawValue: "wheelchair_push")

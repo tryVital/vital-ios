@@ -318,7 +318,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
   case .standHour:
     return single(HKSampleType.categoryType(forIdentifier: .appleStandHour)!)
 
-  case .standTime:
+  case .standDuration:
     return single(HKSampleType.quantityType(forIdentifier: .appleStandTime)!)
 
   case .sleepApneaAlert:

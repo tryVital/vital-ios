@@ -236,7 +236,6 @@ struct QuantityUnit {
     mapping[.inhalerUsage] = .count
     mapping[.numberOfTimesFallen] = .count
     mapping[.uvExposure] = .count
-    mapping[.basalBodyTemperature] = .degreeCelsius
 
     mapping[.bodyMass] = .kg
     mapping[.bodyFatPercentage] = .percentage

@@ -198,7 +198,7 @@ extension VitalHealthKitStore {
       return [.standHour]
 
     case HKSampleType.quantityType(forIdentifier: .appleStandTime)!:
-      return [.standTime]
+      return [.standDuration]
 
     case HKSampleType.quantityType(forIdentifier: .pushCount)!:
       return [.wheelchairPush]

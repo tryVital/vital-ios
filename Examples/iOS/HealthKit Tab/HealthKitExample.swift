@@ -71,7 +71,7 @@ struct HealthKitExample: View {
 
             makePermissionRow("Stand Hour", resources: [.standHour], permissions: $permissions)
 
-            makePermissionRow("Stand Time", resources: [.standTime], permissions: $permissions)
+            makePermissionRow("Stand Duration", resources: [.standDuration], permissions: $permissions)
 
             makePermissionRow("Sleep Apnea Alert", resources: [.sleepApneaAlert], permissions: $permissions)
 

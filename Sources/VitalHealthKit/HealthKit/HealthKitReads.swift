@@ -310,7 +310,7 @@ func read(
     )
     return (.timeSeries(.standHour(payload.samples)), payload.anchors)
 
-  case .standTime:
+  case .standDuration:
     let payload = try await handleTimeSeries(
       .appleStandTime,
       healthKitStore: healthKitStore,
@@ -319,7 +319,7 @@ func read(
       endDate: instruction.query.upperBound
     )
 
-    return (.timeSeries(.standTime(payload.samples)), payload.anchors)
+    return (.timeSeries(.standDuration(payload.samples)), payload.anchors)
 
    case .sleepApneaAlert:
      if #available(iOS 18.0, *){
