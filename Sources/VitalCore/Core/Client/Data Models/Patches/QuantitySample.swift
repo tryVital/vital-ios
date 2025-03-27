@@ -85,6 +85,7 @@ public struct LocalQuantitySample: Hashable, Encodable {
     case ug = "\u{03BC}g"
     case L
     case flowRate = "L/min"
+    case index
 
     public var description: String {
       rawValue

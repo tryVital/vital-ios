@@ -31,7 +31,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 32
     case .vitals(.heartRate), .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
       return 64
-    case .individual(.exerciseTime), .individual(.weight), .individual(.bodyFat):
+    case .individual(.exerciseTime), .individual(.weight), .individual(.bodyFat),
+        .individual(.waistCircumference), .individual(.bodyMassIndex), .individual(.leanBodyMass):
       return Int.max
     }
   }
@@ -53,7 +54,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return BackfillType.floorsClimbed
     case .individual(.vo2Max):
       return BackfillType.vo2Max
-    case .body, .individual(.bodyFat), .individual(.weight):
+    case .body, .individual(.bodyFat), .individual(.weight), .individual(.bodyMassIndex), .individual(.waistCircumference), .individual(.leanBodyMass):
       return BackfillType.body;
     case .vitals(.bloodOxygen):
       return BackfillType.bloodOxygen;
@@ -180,6 +181,9 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
 
     case weight
     case bodyFat
+    case leanBodyMass
+    case waistCircumference
+    case bodyMassIndex
 
     @available(*, deprecated, renamed: "distance", message: "distanceWalkingRunning has been renamed to distance with the support for Wheelchair Mode")
     public static var distanceWalkingRunning: Self {
@@ -206,8 +210,14 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
           return "wheelchairPush"
         case .weight:
           return "weight"
-        case .bodyFat:
-          return "bodyFat"
+      case .bodyFat:
+        return "bodyFat"
+      case .leanBodyMass:
+        return "leanBodyMass"
+      case .waistCircumference:
+        return "waistCircumference"
+      case .bodyMassIndex:
+        return "bodyMassIndex"
       }
     }
   }
@@ -264,9 +274,13 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .individual(.vo2Max),
     .individual(.activeEnergyBurned),
     .individual(.basalEnergyBurned),
+    .individual(.exerciseTime),
     .individual(.weight),
     .individual(.bodyFat),
-    
+    .individual(.leanBodyMass),
+    .individual(.waistCircumference),
+    .individual(.bodyMassIndex),
+
     .nutrition(.water),
     .nutrition(.caffeine),
 

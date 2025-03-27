@@ -66,12 +66,11 @@ func read(
       let payload = try await handleBody(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
-        startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        instruction: instruction
       )
       
-      return (.summary(.body(payload.bodyPatch)), payload.anchors)
-      
+      return (payload.bodyPatch.map { .summary(.body($0)) }, payload.anchors)
+
     case .sleep:
       let payload = try await handleSleep(
         healthKitStore: healthKitStore,
@@ -502,7 +501,8 @@ func read(
       return (nil, [])
     }
 
-  case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight):
+  case .individual(.exerciseTime), .individual(.bodyFat), .individual(.weight),
+      .individual(.waistCircumference), .individual(.bodyMassIndex), .individual(.leanBodyMass):
     throw VitalHealthKitClientError.invalidRemappedResource
   }
 }
@@ -738,45 +738,30 @@ func handleProfile(
 func handleBody(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
-  startDate: Date,
-  endDate: Date
-) async throws -> (bodyPatch: BodyPatch, anchors: [StoredAnchor]) {
-  
-  func queryQuantities(
-    _ id: HKQuantityTypeIdentifier
-  ) async throws -> (quantities: [LocalQuantitySample], StoredAnchor?) {
-    
-    let payload = try await anchoredQuery(
+  instruction: SyncInstruction
+) async throws -> (bodyPatch: BodyPatch?, anchors: [StoredAnchor]) {
+
+  let deviceTimeZoneCalendar = GregorianCalendar(timeZone: .current)
+
+  let (workingRange, anchors) = try await calculateBodySummaryWorkingRangeUsingAnchoredQuery(
+    healthKitStore: healthKitStore,
+    vitalStorage: vitalStorage,
+    instruction: instruction,
+    in: deviceTimeZoneCalendar
+  )
+
+  if let workingRange = workingRange {
+    let patch = try await queryBodySummaries(
       healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      type: .quantityType(forIdentifier: id)!,
-      sampleClass: HKQuantitySample.self,
-      unit: QuantityUnit(id),
-      limit: AnchoredQueryChunkSize.timeseries,
-      startDate: startDate,
-      endDate: endDate,
-      transform: LocalQuantitySample.init
+      start: workingRange.lowerBound,
+      end: workingRange.upperBound,
+      in: deviceTimeZoneCalendar
     )
 
-    return (payload.sample, payload.anchor)
+    return (patch, anchors)
+  } else {
+    return (nil, anchors)
   }
-  
-  
-  var anchors: [StoredAnchor] = []
-  
-  let (bodyMass, bodyMassAnchor) = try await queryQuantities(.bodyMass)
-  let (bodyFatPercentage, bodyFatPercentageAnchor) = try await queryQuantities(.bodyFatPercentage)
-  
-  anchors.appendOptional(bodyMassAnchor)
-  anchors.appendOptional(bodyFatPercentageAnchor)
-  
-  return (
-    .init(
-      bodyMass: bodyMass,
-      bodyFatPercentage: bodyFatPercentage
-    ),
-    anchors
-  )
 }
 
 func handleMeal(
@@ -828,7 +813,6 @@ func handleMeal(
 
   let sampleGroups = try await queryMulti(
     healthKitStore: healthKitStore,
-    vitalStorage: vitalStorage,
     types: types,
     startDate: startDate,
     endDate: endDate
@@ -1597,7 +1581,6 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
 @HealthKitActor
 func queryMulti(
   healthKitStore: HKHealthStore,
-  vitalStorage: AnchorStorage,
   types: Set<HKSampleType>,
   limit: Int = HKObjectQueryNoLimit,
   startDate: Date? = nil,

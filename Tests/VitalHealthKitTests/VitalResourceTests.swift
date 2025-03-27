@@ -1,5 +1,5 @@
 import HealthKit
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 @testable import VitalHealthKit
 import XCTest
 
@@ -23,6 +23,19 @@ class VitalResourceTests: XCTestCase {
     XCTAssertTrue(UserDefaults(suiteName: "tryVital")!.bool(forKey: "vitals(VitalCore.VitalResource.Vitals.heartRate)"))
     XCTAssertTrue(VitalBackStorage.live.isResourceFlagged(.vitals(.heartRate)))
     // XCTAssertTrue(VitalBackStorage.live.isResourceFlagged(.vitals(.hearthRate)))
+  }
+
+  func test_priority_of_remapped_resources_should_be_Int_max() {
+    var invalid = Set<VitalResource>()
+
+    for resource in VitalResource.all {
+      let remapped = VitalHealthKitStore.remapResource(resource)
+      if remapped.wrapped != resource, resource.priority != Int.max {
+        invalid.insert(resource)
+      }
+    }
+
+    XCTAssertEqual(invalid, [])
   }
 
 }
