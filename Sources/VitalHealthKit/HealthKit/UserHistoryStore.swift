@@ -22,6 +22,7 @@ class UserHistoryStore: @unchecked Sendable {
     if !hasLoaded {
       hasLoaded = true
       self.data = self.storage.get(UserTimeZoneHistory.self) ?? [:]
+      VitalLogger.healthKit.info("loaded \(self.data.count) records", source: "UserHistoryStore")
     }
   }
 
@@ -50,6 +51,11 @@ class UserHistoryStore: @unchecked Sendable {
 
       if oldValue != newValue {
         save()
+
+        VitalLogger.healthKit.info(
+          "\(dateToUpdate) old: \(oldValue.map(String.init(describing:)) ?? "nil") new: \(newValue)",
+          source: "UserHistoryStore"
+        )
       }
     }
   }
