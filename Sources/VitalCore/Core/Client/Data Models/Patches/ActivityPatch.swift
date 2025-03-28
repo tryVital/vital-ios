@@ -56,12 +56,17 @@ public struct ActivityPatch: Equatable, Encodable {
     public var restingHeartRate: Int?
     public var exerciseTime: Int?
 
+    public var distanceWheelchair: Double?
+    public var wheelchairUse: Bool?
+    public var wheelchairPush: Int?
+
     public var isNotEmpty: Bool {
       activeEnergyBurnedSum != nil || basalEnergyBurnedSum != nil ||
       stepsSum != nil || floorsClimbedSum != nil ||
       distanceWalkingRunningSum != nil || vo2Max != nil ||
       low != nil || medium != nil || high != nil || maxHeartRate != nil ||
       minHeartRate != nil || avgHeartRate != nil || restingHeartRate != nil || exerciseTime != nil
+      || distanceWheelchair != nil || wheelchairUse != nil || wheelchairPush != nil
     }
 
     public init(
@@ -79,7 +84,10 @@ public struct ActivityPatch: Equatable, Encodable {
       minHeartRate: Int? = nil,
       avgHeartRate: Int? = nil,
       restingHeartRate: Int? = nil,
-      exerciseTime: Int? = nil
+      exerciseTime: Int? = nil,
+      distanceWheelchair: Double? = nil,
+      wheelchairUse: Bool? = nil,
+      wheelchairPush: Int? = nil
     ) {
       self.calendarDate = calendarDate
       self.activeEnergyBurnedSum = activeEnergyBurnedSum
@@ -96,6 +104,9 @@ public struct ActivityPatch: Equatable, Encodable {
       self.avgHeartRate = avgHeartRate
       self.restingHeartRate = restingHeartRate
       self.exerciseTime = exerciseTime
+      self.distanceWheelchair = distanceWheelchair
+      self.wheelchairUse = wheelchairUse
+      self.wheelchairPush = wheelchairPush
     }
   }
   

@@ -96,8 +96,17 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     return single(HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!)
   case .individual(.floorsClimbed):
     return single(HKSampleType.quantityType(forIdentifier: .flightsClimbed)!)
-  case .individual(.distanceWalkingRunning):
-    return single(HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!)
+  case .individual(.distance):
+    return HealthKitObjectTypeRequirements(
+      required: [],
+      optional: [
+        HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
+      ],
+      supplementary: [
+        HKCharacteristicType.characteristicType(forIdentifier: .wheelchairUse)!,
+      ]
+    )
   case .individual(.vo2Max):
     return single(HKSampleType.quantityType(forIdentifier: .vo2Max)!)
   case .individual(.exerciseTime):
@@ -160,11 +169,14 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
+        HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
+        HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
+        HKSampleType.quantityType(forIdentifier: .pushCount)!,
       ],
       supplementary: [
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
         HKSampleType.quantityType(forIdentifier: .restingHeartRate)!,
+        HKCharacteristicType.characteristicType(forIdentifier: .wheelchairUse)!,
       ]
     )
 
@@ -335,7 +347,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
     }
 
-  case .wheelchairPush:
+  case .individual(.wheelchairPush):
     return single(HKSampleType.quantityType(forIdentifier: .pushCount)!)
 
   case .forcedExpiratoryVolume1:
@@ -447,7 +459,9 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!,
       HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
       HKSampleType.quantityType(forIdentifier: .vo2Max)!,
-      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!
+      HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
+      HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
+      HKSampleType.quantityType(forIdentifier: .pushCount)!,
     ],
 
     /// Meal

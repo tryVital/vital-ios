@@ -1,3 +1,7 @@
+
+// IMPORTANT: Any enum case rename is storage-level breaking change.
+// You must include the old name in VitalResource.Type.renamedResources.
+
 public enum VitalResource: Equatable, Hashable, Codable, Sendable {
 
   @_spi(VitalSDKInternals)
@@ -17,13 +21,13 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
-    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
+    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
       return 12
     case .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
         .vitals(.mindfulSession), .vitals(.temperature), .vitals(.respiratoryRate):
       return 16
-    case .individual(.distanceWalkingRunning), .individual(.steps), .individual(.floorsClimbed):
+    case .individual(.distance), .individual(.steps), .individual(.floorsClimbed), .individual(.wheelchairPush):
       return 32
     case .vitals(.heartRate), .individual(.activeEnergyBurned), .individual(.basalEnergyBurned):
       return 64
@@ -41,7 +45,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return BackfillType.caloriesActive
     case .individual(.basalEnergyBurned):
       return BackfillType.caloriesBasal
-    case .individual(.distanceWalkingRunning):
+    case .individual(.distance):
       return BackfillType.distance
     case .individual(.steps):
       return BackfillType.steps
@@ -95,7 +99,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return .sleepApneaAlert
     case .sleepBreathingDisturbance:
       return .sleepBreathingDisturbance
-    case .wheelchairPush:
+    case .individual(.wheelchairPush):
       return .wheelchairPush
     case .forcedExpiratoryVolume1:
       return .forcedExpiratoryVolume1
@@ -169,13 +173,19 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     case activeEnergyBurned
     case basalEnergyBurned
     case floorsClimbed
-    case distanceWalkingRunning
+    case distance
     case vo2Max
     case exerciseTime
-    
+    case wheelchairPush
+
     case weight
     case bodyFat
-    
+
+    @available(*, deprecated, renamed: "distance", message: "distanceWalkingRunning has been renamed to distance with the support for Wheelchair Mode")
+    public static var distanceWalkingRunning: Self {
+      return .distance
+    }
+
     public var logDescription: String {
       switch self {
         case .steps:
@@ -186,12 +196,14 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
           return "basalEnergyBurned"
         case .floorsClimbed:
           return "floorsClimbed"
-        case .distanceWalkingRunning:
-          return "distanceWalkingRunning"
+        case .distance:
+          return "distance"
         case .vo2Max:
           return "vo2Max"
         case .exerciseTime:
           return "exerciseTime"
+        case .wheelchairPush:
+          return "wheelchairPush"
         case .weight:
           return "weight"
         case .bodyFat:
@@ -217,7 +229,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case standDuration
   case sleepApneaAlert
   case sleepBreathingDisturbance
-  case wheelchairPush
   case forcedExpiratoryVolume1
   case forcedVitalCapacity
   case peakExpiratoryFlowRate
@@ -247,8 +258,9 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .vitals(.respiratoryRate),
 
     .individual(.steps),
+    .individual(.wheelchairPush),
     .individual(.floorsClimbed),
-    .individual(.distanceWalkingRunning),
+    .individual(.distance),
     .individual(.vo2Max),
     .individual(.activeEnergyBurned),
     .individual(.basalEnergyBurned),
@@ -265,7 +277,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .standDuration,
     .sleepApneaAlert,
     .sleepBreathingDisturbance,
-    .wheelchairPush,
     .forcedExpiratoryVolume1,
     .forcedVitalCapacity,
     .peakExpiratoryFlowRate,
@@ -313,8 +324,6 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return "sleepApneaAlert"
     case .sleepBreathingDisturbance:
       return "sleepBreathingDisturbance"
-    case .wheelchairPush:
-      return "wheelchairPush"
     case .forcedExpiratoryVolume1:
       return "forcedExpiratoryVolume1"
     case .forcedVitalCapacity:
@@ -389,4 +398,29 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let daylightExposure = BackfillType(rawValue: "daylight_exposure")
   public static let handwashing = BackfillType(rawValue: "handwashing")
   public static let basalBodyTemperature = BackfillType(rawValue: "basal_body_temperature")
+}
+
+extension VitalResource {
+  // Current Name -> Old Name
+  private static let renamedResources: [VitalResource: String] = [
+    .vitals(.heartRate): "vitals(VitalCore.VitalResource.Vitals.hearthRate)",
+    .individual(.distance): "individual(VitalCore.VitalResource.Individual.distanceWalkingRunning)",
+  ]
+
+  @_spi(VitalSDKInternals)
+  public var storageReadKeys: [String] {
+    // Current name must go first in order
+    var keys = [String(describing: self)]
+
+    // Historical name goes next; only lookup when the current name misses.
+    if let key = Self.renamedResources[self] {
+      keys.append(key)
+    }
+    return keys
+  }
+
+  @_spi(VitalSDKInternals)
+  public var storageWriteKey: String {
+    return String(describing: self)
+  }
 }
