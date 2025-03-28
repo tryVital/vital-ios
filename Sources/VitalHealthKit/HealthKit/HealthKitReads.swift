@@ -356,7 +356,7 @@ func read(
         case .elevated:
           metadata["category"] = "elevated"
         case .notElevated:
-          metadata["category"] = "not elevated"
+          metadata["category"] = "not_elevated"
         case nil:
           break
         @unknown default:
