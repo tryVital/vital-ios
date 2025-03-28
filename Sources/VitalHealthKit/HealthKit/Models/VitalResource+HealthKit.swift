@@ -347,7 +347,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
     }
 
-  case .wheelchairPush:
+  case .individual(.wheelchairPush):
     return single(HKSampleType.quantityType(forIdentifier: .pushCount)!)
 
   case .forcedExpiratoryVolume1:
@@ -461,8 +461,7 @@ func observedSampleTypes() -> [[HKSampleType]] {
       HKSampleType.quantityType(forIdentifier: .vo2Max)!,
       HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!,
       HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
-      // TODO: https://github.com/tryVital/vital-ios/pull/295
-      // HKSampleType.quantityType(forIdentifier: .pushCount)!,
+      HKSampleType.quantityType(forIdentifier: .pushCount)!,
     ],
 
     /// Meal

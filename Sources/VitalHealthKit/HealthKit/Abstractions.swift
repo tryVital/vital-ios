@@ -102,8 +102,7 @@ extension VitalHealthKitStore {
         HKSampleType.quantityType(forIdentifier: .flightsClimbed)!,
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
-        // TODO: https://github.com/tryVital/vital-ios/pull/295
-        // HKSampleType.quantityType(forIdentifier: .pushCount)!,
+        HKSampleType.quantityType(forIdentifier: .pushCount)!,
         HKSampleType.quantityType(forIdentifier: .vo2Max)!,
         HKSampleType.quantityType(forIdentifier: .appleExerciseTime)!:
 
@@ -202,9 +201,6 @@ extension VitalHealthKitStore {
 
     case HKSampleType.quantityType(forIdentifier: .appleStandTime)!:
       return [.standDuration]
-
-    case HKSampleType.quantityType(forIdentifier: .pushCount)!:
-      return [.wheelchairPush]
 
     case HKSampleType.quantityType(forIdentifier: .forcedExpiratoryVolume1)!:
       return [.forcedExpiratoryVolume1]

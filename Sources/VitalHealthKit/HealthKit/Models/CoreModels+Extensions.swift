@@ -95,7 +95,10 @@ extension HKSampleType {
         return .individual(.exerciseTime)
 
       case HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!:
-          return .individual(.distance)
+        return .individual(.distance)
+
+      case HKSampleType.quantityType(forIdentifier: .pushCount)!:
+        return .individual(.wheelchairPush)
 
       default:
         fatalError("\(String(describing: self)) is not supported. This is a developer error")

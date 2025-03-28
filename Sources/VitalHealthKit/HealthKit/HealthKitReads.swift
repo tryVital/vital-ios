@@ -372,7 +372,7 @@ func read(
       return (nil, [])
     }
 
-  case .wheelchairPush:
+  case .individual(.wheelchairPush):
     let payload = try await handleTimeSeries(
       .pushCount,
       healthKitStore: healthKitStore,
