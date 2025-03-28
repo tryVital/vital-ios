@@ -77,8 +77,6 @@ struct HealthKitExample: View {
 
             makePermissionRow("Sleep Breathing Disturbance", resources: [.sleepBreathingDisturbance])
 
-            makePermissionRow("Wheelchair Push", resources: [.wheelchairPush])
-
             makePermissionRow("Forced Expiratory Volume", resources: [.forcedExpiratoryVolume1])
 
             makePermissionRow("Forced Vital Capacity", resources: [.forcedVitalCapacity])
