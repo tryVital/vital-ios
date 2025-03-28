@@ -713,12 +713,14 @@ func handleProfile(
   )
 
   let height = payload.last.map { Int($0.value)}
-  
+  let wheelchairUse = (try? healthKitStore.wheelchairUse())?.wheelchairUse == .yes ? true : nil
+
   let profile: ProfilePatch = .init(
     biologicalSex: biologicalSex,
     dateOfBirth: dateOfBirth,
     height: height,
-    timeZone: TimeZone.current.identifier
+    timeZone: TimeZone.current.identifier,
+    wheelchairUse: wheelchairUse
   )
   let id = profile.id
 

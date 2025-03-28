@@ -103,9 +103,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
         HKSampleType.quantityType(forIdentifier: .distanceWalkingRunning)!,
         HKSampleType.quantityType(forIdentifier: .distanceWheelchair)!,
       ],
-      supplementary: [
-        HKCharacteristicType.characteristicType(forIdentifier: .wheelchairUse)!,
-      ]
+      supplementary: []
     )
   case .individual(.vo2Max):
     return single(HKSampleType.quantityType(forIdentifier: .vo2Max)!)
@@ -131,6 +129,7 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
       optional: [
         HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
         HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
+        HKCharacteristicType.characteristicType(forIdentifier: .wheelchairUse)!,
         HKQuantityType.quantityType(forIdentifier: .height)!,
       ],
       supplementary: []

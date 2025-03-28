@@ -12,17 +12,20 @@ public struct ProfilePatch: Equatable, Encodable, Hashable {
   public let dateOfBirth: Date?
   public let height: Int?
   public let timeZone: String?
-  
+  public let wheelchairUse: Bool?
+
   public init(
     biologicalSex: ProfilePatch.BiologicalSex?,
     dateOfBirth: Date?,
     height: Int?,
-    timeZone: String?
+    timeZone: String?,
+    wheelchairUse: Bool?
   ) {
     self.biologicalSex = biologicalSex
     self.dateOfBirth = dateOfBirth
     self.height = height
     self.timeZone = timeZone
+    self.wheelchairUse = wheelchairUse
   }
 }
 

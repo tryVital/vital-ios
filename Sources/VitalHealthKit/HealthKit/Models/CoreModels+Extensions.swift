@@ -601,7 +601,8 @@ extension ProfilePatch {
     let dateOfBirth = String(describing: self.dateOfBirth)
     let height = String(describing: self.height?.description)
     let timeZone = String(describing: self.timeZone)
+    let wheelchairUse = String(describing: self.wheelchairUse)
 
-    return "\(biologicalSex)_\(dateOfBirth)_\(height)_\(timeZone)".sha256()
+    return "\(biologicalSex)_\(dateOfBirth)_\(height)_\(timeZone)_\(wheelchairUse)".sha256()
   }
 }
