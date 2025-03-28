@@ -1611,17 +1611,23 @@ func queryMulti(
   }
 
   let shortIDs = types.map(\.shortenedIdentifier).joined(separator: ",")
+  let logId = "queryMulti,\(shortIDs)"
   let signpost = VitalLogger.Signpost.begin(name: "queryMulti", description: shortIDs)
   defer { signpost.end() }
 
   // iOS 15+: Single query to match multiple HKSampleTypes
+
+  // Need to pre-filter the types
+  let typeStatuses = try await VitalHealthKitStore.live.authorizationStateForHealthKitTypes(types)
+  let queryableTypes = typeStatuses.compactMap { (type, status) in status != .notDetermined ? type : nil }
+  VitalLogger.healthKit.info("\(types.count) requested; \(queryableTypes.count) queryable", source: logId)
 
   let handle = CancellableQueryHandle<[HKSampleType: [HKSample]]> { continuation in
 
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
 
       if let error = error {
-        handleHealthKitError(error: error, noDataRepresentation: { [:] }, continuation: continuation, source: "queryMulti,\(shortIDs)")
+        handleHealthKitError(error: error, noDataRepresentation: { [:] }, continuation: continuation, source: logId)
         return
       }
 
@@ -1636,8 +1642,8 @@ func queryMulti(
     }
 
     let query = HKSampleQuery(
-      queryDescriptors: types.map { type in
-        HKQueryDescriptor(sampleType: type, predicate: predicate)
+      queryDescriptors: queryableTypes.map { type in
+        HKQueryDescriptor(sampleType: type as! HKSampleType, predicate: predicate)
       },
       limit: limit != HKObjectQueryNoLimit ? limit * types.count : HKObjectQueryNoLimit,
       sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)],
