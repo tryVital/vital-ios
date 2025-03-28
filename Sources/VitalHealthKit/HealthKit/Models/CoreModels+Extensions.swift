@@ -220,6 +220,23 @@ struct QuantityUnit {
       mapping[.atrialFibrillationBurden] = .percentage
     }
 
+    if #available(iOS 17.0, *) {
+      mapping[.timeInDaylight] = .minute
+    }
+
+    if #available(iOS 18.0, *) {
+      mapping[.appleSleepingBreathingDisturbances] = .count
+    }
+
+    mapping[.appleStandTime] = .minute
+    mapping[.pushCount] = .count
+    mapping[.forcedExpiratoryVolume1] = .L
+    mapping[.forcedVitalCapacity] = .L
+    mapping[.peakExpiratoryFlowRate] = .flowRate
+    mapping[.inhalerUsage] = .count
+    mapping[.numberOfTimesFallen] = .count
+    mapping[.uvExposure] = .count
+
     mapping[.bodyMass] = .kg
     mapping[.bodyFatPercentage] = .percentage
     mapping[.height] = .centimeter
@@ -291,6 +308,21 @@ struct QuantityUnit {
     if #available(iOS 16.0, *) {
       mapping[.appleSleepingWristTemperature] = .degreeCelsius()
       mapping[.atrialFibrillationBurden] = .percent()
+    }
+
+    if #available(iOS 18.0, *) {
+      mapping[.appleSleepingBreathingDisturbances] = .count()
+    }
+    mapping[.appleStandTime] = .minute()
+    mapping[.pushCount] = .count()
+    mapping[.forcedExpiratoryVolume1] = .liter()
+    mapping[.forcedVitalCapacity] = .liter()
+    mapping[.peakExpiratoryFlowRate] = .liter().unitDivided(by: .minute())
+    mapping[.inhalerUsage] = .count()
+    mapping[.numberOfTimesFallen] = .count()
+    mapping[.uvExposure] = .count()
+    if #available(iOS 17.0, *) {
+      mapping[.timeInDaylight] = .minute()
     }
 
     mapping[.bodyMass] = .gramUnit(with: .kilo)
@@ -532,6 +564,21 @@ extension LocalQuantitySample {
       productType: sample.sourceRevision.productType,
       type: nil,
       unit: .minute
+    )
+  }
+}
+
+extension LocalQuantitySample {
+  static func fromCategorySample(sample: HKCategorySample) -> LocalQuantitySample? {
+
+    return self.init(
+      value: Double(sample.value), // The raw category value
+      startDate: sample.startDate,
+      endDate: sample.endDate,
+      sourceBundle: sample.sourceRevision.source.bundleIdentifier,
+      productType: sample.sourceRevision.productType,
+      type: nil,
+      unit: .count
     )
   }
 }

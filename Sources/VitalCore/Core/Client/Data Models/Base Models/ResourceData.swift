@@ -84,6 +84,20 @@ public enum TimeSeriesData: Equatable, Encodable {
   case temperature([LocalQuantitySample])
   case afibBurden([LocalQuantitySample])
   case heartRateAlert([LocalQuantitySample])
+  case standHour([LocalQuantitySample])
+  case standDuration([LocalQuantitySample])
+  case sleepApneaAlert([LocalQuantitySample])
+  case sleepBreathingDisturbance([LocalQuantitySample])
+  case wheelchairPush([LocalQuantitySample])
+  case forcedExpiratoryVolume1([LocalQuantitySample])
+  case forcedVitalCapacity([LocalQuantitySample])
+  case peakExpiratoryFlowRate([LocalQuantitySample])
+  case inhalerUsage([LocalQuantitySample])
+  case fall([LocalQuantitySample])
+  case uvExposure([LocalQuantitySample])
+  case daylightExposure([LocalQuantitySample])
+  case handwashing([LocalQuantitySample])
+  case basalBodyTemperature([LocalQuantitySample])
 
   public var payload: Encodable {
     switch self {
@@ -94,7 +108,10 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
       let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
       let .respiratoryRate(samples), let .temperature(samples), let .afibBurden(samples),
-      let .heartRateAlert(samples):
+      let .heartRateAlert(samples), let .standHour(samples), let .standDuration(samples), let .sleepApneaAlert(samples),
+      let .sleepBreathingDisturbance(samples), let .wheelchairPush(samples), let .forcedExpiratoryVolume1(samples),
+      let .forcedVitalCapacity(samples), let .peakExpiratoryFlowRate(samples), let .inhalerUsage(samples), let .fall(samples),
+      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples):
       return samples
 
     case let .bloodPressure(samples):
@@ -111,7 +128,10 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .caloriesActive(samples), let .caloriesBasal(samples), let .distance(samples),
       let .floorsClimbed(samples), let .steps(samples), let .vo2Max(samples),
       let .respiratoryRate(samples), let .temperature(samples), let .afibBurden(samples),
-      let .heartRateAlert(samples):
+      let .heartRateAlert(samples), let .standHour(samples), let .standDuration(samples), let .sleepApneaAlert(samples),
+      let .sleepBreathingDisturbance(samples), let .wheelchairPush(samples), let .forcedExpiratoryVolume1(samples),
+      let .forcedVitalCapacity(samples), let .peakExpiratoryFlowRate(samples), let .inhalerUsage(samples), let .fall(samples),
+      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples):
       return samples.count
 
     case let .bloodPressure(samples):
@@ -157,6 +177,34 @@ public enum TimeSeriesData: Equatable, Encodable {
       return "afib_burden"
     case .heartRateAlert:
       return "heart_rate_alert"
+    case .standHour:
+      return "stand_hour"
+    case .standDuration:
+      return "stand_duration"
+    case .sleepApneaAlert:
+      return "sleep_apnea_alert"
+    case .sleepBreathingDisturbance:
+      return "sleep_breathing_disturbance"
+    case .wheelchairPush:
+      return "wheelchair_push"
+    case .forcedExpiratoryVolume1:
+      return "forced_expiratory_volume_1"
+    case .forcedVitalCapacity:
+      return "forced_vital_capacity"
+    case .peakExpiratoryFlowRate:
+      return "peak_expiratory_flow_rate"
+    case .inhalerUsage:
+      return "inhaler_usage"
+    case .fall:
+      return "fall"
+    case .uvExposure:
+      return "uv_exposure"
+    case .daylightExposure:
+      return "daylight_exposure"
+    case .handwashing:
+      return "handwashing"
+    case .basalBodyTemperature:
+      return "basal_body_temperature"
     }
   }
 }

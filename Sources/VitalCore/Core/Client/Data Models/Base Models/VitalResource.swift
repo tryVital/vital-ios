@@ -17,7 +17,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
-    case .electrocardiogram, .heartRateAlert, .afibBurden:
+    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .wheelchairPush, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
       return 12
     case .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
@@ -87,6 +87,34 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return .electrocardiogram
     case .heartRateAlert:
       return .heartRateAlert
+    case .standHour:
+      return .standHour
+    case .standDuration:
+      return .standDuration
+    case .sleepApneaAlert:
+      return .sleepApneaAlert
+    case .sleepBreathingDisturbance:
+      return .sleepBreathingDisturbance
+    case .wheelchairPush:
+      return .wheelchairPush
+    case .forcedExpiratoryVolume1:
+      return .forcedExpiratoryVolume1
+    case .forcedVitalCapacity:
+      return .forcedVitalCapacity
+    case .peakExpiratoryFlowRate:
+      return .peakExpiratoryFlowRate
+    case .inhalerUsage:
+      return .inhalerUsage
+    case .fall:
+      return .fall
+    case .uvExposure:
+      return .uvExposure
+    case .daylightExposure:
+      return .daylightExposure
+    case .handwashing:
+      return .handwashing
+    case .basalBodyTemperature:
+      return .basalBodyTemperature
     }
   }
 
@@ -185,6 +213,20 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case electrocardiogram
   case heartRateAlert
   case afibBurden
+  case standHour
+  case standDuration
+  case sleepApneaAlert
+  case sleepBreathingDisturbance
+  case wheelchairPush
+  case forcedExpiratoryVolume1
+  case forcedVitalCapacity
+  case peakExpiratoryFlowRate
+  case inhalerUsage
+  case fall
+  case uvExposure
+  case daylightExposure
+  case handwashing
+  case basalBodyTemperature
 
   public static let all: [VitalResource] = [
     .profile,
@@ -219,6 +261,20 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .electrocardiogram,
     .heartRateAlert,
     .afibBurden,
+    .standHour,
+    .standDuration,
+    .sleepApneaAlert,
+    .sleepBreathingDisturbance,
+    .wheelchairPush,
+    .forcedExpiratoryVolume1,
+    .forcedVitalCapacity,
+    .peakExpiratoryFlowRate,
+    .inhalerUsage,
+    .fall,
+    .uvExposure,
+    .daylightExposure,
+    .handwashing,
+    .basalBodyTemperature
   ]
   
   public var logDescription: String {
@@ -249,6 +305,34 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return "heartRateAlert"
     case .afibBurden:
       return "afibBurden"
+    case .standHour:
+      return "standHour"
+    case .standDuration:
+      return "standDuration"
+    case .sleepApneaAlert:
+      return "sleepApneaAlert"
+    case .sleepBreathingDisturbance:
+      return "sleepBreathingDisturbance"
+    case .wheelchairPush:
+      return "wheelchairPush"
+    case .forcedExpiratoryVolume1:
+      return "forcedExpiratoryVolume1"
+    case .forcedVitalCapacity:
+      return "forcedVitalCapacity"
+    case .peakExpiratoryFlowRate:
+      return "peakExpiratoryFlowRate"
+    case .inhalerUsage:
+      return "inhalerUsage"
+    case .fall:
+      return "fall"
+    case .uvExposure:
+      return "uvExposure"
+    case .daylightExposure:
+      return "daylightExposure"
+    case .handwashing:
+      return "handwashing"
+    case .basalBodyTemperature:
+      return "basalBodyTemperature"
     }
   }
 }
@@ -291,4 +375,18 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let menstrualCycle = BackfillType(rawValue: "menstrual_cycle")
   public static let heartRateAlert = BackfillType(rawValue: "heart_rate_alert")
   public static let afibBurden = BackfillType(rawValue: "afib_burden")
+  public static let standHour = BackfillType(rawValue: "stand_hour")
+  public static let standDuration = BackfillType(rawValue: "stand_duration")
+  public static let sleepApneaAlert = BackfillType(rawValue: "sleep_apnea_alert")
+  public static let sleepBreathingDisturbance = BackfillType(rawValue: "sleep_breathing_disturbance")
+  public static let wheelchairPush = BackfillType(rawValue: "wheelchair_push")
+  public static let forcedExpiratoryVolume1 = BackfillType(rawValue: "forced_expiratory_volume_1")
+  public static let forcedVitalCapacity = BackfillType(rawValue: "forced_vital_capacity")
+  public static let peakExpiratoryFlowRate = BackfillType(rawValue: "peak_expiratory_flow_rate")
+  public static let inhalerUsage = BackfillType(rawValue: "inhaler_usage")
+  public static let fall = BackfillType(rawValue: "fall")
+  public static let uvExposure = BackfillType(rawValue: "uv_exposure")
+  public static let daylightExposure = BackfillType(rawValue: "daylight_exposure")
+  public static let handwashing = BackfillType(rawValue: "handwashing")
+  public static let basalBodyTemperature = BackfillType(rawValue: "basal_body_temperature")
 }

@@ -69,6 +69,34 @@ struct HealthKitExample: View {
 
             makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
 
+            makePermissionRow("Stand Hour", resources: [.standHour])
+
+            makePermissionRow("Stand Duration", resources: [.standDuration])
+
+            makePermissionRow("Sleep Apnea Alert", resources: [.sleepApneaAlert])
+
+            makePermissionRow("Sleep Breathing Disturbance", resources: [.sleepBreathingDisturbance])
+
+            makePermissionRow("Wheelchair Push", resources: [.wheelchairPush])
+
+            makePermissionRow("Forced Expiratory Volume", resources: [.forcedExpiratoryVolume1])
+
+            makePermissionRow("Forced Vital Capacity", resources: [.forcedVitalCapacity])
+
+            makePermissionRow("Peak Expiratory Flow Rate", resources: [.peakExpiratoryFlowRate])
+
+            makePermissionRow("Inhaler Usage", resources: [.inhalerUsage])
+
+            makePermissionRow("Fall", resources: [.fall])
+
+            makePermissionRow("UV Exposure", resources: [.uvExposure])
+
+            makePermissionRow("Daylight Exposure", resources: [.daylightExposure])
+
+            makePermissionRow("Handwashing", resources: [.handwashing])
+
+            makePermissionRow("Basal Body Temperature", resources: [.basalBodyTemperature])
+
           }
           .buttonStyle(PlainButtonStyle())
           .environment(\.requestRestrictionDemo, $requestRestrictionDemo)

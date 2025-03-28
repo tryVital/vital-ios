@@ -138,8 +138,7 @@ extension VitalHealthKitStore {
       HKCategoryType.categoryType(forIdentifier: .cervicalMucusQuality)!,
       HKCategoryType.categoryType(forIdentifier: .intermenstrualBleeding)!,
       HKCategoryType.categoryType(forIdentifier: .ovulationTestResult)!,
-      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!,
-      HKQuantityType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      HKCategoryType.categoryType(forIdentifier: .sexualActivity)!:
       return [.menstrualCycle]
 
     case HKSampleType.quantityType(forIdentifier: .bodyTemperature)!:
@@ -195,6 +194,39 @@ extension VitalHealthKitStore {
       HKCategoryType.categoryType(forIdentifier: .highHeartRateEvent)!:
       return [.heartRateAlert]
 
+    case HKSampleType.categoryType(forIdentifier: .appleStandHour)!:
+      return [.standHour]
+
+    case HKSampleType.quantityType(forIdentifier: .appleStandTime)!:
+      return [.standDuration]
+
+    case HKSampleType.quantityType(forIdentifier: .pushCount)!:
+      return [.wheelchairPush]
+
+    case HKSampleType.quantityType(forIdentifier: .forcedExpiratoryVolume1)!:
+      return [.forcedExpiratoryVolume1]
+
+    case HKSampleType.quantityType(forIdentifier: .forcedVitalCapacity)!:
+      return [.forcedVitalCapacity]
+
+    case HKSampleType.quantityType(forIdentifier: .peakExpiratoryFlowRate)!:
+      return [.peakExpiratoryFlowRate]
+
+    case HKSampleType.quantityType(forIdentifier: .inhalerUsage)!:
+      return [.inhalerUsage]
+
+    case HKSampleType.quantityType(forIdentifier: .numberOfTimesFallen)!:
+      return [.fall]
+
+    case HKSampleType.quantityType(forIdentifier: .uvExposure)!:
+      return [.uvExposure]
+
+    case HKSampleType.categoryType(forIdentifier: .handwashingEvent)!:
+      return [.handwashing]
+
+    case HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!:
+      return [.basalBodyTemperature, .menstrualCycle]
+
     case HKElectrocardiogramType.electrocardiogramType():
       return [.electrocardiogram]
 
@@ -226,6 +258,26 @@ extension VitalHealthKitStore {
           HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!:
           return [.afibBurden]
 
+        default:
+          break
+        }
+      }
+
+      if #available(iOS 17.0, *) {
+        switch type {
+        case HKSampleType.quantityType(forIdentifier: .timeInDaylight)!:
+          return [.daylightExposure]
+        default:
+          break
+        }
+      }
+
+      if #available(iOS 18.0, *) {
+        switch type {
+        case HKCategoryType.categoryType(forIdentifier: .sleepApneaEvent)!:
+          return [.sleepApneaAlert]
+        case HKQuantityType.quantityType(forIdentifier: .appleSleepingBreathingDisturbances)!:
+          return [.sleepBreathingDisturbance]
         default:
           break
         }
