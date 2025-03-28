@@ -48,31 +48,25 @@ extension ActivityPatch {
   }
 }
 
-extension BodyPatch {
-  init(sampleType: HKSampleType, samples: [LocalQuantitySample]) {
-    switch sampleType {
-      case .quantityType(forIdentifier: .bodyMass)!:
-        self.init(bodyMass: samples)
-        
-      case .quantityType(forIdentifier: .bodyFatPercentage)!:
-        self.init(bodyFatPercentage: samples)
-        
-      default:
-        fatalError("\(String(describing: sampleType)) cannot be used when constructing an BodyPatch")
-    }
-  }
-}
-
 extension HKSampleType {
   
   var toIndividualResource: VitalResource {
     switch self {
       case HKQuantityType.quantityType(forIdentifier: .bodyMass)!:
         return .individual(.weight)
-      
+
       case HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
         return .individual(.bodyFat)
-      
+
+      case HKQuantityType.quantityType(forIdentifier: .bodyMassIndex)!:
+        return .individual(.bodyMassIndex)
+
+      case HKQuantityType.quantityType(forIdentifier: .leanBodyMass)!:
+        return .individual(.leanBodyMass)
+
+      case HKQuantityType.quantityType(forIdentifier: .waistCircumference)!:
+        return .individual(.waistCircumference)
+
       case HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!:
         return .individual(.activeEnergyBurned)
         
@@ -245,6 +239,10 @@ struct QuantityUnit {
 
     mapping[.bodyMass] = .kg
     mapping[.bodyFatPercentage] = .percentage
+    mapping[.bodyMassIndex] = .index
+    mapping[.leanBodyMass] = .kg
+    mapping[.waistCircumference] = .centimeter
+    mapping[.bodyFatPercentage] = .percentage
     mapping[.height] = .centimeter
     mapping[.heartRate] = .bpm
     mapping[.respiratoryRate] = .bpm
@@ -336,6 +334,9 @@ struct QuantityUnit {
 
     mapping[.bodyMass] = .gramUnit(with: .kilo)
     mapping[.bodyFatPercentage] = .percent()
+    mapping[.bodyMassIndex] = .count()
+    mapping[.leanBodyMass] = .gramUnit(with: .kilo)
+    mapping[.waistCircumference] = .meterUnit(with: .centi)
     mapping[.height] = .meterUnit(with: .centi)
     mapping[.heartRate] = .count().unitDivided(by: .minute())
     mapping[.respiratoryRate] = .count().unitDivided(by: .minute())

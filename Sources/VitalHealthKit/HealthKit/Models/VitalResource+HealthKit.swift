@@ -115,6 +115,12 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     return single(HKSampleType.quantityType(forIdentifier: .bodyMass)!)
   case .individual(.bodyFat):
     return single(HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!)
+  case .individual(.bodyMassIndex):
+    return single(HKSampleType.quantityType(forIdentifier: .bodyMassIndex)!)
+  case .individual(.leanBodyMass):
+    return single(HKSampleType.quantityType(forIdentifier: .leanBodyMass)!)
+  case .individual(.waistCircumference):
+    return single(HKSampleType.quantityType(forIdentifier: .waistCircumference)!)
 
   case .vitals(.bloodOxygen):
     return single(HKSampleType.quantityType(forIdentifier: .oxygenSaturation)!)
@@ -443,7 +449,10 @@ func observedSampleTypes() -> [[HKSampleType]] {
     /// Body
     [
       HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!
+      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
+      HKQuantityType.quantityType(forIdentifier: .bodyMassIndex)!,
+      HKQuantityType.quantityType(forIdentifier: .leanBodyMass)!,
+      HKQuantityType.quantityType(forIdentifier: .waistCircumference)!
     ],
 
     /// Sleep

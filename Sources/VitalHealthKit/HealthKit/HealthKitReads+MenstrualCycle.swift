@@ -51,7 +51,6 @@ func handleMenstrualCycle(
 
   let sampleGroups = try await queryMulti(
     healthKitStore: healthKitStore,
-    vitalStorage: vitalStorage,
     types: types,
     startDate: searchLowerBound,
     endDate: searchUpperBound

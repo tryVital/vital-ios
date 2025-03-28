@@ -63,8 +63,8 @@ extension VitalHealthKitStore {
     // Remap individual resources to their composite version
     switch resource {
     case 
-        .individual(.bodyFat),
-        .individual(.weight):
+        .individual(.bodyFat), .individual(.weight), .individual(.leanBodyMass),
+        .individual(.waistCircumference), .individual(.bodyMassIndex):
       return RemappedVitalResource(wrapped: .body)
 
     case .individual(.exerciseTime):
@@ -82,7 +82,10 @@ extension VitalHealthKitStore {
     switch type {
       case
         HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-        HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!:
+      HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!,
+      HKQuantityType.quantityType(forIdentifier: .bodyMassIndex)!,
+      HKQuantityType.quantityType(forIdentifier: .leanBodyMass)!,
+      HKQuantityType.quantityType(forIdentifier: .waistCircumference)!:
 
       return [type.toIndividualResource, .body]
 
