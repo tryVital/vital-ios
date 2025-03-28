@@ -69,33 +69,33 @@ struct HealthKitExample: View {
 
             makePermissionRow("Caffeine", resources: [.nutrition(.caffeine)], writeResources: [.caffeine])
 
-            makePermissionRow("Stand Hour", resources: [.standHour], permissions: $permissions)
+            makePermissionRow("Stand Hour", resources: [.standHour])
 
-            makePermissionRow("Stand Duration", resources: [.standDuration], permissions: $permissions)
+            makePermissionRow("Stand Duration", resources: [.standDuration])
 
-            makePermissionRow("Sleep Apnea Alert", resources: [.sleepApneaAlert], permissions: $permissions)
+            makePermissionRow("Sleep Apnea Alert", resources: [.sleepApneaAlert])
 
-            makePermissionRow("Slee Breathing Disturbance", resources: [.sleepBreathingDisturbance], permissions: $permissions)
+            makePermissionRow("Sleep Breathing Disturbance", resources: [.sleepBreathingDisturbance])
 
-            makePermissionRow("Wheelchair Push", resources: [.wheelchairPush], permissions: $permissions)
+            makePermissionRow("Wheelchair Push", resources: [.wheelchairPush])
 
-            makePermissionRow("Forced Expiratory Volume", resources: [.forcedExpiratoryVolume1], permissions: $permissions)
+            makePermissionRow("Forced Expiratory Volume", resources: [.forcedExpiratoryVolume1])
 
-            makePermissionRow("Forced Vital Capacity", resources: [.forcedVitalCapacity], permissions: $permissions)
+            makePermissionRow("Forced Vital Capacity", resources: [.forcedVitalCapacity])
 
-            makePermissionRow("Peak Expiratory Flow Rate", resources: [.peakExpiratoryFlowRate], permissions: $permissions)
+            makePermissionRow("Peak Expiratory Flow Rate", resources: [.peakExpiratoryFlowRate])
 
-            makePermissionRow("Inhaler Usage", resources: [.inhalerUsage], permissions: $permissions)
+            makePermissionRow("Inhaler Usage", resources: [.inhalerUsage])
 
-            makePermissionRow("Fall", resources: [.fall], permissions: $permissions)
+            makePermissionRow("Fall", resources: [.fall])
 
-            makePermissionRow("UV Exposure", resources: [.uvExposure], permissions: $permissions)
+            makePermissionRow("UV Exposure", resources: [.uvExposure])
 
-            makePermissionRow("Daylight Exposure", resources: [.daylightExposure], permissions: $permissions)
+            makePermissionRow("Daylight Exposure", resources: [.daylightExposure])
 
-            makePermissionRow("Handwashing", resources: [.handwashing], permissions: $permissions)
+            makePermissionRow("Handwashing", resources: [.handwashing])
 
-            makePermissionRow("Basal Body Temperature", resources: [.basalBodyTemperature], permissions: $permissions)
+            makePermissionRow("Basal Body Temperature", resources: [.basalBodyTemperature])
 
           }
           .buttonStyle(PlainButtonStyle())

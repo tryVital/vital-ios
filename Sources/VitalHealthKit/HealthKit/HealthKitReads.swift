@@ -345,8 +345,28 @@ func read(
         startDate: instruction.query.lowerBound,
         endDate: instruction.query.upperBound
       )
+      var samplesCopy = payload.samples
+      for index in samplesCopy.indices {
+        var sample = samplesCopy[index]
+        let classification = HKAppleSleepingBreathingDisturbancesClassification(
+          classifying: HKQuantity(unit: .count(), doubleValue: sample.value)
+        )
+        var metadata = sample.metadata ?? [:]
+        switch classification {
+        case .elevated:
+          metadata["category"] = "elevated"
+        case .notElevated:
+          metadata["category"] = "not elevated"
+        case nil:
+          break
+        @unknown default:
+          break
+        }
+        sample.metadata = metadata
+        samplesCopy[index] = sample
+      }
 
-      return (.timeSeries(.sleepBreathingDisturbance(payload.samples)), payload.anchors)
+      return (.timeSeries(.sleepBreathingDisturbance(samplesCopy)), payload.anchors)
     }
     else {
       return (nil, [])
