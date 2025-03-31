@@ -139,6 +139,9 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     return HealthKitObjectTypeRequirements(required: [], optional: [
       HKSampleType.quantityType(forIdentifier: .bodyFatPercentage)!,
       HKSampleType.quantityType(forIdentifier: .bodyMass)!,
+      HKSampleType.quantityType(forIdentifier: .bodyMassIndex)!,
+      HKSampleType.quantityType(forIdentifier: .waistCircumference)!,
+      HKSampleType.quantityType(forIdentifier: .leanBodyMass)!,
     ], supplementary: [])
 
   case .sleep:
