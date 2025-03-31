@@ -148,16 +148,6 @@ extension LocalQuantitySample {
       doubleValue = doubleValue * 100
     }
 
-    var metadata: [String: String] = [:]
-
-    if let metadataDict = sample.metadata {
-      for (key, value) in metadataDict {
-        if let stringValue = value as? String {
-          metadata[key] = stringValue
-        }
-      }
-    }
-
     self.init(
       value: doubleValue,
       startDate: sample.startDate,
@@ -166,9 +156,43 @@ extension LocalQuantitySample {
       productType: sample.sourceRevision.productType,
       type: nil,
       unit: unit.vitalRepresentation,
-      metadata: metadata
+      metadata: sampleMetadata(sample)
     )
   }
+}
+
+func sampleMetadata(_ sample: HKSample) -> [String: String] {
+  var metadata: [String: String] = [:]
+
+  if let metadataDict = sample.metadata {
+    for (key, value) in metadataDict {
+      if let stringValue = value as? String {
+        metadata[key] = stringValue
+      } else if let boolValue = value as? Bool {
+        metadata[key] = boolValue ? "1" : "0"
+      }
+    }
+  }
+
+  if let device = sample.device {
+    if let model = device.model {
+      metadata["_DMO"] = model
+    }
+    if let manufacturer = device.manufacturer {
+      metadata["_DMA"] = manufacturer
+    }
+    if let version = device.firmwareVersion {
+      metadata["_DFV"] = version
+    }
+    if let version = device.hardwareVersion {
+      metadata["_DHV"] = version
+    }
+    if let version = device.softwareVersion {
+      metadata["_DSV"] = version
+    }
+  }
+
+  return metadata
 }
 
 func isValidStatistic(_ statistics: VitalStatistics) -> Bool {
@@ -556,7 +580,8 @@ extension LocalQuantitySample {
       sourceBundle: categorySample.sourceRevision.source.bundleIdentifier,
       productType: categorySample.sourceRevision.productType,
       type: nil,
-      unit: .stage
+      unit: .stage,
+      metadata: sampleMetadata(categorySample)
     )
   }
 }
@@ -575,7 +600,8 @@ extension LocalQuantitySample {
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
       type: nil,
-      unit: .minute
+      unit: .minute,
+      metadata: sampleMetadata(sample)
     )
   }
 }
@@ -590,7 +616,8 @@ extension LocalQuantitySample {
       sourceBundle: sample.sourceRevision.source.bundleIdentifier,
       productType: sample.sourceRevision.productType,
       type: nil,
-      unit: .count
+      unit: .count,
+      metadata: sampleMetadata(sample)
     )
   }
 }
