@@ -5,9 +5,10 @@ public struct BodyPatch: Equatable, Encodable {
   public let waistCircumference: [LocalQuantitySample]
   public let leanBodyMass: [LocalQuantitySample]
 
-  public let timeZones: [GregorianCalendar.FloatingDate: String]
+  @TimeZones
+  public var timeZones: [GregorianCalendar.FloatingDate: String]
 
-  public  init(
+  public init(
     bodyMass: [LocalQuantitySample] = [],
     bodyFatPercentage: [LocalQuantitySample] = [],
     bodyMassIndex: [LocalQuantitySample] = [],
@@ -20,6 +21,25 @@ public struct BodyPatch: Equatable, Encodable {
     self.bodyMassIndex = bodyMassIndex
     self.waistCircumference = waistCircumference
     self.leanBodyMass = leanBodyMass
-    self.timeZones = timeZones
+    self._timeZones = TimeZones(wrappedValue: timeZones)
+  }
+
+  @propertyWrapper
+  public struct TimeZones: Equatable, Encodable {
+    public let wrappedValue: [GregorianCalendar.FloatingDate: String]
+
+    public init(wrappedValue: [GregorianCalendar.FloatingDate : String]) {
+      self.wrappedValue = wrappedValue
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+      var container = encoder.unkeyedContainer()
+
+      for (date, zoneId) in wrappedValue {
+        var inner = container.nestedUnkeyedContainer()
+        try inner.encode(date)
+        try inner.encode(zoneId)
+      }
+    }
   }
 }
