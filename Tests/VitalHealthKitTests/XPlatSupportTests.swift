@@ -33,30 +33,30 @@ class XPlatSupportTests: XCTestCase {
       HKDocumentType(.CDA)
     )
     XCTAssertEqual(
-      decodeHealthKitDataTypeIdentifier("HKWorkoutType"),
+      decodeHealthKitDataTypeIdentifier("HKWorkoutTypeIdentifier"),
       HKWorkoutType.workoutType()
     )
     XCTAssertEqual(
-      decodeHealthKitDataTypeIdentifier("HKActivitySummaryType"),
+      decodeHealthKitDataTypeIdentifier("HKActivitySummaryTypeIdentifier"),
       HKActivitySummaryType.activitySummaryType()
     )
     XCTAssertEqual(
-      decodeHealthKitDataTypeIdentifier("HKElectrocardiogramType"),
+      decodeHealthKitDataTypeIdentifier("HKDataTypeIdentifierElectrocardiogram"),
       HKElectrocardiogramType.electrocardiogramType()
     )
     XCTAssertEqual(
-      decodeHealthKitDataTypeIdentifier("HKAudiogramSampleType"),
+      decodeHealthKitDataTypeIdentifier("HKDataTypeIdentifierAudiogram"),
       HKAudiogramSampleType.audiogramSampleType()
     )
     if #available(iOS 16.0, *) {
       XCTAssertEqual(
-        decodeHealthKitDataTypeIdentifier("HKPrescriptionType"),
+        decodeHealthKitDataTypeIdentifier("HKVisionPrescriptionTypeIdentifier"),
         HKPrescriptionType.visionPrescriptionType()
       )
     }
     if #available(iOS 18.0, *) {
       XCTAssertEqual(
-        decodeHealthKitDataTypeIdentifier("HKStateOfMindType"),
+        decodeHealthKitDataTypeIdentifier("HKDataTypeStateOfMind"),
         HKStateOfMindType.stateOfMindType()
       )
     }
@@ -64,6 +64,67 @@ class XPlatSupportTests: XCTestCase {
       XCTAssertEqual(
         decodeHealthKitDataTypeIdentifier("HKScoredAssessmentTypeIdentifierGAD7"),
         HKScoredAssessmentType(.GAD7)
+      )
+    }
+  }
+
+  func testIdentifierRawValue() {
+    XCTAssertEqual(
+      "HKQuantityTypeIdentifierStepCount",
+      HKQuantityType(.stepCount).identifier
+    )
+    XCTAssertEqual(
+      "HKCategoryTypeIdentifierSleepAnalysis",
+      HKCategoryType(.sleepAnalysis).identifier
+    )
+    XCTAssertEqual(
+      "HKDataTypeIdentifierHeartbeatSeries",
+      HKSeriesType.seriesType(forIdentifier: HKDataTypeIdentifierHeartbeatSeries)?.identifier
+    )
+    XCTAssertEqual(
+      "HKCharacteristicTypeIdentifierWheelchairUse",
+      HKCharacteristicType(.wheelchairUse).identifier
+    )
+    XCTAssertEqual(
+      "HKCorrelationTypeIdentifierBloodPressure",
+      HKCorrelationType(.bloodPressure).identifier
+    )
+    XCTAssertEqual(
+      "HKDocumentTypeIdentifierCDA",
+      HKDocumentType(.CDA).identifier
+    )
+    XCTAssertEqual(
+      "HKWorkoutTypeIdentifier",
+      HKWorkoutType.workoutType().identifier
+    )
+    XCTAssertEqual(
+      "HKActivitySummaryTypeIdentifier",
+      HKActivitySummaryType.activitySummaryType().identifier
+    )
+    XCTAssertEqual(
+      "HKDataTypeIdentifierElectrocardiogram",
+      HKElectrocardiogramType.electrocardiogramType().identifier
+    )
+    XCTAssertEqual(
+      "HKDataTypeIdentifierAudiogram",
+      HKAudiogramSampleType.audiogramSampleType().identifier
+    )
+    if #available(iOS 16.0, *) {
+      XCTAssertEqual(
+        "HKVisionPrescriptionTypeIdentifier",
+        HKPrescriptionType.visionPrescriptionType().identifier
+      )
+    }
+    if #available(iOS 18.0, *) {
+      XCTAssertEqual(
+        "HKDataTypeStateOfMind",
+        HKStateOfMindType.stateOfMindType().identifier
+      )
+    }
+    if #available(iOS 18.0, *) {
+      XCTAssertEqual(
+        "HKScoredAssessmentTypeIdentifierGAD7",
+        HKScoredAssessmentType(.GAD7).identifier
       )
     }
   }
