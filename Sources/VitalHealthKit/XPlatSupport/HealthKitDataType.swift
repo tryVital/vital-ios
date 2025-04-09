@@ -22,24 +22,24 @@ public func decodeHealthKitDataTypeIdentifier(
   if rawValue == HKDataTypeIdentifierHeartbeatSeries {
     return HKSeriesType.seriesType(forIdentifier: rawValue)
   }
-  if rawValue == "HKWorkoutType" {
+  if rawValue == "HKWorkoutTypeIdentifier" {
     return HKWorkoutType.workoutType()
   }
-  if rawValue == "HKActivitySummaryType" {
+  if rawValue == "HKActivitySummaryTypeIdentifier" {
     return HKActivitySummaryType.activitySummaryType()
   }
-  if rawValue == "HKElectrocardiogramType" {
+  if rawValue == "HKDataTypeIdentifierElectrocardiogram" {
     return HKElectrocardiogramType.electrocardiogramType()
   }
-  if rawValue == "HKAudiogramSampleType" {
+  if rawValue == "HKDataTypeIdentifierAudiogram" {
     return HKAudiogramSampleType.audiogramSampleType()
   }
-  if rawValue == "HKPrescriptionType" {
+  if rawValue == "HKVisionPrescriptionTypeIdentifier" {
     if #available(iOS 16.0, *) {
       return HKPrescriptionType.visionPrescriptionType()
     }
   }
-  if rawValue == "HKStateOfMindType" {
+  if rawValue == "HKDataTypeStateOfMind" {
     if #available(iOS 18.0, *) {
       return HKStateOfMindType.stateOfMindType()
     }
