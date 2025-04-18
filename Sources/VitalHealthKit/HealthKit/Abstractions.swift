@@ -7,10 +7,15 @@ struct RemappedVitalResource: Hashable {
 }
 
 struct ReadOptions {
-  var perDeviceActivityTS: Bool = false
+  var perDeviceActivityTS: Bool
+  var sleepDataAllowlist: AppAllowlist
 
-  internal init(perDeviceActivityTS: Bool = false) {
+  internal init(
+    perDeviceActivityTS: Bool = false,
+    sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist)
+  ) {
     self.perDeviceActivityTS = perDeviceActivityTS
+    self.sleepDataAllowlist = sleepDataAllowlist
   }
 }
 
