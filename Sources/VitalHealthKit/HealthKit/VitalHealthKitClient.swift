@@ -228,17 +228,30 @@ public extension VitalHealthKitClient {
     public let numberOfDaysToBackFill: Int
     public let logsEnabled: Bool
     public let mode: DataPushMode
-    
+    public let sleepDataAllowlist: AppAllowlist
+
     public init(
       backgroundDeliveryEnabled: Bool = false,
       numberOfDaysToBackFill: Int = 90,
       logsEnabled: Bool = true,
-      mode: DataPushMode = .automatic
+      mode: DataPushMode = .automatic,
+      sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist)
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 365)
       self.logsEnabled = logsEnabled
       self.mode = mode
+      self.sleepDataAllowlist = sleepDataAllowlist
+    }
+
+    public init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      self.backgroundDeliveryEnabled = try container.decode(Bool.self, forKey: .backgroundDeliveryEnabled)
+      self.numberOfDaysToBackFill = try container.decode(Int.self, forKey: .numberOfDaysToBackFill)
+      self.logsEnabled = try container.decode(Bool.self, forKey: .logsEnabled)
+      self.mode = try container.decode(DataPushMode.self, forKey: .mode)
+      self.sleepDataAllowlist = try container.decodeIfPresent(AppAllowlist.self, forKey: .sleepDataAllowlist)
+        ?? .specific(AppIdentifier.defaultsleepDataAllowlist)
     }
   }
 
@@ -970,7 +983,10 @@ extension VitalHealthKitClient {
         remappedResource,
         instruction,
         AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
-        ReadOptions(perDeviceActivityTS: state.perDeviceActivityTS)
+        ReadOptions(
+          perDeviceActivityTS: state.perDeviceActivityTS,
+          sleepDataAllowlist: configuration.sleepDataAllowlist
+        )
       )
 
       // Continue the loop if any anchor reports hasMore=true.
