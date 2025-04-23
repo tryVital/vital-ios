@@ -29,6 +29,8 @@ public struct WorkoutPatch: Equatable, Encodable {
     public var heartRate: [LocalQuantitySample] = []
     public var respiratoryRate: [LocalQuantitySample] = []
 
+    public var stream: ManualWorkoutStream? = nil
+
     public var sourceType: SourceType {
       return .infer(sourceBundle: sourceBundle, productType: productType)
     }
@@ -86,5 +88,28 @@ public struct WorkoutPatch: Equatable, Encodable {
   
   public init(workouts: [WorkoutPatch.Workout]) {
     self.workouts = workouts
+  }
+}
+
+public struct ManualWorkoutStream: Hashable, Encodable {
+  public let components: [Component: [BulkQuantitySample]]
+
+  public init(components: [Component : [BulkQuantitySample]]) {
+    self.components = components
+  }
+}
+
+extension ManualWorkoutStream {
+  public enum Component: String, Hashable, Codable {
+    case distanceCycling = "distance_cycling"
+    case distanceWalkingRunning = "distance_walking_running"
+    case distanceRowing = "distance_rowing"
+    case distanceWheelchair = "distance_wheelchair"
+    case distanceDownhillSnowSports = "distance_downhill_snow_sports"
+    case distanceSwimming = "distance_swimming"
+    case distancePaddleSports = "distance_paddle_sports"
+    case distanceSkatingSports = "distance_skating_sports"
+    case distanceCrossCountrySkiing = "distance_cross_country_skiing"
+    case swimmingStrokeCount = "swimming_stroke_count"
   }
 }
