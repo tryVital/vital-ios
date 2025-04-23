@@ -475,16 +475,31 @@ func read(
 
     return (.timeSeries(.handwashing(payload.samples)), payload.anchors)
 
-   case .basalBodyTemperature:
-    let payload = try await handleTimeSeries(
-      .basalBodyTemperature,
-      healthKitStore: healthKitStore,
-      vitalStorage: vitalStorage,
-      startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
-    )
+  case .basalBodyTemperature:
+   let payload = try await handleTimeSeries(
+     .basalBodyTemperature,
+     healthKitStore: healthKitStore,
+     vitalStorage: vitalStorage,
+     startDate: instruction.query.lowerBound,
+     endDate: instruction.query.upperBound
+   )
 
-    return (.timeSeries(.basalBodyTemperature(payload.samples)), payload.anchors)
+   return (.timeSeries(.basalBodyTemperature(payload.samples)), payload.anchors)
+
+  case .heartRateRecoveryOneMinute:
+    if #available(iOS 16, *) {
+      let payload = try await handleTimeSeries(
+        .heartRateRecoveryOneMinute,
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        startDate: instruction.query.lowerBound,
+        endDate: instruction.query.upperBound
+      )
+
+      return (.timeSeries(.heartRateRecoveryOneMinute(payload.samples)), payload.anchors)
+    } else {
+      return (nil, [])
+    }
 
   case .afibBurden:
     if #available(iOS 16.0, *) {
