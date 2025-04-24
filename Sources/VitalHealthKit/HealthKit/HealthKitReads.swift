@@ -1297,7 +1297,7 @@ func handleWorkouts(
       NSCompoundPredicate(orPredicateWithSubpredicates: fromSameSourceRevision + fromSameDevice)
     ])
 
-    func computeStatistics(_ patch: inout WorkoutPatch.Workout) async throws {
+    @Sendable func computeStatistics() async throws -> ((inout WorkoutPatch.Workout) -> Void)? {
       let samples = try await querySingle(
         healthKitStore,
         type: .quantityType(forIdentifier: .heartRate)!,
@@ -1307,7 +1307,7 @@ func handleWorkouts(
       )
 
       guard samples.count >= 2 else {
-        return
+        return nil
       }
 
       let unit = HKUnit.count().unitDivided(by: .minute())
@@ -1358,18 +1358,25 @@ func handleWorkouts(
 
       averageHr = averageHr / Double(durations.count)
 
-      patch.heartRateMaximum = Int(maxHr)
-      patch.heartRateMinimum = Int(minHr)
-      patch.heartRateMean = Int(averageHr)
-      patch.heartRateZone1 = Int(zones.0)
-      patch.heartRateZone2 = Int(zones.1)
-      patch.heartRateZone3 = Int(zones.2)
-      patch.heartRateZone4 = Int(zones.3)
-      patch.heartRateZone5 = Int(zones.4)
-      patch.heartRateZone6 = Int(zones.5)
+      return { patch in
+        patch.heartRateMaximum = Int(maxHr)
+        patch.heartRateMinimum = Int(minHr)
+        patch.heartRateMean = Int(averageHr)
+        patch.heartRateZone1 = Int(zones.0)
+        patch.heartRateZone2 = Int(zones.1)
+        patch.heartRateZone3 = Int(zones.2)
+        patch.heartRateZone4 = Int(zones.3)
+        patch.heartRateZone5 = Int(zones.4)
+        patch.heartRateZone6 = Int(zones.5)
+      }
     }
 
-    try await computeStatistics(&patch)
+    async let applyStatistics = computeStatistics()
+    async let stream = computeWorkoutStream(for: workout, in: healthKitStore)
+
+    (try await applyStatistics)?(&patch)
+    patch.stream = try await stream
+
     copies.append(patch)
   }
   

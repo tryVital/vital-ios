@@ -189,13 +189,33 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     )
 
   case .workout:
+    var workoutStreamTypes: Set<HKQuantityType> = [
+      .quantityType(forIdentifier: .distanceCycling)!,
+      .quantityType(forIdentifier: .distanceSwimming)!,
+      .quantityType(forIdentifier: .distanceWheelchair)!,
+      .quantityType(forIdentifier: .distanceWalkingRunning)!,
+      .quantityType(forIdentifier: .distanceDownhillSnowSports)!,
+      .quantityType(forIdentifier: .swimmingStrokeCount)!,
+    ]
+
+    if #available(iOS 18, *) {
+      workoutStreamTypes.formUnion([
+        .quantityType(forIdentifier: .distanceRowing)!,
+        .quantityType(forIdentifier: .distancePaddleSports)!,
+        .quantityType(forIdentifier: .distanceSkatingSports)!,
+        .quantityType(forIdentifier: .distanceCrossCountrySkiing)!,
+      ])
+    }
+
     return HealthKitObjectTypeRequirements(
       required: [HKSampleType.workoutType()],
-      optional: [],
+      optional: [
+        HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
+      ],
       supplementary: [
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
-      ]
+      ] + workoutStreamTypes
     )
 
   case .vitals(.glucose):

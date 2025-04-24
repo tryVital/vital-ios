@@ -250,6 +250,10 @@ struct QuantityUnit {
 
     if #available(iOS 18.0, *) {
       mapping[.appleSleepingBreathingDisturbances] = .count
+      mapping[.distanceRowing] = .meter
+      mapping[.distancePaddleSports] = .meter
+      mapping[.distanceSkatingSports] = .meter
+      mapping[.distanceCrossCountrySkiing] = .meter
     }
 
     mapping[.appleStandTime] = .minute
@@ -279,8 +283,11 @@ struct QuantityUnit {
     mapping[.flightsClimbed] = .count
     mapping[.distanceWalkingRunning] = .meter
     mapping[.distanceWheelchair] = .meter
+    mapping[.distanceCycling] = .meter
+    mapping[.distanceSwimming] = .meter
+    mapping[.distanceDownhillSnowSports] = .meter
+    mapping[.swimmingStrokeCount] = .count
     mapping[.pushCount] = .count
-    mapping[.distanceWalkingRunning] = .meter
     mapping[.vo2Max] = .vo2Max
     mapping[.bloodGlucose] = .glucose
     mapping[.bloodPressureSystolic] = .mmHg
@@ -343,6 +350,10 @@ struct QuantityUnit {
 
     if #available(iOS 18.0, *) {
       mapping[.appleSleepingBreathingDisturbances] = .count()
+      mapping[.distanceRowing] = .meter()
+      mapping[.distancePaddleSports] = .meter()
+      mapping[.distanceSkatingSports] = .meter()
+      mapping[.distanceCrossCountrySkiing] = .meter()
     }
     mapping[.appleStandTime] = .minute()
     mapping[.pushCount] = .count()
@@ -373,6 +384,10 @@ struct QuantityUnit {
     mapping[.flightsClimbed] = .count()
     mapping[.distanceWalkingRunning] = .meter()
     mapping[.distanceWheelchair] = .meter()
+    mapping[.distanceCycling] = .meter()
+    mapping[.distanceSwimming] = .meter()
+    mapping[.distanceDownhillSnowSports] = .meter()
+    mapping[.swimmingStrokeCount] = .count()
     mapping[.pushCount] = .count()
     mapping[.vo2Max] = .literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
     mapping[.bloodGlucose] = .moleUnit(with: .milli, molarMass: HKUnitMolarMassBloodGlucose).unitDivided(by: .liter())
