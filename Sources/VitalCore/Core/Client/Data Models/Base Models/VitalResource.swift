@@ -21,7 +21,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
-    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature:
+    case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature,
+        .heartRateRecoveryOneMinute:
       return 12
     case .vitals(.bloodOxygen), .vitals(.bloodPressure),
         .vitals(.glucose), .vitals(.heartRateVariability),
@@ -120,6 +121,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return .handwashing
     case .basalBodyTemperature:
       return .basalBodyTemperature
+    case .heartRateRecoveryOneMinute:
+      return .heartRateRecoveryOneMinute
     }
   }
 
@@ -248,6 +251,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case daylightExposure
   case handwashing
   case basalBodyTemperature
+  case heartRateRecoveryOneMinute
 
   public static let all: [VitalResource] = [
     .profile,
@@ -299,7 +303,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .uvExposure,
     .daylightExposure,
     .handwashing,
-    .basalBodyTemperature
+    .basalBodyTemperature,
+    .heartRateRecoveryOneMinute
   ]
   
   public var logDescription: String {
@@ -356,6 +361,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return "handwashing"
     case .basalBodyTemperature:
       return "basalBodyTemperature"
+    case .heartRateRecoveryOneMinute:
+      return "heartRateRecoveryOneMinute"
     }
   }
 }
@@ -412,6 +419,7 @@ public struct BackfillType: RawRepresentable, Codable, Equatable, Hashable, Send
   public static let daylightExposure = BackfillType(rawValue: "daylight_exposure")
   public static let handwashing = BackfillType(rawValue: "handwashing")
   public static let basalBodyTemperature = BackfillType(rawValue: "basal_body_temperature")
+  public static let heartRateRecoveryOneMinute = BackfillType(rawValue: "heart_rate_recovery_one_minute")
 }
 
 extension VitalResource {

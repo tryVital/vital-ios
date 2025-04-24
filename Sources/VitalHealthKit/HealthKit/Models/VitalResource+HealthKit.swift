@@ -408,6 +408,13 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
 
   case .basalBodyTemperature:
     return single(HKSampleType.quantityType(forIdentifier: .basalBodyTemperature)!)
+
+  case .heartRateRecoveryOneMinute:
+    if #available(iOS 16.0, *) {
+      return single(HKSampleType.quantityType(forIdentifier: .heartRateRecoveryOneMinute)!)
+    } else {
+      return HealthKitObjectTypeRequirements(required: [], optional: [], supplementary: [])
+    }
   }
 }
 
@@ -439,11 +446,15 @@ func observedSampleTypes() -> [[HKSampleType]] {
   }
 
   var afibBurdenTypes = [HKSampleType]()
+  var heartRateRecoveryOneMinuteTypes = [HKSampleType]()
   var timeInDayLightTypes = [HKSampleType]()
 
   if #available(iOS 16.0, *) {
     afibBurdenTypes = [
       HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!
+    ]
+    heartRateRecoveryOneMinuteTypes = [
+      HKQuantityType.quantityType(forIdentifier: .heartRateRecoveryOneMinute)!
     ]
   }
 
@@ -634,6 +645,7 @@ func observedSampleTypes() -> [[HKSampleType]] {
     ],
     sleepApneaTypes,
     timeInDayLightTypes,
+    heartRateRecoveryOneMinuteTypes,
   ]
 }
 

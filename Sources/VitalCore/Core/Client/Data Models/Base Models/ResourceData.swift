@@ -98,6 +98,7 @@ public enum TimeSeriesData: Equatable, Encodable {
   case daylightExposure([LocalQuantitySample])
   case handwashing([LocalQuantitySample])
   case basalBodyTemperature([LocalQuantitySample])
+  case heartRateRecoveryOneMinute([LocalQuantitySample])
 
   public var payload: Encodable {
     switch self {
@@ -111,7 +112,8 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .heartRateAlert(samples), let .standHour(samples), let .standDuration(samples), let .sleepApneaAlert(samples),
       let .sleepBreathingDisturbance(samples), let .wheelchairPush(samples), let .forcedExpiratoryVolume1(samples),
       let .forcedVitalCapacity(samples), let .peakExpiratoryFlowRate(samples), let .inhalerUsage(samples), let .fall(samples),
-      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples):
+      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples),
+      let .heartRateRecoveryOneMinute(samples):
       return samples
 
     case let .bloodPressure(samples):
@@ -131,7 +133,8 @@ public enum TimeSeriesData: Equatable, Encodable {
       let .heartRateAlert(samples), let .standHour(samples), let .standDuration(samples), let .sleepApneaAlert(samples),
       let .sleepBreathingDisturbance(samples), let .wheelchairPush(samples), let .forcedExpiratoryVolume1(samples),
       let .forcedVitalCapacity(samples), let .peakExpiratoryFlowRate(samples), let .inhalerUsage(samples), let .fall(samples),
-      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples):
+      let .uvExposure(samples), let .daylightExposure(samples), let .handwashing(samples), let .basalBodyTemperature(samples),
+      let .heartRateRecoveryOneMinute(samples):
       return samples.count
 
     case let .bloodPressure(samples):
@@ -205,6 +208,8 @@ public enum TimeSeriesData: Equatable, Encodable {
       return "handwashing"
     case .basalBodyTemperature:
       return "basal_body_temperature"
+    case .heartRateRecoveryOneMinute:
+      return "heart_rate_recovery_one_minute"
     }
   }
 }

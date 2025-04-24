@@ -266,6 +266,9 @@ extension VitalHealthKitStore {
           HKQuantityType.quantityType(forIdentifier: .atrialFibrillationBurden)!:
           return [.afibBurden]
 
+        case HKQuantityType.quantityType(forIdentifier: .heartRateRecoveryOneMinute):
+          return [.heartRateRecoveryOneMinute]
+
         default:
           break
         }
