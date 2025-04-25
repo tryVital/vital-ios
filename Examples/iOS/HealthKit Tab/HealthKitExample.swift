@@ -95,6 +95,8 @@ struct HealthKitExample: View {
 
             makePermissionRow("Basal Body Temperature", resources: [.basalBodyTemperature])
 
+            makePermissionRow("Heart Rate Recovery One Minute", resources: [.heartRateRecoveryOneMinute])
+
           }
           .buttonStyle(PlainButtonStyle())
           .environment(\.requestRestrictionDemo, $requestRestrictionDemo)

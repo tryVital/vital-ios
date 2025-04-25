@@ -97,6 +97,18 @@ public struct ManualWorkoutStream: Hashable, Encodable {
   public init(components: [Component : [BulkQuantitySample]]) {
     self.components = components
   }
+
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(
+      Dictionary(uniqueKeysWithValues: components.map { ($0.key.rawValue, $0.value) }),
+      forKey: .components
+    )
+  }
+
+  public enum CodingKeys: String, CodingKey {
+    case components
+  }
 }
 
 extension ManualWorkoutStream {
