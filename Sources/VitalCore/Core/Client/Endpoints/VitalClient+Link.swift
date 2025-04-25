@@ -35,14 +35,15 @@ public extension VitalClient.Link {
   
   func createConnectedSource(
     _ userId: String,
-    provider: Provider.Slug
+    provider: Provider.Slug,
+    installationId: UUID? = nil
   ) async throws -> Void {
     
     let configuration = await self.client.configuration.get()
     
     let path = "/\(configuration.apiVersion)/\(path)/provider/manual/\(provider.rawValue)"
     
-    let payload = CreateConnectionSourceRequest(userId: userId)
+    let payload = CreateConnectionSourceRequest(userId: userId, providerId: installationId?.uuidString)
     let request: Request<Void> = .init(path: path, method: .post, body: payload)
     
     do {

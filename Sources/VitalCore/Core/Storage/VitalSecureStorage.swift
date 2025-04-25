@@ -6,8 +6,12 @@ public struct Keychain {
   var clean: (String) -> Void
 
   public static var live: Keychain {
+    return makeLive(synchronizable: false)
+  }
+  public static func makeLive(synchronizable: Bool) -> Keychain {
     let keychain: KeychainSwift = .init(keyPrefix: "vital_secure_storage_")
-    
+    keychain.synchronizable = synchronizable
+
     return .init { data, key in
       keychain.set(data, forKey: key, withAccess: .accessibleAfterFirstUnlock)
     } get: { key in
@@ -54,7 +58,7 @@ public class VitalSecureStorage: @unchecked Sendable {
     
     return try decoder.decode(T.self, from: value)
   }
-  
+
   public func clean(key: String) {
     keychain.clean(key)
   }
