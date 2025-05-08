@@ -1646,6 +1646,12 @@ func queryMulti(
   let queryableTypes = typeStatuses.compactMap { (type, status) in status != .notDetermined ? type : nil }
   VitalLogger.healthKit.info("\(types.count) requested; \(queryableTypes.count) queryable", source: logId)
 
+  // If there is no queryable types, quit early.
+  // HKSampleQuery does not like an empty array of queryDescriptors.
+  guard !queryableTypes.isEmpty else {
+    return [:]
+  }
+  
   let handle = CancellableQueryHandle<[HKSampleType: [HKSample]]> { continuation in
 
     let handler: (HKSampleQuery, [HKSample]?, Error?) -> Void = { (query, samples, error) in
