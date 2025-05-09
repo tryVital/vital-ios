@@ -29,7 +29,8 @@ public extension VitalClient.User {
         slug: $0.slug,
         logo: $0.logo,
         status: $0.status,
-        resourceAvailability: $0.resourceAvailability
+        resourceAvailability: $0.resourceAvailability,
+        createdOn: $0.createdOn
       )
     }
 

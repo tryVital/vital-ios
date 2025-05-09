@@ -1,3 +1,5 @@
+import Foundation
+
 struct ProviderResponse: Equatable, Decodable {
   struct Provider: Equatable, Decodable {
     let name: String
@@ -5,6 +7,7 @@ struct ProviderResponse: Equatable, Decodable {
     let logo: String
     let status: VitalCore.UserConnection.Status
     let resourceAvailability: [VitalAPIResource: VitalCore.UserConnection.ResourceAvailability]
+    let createdOn: Date
 
     enum CodingKeys: CodingKey {
       case name
@@ -12,6 +15,7 @@ struct ProviderResponse: Equatable, Decodable {
       case logo
       case status
       case resourceAvailability
+      case createdOn
     }
 
     init(from decoder: Decoder) throws {
@@ -41,6 +45,7 @@ struct ProviderResponse: Equatable, Decodable {
           (VitalAPIResource(rawValue: key), value)
         }
       )
+      self.createdOn = try container.decode(Date.self, forKey: .createdOn)
     }
   }
   
@@ -53,6 +58,7 @@ public struct UserConnection: Equatable {
   public let logo: String
   public let status: Status
   public let resourceAvailability: [VitalAPIResource: VitalCore.UserConnection.ResourceAvailability]
+  public let createdOn: Date
 
   public enum Status: String, Codable, RawRepresentable {
     case connected
