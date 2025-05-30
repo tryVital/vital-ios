@@ -88,6 +88,13 @@ class SampleTypeTests: XCTestCase {
       _ = QuantityUnit(.init(rawValue: sampleType.identifier))
     }
   }
+  
+  func test_all_quantity_units_are_compatible_with_the_associated_sample_type() throws {
+    for (identifier, unit) in QuantityUnit.vitalStandardUnits {
+      let qt = try XCTUnwrap(HKQuantityType.quantityType(forIdentifier: identifier))
+      XCTAssertTrue(qt.is(compatibleWith: unit), "\(identifier) is incompatible with \(unit)")
+    }
+  }
 
   @available(iOS 15.0, *)
   func test_HealthKitObjectTypeRequirements_singleObjectType() {

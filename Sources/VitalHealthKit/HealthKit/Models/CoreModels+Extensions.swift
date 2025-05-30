@@ -347,7 +347,7 @@ struct QuantityUnit {
     if #available(iOS 16.0, *) {
       mapping[.appleSleepingWristTemperature] = .degreeCelsius()
       mapping[.atrialFibrillationBurden] = .percent()
-      mapping[.heartRateRecoveryOneMinute] = .count()
+      mapping[.heartRateRecoveryOneMinute] = .count().unitDivided(by: .minute())
     }
 
     if #available(iOS 18.0, *) {
