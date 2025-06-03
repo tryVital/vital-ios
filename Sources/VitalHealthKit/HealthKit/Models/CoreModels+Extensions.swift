@@ -175,9 +175,6 @@ func sampleMetadata(_ sample: HKSample) -> [String: String] {
   }
 
   if let device = sample.device {
-    if let name = device.name {
-      metadata["_DNM"] = name
-    }
     if let model = device.model {
       metadata["_DMO"] = model
     }
@@ -192,12 +189,6 @@ func sampleMetadata(_ sample: HKSample) -> [String: String] {
     }
     if let version = device.softwareVersion {
       metadata["_DSV"] = version
-    }
-    if let localIdentifier = device.localIdentifier {
-      metadata["_DLI"] = localIdentifier
-    }
-    if let udiDeviceIdentifier = device.udiDeviceIdentifier {
-      metadata["_DUDI"] = udiDeviceIdentifier
     }
   }
 
