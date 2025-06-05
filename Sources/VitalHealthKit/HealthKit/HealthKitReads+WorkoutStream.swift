@@ -96,14 +96,16 @@ func groupIntoBulkSamples(_ samples: [HKSample], type: HKSampleType, anchor: Dat
   let anchorEpoch = anchor.timeIntervalSince1970
 
   return groups.map { (key, samples) in
-    BulkQuantitySample(
+    let metadata = samples.first.map { sampleMetadata($0) }
+    return BulkQuantitySample(
       anchor: anchor,
       value: samples.map { $0.quantity.doubleValue(for: unit.healthKitRepresentation) },
       startOffset: samples.map { $0.startDate.timeIntervalSince1970 - anchorEpoch },
       endOffset: samples.map { $0.endDate.timeIntervalSince1970 - anchorEpoch },
       sourceBundle: key.sourceBundle,
       productType: key.productType,
-      type: nil
+      type: nil,
+      metadata: metadata
     )
   }
 }
