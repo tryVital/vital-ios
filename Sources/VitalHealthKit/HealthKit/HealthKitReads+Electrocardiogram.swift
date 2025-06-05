@@ -69,7 +69,8 @@ func handleElectrocardiogram(
       algorithmVersion: ecg.metadata?[HKMetadataKeyAppleECGAlgorithmVersion] as? String,
       sourceBundle: ecg.sourceRevision.source.bundleIdentifier,
       productType: ecg.sourceRevision.productType,
-      deviceModel: ecg.device?.model
+      deviceModel: ecg.device?.model,
+      metadata: sampleMetadata(ecg)
     )
 
     let voltageData = ManualElectrocardiogram.VoltageData(
