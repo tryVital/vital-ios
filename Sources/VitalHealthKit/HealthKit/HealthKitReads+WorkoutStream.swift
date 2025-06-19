@@ -79,10 +79,12 @@ func computeWorkoutStream(for workout: HKWorkout, in healthKitStore: HKHealthSto
 struct GroupingKey: Hashable {
   let sourceBundle: String?
   let productType: String?
+  let metadata: [String: String]?
 
   init(_ sample: HKQuantitySample) {
     self.sourceBundle = sample.sourceRevision.source.bundleIdentifier
     self.productType = sample.sourceRevision.productType
+    self.metadata = sampleMetadata(sample)
   }
 }
 
@@ -96,7 +98,6 @@ func groupIntoBulkSamples(_ samples: [HKSample], type: HKSampleType, anchor: Dat
   let anchorEpoch = anchor.timeIntervalSince1970
 
   return groups.map { (key, samples) in
-    let metadata = samples.first.map { sampleMetadata($0) }
     return BulkQuantitySample(
       anchor: anchor,
       value: samples.map { $0.quantity.doubleValue(for: unit.healthKitRepresentation) },
@@ -105,7 +106,7 @@ func groupIntoBulkSamples(_ samples: [HKSample], type: HKSampleType, anchor: Dat
       sourceBundle: key.sourceBundle,
       productType: key.productType,
       type: nil,
-      metadata: metadata
+      metadata: key.metadata
     )
   }
 }
