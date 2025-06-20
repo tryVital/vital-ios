@@ -583,7 +583,8 @@ extension WorkoutPatch.Workout {
       calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
       distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0, 
       ascentElevation: ascentElevation,
-      descentElevation: descentElevation
+      descentElevation: descentElevation,
+      metadata: sampleMetadata(workout)
     )
   }
 }

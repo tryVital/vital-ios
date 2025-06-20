@@ -1025,7 +1025,13 @@ func handleSleep(
   /// Group the sleeps by source bundle before we try to stitch them into sleep sessions.
   let samplesBySourceBundle = Dictionary(
     grouping: admittedSamples,
-    by: { SleepGroupKey(bundleIdentifier: $0.sourceRevision.source.bundleIdentifier, productType: $0.sourceRevision.productType) }
+    by: {
+      SleepGroupKey(
+        bundleIdentifier: $0.sourceRevision.source.bundleIdentifier,
+        productType: $0.sourceRevision.productType,
+        metadata: sampleMetadata($0)
+      )
+    }
   )
 
   var copies: [SleepPatch.Sleep] = []
@@ -1155,6 +1161,7 @@ func handleSleep(
       copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: hrvUnit)
 
       copy.wristTemperature = wristTemperature
+      copy.metadata = groupKey.metadata
 
       copies.append(copy)
     }
@@ -2319,6 +2326,7 @@ func activityPatchGroupedByDay(
 struct SleepGroupKey: Hashable {
   let bundleIdentifier: String
   let productType: String?
+  let metadata: [String: String]
 
   var sourceType: SourceType {
     return .infer(sourceBundle: bundleIdentifier, productType: productType)
