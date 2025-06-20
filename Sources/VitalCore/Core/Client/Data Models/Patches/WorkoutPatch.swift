@@ -30,6 +30,8 @@ public struct WorkoutPatch: Equatable, Encodable {
     public var respiratoryRate: [LocalQuantitySample] = []
 
     public var stream: ManualWorkoutStream? = nil
+    
+    public var metadata: [String: String] = [:]
 
     public var sourceType: SourceType {
       return .infer(sourceBundle: sourceBundle, productType: productType)
@@ -57,7 +59,8 @@ public struct WorkoutPatch: Equatable, Encodable {
       ascentElevation: Double? = nil,
       descentElevation: Double? = nil,
       heartRate: [LocalQuantitySample] = [],
-      respiratoryRate: [LocalQuantitySample] = []
+      respiratoryRate: [LocalQuantitySample] = [],
+      metadata: [String: String] = [:]
     ) {
       self.id = id
       self.startDate = startDate
@@ -81,6 +84,7 @@ public struct WorkoutPatch: Equatable, Encodable {
       self.descentElevation = descentElevation
       self.heartRate = heartRate
       self.respiratoryRate = respiratoryRate
+      self.metadata = metadata
     }
   }
   
