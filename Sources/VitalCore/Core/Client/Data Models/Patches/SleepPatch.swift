@@ -27,13 +27,15 @@ public struct SleepPatch: Equatable, Encodable {
     public var heartRateMean: Int? = nil
     public var hrvMeanSdnn: Double? = nil
     public var respiratoryRateMean: Double? = nil
-
+    
     public var heartRate: [LocalQuantitySample] = []
     public var heartRateVariability: [LocalQuantitySample] = []
     public var respiratoryRate: [LocalQuantitySample] = []
     public var wristTemperature: [LocalQuantitySample] = []
 
     public var sleepStages: SleepStages = .init()
+
+    public var metadata: [String: String] = [:]
 
     public var sourceType: SourceType {
       return .infer(sourceBundle: sourceBundle, productType: productType)
@@ -53,7 +55,8 @@ public struct SleepPatch: Equatable, Encodable {
       heartRate: [LocalQuantitySample] = [],
       heartRateVariability: [LocalQuantitySample] = [],
       respiratoryRate: [LocalQuantitySample] = [],
-      sleepStages: SleepStages = .init()
+      sleepStages: SleepStages = .init(),
+      metadata: [String: String] = [:]
     ) {
       self.id = id
       self.startDate = startDate
@@ -69,6 +72,7 @@ public struct SleepPatch: Equatable, Encodable {
       self.heartRateVariability = heartRateVariability
       self.respiratoryRate = respiratoryRate
       self.sleepStages = sleepStages
+      self.metadata = metadata
     }
   }
   
