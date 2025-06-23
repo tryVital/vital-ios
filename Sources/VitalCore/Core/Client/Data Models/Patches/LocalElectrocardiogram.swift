@@ -42,6 +42,8 @@ extension ManualElectrocardiogram {
     public let productType: String?
     public let deviceModel: String?
 
+    public let metadata: [String: String]?
+
     public init(
       id: String,
       sessionStart: Date,
@@ -54,7 +56,8 @@ extension ManualElectrocardiogram {
       algorithmVersion: String?,
       sourceBundle: String,
       productType: String?,
-      deviceModel: String?
+      deviceModel: String?,
+      metadata: [String: String]? = nil
     ) {
       self.id = id
       self.sessionStart = sessionStart
@@ -68,6 +71,7 @@ extension ManualElectrocardiogram {
       self.sourceBundle = sourceBundle
       self.productType = productType
       self.deviceModel = deviceModel
+      self.metadata = metadata
     }
   }
 

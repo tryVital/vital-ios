@@ -10,8 +10,9 @@ public struct BulkQuantitySample: Hashable, Encodable {
   public let sourceBundle: String?
   public let productType: String?
   public let type: String?
+  public let metadata: [String: String]?
 
-  public init(anchor: Date, value: [Double], startOffset: [Double], endOffset: [Double], sourceBundle: String?, productType: String?, type: String?) {
+  public init(anchor: Date, value: [Double], startOffset: [Double], endOffset: [Double], sourceBundle: String?, productType: String?, type: String?, metadata: [String: String]? = nil) {
     self.anchor = anchor
     self.value = value
     self.startOffset = startOffset
@@ -19,5 +20,6 @@ public struct BulkQuantitySample: Hashable, Encodable {
     self.sourceBundle = sourceBundle
     self.productType = productType
     self.type = type
+    self.metadata = metadata
   }
 }
