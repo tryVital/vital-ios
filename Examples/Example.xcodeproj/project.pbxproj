@@ -407,7 +407,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Vital Demo";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "Vital Examples uses NFC to scan Libre sensors.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Vital demo requires access to health";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "To read health data and upload to Vital";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -445,7 +444,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Vital Demo";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "Vital Examples uses NFC to scan Libre sensors.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "To connect to devices";
-				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Vital demo requires access to health";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Vital Example app uses your Data to showcase Vital's SDK";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "To read health data and upload to Vital";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
