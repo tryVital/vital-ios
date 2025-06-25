@@ -28,10 +28,13 @@ class XPlatSupportTests: XCTestCase {
       decodeHealthKitDataTypeIdentifier("HKCorrelationTypeIdentifierBloodPressure"),
       HKCorrelationType(.bloodPressure)
     )
-    XCTAssertEqual(
-      decodeHealthKitDataTypeIdentifier("HKDocumentTypeIdentifierCDA"),
-      HKDocumentType(.CDA)
-    )
+    // NOTE: HKDocumentType supported is disabled.
+    //
+    // XCTAssertEqual(
+    //  decodeHealthKitDataTypeIdentifier("HKDocumentTypeIdentifierCDA"),
+    //  HKDocumentType(.CDA)
+    // )
+    XCTAssertNil(decodeHealthKitDataTypeIdentifier("HKDocumentTypeIdentifierCDA"))
     XCTAssertEqual(
       decodeHealthKitDataTypeIdentifier("HKWorkoutTypeIdentifier"),
       HKWorkoutType.workoutType()
@@ -89,10 +92,12 @@ class XPlatSupportTests: XCTestCase {
       "HKCorrelationTypeIdentifierBloodPressure",
       HKCorrelationType(.bloodPressure).identifier
     )
-    XCTAssertEqual(
-      "HKDocumentTypeIdentifierCDA",
-      HKDocumentType(.CDA).identifier
-    )
+    // NOTE: HKDocumentType supported is disabled.
+    //
+    // XCTAssertEqual(
+    //  "HKDocumentTypeIdentifierCDA",
+    //  HKDocumentType(.CDA).identifier
+    // )
     XCTAssertEqual(
       "HKWorkoutTypeIdentifier",
       HKWorkoutType.workoutType().identifier

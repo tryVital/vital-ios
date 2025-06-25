@@ -13,9 +13,14 @@ public func decodeHealthKitDataTypeIdentifier(
   if rawValue.hasPrefix("HKCorrelationType") {
     return HKCorrelationType.correlationType(forIdentifier: .init(rawValue: rawValue))
   }
-  if rawValue.hasPrefix("HKDocumentType") {
-    return HKDocumentType.documentType(forIdentifier: .init(rawValue: rawValue))
-  }
+  
+  // NOTE: App Store could flag Clinical Health Records usage on this.
+  // So treat as if this does not exist for now.
+  //
+  // if rawValue.hasPrefix("HKDocumentType") {
+  //  return HKDocumentType.documentType(forIdentifier: .init(rawValue: rawValue))
+  // }
+
   if rawValue.hasPrefix("HKCharacteristicType") {
     return HKCharacteristicType.characteristicType(forIdentifier: .init(rawValue: rawValue))
   }
