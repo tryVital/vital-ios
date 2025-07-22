@@ -19,6 +19,7 @@ enum VitalHealthKitClientError: Error {
   case invalidRemappedResource
   case connectionPaused
   case healthKitInvalidState(String)
+  case disabledFeature(String)
 }
 
 enum AnchoredQueryChunkSize {

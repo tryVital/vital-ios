@@ -7,7 +7,7 @@ func write(
   startDate: Date,
   endDate: Date
 ) async throws -> Void {
-
+#if WriteAPI
   switch dataInput {
     case .mindfulSession:
 
@@ -29,4 +29,7 @@ func write(
 
       try await healthKitStore.save(sample)
   }
+#else
+  throw VitalHealthKitClientError.disabledFeature("WriteAPI")
+#endif
 }
