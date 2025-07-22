@@ -134,7 +134,7 @@ public enum AuthenticateRequest {
 }
 
 @objc public class VitalClient: NSObject {
-  public static let sdkVersion = "1.6.4"
+  public static let sdkVersion = "1.7.0"
 
   @_spi(VitalSDKInternals)
   public let configuration: ProtectedBox<VitalCoreConfiguration>
