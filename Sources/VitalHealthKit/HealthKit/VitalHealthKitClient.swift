@@ -1316,6 +1316,7 @@ extension VitalHealthKitClient {
   }
 }
 
+#if WriteAPI
 extension VitalHealthKitClient {
   public func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
     try await self.store.writeInput(input, startDate, endDate)
@@ -1326,6 +1327,7 @@ extension VitalHealthKitClient {
     try await VitalHealthKit.write(healthKitStore: store, dataInput: input, startDate: startDate, endDate: endDate)
   }
 }
+#endif
 
 extension VitalHealthKitClient {
   /// Pause all synchronization, both automatic syncs and any manual `syncData(_:)` calls.

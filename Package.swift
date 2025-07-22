@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:6.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -19,20 +19,30 @@ let package = Package(
       name: "VitalCore",
       targets: ["VitalCore"]),
   ],
+  traits: [
+    "WriteAPI",
+    .default(enabledTraits: ["WriteAPI"])
+  ],
   dependencies: [
-    .package(name: "CombineCoreBluetooth", url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.3.0"),
+    .package(url: "https://github.com/StarryInternet/CombineCoreBluetooth.git", from: "0.3.0"),
     .package(url: "https://github.com/WeTransfer/Mocker.git", .upToNextMajor(from: "2.6.0")),
   ],
   targets: [
     .target(
       name: "VitalHealthKit",
-      dependencies: ["VitalCore"]
+      dependencies: ["VitalCore"],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
+      ]
     ),
     .target(
       name: "VitalDevices",
       dependencies: ["CombineCoreBluetooth", "VitalCore"],
       exclude: [
         "./LICENSE",
+      ],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
       ]
     ),
     .target(
@@ -42,20 +52,38 @@ let package = Package(
         "./Get/LICENSE",
         "./DataCompression/LICENSE",
         "./Keychain/LICENSE"
+      ],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
       ]
     ),
     .target(
       name: "VitalLogging",
-      exclude: ["./LICENSE.txt", "./README.txt"]
+      exclude: ["./LICENSE.txt", "./README.txt"],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
+      ]
     ),
     .testTarget(
       name: "VitalHealthKitTests",
-      dependencies: ["VitalHealthKit"]),
+      dependencies: ["VitalHealthKit"],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
+      ]
+    ),
     .testTarget(
       name: "VitalCoreTests",
-      dependencies: ["VitalCore", "Mocker"]),
+      dependencies: ["VitalCore", "Mocker"],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
+      ]
+    ),
     .testTarget(
       name: "VitalDevicesTests",
-      dependencies: ["VitalDevices"]),
+      dependencies: ["VitalDevices"],
+      swiftSettings: [
+        .swiftLanguageMode(.v5)
+      ]
+    ),
   ]
 )
