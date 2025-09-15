@@ -18,7 +18,9 @@ enum VitalHealthKitClientError: Error {
   case invalidInterval(Date, Date, context: StaticString)
   case invalidRemappedResource
   case connectionPaused
+  case connectionDestroyed
   case healthKitInvalidState(String)
+  case sdkInvalidState(String)
   case disabledFeature(String)
 }
 

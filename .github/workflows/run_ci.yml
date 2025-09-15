@@ -31,6 +31,6 @@ jobs:
         uses: actions/checkout@master
       - name: Test
         run: |
-          xcodebuild clean test -scheme "${scheme}" -destination platform=iOS\ Simulator,OS=18.2,name=iPhone\ 16
+          xcodebuild clean test -scheme "${scheme}" -destination platform=iOS\ Simulator,OS=18.6,name=iPhone\ 16
         env:
           scheme: ${{ matrix.scheme }}

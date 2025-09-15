@@ -23,6 +23,10 @@ struct HealthKitExample: View {
         Section(header: Text("Core SDK State")) {
           CoreSDKStateView()
         }
+        
+        Section(header: Text("Health SDK State")) {
+          HealthSDKStateView()
+        }
 
         Section(header: Text("Permissions")) {
           VStack(spacing: 25) {

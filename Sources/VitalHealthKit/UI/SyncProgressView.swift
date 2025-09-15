@@ -19,6 +19,12 @@ public struct SyncProgressView: View {
         } header: {
           Text("Core SDK State")
         }
+
+        Section {
+          HealthSDKStateView()
+        } header: {
+          Text("Health SDK State")
+        }
       }
       .navigationTitle(Text("Sync Progress"))
       .navigationBarItems(

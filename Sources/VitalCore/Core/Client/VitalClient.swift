@@ -154,7 +154,8 @@ public enum AuthenticateRequest {
 
   // Get: runSignoutTasks()
   // Set: registerSignoutTask()
-  private var signoutTasks: [@Sendable () async -> Void] = []
+  private var preSignoutTasks: [@Sendable () async -> Void] = []
+  private var postSignoutTasks: [@Sendable () async -> Void] = []
 
   private static let identifyParkingLot = ParkingLot()
 
@@ -189,14 +190,18 @@ public enum AuthenticateRequest {
   }
 
   @_spi(VitalSDKInternals)
-  public func registerSignoutTask(_ action: @Sendable @escaping () async -> Void) {
+  public func registerSignoutTask(
+    _ action: @Sendable @escaping () async -> Void,
+    completion: @Sendable @escaping () async -> Void
+  ) {
     Self.clientInitLock.withLock {
-      signoutTasks.append(action)
+      self.preSignoutTasks.append(action)
+      self.postSignoutTasks.append(completion)
     }
   }
 
-  private func runSignoutTasks() async {
-    let tasks = Self.clientInitLock.withLock { signoutTasks }
+  private func runSignoutTasks(pre: Bool) async {
+    let tasks = Self.clientInitLock.withLock { pre ? preSignoutTasks : postSignoutTasks }
 
     await withTaskGroup(of: Void.self) { group in
       for task in tasks {
@@ -698,7 +703,7 @@ public enum AuthenticateRequest {
     }
 
     // First make sure all child SDKs have done their cleanup and closed off ALL outstanding work.
-    await runSignoutTasks()
+    await runSignoutTasks(pre: true)
 
     // Then we clear the storage and persistent user session.
     self.storage.clean()
@@ -710,6 +715,8 @@ public enum AuthenticateRequest {
     self.configuration.clean()
 
     statusDidChange.send(())
+    
+    await runSignoutTasks(pre: false)
   }
 
   internal func getUserId() async throws -> String {
