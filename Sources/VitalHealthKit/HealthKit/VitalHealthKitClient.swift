@@ -218,6 +218,12 @@ public enum PermissionOutcome: Equatable, Sendable {
     self.configuration.set(value: configuration)
     _connectionStatusDidChange.send(())
 
+    scope.task(priority: .high) {
+      // Try to revalidate the LocalSyncState if a revalidation is due.
+      // Gracefully ignore the exception thrown by getLocalSyncState().
+      _ = try await self.getLocalSyncState()
+    }
+
     if configuration.backgroundDeliveryEnabled && backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
 
@@ -529,7 +535,8 @@ extension VitalHealthKitClient {
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
       let state = try await authorizationState(store: self.store)
-      let explicitConnectionActive = self.connectionStatus == .connected
+      let connectionStatus = self.connectionStatus
+      let connectionActive = connectionStatus == .connected || connectionStatus == .autoConnect
 
       let knownSyncingResources = SyncProgressReporter.shared.syncingResources()
       let progress = SyncProgressStore.shared.get()
