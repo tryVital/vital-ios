@@ -2,7 +2,10 @@ import Foundation
 import VitalCore
 @_spi(VitalSDKInternals) import VitalCore
 
+
 internal struct LocalSyncState: Codable {
+  let status: Status?
+  
   let historicalStageAnchor: Date
   let defaultDaysToBackfill: Int
   let teamDataPullPreferences: TeamDataPullPreferences?

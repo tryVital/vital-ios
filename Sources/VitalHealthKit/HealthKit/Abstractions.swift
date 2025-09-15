@@ -461,6 +461,7 @@ struct VitalClientProtocol {
   var checkConnectedSource: (Provider.Slug) async throws -> Void
   var sdkStateSync: (UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse
   var sdkStartHistoricalStage: (UserSDKHistoricalStageBeginBody) async throws -> Void
+  var deregisterProvider: (Provider.Slug) async throws -> Void
 }
 
 extension VitalClientProtocol {
@@ -486,11 +487,12 @@ extension VitalClientProtocol {
       }
     } checkConnectedSource: { provider in
       try await VitalClient.shared.checkConnectedSource(for: provider)
-    }
-    sdkStateSync: { requestBody in
+    } sdkStateSync: { requestBody in
       try await VitalClient.shared.user.sdkStateSync(body: requestBody)
     } sdkStartHistoricalStage: { body in
       try await VitalClient.shared.user.sdkStartHistoricalStage(body: body)
+    } deregisterProvider: { provider in
+      try await VitalClient.shared.user.deregisterProvider(provider: provider)
     }
   }
   
@@ -502,6 +504,8 @@ extension VitalClientProtocol {
     } sdkStateSync: { _ in
       fatalError()
     } sdkStartHistoricalStage: { _ in
+      fatalError()
+    } deregisterProvider: { _ in
       fatalError()
     }
   }

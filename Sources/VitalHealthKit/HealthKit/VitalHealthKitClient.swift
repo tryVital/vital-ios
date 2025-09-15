@@ -19,6 +19,23 @@ public enum PermissionOutcome: Equatable, Sendable {
 }
 
 @objc public class VitalHealthKitClient: NSObject {
+  public enum ConnectionStatus {
+    /// The Health SDK is using `ConnectionPolicy.autoConnect`.
+    case autoConnect
+
+    /// There is an active HealthKit connection.
+    /// The Health SDK is using `ConnectionPolicy.explicit`.
+    case connected
+
+    /// There is an active HealthKit connection, but it is paused due to user ingestion bounds set via the Junction API.
+    /// The Health SDK is using `ConnectionPolicy.explicit`.
+    case connectionPaused
+
+    /// There is no active HealthKit connection.
+    /// The Health SDK is using `ConnectionPolicy.explicit`.
+    case disconnected
+  }
+
   public enum Status {
     case failedSyncing(VitalResource, Error?)
     case successSyncing(VitalResource, ProcessedResourceData)
@@ -26,7 +43,7 @@ public enum PermissionOutcome: Equatable, Sendable {
     case syncing(VitalResource)
     case syncingCompleted
   }
-  
+
   public static var shared: VitalHealthKitClient {
     clientInitLock.withLock {
       guard let value = client else {
@@ -48,7 +65,7 @@ public enum PermissionOutcome: Equatable, Sendable {
   private let store: VitalHealthKitStore
   private let secureStorage: VitalSecureStorage
   private let vitalClient: VitalClientProtocol
-  
+
   private let _status: PassthroughSubject<Status, Never>
   private var backgroundDeliveryTask: BackgroundDeliveryTask? = nil
 
@@ -68,6 +85,8 @@ public enum PermissionOutcome: Equatable, Sendable {
     backgroundDeliveryEnabled.value ?? false
   }
 
+  private let _connectionStatusDidChange = PassthroughSubject<Void, Never>()
+
   @available(*, deprecated, message:"Use `VitalHealthKitClient.shared.syncProgressPublisher`.")
   public var status: AnyPublisher<Status, Never> {
     return _status.eraseToAnyPublisher()
@@ -85,15 +104,21 @@ public enum PermissionOutcome: Equatable, Sendable {
     self.secureStorage = secureStorage
     self.vitalClient = vitalClient
     self.configuration = configuration
-    
+
     self._status = PassthroughSubject<Status, Never>()
-    
+
     super.init()
   }
 
   private static func bind(_ client: VitalHealthKitClient, core: VitalClient) {
     core.registerSignoutTask {
+      // NOTE: The connection should not be automatically disconnected upon signout.
+      // If we are supporting this behaviour, it must be an opt-in.
+
       await client.resetAutoSync()
+
+    } completion: {
+      client._connectionStatusDidChange.send(())
     }
 
     client.registerProcessingTaskHandlers()
@@ -121,7 +146,7 @@ public enum PermissionOutcome: Equatable, Sendable {
       }
     }
   }
-  
+
   /// Only use this method if you are working from Objc.
   /// Please use the async/await configure method when working from Swift.
   @objc public static func configure(
@@ -150,7 +175,7 @@ public enum PermissionOutcome: Equatable, Sendable {
   ) async {
     self.shared.setConfiguration(configuration: configuration)
   }
-  
+
   public static func configure(
     _ configuration: Configuration = .init()
   ) {
@@ -165,7 +190,7 @@ public enum PermissionOutcome: Equatable, Sendable {
         completion?()
         return
       }
-      
+
       configure(payload)
       VitalClient.automaticConfiguration(completion: completion)
     } catch let error {
@@ -189,9 +214,10 @@ public enum PermissionOutcome: Equatable, Sendable {
     catch {
       VitalLogger.healthKit.info("We weren't able to securely store Configuration: \(error)")
     }
-    
+
     self.configuration.set(value: configuration)
-    
+    _connectionStatusDidChange.send(())
+
     if configuration.backgroundDeliveryEnabled && backgroundDeliveryEnabled.value != true {
       backgroundDeliveryEnabled.set(value: true)
 
@@ -205,43 +231,51 @@ public enum PermissionOutcome: Equatable, Sendable {
 }
 
 public extension VitalHealthKitClient {
+  enum ConnectionPolicy: String, Codable, Sendable {
+    case autoConnect
+    case explicit
+  }
+
   struct Configuration: Codable {
     public enum DataPushMode: String, Codable {
       case manual
       case automatic
-      
+
       var isManual: Bool {
         switch self {
-          case .manual:
-            return true
-          case .automatic:
-            return false
+        case .manual:
+          return true
+        case .automatic:
+          return false
         }
       }
-      
+
       var isAutomatic: Bool {
         return isManual == false
       }
     }
-    
+
     public let backgroundDeliveryEnabled: Bool
     public let numberOfDaysToBackFill: Int
     public let logsEnabled: Bool
     public let mode: DataPushMode
     public let sleepDataAllowlist: AppAllowlist
+    public let connectionPolicy: ConnectionPolicy
 
     public init(
       backgroundDeliveryEnabled: Bool = false,
       numberOfDaysToBackFill: Int = 90,
       logsEnabled: Bool = true,
       mode: DataPushMode = .automatic,
-      sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist)
+      sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist),
+      connectionPolicy: ConnectionPolicy = .autoConnect
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 365)
       self.logsEnabled = logsEnabled
       self.mode = mode
       self.sleepDataAllowlist = sleepDataAllowlist
+      self.connectionPolicy = connectionPolicy
     }
 
     public init(from decoder: any Decoder) throws {
@@ -251,7 +285,8 @@ public extension VitalHealthKitClient {
       self.logsEnabled = try container.decode(Bool.self, forKey: .logsEnabled)
       self.mode = try container.decode(DataPushMode.self, forKey: .mode)
       self.sleepDataAllowlist = try container.decodeIfPresent(AppAllowlist.self, forKey: .sleepDataAllowlist)
-        ?? .specific(AppIdentifier.defaultsleepDataAllowlist)
+      ?? .specific(AppIdentifier.defaultsleepDataAllowlist)
+      self.connectionPolicy = try container.decodeIfPresent(ConnectionPolicy.self, forKey: .connectionPolicy) ?? .autoConnect
     }
   }
 
@@ -279,7 +314,7 @@ extension VitalHealthKitClient {
 
     // Reconfigure the task only if the set of resources has changed, or we have not configured it
     // before.
-    guard 
+    guard
       state.activeResources != currentTask?.resources
         || state.determinedObjectTypes != currentTask?.objectTypes
     else { return }
@@ -391,16 +426,16 @@ extension VitalHealthKitClient {
       streamContinuation: streamContinuation
     )
   }
-  
+
   private func enableBackgroundDelivery(for sampleTypes: some Sequence<HKSampleType>) {
     for sampleType in sampleTypes {
       store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
-        
+
         guard failure == nil && success else {
           VitalLogger.healthKit.error("failed: \(sampleType.shortenedIdentifier); error = \(String(describing: failure))", source: "EnableBgDelivery")
           return
         }
-        
+
         VitalLogger.healthKit.info("enabled: \(sampleType.shortenedIdentifier)", source: "EnableBgDelivery")
       }
     }
@@ -463,7 +498,7 @@ extension VitalHealthKitClient {
       }
 
       let request: BGProcessingTaskRequest
-      
+
       if #available(iOS 17.0, *) {
         request = BGHealthResearchTaskRequest(identifier: processingTaskIdentifier)
       } else {
@@ -494,6 +529,7 @@ extension VitalHealthKitClient {
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
 
       let state = try await authorizationState(store: self.store)
+      let explicitConnectionActive = self.connectionStatus == .connected
 
       let knownSyncingResources = SyncProgressReporter.shared.syncingResources()
       let progress = SyncProgressStore.shared.get()
@@ -520,6 +556,7 @@ extension VitalHealthKitClient {
 
         return lastStatus == .error || lastStatus == .cancelled
         || lastStatus == .timedOut || lastStatus == .started || lastStatus == .deprioritized
+        || (explicitConnectionActive && (lastStatus == .connectionPaused || lastStatus == .connectionDestroyed))
       }
 
       // Rescue these resources
@@ -609,7 +646,7 @@ extension VitalHealthKitClient {
 
     return (stream, _continuation)
   }
-  
+
   private func backgroundObservers(
     for sampleTypes: some Sequence<HKSampleType>
   ) -> (AsyncStream<BackgroundDeliveryStage>, AsyncStream<BackgroundDeliveryStage>.Continuation) {
@@ -619,7 +656,7 @@ extension VitalHealthKitClient {
       _continuation = continuation
 
       var queries: [HKObserverQuery] = []
-      
+
       for sampleType in sampleTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { query, handler, error in
 
@@ -655,7 +692,7 @@ extension VitalHealthKitClient {
         queries.append(query)
         store.execute(query)
       }
-      
+
       /// If the task is cancelled, make sure we clean up the existing queries
       continuation.onTermination = { @Sendable [queries] _ in
         queries.forEach { query in
@@ -666,7 +703,7 @@ extension VitalHealthKitClient {
 
     return (stream, _continuation)
   }
-  
+
   public func syncData() {
     scope.task(priority: .high) {
       let state = try await authorizationState(store: self.store)
@@ -702,16 +739,21 @@ extension VitalHealthKitClient {
     backgroundDeliveryEnabled.set(value: false)
 
     SyncProgressStore.shared.clear()
+    storage.clean()
 
     VitalLogger.healthKit.info("done", source: "Reset")
   }
 
-  private func getLocalSyncState(syncID: SyncProgress.SyncID) async throws -> LocalSyncState {
+  private func getLocalSyncState(
+    syncID: SyncProgress.SyncID? = nil,
+    forceRemoteCheck: Bool = false
+  ) async throws -> LocalSyncState {
     // If we have a LocalSyncState with valid TTL, return it.
-    if 
+    if
       let state = storage.getLocalSyncState(),
-      state.expiresAt > Date()
+      forceRemoteCheck == false && state.expiresAt > Date()
     {
+      try checkSyncState(state)
       return state
     }
 
@@ -728,19 +770,30 @@ extension VitalHealthKitClient {
     // between getLocalSyncState() and tryTo(.enable).
     if
       let state = storage.getLocalSyncState(),
-      state.expiresAt > Date()
+      forceRemoteCheck == false && state.expiresAt > Date()
     {
+      try checkSyncState(state)
       return state
     }
 
-    VitalLogger.healthKit.info("revalidating", source: "LocalSyncState")
-    SyncProgressStore.shared.recordSync(syncID, .revalidatingSyncState)
+    if let syncID = syncID {
+      VitalLogger.healthKit.info("revalidating", source: "LocalSyncState")
+      SyncProgressStore.shared.recordSync(syncID, .revalidatingSyncState)
+    }
 
     let previousState = storage.getLocalSyncState()
     let configuration = await configuration.get()
 
-    /// Make sure the user has a connected source set up
-    try await vitalClient.checkConnectedSource(.appleHealthKit)
+    switch configuration.connectionPolicy {
+    case .autoConnect:
+      // Make sure a connection is automatically created or reinstated.
+      try await vitalClient.checkConnectedSource(.appleHealthKit)
+
+    case .explicit:
+      // The sdkStateSync() call will report status=error if the connection has been destroyed
+      // by the Junction API. So no action to take here.
+      break
+    }
 
     let now = Date()
     let proposedStart = Date.dateAgo(now, days: configuration.numberOfDaysToBackFill)
@@ -753,17 +806,15 @@ extension VitalHealthKitClient {
       )
     )
 
-    if backendState.status != .active {
-      VitalLogger.healthKit.info("connection is paused", source: "LocalSyncState")
-      throw VitalHealthKitClientError.connectionPaused
-    }
-
     let state = LocalSyncState(
+      status: backendState.status,
+
       historicalStageAnchor: previousState?.historicalStageAnchor ?? now,
       defaultDaysToBackfill: previousState?.defaultDaysToBackfill ?? configuration.numberOfDaysToBackFill,
       teamDataPullPreferences: previousState?.teamDataPullPreferences ?? backendState.pullPreferences,
 
       ingestionStart: backendState.ingestionStart ?? previousState?.ingestionStart ?? .distantPast,
+
       // The query upper bound (end date for historical & daily) is normally open-ended.
       // In other words, `ingestionEnd` is typically nil.
       //
@@ -780,10 +831,26 @@ extension VitalHealthKitClient {
     )
 
     try storage.setLocalSyncState(state)
+    _connectionStatusDidChange.send(())
 
-    VitalLogger.healthKit.info("updated; \(state)", source: "LocalSyncState")
+    try checkSyncState(state)
 
     return state
+  }
+
+  private func checkSyncState(_ state: LocalSyncState) throws {
+    switch state.status {
+    case .paused:
+      VitalLogger.healthKit.info("connection is paused", source: "LocalSyncState")
+      throw VitalHealthKitClientError.connectionPaused
+
+    case .error:
+      VitalLogger.healthKit.info("connection is destroyed", source: "LocalSyncState")
+      throw VitalHealthKitClientError.connectionDestroyed
+
+    case .active, nil:
+      break
+    }
   }
 
   private func computeSyncInstruction(
@@ -1197,11 +1264,12 @@ extension VitalHealthKitClient {
     extraWritePermissions: [HKSampleType] = [],
     dataTypeAllowlist: Set<HKObjectType>? = nil
   ) async -> PermissionOutcome {
-    
+
     guard store.isHealthDataAvailable() else {
       return .healthKitNotAvailable
     }
-    
+
+
     do {
       try await store.requestReadWriteAuthorization(readResources, writeResource, extraReadPermissions, extraWritePermissions, dataTypeAllowlist)
 
@@ -1209,16 +1277,17 @@ extension VitalHealthKitClient {
       SyncProgressStore.shared.recordAsk(state.activeResources)
       SyncProgressStore.shared.flush()
 
-      // We have gone through Ask successfully. Check if a connected source has been created.
-      do {
-        try await VitalClient.shared.checkConnectedSource(for: .appleHealthKit)
+      if let configuration = self.configuration.value {
+        if configuration.connectionPolicy == .autoConnect {
 
-      } catch let error {
-        VitalLogger.healthKit.info("proactive CS creation failed; error = \(error)", source: "Ask")
-      }
+          // We have gone through Ask successfully. Check if a connected source has been created.
+          do {
+            try await VitalClient.shared.checkConnectedSource(for: .appleHealthKit)
 
-      if configuration.isNil() == false {
-        let configuration = await configuration.get()
+          } catch let error {
+            VitalLogger.healthKit.info("proactive CS creation failed; error = \(error)", source: "Ask")
+          }
+        }
 
         try await checkBackgroundUpdates(
           isBackgroundEnabled: configuration.backgroundDeliveryEnabled
@@ -1267,6 +1336,102 @@ extension VitalHealthKitClient {
   public func dateOfLastSync(for resource: VitalResource) -> Date? {
     return SyncProgressStore.shared.get().backfillTypes[resource.backfillType]?.latestSync?.end
   }
+}
+
+extension VitalHealthKitClient {
+
+  /// The current connection status of the Health SDK.
+  /// - seealso: `Configuration.connectionPolicy`
+  public var connectionStatus: ConnectionStatus {
+    switch configuration.value?.connectionPolicy {
+    case .autoConnect, nil:
+      return .autoConnect
+
+    case .explicit:
+      let state = storage.getLocalSyncState()
+      switch state?.status {
+      case .active:
+        return .connected
+      case .paused:
+        return .connectionPaused
+      case .error, nil:
+        return .disconnected
+      }
+    }
+  }
+
+  public var connectionStatuses: AsyncStream<ConnectionStatus> {
+    AsyncStream<ConnectionStatus> { continuation in
+      let cancellable = connectionStatusPublisher()
+        .sink { _ in continuation.finish() } receiveValue: { continuation.yield($0) }
+      continuation.onTermination = { _ in cancellable.cancel() }
+    }
+  }
+
+  public func connectionStatusPublisher() -> some Publisher<ConnectionStatus, Never> {
+    Deferred { self._connectionStatusDidChange.prepend(()).map { _ in self.connectionStatus } }
+  }
+
+  /// Setup a HealthKit connection with this device.
+  ///
+  /// - precondition: You must configure the Health SDK to use `VitalHealthKitClient.ConnectionPolicy.explicit`.
+  public func connect() async throws {
+    let configuration = await configuration.get()
+
+    guard configuration.connectionPolicy == .explicit else {
+      throw VitalHealthKitClientError.disabledFeature("connect() only works with ConnectionPolicy.explicit.")
+    }
+
+    try await vitalClient.checkConnectedSource(.appleHealthKit)
+
+    do {
+      _ = try await getLocalSyncState(forceRemoteCheck: true)
+
+      // Connection is created as expected.
+      try await checkBackgroundUpdates(
+        isBackgroundEnabled: configuration.backgroundDeliveryEnabled
+      )
+      scheduleUnnotifiedResourceRescue()
+
+    } catch VitalHealthKitClientError.connectionDestroyed {
+      throw VitalHealthKitClientError.sdkInvalidState("connection has been destroyed concurrently through the Junction API")
+
+    } catch let error {
+      // Passthrough other errors
+      throw error
+    }
+  }
+
+  /// Disconnect the active HealthKit connection on this device.
+  ///
+  /// - precondition: You must configure the Health SDK to use `VitalHealthKitClient.ConnectionPolicy.explicit`.
+  public func disconnect() async throws {
+    let configuration = await configuration.get()
+
+    guard configuration.connectionPolicy == .explicit else {
+      throw VitalHealthKitClientError.disabledFeature("disconnect() only works with ConnectionPolicy.explicit.")
+    }
+
+    try await vitalClient.deregisterProvider(.appleHealthKit)
+
+    do {
+      _ = try await getLocalSyncState(forceRemoteCheck: true)
+
+      // Connection is still active unexpectedly.
+      throw VitalHealthKitClientError.sdkInvalidState("connection has been re-instated concurrently by another SDK installation")
+
+    } catch VitalHealthKitClientError.connectionDestroyed {
+      // Connection is destroyed as expected
+      await resetAutoSync()
+      return
+
+    } catch let error {
+      // Passthrough other errors
+      throw error
+    }
+
+  }
+
 }
 
 enum BackgroundDeliveryStage {
@@ -1321,7 +1486,7 @@ extension VitalHealthKitClient {
   public func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
     try await self.store.writeInput(input, startDate, endDate)
   }
-  
+
   public static func write(input: DataInput, startDate: Date, endDate: Date) async throws -> Void {
     let store = HKHealthStore()
     try await VitalHealthKit.write(healthKitStore: store, dataInput: input, startDate: startDate, endDate: endDate)
@@ -1418,7 +1583,10 @@ extension SyncProgressStore {
     } else if let error = error as? VitalHealthKitClientError {
       if case .connectionPaused = error {
         // Connection is paused. Sync fails expectedly.
-        status = .expectedError
+        status = .connectionPaused
+
+      } else if case .connectionDestroyed = error {
+        status = .connectionDestroyed
       }
 
     } else if let error = error as? VitalClient.Error {

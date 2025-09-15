@@ -120,6 +120,10 @@ public struct ForEachVitalResource: View {
         Image(systemName: "ellipsis.circle")
       }
     }
+
+    Button("Force Sync") {
+      VitalHealthKitClient.shared.syncData()
+    }
   }
 }
 
@@ -161,6 +165,81 @@ public struct CoreSDKStateView: View {
     }
   }
 }
+
+public struct HealthSDKStateView: View {
+
+  enum PerformingAction {
+    case connect
+    case disconnect
+  }
+
+  @State var connectionStatus: VitalHealthKitClient.ConnectionStatus = .autoConnect
+  @State var performingAction: PerformingAction? = nil
+  @State var error: Error? = nil
+
+  public init() {}
+
+  public var body: some View {
+    Group {
+      VStack(alignment: .leading) {
+        Text("Connection Status")
+
+        Text("\(connectionStatus)")
+          .font(Font.system(.footnote, design: .monospaced))
+      }
+
+      if self.connectionStatus != .autoConnect {
+        Button {
+          self.performingAction = connectionStatus == .disconnected ? .connect : .disconnect
+
+        } label: {
+          if performingAction != nil {
+            ProgressView()
+
+          } else {
+            switch connectionStatus {
+            case .autoConnect:
+              EmptyView()
+
+            case .connected, .connectionPaused:
+              Text("Disconnect")
+
+            case .disconnected:
+              Text("Connect")
+            }
+          }
+        }
+        .disabled(self.performingAction != nil)
+      }
+    }
+    .onReceive(VitalHealthKitClient.shared.connectionStatusPublisher().receive(on: RunLoop.main)) { connectionStatus in
+      self.connectionStatus = connectionStatus
+    }
+    .onChange(of: self.performingAction) { action in
+      Task { @MainActor in
+        do {
+          switch self.performingAction {
+          case .connect:
+            try await VitalHealthKitClient.shared.connect()
+          case .disconnect:
+            try await VitalHealthKitClient.shared.disconnect()
+          case nil:
+            return
+          }
+        } catch let error {
+          self.error = error
+        }
+        self.performingAction = nil
+      }
+    }
+    .alert(
+      isPresented: Binding(get: { self.error != nil }, set: { isPresented in self.error = isPresented ? self.error : nil })
+    ) {
+      Alert(title: Text("Error"))
+    }
+  }
+}
+
 
 private struct ResourceProgressDetailView: View {
 
@@ -337,6 +416,14 @@ private func icon(for status: SyncProgress.SyncStatus) -> some View {
     Image(systemName: "minus.square")
       .foregroundColor(Color.gray)
       .accessibilityLabel(Text("Expected Error"))
+  case .connectionPaused:
+    Image(systemName: "minus.square")
+      .foregroundColor(Color.gray)
+      .accessibilityLabel(Text("Connection Paused"))
+  case .connectionDestroyed:
+    Image(systemName: "minus.square")
+      .foregroundColor(Color.gray)
+      .accessibilityLabel(Text("Connection Destroyed"))
   case .error:
     Image(systemName: "exclamationmark.triangle.fill")
       .foregroundColor(Color.yellow)

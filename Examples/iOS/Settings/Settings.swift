@@ -29,6 +29,7 @@ extension Settings {
     var apiKey: String = ""
     var userId: String = ""
     var authMode: AuthMode = .apiKey
+    var connectionPolicy: VitalHealthKitClient.ConnectionPolicy = .autoConnect
     
     var environment: VitalCore.Environment = .sandbox(.us)
   }
@@ -199,7 +200,8 @@ let settingsReducer = Reducer<Settings.State, Settings.Action, Settings.Environm
             .init(
               backgroundDeliveryEnabled: true,
               numberOfDaysToBackFill: 365,
-              logsEnabled: true
+              logsEnabled: true,
+              connectionPolicy: credentials.connectionPolicy
             )
           )
         }
@@ -353,6 +355,14 @@ extension Settings {
                 Text("Sign-In Token Demo").tag(AuthMode.userJWTDemo)
               }
               .disabled(viewStore.sdkIsConfigured)
+              
+              
+              Picker("Connection Policy", selection: viewStore.binding(\.$credentials.connectionPolicy)) {
+                Text("Auto Connect").tag(VitalHealthKitClient.ConnectionPolicy.autoConnect)
+                Text("Explicit").tag(VitalHealthKitClient.ConnectionPolicy.explicit)
+              }
+              .disabled(viewStore.sdkIsConfigured)
+
             } header: {
               Text("Configuration")
             } footer: {

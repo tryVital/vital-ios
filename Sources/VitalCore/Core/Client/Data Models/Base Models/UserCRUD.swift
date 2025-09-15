@@ -20,7 +20,7 @@ public struct CreateSignInTokenResponse: Decodable {
   public let signInToken: String
 }
 
-public enum Status: String, Decodable {
+public enum Status: String, Codable {
   case active
   case paused
   case error
