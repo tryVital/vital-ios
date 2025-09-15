@@ -580,8 +580,8 @@ extension WorkoutPatch.Workout {
       sourceBundle: workout.sourceRevision.source.bundleIdentifier,
       productType: workout.sourceRevision.productType,
       sport: workout.workoutActivityType.toString,
-      calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
-      distance: workout.totalDistance?.doubleValue(for: .meter()) ?? 0, 
+      calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()),
+      distance: workout.totalDistance?.doubleValue(for: .meter()),
       ascentElevation: ascentElevation,
       descentElevation: descentElevation,
       metadata: sampleMetadata(workout)

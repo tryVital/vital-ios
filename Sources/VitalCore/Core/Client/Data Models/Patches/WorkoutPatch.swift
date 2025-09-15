@@ -5,13 +5,14 @@ public struct WorkoutPatch: Equatable, Encodable {
     public let id: UUID?
     public let startDate: Date
     public let endDate: Date
+
     public let movingTime: Double
 
     public let sourceBundle: String
     public let productType: String?
     public let sport: String
-    public let calories: Double
-    public let distance: Double
+    public let calories: Double?
+    public let distance: Double?
     public let ascentElevation: Double?
     public let descentElevation: Double?
 
@@ -45,8 +46,8 @@ public struct WorkoutPatch: Equatable, Encodable {
       sourceBundle: String,
       productType: String?,
       sport: String,
-      calories: Double,
-      distance: Double,
+      calories: Double?,
+      distance: Double?,
       heartRateMaximum: Int? = nil,
       heartRateMinimum: Int? = nil,
       heartRateMean: Int? = nil,
