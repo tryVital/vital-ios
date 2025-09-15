@@ -73,6 +73,7 @@ public enum PermissionOutcome: Equatable, Sendable {
 
   internal let backgroundDeliveryEnabled: ProtectedBox<Bool> = .init(value: false)
   private let backendSyncStateParkingLot = ParkingLot()
+  private let connectDisconnectParkingLot = ParkingLot()
 
   let configuration: ProtectedBox<Configuration>
 
@@ -563,7 +564,7 @@ extension VitalHealthKitClient {
 
         return lastStatus == .error || lastStatus == .cancelled
         || lastStatus == .timedOut || lastStatus == .started || lastStatus == .deprioritized
-        || (explicitConnectionActive && (lastStatus == .connectionPaused || lastStatus == .connectionDestroyed))
+        || (connectionActive && (lastStatus == .connectionPaused || lastStatus == .connectionDestroyed))
       }
 
       // Rescue these resources
@@ -1389,6 +1390,9 @@ extension VitalHealthKitClient {
       throw VitalHealthKitClientError.disabledFeature("connect() only works with ConnectionPolicy.explicit.")
     }
 
+    try await connectDisconnectParkingLot.semaphore.acquire()
+    defer { connectDisconnectParkingLot.semaphore.release() }
+
     try await vitalClient.checkConnectedSource(.appleHealthKit)
 
     do {
@@ -1418,6 +1422,9 @@ extension VitalHealthKitClient {
     guard configuration.connectionPolicy == .explicit else {
       throw VitalHealthKitClientError.disabledFeature("disconnect() only works with ConnectionPolicy.explicit.")
     }
+
+    try await connectDisconnectParkingLot.semaphore.acquire()
+    defer { connectDisconnectParkingLot.semaphore.release() }
 
     try await vitalClient.deregisterProvider(.appleHealthKit)
 
