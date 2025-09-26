@@ -74,26 +74,45 @@ public enum Environment: Equatable, Hashable, Codable, CustomStringConvertible, 
         return nil
     }
   }
-  
+
   var host: String {
     switch self {
       case .dev(.eu):
-        return "https://api.dev.eu.tryvital.io"
+        return "https://api.dev.eu.junction.com"
       case .dev(.us):
-        return "https://api.dev.tryvital.io"
+        return "https://api.dev.us.junction.com"
       case .sandbox(.eu):
-        return "https://api.sandbox.eu.tryvital.io"
+        return "https://api.sandbox.eu.junction.com"
       case .sandbox(.us):
-        return "https://api.sandbox.tryvital.io"
+        return "https://api.sandbox.us.junction.com"
       case .production(.eu):
-        return "https://api.eu.tryvital.io"
+        return "https://api.eu.junction.com"
       case .production(.us):
-        return "https://api.tryvital.io"
+        return "https://api.us.junction.com"
       case .local:
         return "http://localhost:8000"
     }
   }
-  
+
+  var apiAuthBaseUrl: String {
+    switch self {
+      case .dev(.eu):
+        return "https://auth.dev.eu.junction.com"
+      case .dev(.us):
+        return "https://auth.dev.us.junction.com"
+      case .sandbox(.eu):
+        return "https://auth.sandbox.eu.junction.com"
+      case .sandbox(.us):
+        return "https://auth.sandbox.us.junction.com"
+      case .production(.eu):
+        return "https://auth.eu.junction.com"
+      case .production(.us):
+        return "https://auth.us.junction.com"
+      case .local:
+        return "http://localhost:8000/auth"
+    }
+  }
+
   var name: String {
     switch self {
       case .dev:

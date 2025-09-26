@@ -82,14 +82,15 @@ internal actor VitalJWTAuth {
       }
     }
 
-    var components = URLComponents(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken")!
-    components.queryItems = [URLQueryItem(name: "key", value: signInToken.publicKey)]
-    var request = URLRequest(url: components.url!)
-
+    var request = URLRequest(url: claims.environment.tokenEndpoint)
     request.httpMethod = "POST"
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try JSONEncoder().encode(
-      FirebaseTokenExchangeRequest(token: signInToken.userToken, tenantId: claims.gcipTenantId)
+    request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+    request.httpBody = xWwwformUrlEncoded(
+      from: [
+        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+        "subject_token_type": "urn:junction:sign-in-token",
+        "subject_token": signInToken.userToken
+      ]
     )
 
     let (data, response) = try await session.data(for: request)
@@ -98,7 +99,7 @@ internal actor VitalJWTAuth {
     switch httpResponse.statusCode {
     case 200 ... 299:
       let decoder = JSONDecoder()
-      let exchangeResponse = try decoder.decode(FirebaseTokenExchangeResponse.self, from: data)
+      let exchangeResponse = try decoder.decode(JunctionTokenResponse.self, from: data)
 
       let record = VitalJWTAuthRecord(
         environment: claims.environment,
@@ -106,7 +107,7 @@ internal actor VitalJWTAuth {
         teamId: claims.teamId,
         gcipTenantId: claims.gcipTenantId,
         publicApiKey: signInToken.publicKey,
-        accessToken: exchangeResponse.idToken,
+        accessToken: exchangeResponse.accessToken,
         refreshToken: exchangeResponse.refreshToken,
         expiry: Date().addingTimeInterval(Double(exchangeResponse.expiresIn) ?? 3600)
      )
@@ -115,11 +116,17 @@ internal actor VitalJWTAuth {
 
       VitalLogger.core.info("sign-in success; expiresIn = \(exchangeResponse.expiresIn)")
 
-    case 401:
-      VitalLogger.core.info("sign-in failed (401)")
-      throw VitalJWTSignInError.invalidSignInToken
-
     default:
+      if
+        (400...499).contains(httpResponse.statusCode),
+        let response = try? JSONDecoder().decode(JunctionTokenErrorResponse.self, from: data)
+      {
+        if response.detail.errorType == .invalidToken {
+          VitalLogger.core.info("sign-in failed (401)")
+          throw VitalJWTSignInError.invalidSignInToken
+        }
+      }
+
       VitalLogger.core.info("sign-in failed (\(httpResponse.statusCode)); data = \(String(data: data, encoding: .utf8) ?? "<nil>")")
       throw NetworkError(response: httpResponse, data: data)
     }
@@ -179,14 +186,13 @@ internal actor VitalJWTAuth {
         throw VitalJWTAuthError.needsReauthentication
       }
 
-      var components = URLComponents(string: "https://securetoken.googleapis.com/v1/token")!
-      components.queryItems = [URLQueryItem(name: "key", value: record.publicApiKey)]
-      var request = URLRequest(url: components.url!)
+      var request = URLRequest(url: record.environment.tokenEndpoint)
 
       request.httpMethod = "POST"
       request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-      let encodedToken = record.refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-      request.httpBody = "grant_type=refresh_token&refresh_token=\(encodedToken)".data(using: .utf8)
+      request.httpBody = xWwwformUrlEncoded(
+        from: ["grant_type": "refresh_token", "refresh_token": record.refreshToken]
+      )
 
       let (data, response) = try await session.data(for: request)
       let httpResponse = response as! HTTPURLResponse
@@ -194,12 +200,12 @@ internal actor VitalJWTAuth {
       switch httpResponse.statusCode {
       case 200 ... 299:
         let decoder = JSONDecoder()
-        let refreshResponse = try decoder.decode(FirebaseTokenRefreshResponse.self, from: data)
+        let refreshResponse = try decoder.decode(JunctionTokenResponse.self, from: data)
 
         var newRecord = record
         newRecord.refreshToken = refreshResponse.refreshToken
-        newRecord.accessToken = refreshResponse.idToken
-        newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn) ?? 3600)
+        newRecord.accessToken = refreshResponse.accessToken
+        newRecord.expiry = Date().addingTimeInterval(Double(refreshResponse.expiresIn))
 
         try setRecord(newRecord, reason: .update)
         VitalLogger.core.info("refresh success; expiresIn = \(refreshResponse.expiresIn)")
@@ -207,14 +213,14 @@ internal actor VitalJWTAuth {
       default:
         if
           (400...499).contains(httpResponse.statusCode),
-          let response = try? JSONDecoder().decode(FirebaseTokenRefreshErrorResponse.self, from: data)
+          let response = try? JSONDecoder().decode(JunctionTokenErrorResponse.self, from: data)
         {
-          if response.error.isInvalidUser {
+          if response.detail.errorType == .invalidToken {
             try setRecord(nil, reason: .userNoLongerValid)
             throw VitalJWTAuthError.invalidUser
           }
 
-          if response.error.needsReauthentication {
+          if response.detail.errorType == .reauthenticationRequired {
             var record = record
             record.pendingReauthentication = true
             try setRecord(record, reason: .update)
@@ -362,45 +368,39 @@ private struct VitalJWTAuthRecord: Codable {
   }
 }
 
-private struct FirebaseTokenRefreshResponse: Decodable {
-  let expiresIn: String
+private struct JunctionTokenResponse: Decodable {
+  let expiresIn: Int
   let refreshToken: String
-  let idToken: String
+  let accessToken: String
 
   enum CodingKeys: String, CodingKey {
     case expiresIn = "expires_in"
     case refreshToken = "refresh_token"
-    case idToken = "id_token"
+    case accessToken = "access_token"
   }
 }
 
-private struct FirebaseTokenRefreshErrorResponse: Decodable {
-  let error: FirebaseTokenRefreshError
+private struct JunctionTokenErrorResponse: Decodable {
+  let detail: JunctionTokenError
 }
 
-private struct FirebaseTokenRefreshError: Decodable {
-  let message: String
-  let status: String
+private struct JunctionTokenError: Decodable {
+  let errorType: ErrorType
 
-  var isInvalidUser: Bool {
-    ["USER_DISABLED", "USER_NOT_FOUND"].contains(message)
+  enum CodingKeys: String, CodingKey {
+    case errorType = "error_type"
   }
 
-  var needsReauthentication: Bool {
-    ["TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN"].contains(message)
+  struct ErrorType: RawRepresentable, Decodable {
+    static let invalidToken = ErrorType(rawValue: "invalid_token")
+    static let reauthenticationRequired = ErrorType(rawValue: "reauthentication_required")
+
+    let rawValue: String
+
+    init(rawValue: RawValue) {
+      self.rawValue = rawValue
+    }
   }
-}
-
-private struct FirebaseTokenExchangeRequest: Encodable {
-  let returnSecureToken = true
-  let token: String
-  let tenantId: String
-}
-
-private struct FirebaseTokenExchangeResponse: Decodable {
-  let expiresIn: String
-  let refreshToken: String
-  let idToken: String
 }
 
 internal struct VitalSignInToken: Hashable, Decodable {
@@ -637,4 +637,16 @@ enum JWTAuthRecordGistKey: GistKey {
 
 private func isSameUser(_ claims: VitalSignInTokenClaims, _ gist: VitalJWTAuthRecordGist) -> Bool {
   return claims.teamId == gist.teamId && claims.userId == gist.userId && claims.environment == gist.environment
+}
+
+private func xWwwformUrlEncoded(from pairs: [String: String]) -> Data {
+  var components = URLComponents()
+  components.queryItems = pairs.map { key, value in URLQueryItem(name: key, value: value) }
+  return (components.percentEncodedQuery ?? "").data(using: .utf8)!
+}
+
+private extension Environment {
+  var tokenEndpoint: URL {
+    URL(string: "\(self.apiAuthBaseUrl)/v1/token")!
+  }
 }
