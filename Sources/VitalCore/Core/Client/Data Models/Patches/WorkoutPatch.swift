@@ -27,6 +27,9 @@ public struct WorkoutPatch: Equatable, Encodable {
     public var heartRateZone5: Int? = nil
     public var heartRateZone6: Int? = nil
 
+    public var heartRateZoneMaxHr: Double? = nil
+    public var heartRateZoneKnownAge: Int? = nil
+
     public var heartRate: [LocalQuantitySample] = []
     public var respiratoryRate: [LocalQuantitySample] = []
 

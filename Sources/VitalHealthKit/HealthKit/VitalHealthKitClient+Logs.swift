@@ -157,7 +157,15 @@ extension VitalHealthKitClient {
           return try await withThrowingTaskGroup(of: (HKObjectType, HKAuthorizationRequestStatus, HKAuthorizationStatus).self) { innerGroup in
             for objectType in allHealthKitTypes {
               innerGroup.addTask {
-                let requestStatus = try await healthStore.statusForAuthorizationRequest(toShare: [], read: [objectType])
+                let read: Set<HKObjectType>
+
+                if #available(iOS 26, *), objectType == HKQuantityType(.bloodPressureSystolic) || objectType == HKQuantityType(.bloodPressureDiastolic) {
+                  read = [HKQuantityType(.bloodPressureSystolic), HKQuantityType(.bloodPressureDiastolic)]
+                } else {
+                  read = [objectType]
+                }
+
+                let requestStatus = try await healthStore.statusForAuthorizationRequest(toShare: [], read: read)
                 let canShare = healthStore.authorizationStatus(for: objectType)
                 return (objectType, requestStatus, canShare)
               }

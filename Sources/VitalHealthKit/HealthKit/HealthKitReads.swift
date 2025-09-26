@@ -1026,21 +1026,23 @@ func handleSleep(
   let admittedSamples = filter(samples: payload.sample, by: options.sleepDataAllowlist)
 
   /// Group the sleeps by source bundle before we try to stitch them into sleep sessions.
-  let samplesBySourceBundle = Dictionary(
+  let samplesByGroupKey = Dictionary(
     grouping: admittedSamples,
     by: {
       SleepGroupKey(
         bundleIdentifier: $0.sourceRevision.source.bundleIdentifier,
         productType: $0.sourceRevision.productType,
-        metadata: sampleMetadata($0)
+        metadata: sampleMetadataForSleepStitching($0)
       )
     }
   )
 
   var copies: [SleepPatch.Sleep] = []
 
-  for (groupKey, sampleGroup) in samplesBySourceBundle {
+  for (groupKey, sampleGroup) in samplesByGroupKey {
     let sourceRevision = sampleGroup[0].sourceRevision
+    let device = sampleGroup[0].device
+    var metadata = groupKey.metadata
 
     /// Sorting by start date is essential here, since HKAnchoredObjectQuery returns samples in insertion order.
     /// There is otherwise no guarantee of samples being somewhat chornologically ordered, and being so are important to
@@ -1100,7 +1102,50 @@ func handleSleep(
         fitSamples(sleep: &sleep)
       }
 
-      let fromSameSourceRevision = NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, sourceRevision)
+      var sampleMatching: NSPredicate
+
+      if let device = device {
+        // Same Device
+        sampleMatching = HKQuery.predicateForObjects(from: [device])
+
+      } else {
+
+        // Apple does not tag sleep analysis samples with the HKDevice.
+        // Let's try to grab the HKDevice through an associated sample.
+
+        let samples = try await queryMulti(
+          healthKitStore: healthKitStore,
+          types: [
+            .quantityType(forIdentifier: .heartRate)!,
+            .quantityType(forIdentifier: .respiratoryRate)!,
+            .quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
+          ],
+          limit: 1,
+          startDate: sleep.startDate,
+          endDate: sleep.endDate,
+          extraPredicates: Predicates([
+            HKQuery.predicateForObjects(from: [sourceRevision.source])
+          ]),
+        )
+
+        if let recoveredDevice = samples.lazy.flatMap({ $0.value }).compactMap({ $0.device }).first {
+
+          sampleMatching = HKQuery.predicateForObjects(from: [recoveredDevice])
+
+          // Override device metadata
+          extractDeviceMetadata(from: recoveredDevice, into: &metadata)
+
+        } else {
+
+          // Same Source (not guaranteed to be same device)
+          // This is the best we can do under HealthKit query predicate limitations.
+          sampleMatching = HKQuery.predicateForObjects(from: [sourceRevision.source])
+
+        }
+      }
+
+      let predicates = Predicates([sampleMatching])
+
       let wristTemperature: [LocalQuantitySample]
 
       if #available(iOS 16.0, *) {
@@ -1111,7 +1156,7 @@ func handleSleep(
           unit: QuantityUnit(.appleSleepingWristTemperature),
           startDate: sleep.startDate,
           endDate: sleep.endDate,
-          extraPredicates: [fromSameSourceRevision],
+          extraPredicates: predicates.wrapped,
           // `appleSleepingWristTemperature` sometimes falls outside the bounds of a sleep
           // This means that if we use `strictStartDate` we won't pick up these values.
           options: [],
@@ -1124,7 +1169,6 @@ func handleSleep(
 
       let stats = StatisticsQueryDependencies.live(healthKitStore: healthKitStore)
       let queryInterval = sleep.startDate ..< sleep.endDate
-      let predicates = Predicates([fromSameSourceRevision])
 
       async let _heartRateStatistics = try stats.executeSingleStatisticsQuery(
         HKQuantityType.quantityType(forIdentifier: .heartRate)!,
@@ -1164,7 +1208,7 @@ func handleSleep(
       copy.hrvMeanSdnn = hrvStatistics?.averageQuantity()?.doubleValue(for: hrvUnit)
 
       copy.wristTemperature = wristTemperature
-      copy.metadata = groupKey.metadata
+      copy.metadata = metadata
 
       copies.append(copy)
     }
@@ -1313,13 +1357,27 @@ func handleWorkouts(
 
     var patch = WorkoutPatch.Workout(workout)
 
-    let fromSameSourceRevision = [NSPredicate(format: "%K == %@", HKPredicateKeyPathSourceRevision, workout.sourceRevision)]
-    let fromSameDevice = workout.device.map { [NSPredicate(format: "%K == %@", HKPredicateKeyPathDevice, $0)] } ?? []
+    var sampleMatching = [NSPredicate]()
+
+    // Samples directly associated with the workout
+    sampleMatching.append(HKQuery.predicateForObjects(from: workout))
+
+    if let device = workout.device {
+      // OR Same Device
+      sampleMatching.append(HKQuery.predicateForObjects(from: [device]))
+
+    } else {
+
+      // OR Same Source (not guaranteed to be the same device)
+      // This is the best we can do given the HealthKit query predicate limitations.
+      sampleMatching.append(
+        HKQuery.predicateForObjects(from: [workout.sourceRevision.source])
+      )
+    }
 
     let queryInterval = workout.startDate ..< workout.endDate
     let predicates = Predicates([
-      // sample has same HKSourceRevision **OR** sample has same HKDevice
-      NSCompoundPredicate(orPredicateWithSubpredicates: fromSameSourceRevision + fromSameDevice)
+      NSCompoundPredicate(orPredicateWithSubpredicates: sampleMatching)
     ])
 
     @Sendable func computeStatistics() async throws -> ((inout WorkoutPatch.Workout) -> Void)? {
@@ -1393,6 +1451,8 @@ func handleWorkouts(
         patch.heartRateZone4 = Int(zones.3)
         patch.heartRateZone5 = Int(zones.4)
         patch.heartRateZone6 = Int(zones.5)
+        patch.heartRateZoneMaxHr = zoneMaxHr
+        patch.heartRateZoneKnownAge = knownAge
       }
     }
 
@@ -2040,7 +2100,9 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
       results.reserveCapacity(samples.count)
 
       for sample in samples {
-        if let result = transform(unsafeDowncast(sample, to: Sample.self), unit) {
+        let sample = unsafeDowncast(sample, to: Sample.self)
+
+        if let result = transform(sample, unit) {
           results.append(result)
         }
       }
@@ -2255,35 +2317,6 @@ private func isDuration(_ date1: Date, _ date2: Date, longerThan seconds: TimeIn
 
 private func orderByDate(_ values: [LocalQuantitySample]) -> [LocalQuantitySample] {
   return values.sorted { $0.startDate < $1.startDate }
-}
-
-func splitPerBundle(_ values: [LocalQuantitySample]) -> [[LocalQuantitySample]] {
-  var temp: [String: [LocalQuantitySample]] = ["na": []]
-  
-  for value in values {
-    if let bundle = value.sourceBundle {
-      if temp[bundle] != nil {
-        var copy = temp[bundle]!
-        copy.append(value)
-        temp[bundle] = copy
-      } else {
-        temp[bundle] = [value]
-      }
-    } else {
-      var copy = temp["na"]!
-      copy.append(value)
-      temp["na"] = copy
-    }
-  }
-  
-  var outcome: [[LocalQuantitySample]] = [[]]
-  
-  for key in temp.keys {
-    let samples = temp[key]!
-    outcome.append(samples)
-  }
-  
-  return outcome
 }
 
 func activityPatchGroupedByDay(
