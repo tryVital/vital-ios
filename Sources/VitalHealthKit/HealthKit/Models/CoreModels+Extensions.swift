@@ -166,33 +166,63 @@ func sampleMetadata(_ sample: HKSample) -> [String: String] {
 
   if let metadataDict = sample.metadata {
     for (key, value) in metadataDict {
-      if let stringValue = value as? String {
-        metadata[key] = stringValue
-      } else if let boolValue = value as? Bool {
-        metadata[key] = boolValue ? "1" : "0"
-      }
+      addMetadata(value, forKey: key, into: &metadata)
     }
   }
 
   if let device = sample.device {
-    if let model = device.model {
-      metadata["_DMO"] = model
-    }
-    if let manufacturer = device.manufacturer {
-      metadata["_DMA"] = manufacturer
-    }
-    if let version = device.firmwareVersion {
-      metadata["_DFV"] = version
-    }
-    if let version = device.hardwareVersion {
-      metadata["_DHV"] = version
-    }
-    if let version = device.softwareVersion {
-      metadata["_DSV"] = version
-    }
+    extractDeviceMetadata(from: device, into: &metadata)
   }
 
   return metadata
+}
+
+/// Device metadata + manual entry only
+/// Full `HKSample.metadata` cannot be used for grouping purpose, due to keys like
+/// `HKExternalUUID` and `HKMetadataKeySyncIdentifier`.
+func sampleMetadataForSleepStitching(_ sample: HKSample) -> [String: String] {
+  var metadata: [String: String] = [:]
+
+  if let metadataDict = sample.metadata {
+    if let value = metadataDict[HKMetadataKeyWasUserEntered] {
+      addMetadata(value, forKey: HKMetadataKeyWasUserEntered, into: &metadata)
+    }
+    if let value = metadataDict[HKMetadataKeyTimeZone] {
+      addMetadata(value, forKey: HKMetadataKeyTimeZone, into: &metadata)
+    }
+  }
+
+  if let device = sample.device {
+    extractDeviceMetadata(from: device, into: &metadata)
+  }
+
+  return metadata
+}
+
+func addMetadata(_ value: Any, forKey key: String, into metadata: inout [String: String]) {
+  if let stringValue = value as? String {
+    metadata[key] = stringValue
+  } else if let boolValue = value as? Bool {
+    metadata[key] = boolValue ? "1" : "0"
+  }
+}
+
+func extractDeviceMetadata(from device: HKDevice, into metadata: inout [String: String]) {
+  if let model = device.model {
+    metadata["_DMO"] = model
+  }
+  if let manufacturer = device.manufacturer {
+    metadata["_DMA"] = manufacturer
+  }
+  if let version = device.firmwareVersion {
+    metadata["_DFV"] = version
+  }
+  if let version = device.hardwareVersion {
+    metadata["_DHV"] = version
+  }
+  if let version = device.softwareVersion {
+    metadata["_DSV"] = version
+  }
 }
 
 func isValidStatistic(_ statistics: VitalStatistics) -> Bool {

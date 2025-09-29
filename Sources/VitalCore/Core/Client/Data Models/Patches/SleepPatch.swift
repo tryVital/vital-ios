@@ -76,8 +76,8 @@ public struct SleepPatch: Equatable, Encodable {
     }
   }
   
-  public let sleep: [Sleep]
-  
+  public var sleep: [Sleep]
+
   public init(sleep: [Sleep]) {
     self.sleep = sleep
   }
