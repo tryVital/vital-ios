@@ -127,28 +127,13 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
       return
     }
 
-    let cycleEnd = newStart.map { GregorianCalendar.utc.offset($0, byDays: -1) }
-    
-    // Validate that cycleEnd is not before periodEnd
-    if let cycleEnd = cycleEnd, let periodEnd = currentPeriodEnd, cycleEnd < periodEnd {
-      // Use periodEnd as cycleEnd to maintain logical consistency
-      let adjustedCycleEnd = periodEnd
-      cycleBoundaries.append(
-        CycleBoundary(
-          cycleStart: cycleStart,
-          periodEnd: currentPeriodEnd,
-          cycleEnd: adjustedCycleEnd
-        )
+    cycleBoundaries.append(
+      CycleBoundary(
+        cycleStart: cycleStart,
+        periodEnd: currentPeriodEnd,
+        cycleEnd: newStart.map { GregorianCalendar.utc.offset($0, byDays: -1) }
       )
-    } else {
-      cycleBoundaries.append(
-        CycleBoundary(
-          cycleStart: cycleStart,
-          periodEnd: currentPeriodEnd,
-          cycleEnd: cycleEnd
-        )
-      )
-    }
+    )
 
     currentCycleStart = nil
     currentPeriodEnd = nil
@@ -179,7 +164,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
 
     // Simple O(N*M) algorithm since the number of entries is low.
     return Dictionary(
-      boundaries.map { boundary in
+      uniqueKeysWithValues: Set(boundaries).map { boundary in
         (
           boundary,
           samples.compactMap { sample -> Entry? in
@@ -190,8 +175,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
             return entry
           }
         )
-      },
-      uniquingKeysWith: { first, _ in first } // Keep first occurrence if duplicates exist
+      }
     )
   }
 
