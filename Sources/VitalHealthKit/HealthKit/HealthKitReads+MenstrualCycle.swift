@@ -164,7 +164,7 @@ func processMenstrualCycleSamples(_ groups: [HKSampleType: [HKSample]], fromSour
 
     // Simple O(N*M) algorithm since the number of entries is low.
     return Dictionary(
-      uniqueKeysWithValues: boundaries.map { boundary in
+      uniqueKeysWithValues: Set(boundaries).map { boundary in
         (
           boundary,
           samples.compactMap { sample -> Entry? in
