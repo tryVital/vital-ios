@@ -709,7 +709,9 @@ public enum AuthenticateRequest {
   @_spi(VitalSDKInternals)
   public func checkConnectedSource(for provider: Provider.Slug) async throws {
     let userId = try await getUserId()
-    try await self.link.createConnectedSource(userId, provider: provider)
+
+    let installationId = AppInstallationTracker.shared.get()
+    try await self.link.createConnectedSource(userId, provider: provider, installationId: installationId)
 
     let storage = self.storage
     storage.storeConnectedSource(for: userId, with: provider)
