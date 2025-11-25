@@ -2024,11 +2024,18 @@ func queryActivityDaySummaries(
   )
 
   func keyedByDate(_ statistics: [VitalStatistics]) -> [GregorianCalendar.FloatingDate: VitalStatistics] {
-    Dictionary(grouping: statistics) { calendar.floatingDate(of: $0.startDate) }
-      .mapValues { statistics in
-        assert(statistics.count == 1, "Expected statistical query to produce one stat per day. Found multiple stats per day.")
-        return statistics[0]
-      }
+    Dictionary(grouping: statistics) {
+      calendar.floatingDate(
+        // Use midpoint to determine calendar date to avoid DST votality around `startDate` and `endDate`.
+        of: $0.startDate.addingTimeInterval(
+          $0.endDate.timeIntervalSince($0.startDate) * 0.5
+        )
+      )
+    }
+    .mapValues { statistics in
+      assert(statistics.count == 1, "Expected statistical query to produce one stat per day. Found multiple stats per day.")
+      return statistics[0]
+    }
   }
 
   let activeEnergyBurnedSum = keyedByDate(try await _activeEnergyBurnedSum)
