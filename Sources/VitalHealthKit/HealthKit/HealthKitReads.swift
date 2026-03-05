@@ -1,5 +1,5 @@
 import HealthKit
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 import Accelerate
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
@@ -22,15 +22,6 @@ enum VitalHealthKitClientError: Error {
   case healthKitInvalidState(String)
   case sdkInvalidState(String)
   case disabledFeature(String)
-}
-
-enum AnchoredQueryChunkSize {
-  static let timeseries = 10000
-  static let electrocardiogram = 4
-  static let workout = 5
-  // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
-  static let sleep = HKObjectQueryNoLimit
-  static let activityTimeseries = 10000
 }
 
 struct VitalStatisticsError: Error {
@@ -128,7 +119,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.bloodOxygen(payload.samples)), payload.anchors)
@@ -139,7 +131,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.timeSeries(.glucose(payload.samples)), payload.anchors)
@@ -150,7 +143,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.timeSeries(.heartRate(payload.samples)), payload.anchors)
@@ -161,7 +155,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.heartRateVariability(payload.samples)), payload.anchors)
@@ -171,7 +166,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.timeSeries(.bloodPressure(payload.bloodPressure)), payload.anchors)
@@ -182,7 +178,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       
       return (.timeSeries(.nutrition(.water(payload.samples))), payload.anchors)
@@ -193,7 +190,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.nutrition(.caffeine(payload.samples))), payload.anchors)
@@ -203,7 +201,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.mindfulSession(payload.samples)), payload.anchors)
@@ -264,7 +263,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
     return (.timeSeries(.vo2Max(payload.samples)), payload.anchors)
 
@@ -274,7 +274,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.temperature(payload.samples)), payload.anchors)
@@ -285,18 +286,19 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.respiratoryRate(payload.samples)), payload.anchors)
 
 
   case .electrocardiogram:
-    let payload = try await handleElectrocardiogram(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
+    let payload = try await handleElectrocardiogram(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction, options: options)
     return (.summary(.electrocardiogram(payload.electrocardiograms)), payload.anchors)
 
   case .heartRateAlert:
-    let payload = try await handleHeartRateAlerts(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction)
+    let payload = try await handleHeartRateAlerts(healthKitStore: healthKitStore, vitalStorage: vitalStorage, instruction: instruction, options: options)
     return (
       .timeSeries(.heartRateAlert(payload.samples)),
       payload.anchors
@@ -308,7 +310,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
     return (.timeSeries(.standHour(payload.samples)), payload.anchors)
 
@@ -318,7 +321,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.standDuration(payload.samples)), payload.anchors)
@@ -330,7 +334,8 @@ func read(
          healthKitStore: healthKitStore,
          vitalStorage: vitalStorage,
          startDate: instruction.query.lowerBound,
-         endDate: instruction.query.upperBound
+         endDate: instruction.query.upperBound,
+         options: options
        )
        return (.timeSeries(.sleepApneaAlert(payload.samples)), payload.anchors)
      }
@@ -345,7 +350,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
       var samplesCopy = payload.samples
       for index in samplesCopy.indices {
@@ -380,7 +386,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.wheelchairPush(payload.samples)), payload.anchors)
@@ -391,7 +398,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.forcedExpiratoryVolume1(payload.samples)), payload.anchors)
@@ -402,7 +410,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.forcedVitalCapacity(payload.samples)), payload.anchors)
@@ -413,7 +422,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.peakExpiratoryFlowRate(payload.samples)), payload.anchors)
@@ -424,7 +434,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.inhalerUsage(payload.samples)), payload.anchors)
@@ -435,7 +446,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.fall(payload.samples)), payload.anchors)
@@ -446,7 +458,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.uvExposure(payload.samples)), payload.anchors)
@@ -458,7 +471,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
     return (.timeSeries(.daylightExposure(payload.samples)), payload.anchors)
@@ -473,7 +487,8 @@ func read(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
 
     return (.timeSeries(.handwashing(payload.samples)), payload.anchors)
@@ -484,7 +499,8 @@ func read(
      healthKitStore: healthKitStore,
      vitalStorage: vitalStorage,
      startDate: instruction.query.lowerBound,
-     endDate: instruction.query.upperBound
+     endDate: instruction.query.upperBound,
+     options: options
    )
 
    return (.timeSeries(.basalBodyTemperature(payload.samples)), payload.anchors)
@@ -496,7 +512,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.heartRateRecoveryOneMinute(payload.samples)), payload.anchors)
@@ -511,7 +528,8 @@ func read(
         healthKitStore: healthKitStore,
         vitalStorage: vitalStorage,
         startDate: instruction.query.lowerBound,
-        endDate: instruction.query.upperBound
+        endDate: instruction.query.upperBound,
+        options: options
       )
 
       return (.timeSeries(.afibBurden(payload.samples)), payload.anchors)
@@ -600,7 +618,8 @@ func handleActivityTimeseries(
       healthKitStore: healthKitStore,
       vitalStorage: vitalStorage,
       startDate: instruction.query.lowerBound,
-      endDate: instruction.query.upperBound
+      endDate: instruction.query.upperBound,
+      options: options
     )
     samples += payload.samples
     anchors += payload.anchors
@@ -659,7 +678,8 @@ func handleCategoryTimeSeries(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
 
   var anchors: [StoredAnchor] = []
@@ -670,7 +690,7 @@ func handleCategoryTimeSeries(
     type: .categoryType(forIdentifier: id)!,
     sampleClass: HKCategorySample.self,
     unit: (),
-    limit: AnchoredQueryChunkSize.timeseries,
+    limit: options.queryChunkSizes.timeseries,
     startDate: startDate,
     endDate: endDate,
     transform: { sample, _ in LocalQuantitySample.fromCategorySample(sample: sample) }
@@ -685,7 +705,8 @@ func handleMindfulSessions(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
 
   var anchors: [StoredAnchor] = []
@@ -696,7 +717,7 @@ func handleMindfulSessions(
     type: .categoryType(forIdentifier: .mindfulSession)!,
     sampleClass: HKCategorySample.self,
     unit: (),
-    limit: AnchoredQueryChunkSize.timeseries,
+    limit: options.queryChunkSizes.timeseries,
     startDate: startDate,
     endDate: endDate,
     transform: { sample, _ in LocalQuantitySample.fromMindfulSession(sample: sample) }
@@ -1004,7 +1025,7 @@ func handleSleep(
     type: sleepType,
     sampleClass: HKCategorySample.self,
     unit: (),
-    limit: AnchoredQueryChunkSize.sleep,
+    limit: options.queryChunkSizes.sleep,
     startDate: startDate,
     endDate: endDate,
     extraPredicate: predicate,
@@ -1328,7 +1349,7 @@ func handleWorkouts(
     type: .workoutType(),
     sampleClass: HKWorkout.self,
     unit: (),
-    limit: AnchoredQueryChunkSize.workout,
+    limit: options.queryChunkSizes.workout,
     startDate: startDate,
     endDate: endDate,
     transform: { workout, _ in workout }
@@ -1472,7 +1493,8 @@ func handleBloodPressure(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (bloodPressure: [LocalBloodPressureSample], anchors: [StoredAnchor]) {
 
   let bloodPressureIdentifier = HKCorrelationType.correlationType(forIdentifier: .bloodPressure)!
@@ -1483,7 +1505,7 @@ func handleBloodPressure(
     type: bloodPressureIdentifier,
     sampleClass: HKCorrelation.self,
     unit: QuantityUnit(.bloodPressureSystolic),
-    limit: AnchoredQueryChunkSize.timeseries,
+    limit: options.queryChunkSizes.timeseries,
     startDate: startDate,
     endDate: endDate,
     transform: LocalBloodPressureSample.init
@@ -1500,7 +1522,8 @@ func handleTimeSeries(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: ReadOptions
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
   
   let payload = try await anchoredQuery(
@@ -1509,7 +1532,7 @@ func handleTimeSeries(
     type: .quantityType(forIdentifier: id)!,
     sampleClass: HKQuantitySample.self,
     unit: QuantityUnit(id),
-    limit: AnchoredQueryChunkSize.timeseries,
+    limit: options.queryChunkSizes.timeseries,
     startDate: startDate,
     endDate: endDate,
     transform: LocalQuantitySample.init

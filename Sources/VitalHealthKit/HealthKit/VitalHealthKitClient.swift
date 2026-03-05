@@ -835,7 +835,8 @@ extension VitalHealthKitClient {
       // When we should revalidate the LocalSyncState again.
       expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400)),
 
-      reportingInterval: backendState.reportingInterval ?? previousState?.reportingInterval
+      reportingInterval: backendState.reportingInterval ?? previousState?.reportingInterval,
+      params: backendState.healthKitParams ?? UserSDKHealthKitParams.default
     )
 
     try storage.setLocalSyncState(state)
@@ -1054,13 +1055,16 @@ extension VitalHealthKitClient {
       // Fetch from HealthKit
       let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
 
+      let appState = AppStateTracker.shared.state.status
+
       (data, anchors) = try await store.readResource(
         remappedResource,
         instruction,
         AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
         ReadOptions(
           perDeviceActivityTS: state.perDeviceActivityTS,
-          sleepDataAllowlist: configuration.sleepDataAllowlist
+          sleepDataAllowlist: configuration.sleepDataAllowlist,
+          queryChunkSizes: appState == .background ? state.params.queryChunkSizesBackground : state.params.queryChunkSizesForeground
         )
       )
 

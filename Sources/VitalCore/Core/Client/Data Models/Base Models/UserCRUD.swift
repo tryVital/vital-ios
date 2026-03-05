@@ -74,6 +74,36 @@ public struct TeamDataPullPreferences: Codable {
 }
 
 @_spi(VitalSDKInternals)
+public struct UserSDKHealthKitQueryChunkSizes: Codable {
+  public let timeseries: Int
+  public let activityTimeseries: Int
+  public let electrocardiogram: Int
+  public let workout: Int
+  // 0 = HKObjectQueryNoLimit
+  // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
+  public let sleep: Int
+
+  public init(timeseries: Int, electrocardiogram: Int, workout: Int, sleep: Int, activityTimeseries: Int) {
+    self.timeseries = timeseries
+    self.electrocardiogram = electrocardiogram
+    self.workout = workout
+    self.sleep = sleep
+    self.activityTimeseries = activityTimeseries
+  }
+}
+
+@_spi(VitalSDKInternals)
+public struct UserSDKHealthKitParams: Codable {
+  public let queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes
+  public let queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes
+
+  public init(queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes, queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes) {
+    self.queryChunkSizesBackground = queryChunkSizesBackground
+    self.queryChunkSizesForeground = queryChunkSizesForeground
+  }
+}
+
+@_spi(VitalSDKInternals)
 public struct UserSDKSyncStateResponse: Decodable {
   public let status: Status
   public let ingestionStart: Date?
@@ -83,6 +113,7 @@ public struct UserSDKSyncStateResponse: Decodable {
   public var expiresIn: Int?
   public var pullPreferences: TeamDataPullPreferences? = nil
   public var reportingInterval: Double?
+  public var healthKitParams: UserSDKHealthKitParams? = nil
 }
 
 public enum Stage: String, Encodable {

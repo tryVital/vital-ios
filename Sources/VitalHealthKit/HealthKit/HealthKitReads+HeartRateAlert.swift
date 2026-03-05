@@ -1,4 +1,4 @@
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 import HealthKit
 
 enum HeartRateAlertType: String {
@@ -11,7 +11,8 @@ enum HeartRateAlertType: String {
 func handleHeartRateAlerts(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
-  instruction: SyncInstruction
+  instruction: SyncInstruction,
+  options: ReadOptions
 ) async throws -> (samples: [LocalQuantitySample], anchors: [StoredAnchor]) {
 
   @Sendable
@@ -25,7 +26,7 @@ func handleHeartRateAlerts(
       type: HKCategoryType.categoryType(forIdentifier: identifier)!,
       sampleClass: HKCategorySample.self,
       unit: (),
-      limit: AnchoredQueryChunkSize.timeseries,
+      limit: options.queryChunkSizes.timeseries,
       startDate: instruction.query.lowerBound,
       endDate: instruction.query.upperBound,
       transform: { sample, _ in
