@@ -1,10 +1,11 @@
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 import HealthKit
 
 func handleElectrocardiogram(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
-  instruction: SyncInstruction
+  instruction: SyncInstruction,
+  options: ReadOptions
 ) async throws -> (electrocardiograms: [ManualElectrocardiogram], anchors: [StoredAnchor]) {
 
   let (ecg, anchor) = try await anchoredQuery(
@@ -13,7 +14,7 @@ func handleElectrocardiogram(
     type: HKElectrocardiogramType.electrocardiogramType(),
     sampleClass: HKElectrocardiogram.self,
     unit: (),
-    limit: AnchoredQueryChunkSize.electrocardiogram,
+    limit: options.queryChunkSizes.electrocardiogram,
     startDate: instruction.query.lowerBound,
     endDate: instruction.query.upperBound,
     transform: { sample, _ in sample }

@@ -2,20 +2,27 @@ import HealthKit
 @_spi(VitalSDKInternals) import VitalCore
 import os
 
-struct RemappedVitalResource: Hashable {
+struct RemappedVitalResource: Hashable, CustomStringConvertible {
   let wrapped: VitalResource
+
+  var description: String {
+    return wrapped.logDescription
+  }
 }
 
 struct ReadOptions {
   var perDeviceActivityTS: Bool
   var sleepDataAllowlist: AppAllowlist
+  var queryChunkSizes: UserSDKHealthKitQueryChunkSizes
 
   internal init(
     perDeviceActivityTS: Bool = false,
-    sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist)
+    sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist),
+    queryChunkSizes: UserSDKHealthKitQueryChunkSizes = UserSDKHealthKitParams.default.queryChunkSizesForeground
   ) {
     self.perDeviceActivityTS = perDeviceActivityTS
     self.sleepDataAllowlist = sleepDataAllowlist
+    self.queryChunkSizes = queryChunkSizes
   }
 }
 
