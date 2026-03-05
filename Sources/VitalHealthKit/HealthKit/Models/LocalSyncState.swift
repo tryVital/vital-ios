@@ -9,6 +9,8 @@ extension UserSDKHealthKitParams {
       timeseries: 2500,
       electrocardiogram: 1,
       workout: 1,
+      // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
+      // So this must be 0.
       sleep: 0,
       activityTimeseries: 2500
     ),
@@ -17,6 +19,8 @@ extension UserSDKHealthKitParams {
       timeseries: 10000,
       electrocardiogram: 4,
       workout: 5,
+      // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
+      // So this must be 0.
       sleep: 0,
       activityTimeseries: 10000
     )

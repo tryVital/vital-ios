@@ -3,10 +3,12 @@ import Foundation
 public struct CreateConnectionSourceRequest: Encodable {
   public let userId: String
   public let providerId: String?
-  
-  public init(userId: String, providerId: String? = nil) {
+  public let grantedPermissions: [String]?
+
+  public init(userId: String, providerId: String? = nil, grantedPermissions: [String]? = nil) {
     self.userId = userId
     self.providerId = providerId
+    self.grantedPermissions = grantedPermissions
   }
 }
 

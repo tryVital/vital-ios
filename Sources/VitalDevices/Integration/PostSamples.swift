@@ -36,7 +36,7 @@ private func postGlucoseImpl(_ provider: Provider.Slug, samples: [LocalQuantityS
     return
   }
 
-  try await VitalClient.shared.checkConnectedSource(for: provider)
+  try await VitalClient.shared.checkConnectedSource(for: provider, grantedPermissions: nil)
   try await VitalClient.shared.timeSeries.post(
     .glucose(samples),
     stage: .daily,
@@ -51,7 +51,7 @@ private func postBloodPressureImpl(_ provider: Provider.Slug, samples: [LocalBlo
     return
   }
 
-  try await VitalClient.shared.checkConnectedSource(for: provider)
+  try await VitalClient.shared.checkConnectedSource(for: provider, grantedPermissions: nil)
   try await VitalClient.shared.timeSeries.post(
     .bloodPressure(samples),
     stage: .daily,

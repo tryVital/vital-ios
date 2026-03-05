@@ -651,10 +651,15 @@ func observedSampleTypes() -> [[HKSampleType]] {
 
 func authorizationState(
   store: VitalHealthKitStore
-) async throws -> (activeResources: Set<RemappedVitalResource>, determinedObjectTypes: Set<HKObjectType>) {
+) async throws -> (activeResources: Set<RemappedVitalResource>, askedPermissions: Set<HKObjectType>, determinedObjectTypes: Set<HKObjectType>) {
 
   let state = try await store.authorizationState(Set(VitalResource.all))
   let resources = Set(state.isActive.compactMap { key, value in value ? VitalHealthKitStore.remapResource(key) : nil })
-  
-  return (resources, state.determined)
+  let askedPermissions = Set(state.isObjectTypeActive.compactMap { key, value in value == .sharingAuthorized || value == .sharingDenied ? key : nil })
+
+  return (resources, askedPermissions, state.determined)
+}
+
+func grantedPermissions(from askedObjectTypes: Set<HKObjectType>?) -> [String]? {
+  return askedObjectTypes.map { $0.map { $0.identifier }.sorted() }
 }
