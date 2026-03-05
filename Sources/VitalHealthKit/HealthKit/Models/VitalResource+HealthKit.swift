@@ -653,16 +653,8 @@ func authorizationState(
   store: VitalHealthKitStore
 ) async throws -> (activeResources: Set<RemappedVitalResource>, determinedObjectTypes: Set<HKObjectType>) {
 
-  var resources: Set<RemappedVitalResource> = []
-  var determined: Set<HKObjectType> = []
-
-  for resource in VitalResource.all {
-    let state = try await store.authorizationState(resource)
-    if state.isActive {
-      resources.insert(VitalHealthKitStore.remapResource(resource))
-    }
-    determined.formUnion(state.determined)
-  }
+  let state = try await store.authorizationState(Set(VitalResource.all))
+  let resources = Set(state.isActive.compactMap { key, value in value ? VitalHealthKitStore.remapResource(key) : nil })
   
-  return (resources, determined)
+  return (resources, state.determined)
 }

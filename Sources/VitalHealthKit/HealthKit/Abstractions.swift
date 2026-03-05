@@ -48,8 +48,8 @@ struct VitalHealthKitStore {
   
   var requestReadWriteAuthorization: ([VitalResource], [WritableVitalResource], [HKObjectType], [HKSampleType], Set<HKObjectType>?) async throws -> Void
 
-  var authorizationState: (VitalResource) async throws -> AuthorizationState
-  var authorizationStateSync: (VitalResource) -> AuthorizationState
+  var authorizationState: (Set<VitalResource>) async throws -> AuthorizationState
+  var authorizationStateSync: (Set<VitalResource>) -> AuthorizationState
   var authorizationStateForHealthKitTypes: (Set<HKObjectType>) async throws -> [HKObjectType: HKAuthorizationStatus]
 
   var writeInput: (DataInput, Date, Date) async throws -> Void
@@ -62,7 +62,11 @@ struct VitalHealthKitStore {
   var stop: (HKObserverQuery) -> Void
 }
 
-typealias AuthorizationState = (isActive: Bool, determined: Set<HKObjectType>)
+typealias AuthorizationState = (
+  isActive: [VitalResource: Bool],
+  isObjectTypeActive: [HKObjectType: HKAuthorizationStatus],
+  determined: Set<HKObjectType>
+)
 
 extension VitalHealthKitStore {
   static func remapResource(_ resource: VitalResource) -> RemappedVitalResource {
@@ -302,35 +306,40 @@ extension VitalHealthKitStore {
     let store = HKHealthStore()
     let queue = DispatchQueue(label: "io.tryvital.VitalHealth.HealthKitAuthorizationChecks", qos: .userInteractive)
 
-    let authorizationState: (VitalResource) async throws -> AuthorizationState = { resource in
-      let requirements = toHealthKitTypes(resource: resource)
+    let authorizationState: (Set<VitalResource>) async throws -> AuthorizationState = { resources in
+      let resourceRequirements = Dictionary(uniqueKeysWithValues: resources.map { ($0, toHealthKitTypes(resource: $0)) })
+      let allObjectTypes = Set(resourceRequirements.values.flatMap { $0.allObjectTypes })
+
+      let status: [HKObjectType: HKAuthorizationStatus] = try await withUnsafeThrowingContinuation { continuation in
+        // It seems there is a non-zero chance that authorizationStatus and
+        // getRequestStatusForAuthorization would be stuck on older devices within HealthKit
+        // on semaphores related to XPC and entitlements checking.
+        //
+        // So avoid doing these checks on the main thread and Swift Concurrency cooperative thread pool.
+        // We fallback to good old GCD, and request userInteractive QoS for the queue.
+        checkAuthorizationStatus(for: allObjectTypes, store: store, continuation: continuation, executingOn: queue)
+      }
 
       var determined: Set<HKObjectType> = []
-      let isActive = try await requirements.isResourceActive { resource in
-        let status: [HKObjectType: HKAuthorizationStatus] = try await withUnsafeThrowingContinuation { continuation in
-          // It seems there is a non-zero chance that authorizationStatus and
-          // getRequestStatusForAuthorization would be stuck on older devices within HealthKit
-          // on semaphores related to XPC and entitlements checking.
-          //
-          // So avoid doing these checks on the main thread and Swift Concurrency cooperative thread pool.
-          // We fallback to good old GCD, and request userInteractive QoS for the queue.
-          checkAuthorizationStatus(for: [resource], store: store, continuation: continuation, executingOn: queue)
-        }
 
-        switch status[resource]! {
-        case .notDetermined:
-          return false
+      let isActive = resourceRequirements.mapValues { requirements in
+        requirements.isResourceActive { objectType in
 
-        case .sharingDenied, .sharingAuthorized:
-          determined.insert(resource)
-          return true
+          switch status[objectType]! {
+          case .notDetermined:
+            return false
 
-        @unknown default:
-          return false
+          case .sharingDenied, .sharingAuthorized:
+            determined.insert(objectType)
+            return true
+
+          @unknown default:
+            return false
+          }
         }
       }
 
-      return (isActive, determined)
+      return (isActive, status, determined)
     }
 
     let authorizationStateForHealthKitTypes: (Set<HKObjectType>) async throws -> [HKObjectType: HKAuthorizationStatus] = { types in
@@ -339,25 +348,31 @@ extension VitalHealthKitStore {
       }
     }
 
-    let authorizationStateSync: (VitalResource) -> AuthorizationState = { resource in
-      let requirements = toHealthKitTypes(resource: resource)
+    let authorizationStateSync: (Set<VitalResource>) -> AuthorizationState = { resources in
+      let resourceRequirements = Dictionary(uniqueKeysWithValues: resources.map { ($0, toHealthKitTypes(resource: $0)) })
+      let allObjectTypes = Set(resourceRequirements.values.flatMap { $0.allObjectTypes })
 
       var determined: Set<HKObjectType> = []
-      let isActive = requirements.isResourceActive {
-        switch store.authorizationStatus(for: $0) {
-        case .notDetermined:
-          return false
 
-        case .sharingDenied, .sharingAuthorized:
-          determined.insert($0)
-          return true
+      let status = Dictionary(uniqueKeysWithValues: allObjectTypes.map { ($0, store.authorizationStatus(for: $0)) })
+      let isActive = resourceRequirements.mapValues { requirements in
+        requirements.isResourceActive { objectType in
 
-        @unknown default:
-          return false
+          switch status[objectType]! {
+          case .notDetermined:
+            return false
+
+          case .sharingDenied, .sharingAuthorized:
+            determined.insert(objectType)
+            return true
+
+          @unknown default:
+            return false
+          }
         }
       }
 
-      return (isActive, determined)
+      return (isActive, status, determined)
     }
 
     return .init {
@@ -394,11 +409,11 @@ extension VitalHealthKitStore {
         try await store.__requestAuthorization(toShare: writeTypes, read: readTypes)
       }
       
-    } authorizationState: { resource in
-      return try await authorizationState(resource)
+    } authorizationState: { resources in
+      return try await authorizationState(resources)
 
-    } authorizationStateSync: { resource in
-      return authorizationStateSync(resource)
+    } authorizationStateSync: { resources in
+      return authorizationStateSync(resources)
 
     } authorizationStateForHealthKitTypes: { types in
       return try await authorizationStateForHealthKitTypes(types)
@@ -434,10 +449,10 @@ extension VitalHealthKitStore {
       return true
     } requestReadWriteAuthorization: { _, _, _, _, _ in
       return
-    } authorizationState: { _ in
-      (true, [])
-    } authorizationStateSync: { _ in
-      (true, [])
+    } authorizationState: { resources in
+      (Dictionary(uniqueKeysWithValues: resources.map { ($0, true) }), [:], [])
+    } authorizationStateSync: { resources in
+      (Dictionary(uniqueKeysWithValues: resources.map { ($0, true) }), [:], [])
     } authorizationStateForHealthKitTypes: { _ in
       [:]
     } writeInput: { (dataInput, startDate, endDate) in
