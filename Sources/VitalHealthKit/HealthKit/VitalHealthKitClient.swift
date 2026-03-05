@@ -792,10 +792,13 @@ extension VitalHealthKitClient {
     let previousState = storage.getLocalSyncState()
     let configuration = await configuration.get()
 
+    let authState = try await authorizationState(store: self.store)
+    let grantedPermissions = grantedPermissions(from: authState.askedPermissions)
+
     switch configuration.connectionPolicy {
     case .autoConnect:
       // Make sure a connection is automatically created or reinstated.
-      try await vitalClient.checkConnectedSource(.appleHealthKit)
+      try await vitalClient.checkConnectedSource(.appleHealthKit, grantedPermissions)
 
     case .explicit:
       // The sdkStateSync() call will report status=error if the connection has been destroyed
@@ -810,7 +813,8 @@ extension VitalHealthKitClient {
       UserSDKSyncStateBody(
         tzinfo: TimeZone.current.identifier,
         requestStartDate: proposedStart,
-        requestEndDate: now
+        requestEndDate: now,
+        grantedPermissions: grantedPermissions
       )
     )
 
@@ -1294,7 +1298,7 @@ extension VitalHealthKitClient {
 
           // We have gone through Ask successfully. Check if a connected source has been created.
           do {
-            try await VitalClient.shared.checkConnectedSource(for: .appleHealthKit)
+            try await self.vitalClient.checkConnectedSource(.appleHealthKit, grantedPermissions(from: state.askedPermissions))
 
           } catch let error {
             VitalLogger.healthKit.info("proactive CS creation failed; error = \(error)", source: "Ask")
@@ -1386,7 +1390,8 @@ extension VitalHealthKitClient {
     try await connectDisconnectParkingLot.semaphore.acquire()
     defer { connectDisconnectParkingLot.semaphore.release() }
 
-    try await vitalClient.checkConnectedSource(.appleHealthKit)
+    let authState = try await authorizationState(store: self.store)
+    try await vitalClient.checkConnectedSource(.appleHealthKit, grantedPermissions(from: authState.askedPermissions))
 
     do {
       _ = try await getLocalSyncState(forceRemoteCheck: true)

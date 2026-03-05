@@ -79,8 +79,6 @@ public struct UserSDKHealthKitQueryChunkSizes: Codable {
   public let activityTimeseries: Int
   public let electrocardiogram: Int
   public let workout: Int
-  // 0 = HKObjectQueryNoLimit
-  // IMPORTANT: The current Sleep Session stitching algorithm is not chunkable.
   public let sleep: Int
 
   public init(timeseries: Int, electrocardiogram: Int, workout: Int, sleep: Int, activityTimeseries: Int) {
@@ -126,11 +124,13 @@ public struct UserSDKSyncStateBody: Encodable {
   public let tzinfo: String
   public let requestStartDate: Date?
   public let requestEndDate: Date?
+  public let grantedPermissions: [String]?
 
-  public init(tzinfo: String, requestStartDate: Date? = nil, requestEndDate: Date? = nil) {
+  public init(tzinfo: String, requestStartDate: Date? = nil, requestEndDate: Date? = nil, grantedPermissions: [String]? = nil) {
     self.tzinfo = tzinfo
     self.requestStartDate = requestStartDate
     self.requestEndDate = requestEndDate
+    self.grantedPermissions = grantedPermissions
   }
 }
 

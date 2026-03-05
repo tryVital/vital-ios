@@ -1018,7 +1018,7 @@ func handleSleep(
   if #available(iOS 16.0, *) {
     predicate = HKCategoryValueSleepAnalysis.predicateForSamples(equalTo: [.asleepUnspecified, .asleepCore, .asleepREM, .asleepDeep, .awake, .inBed])
   }
-  
+
   let payload = try await anchoredQuery(
     healthKitStore: healthKitStore,
     vitalStorage: vitalStorage,
@@ -1683,7 +1683,7 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
       type: type,
       predicate: predicate,
       anchor: currentAnchor,
-      limit: limit,
+      limit: limit > 0 ? limit : HKObjectQueryNoLimit,
       resultsHandler: handler
     )
 
@@ -1699,7 +1699,7 @@ private func anchoredQueryCore<Sample: HKSample, Result, SampleUnit>(
 func queryMulti(
   healthKitStore: HKHealthStore,
   types: Set<HKSampleType>,
-  limit: Int = HKObjectQueryNoLimit,
+  limit: Int = 0,
   startDate: Date? = nil,
   endDate: Date? = nil,
   extraPredicates: Predicates = Predicates([])
@@ -1768,7 +1768,7 @@ func queryMulti(
       queryDescriptors: queryableTypes.map { type in
         HKQueryDescriptor(sampleType: type as! HKSampleType, predicate: predicate)
       },
-      limit: limit != HKObjectQueryNoLimit ? limit * types.count : HKObjectQueryNoLimit,
+      limit: limit > 0 ? limit * types.count : HKObjectQueryNoLimit,
       sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)],
       resultsHandler: handler
     )
@@ -1783,7 +1783,7 @@ func queryMulti(
 private func querySingle(
   _ healthKitStore: HKHealthStore,
   type: HKSampleType,
-  limit: Int = HKObjectQueryNoLimit,
+  limit: Int = 0,
   startDate: Date? = nil,
   endDate: Date? = nil,
   extraPredicates: Predicates = Predicates([])
@@ -1813,7 +1813,7 @@ private func querySingle(
     let query = HKSampleQuery(
       sampleType: type,
       predicate: predicate,
-      limit: limit,
+      limit: limit > 0 ? limit : HKObjectQueryNoLimit,
       sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)],
       resultsHandler: handler
     )
@@ -2105,7 +2105,7 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
   type: HKSampleType,
   sampleClass: Sample.Type,
   unit: SampleUnit,
-  limit: Int = HKObjectQueryNoLimit,
+  limit: Int = 0,
   startDate: Date? = nil,
   endDate: Date? = nil,
   ascending: Bool = true,
@@ -2157,7 +2157,7 @@ func querySample<Sample: HKSample, SampleUnit, Result>(
     let query = HKSampleQuery(
       sampleType: type,
       predicate: predicate,
-      limit: limit,
+      limit: limit > 0 ? limit : HKObjectQueryNoLimit,
       sortDescriptors: sort,
       resultsHandler: handler
     )
