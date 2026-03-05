@@ -134,7 +134,7 @@ public enum PermissionOutcome: Equatable, Sendable {
 
         // Sync profile since most of the content is not observable.
         Task(priority: .high) {
-          if try await client.store.authorizationState(.profile).isActive {
+          if try await client.store.authorizationState([.profile]).isActive[.profile]! {
             await client.sync(RemappedVitalResource(wrapped: .profile), [.maintenanceTask])
           }
         }
@@ -1317,23 +1317,12 @@ extension VitalHealthKitClient {
 
   @available(*, deprecated, message: "Use `permissionStatus(for:)`.")
   public func hasAskedForPermission(resource: VitalResource) -> Bool {
-    store.authorizationStateSync(resource).isActive
+    store.authorizationStateSync([resource]).isActive[resource]!
   }
 
   public func permissionStatus(for resources: [VitalResource]) async throws -> [VitalResource: PermissionStatus] {
-    try await withThrowingTaskGroup(of: (VitalResource, PermissionStatus).self, returning: [VitalResource: PermissionStatus].self) { group in
-      for resource in resources {
-        group.addTask {
-          let state = try await self.store.authorizationState(resource)
-          return (
-            resource,
-            state.isActive ? PermissionStatus.asked : PermissionStatus.notAsked
-          )
-        }
-      }
-
-      return try await group.reduce(into: [:]) { $0[$1.0] = $1.1 }
-    }
+    let state = try await self.store.authorizationState(Set(resources))
+    return state.isActive.mapValues { $0 ? PermissionStatus.asked : PermissionStatus.notAsked }
   }
 
   public static func healthKitRequirements(for resource: VitalResource) -> HealthKitObjectTypeRequirements {
