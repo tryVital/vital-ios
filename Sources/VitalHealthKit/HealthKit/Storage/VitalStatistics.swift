@@ -18,12 +18,15 @@ struct VitalStatistics {
     self.endDate = endDate
   }
     
-  init(statistics: HKStatistics, unit: QuantityUnit, type: HKQuantityType, options: HKStatisticsOptions?) throws {
+  init?(statistics: HKStatistics, unit: QuantityUnit, type: HKQuantityType, options: HKStatisticsOptions?) {
 
     guard
       let quantity = quantity(for: statistics, with: options, type: type)
     else {
-      throw VitalStatisticsError(statistics: statistics)
+      // 2026-03-09
+      // It seems HealthKit starts returning HKStatistics that report nil rather than zero HKQuantity, or
+      // not returning the HKStatistics at all.
+      return nil
     }
 
     let value = quantity.doubleValue(for: unit.healthKitRepresentation)

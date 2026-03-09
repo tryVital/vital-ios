@@ -649,17 +649,13 @@ struct StatisticsQueryDependencies {
           queryInterval.contains(entry.startDate)
         }
 
-        do {
-          let unit = QuantityUnit(.init(rawValue: type.identifier))
+        let unit = QuantityUnit(.init(rawValue: type.identifier))
 
-          let vitalStatistics = try values.map { statistics in
-            try VitalStatistics(statistics: statistics, unit: unit, type: type, options: options)
-          }
-
-          continuation.resume(returning: vitalStatistics)
-        } catch let error {
-          continuation.resume(throwing: error)
+        let vitalStatistics = values.compactMap { statistics in
+          VitalStatistics(statistics: statistics, unit: unit, type: type, options: options)
         }
+
+        continuation.resume(returning: vitalStatistics)
       }
 
       let handle = CancellableQueryHandle { continuation in

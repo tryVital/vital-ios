@@ -24,17 +24,6 @@ enum VitalHealthKitClientError: Error {
   case disabledFeature(String)
 }
 
-struct VitalStatisticsError: Error {
-  let statistics: HKStatistics
-
-  var description: String {
-    let formatter = ISO8601DateFormatter()
-    let start = formatter.string(from: statistics.startDate)
-    let end = formatter.string(from: statistics.endDate)
-    return "Failed to convert HKStatistics for \(statistics.quantityType.identifier): \(start) -> \(end)"
-  }
-}
-
 func read(
   resource: RemappedVitalResource,
   healthKitStore: HKHealthStore,
