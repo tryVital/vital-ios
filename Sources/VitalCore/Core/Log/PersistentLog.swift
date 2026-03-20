@@ -3,6 +3,18 @@ import OSLog
 import Dispatch
 import Darwin
 
+internal struct PersistentLoggerState: Codable {
+  var enabledByUser: Bool = false
+
+  var enabled: Bool {
+    enabledByUser
+  }
+}
+
+internal struct PersistentLoggerGistKey: GistKey {
+  typealias T = PersistentLoggerState
+  static let identifier: String = "persistentlogger"
+}
 
 public final class VitalPersistentLogger: @unchecked Sendable {
 
@@ -26,7 +38,6 @@ public final class VitalPersistentLogger: @unchecked Sendable {
 
   private static let _lock = NSLock()
   private static var _shared: VitalPersistentLogger? = nil
-  private static let userDefaultsKey = "io.tryvital.VitalPersistentLogger.enabled"
 
   /// Enable persistent logging in Vital SDK. The enablement is persistent across app launches.
   ///
@@ -41,10 +52,12 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   /// - warning: This is not designed to be always-on logging. It should not be enabled in production except
   /// for troubleshooting purposes.
   public static var isEnabled: Bool {
-    get { UserDefaults.standard.bool(forKey: Self.userDefaultsKey) }
+    get { VitalGistStorage.shared.get(PersistentLoggerGistKey.self)?.enabled ?? false }
     set {
       _lock.withLock {
-        UserDefaults.standard.set(newValue, forKey: Self.userDefaultsKey)
+        var state = VitalGistStorage.shared.get(PersistentLoggerGistKey.self) ?? PersistentLoggerState()
+        state.enabledByUser = newValue
+        try? VitalGistStorage.shared.set(state, for: PersistentLoggerGistKey.self)
         checkEnabled()
       }
 
