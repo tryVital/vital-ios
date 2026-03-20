@@ -177,9 +177,9 @@ private struct VitalPersistentLoggerWrapper: VitalLogging.LogHandler {
   ) {
     guard let logger = VitalPersistentLogger.shared else { return }
 
-    logger.logSync(self.category) { writeString, writeData in
+    logger.queue(self.category) { writer in
       let timeformatter = VitalPersistentLogger.timeFormatter
-      writeString("\(timeformatter.string(from: Date())) \(level) : [\(source)] \(message)")
+      writer.writeString("\(timeformatter.string(from: Date())) \(level) : [\(source)] \(message)")
     }
   }
 }
