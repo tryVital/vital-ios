@@ -211,6 +211,49 @@ class VitalHealthKitReadsTests: XCTestCase {
     XCTAssert(sleeps1[0].startDate == Date("2022-08-06 21:35:31"))
     XCTAssert(sleeps1[0].endDate == Date("2022-08-07 07:25:00"))
   }
+
+  func testCalculateHeartRateStatistics_includesLastSampleInAggregates() {
+    let samples = [
+      HeartRateStatisticSample(timestamp: 0, value: 100),
+      HeartRateStatisticSample(timestamp: 10, value: 200),
+    ]
+
+    let statistics = calculateHeartRateStatistics(from: samples, zoneMaxHr: 220)
+
+    XCTAssertEqual(statistics?.minimum, 100)
+    XCTAssertEqual(statistics?.maximum, 200)
+    XCTAssertEqual(statistics?.mean, 150)
+    XCTAssertEqual(statistics?.zones.0, 10)
+    XCTAssertEqual(statistics?.zones.1, 0)
+    XCTAssertEqual(statistics?.zones.2, 0)
+    XCTAssertEqual(statistics?.zones.3, 0)
+    XCTAssertEqual(statistics?.zones.4, 0)
+    XCTAssertEqual(statistics?.zones.5, 0)
+  }
+
+  func testCalculateHeartRateStatistics_assignsExpectedZones() {
+    let samples = [
+      HeartRateStatisticSample(timestamp: 0, value: 80),
+      HeartRateStatisticSample(timestamp: 10, value: 100),
+      HeartRateStatisticSample(timestamp: 20, value: 120),
+      HeartRateStatisticSample(timestamp: 30, value: 140),
+      HeartRateStatisticSample(timestamp: 40, value: 160),
+      HeartRateStatisticSample(timestamp: 50, value: 180),
+      HeartRateStatisticSample(timestamp: 60, value: 200),
+    ]
+
+    let statistics = calculateHeartRateStatistics(from: samples, zoneMaxHr: 200)
+
+    XCTAssertEqual(statistics?.minimum, 80)
+    XCTAssertEqual(statistics?.maximum, 200)
+    XCTAssertEqual(statistics?.mean, 140)
+    XCTAssertEqual(statistics?.zones.0, 10)
+    XCTAssertEqual(statistics?.zones.1, 10)
+    XCTAssertEqual(statistics?.zones.2, 10)
+    XCTAssertEqual(statistics?.zones.3, 10)
+    XCTAssertEqual(statistics?.zones.4, 10)
+    XCTAssertEqual(statistics?.zones.5, 10)
+  }
 }
 
 extension Date {

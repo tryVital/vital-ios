@@ -1,6 +1,5 @@
 import HealthKit
 @_spi(VitalSDKInternals) import VitalCore
-import Accelerate
 
 typealias SampleQueryHandler = (HKSampleQuery, [HKSample]?, Error?) -> Void
 typealias AnchorQueryHandler = (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void
@@ -1390,83 +1389,7 @@ func handleWorkouts(
       NSCompoundPredicate(orPredicateWithSubpredicates: sampleMatching)
     ])
 
-    @Sendable func computeStatistics() async throws -> ((inout WorkoutPatch.Workout) -> Void)? {
-      let samples = try await querySingle(
-        healthKitStore,
-        type: .quantityType(forIdentifier: .heartRate)!,
-        startDate: queryInterval.lowerBound,
-        endDate: queryInterval.upperBound,
-        extraPredicates: predicates
-      )
-
-      guard samples.count >= 2 else {
-        return nil
-      }
-
-      let unit = HKUnit.count().unitDivided(by: .minute())
-      let timestamps = samples.map { $0.startDate.timeIntervalSinceReferenceDate }
-      let durations = vDSP.subtract(timestamps.dropFirst(), timestamps.dropLast())
-      let values = samples.map { unsafeDowncast($0, to: HKQuantitySample.self).quantity.doubleValue(for: unit) }.dropLast()
-      precondition(durations.count == values.count)
-
-      let zone1Range = 0.0 ..< zoneMaxHr * 0.5
-      let zone2Range = zoneMaxHr * 0.5 ..< zoneMaxHr * 0.6
-      let zone3Range = zoneMaxHr * 0.6 ..< zoneMaxHr * 0.7
-      let zone4Range = zoneMaxHr * 0.7 ..< zoneMaxHr * 0.8
-      let zone5Range = zoneMaxHr * 0.8 ..< zoneMaxHr * 0.9
-      let zone6Range = zoneMaxHr * 0.9 ..< zoneMaxHr
-
-      var zones = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-      var minHr = Double.greatestFiniteMagnitude
-      var maxHr = Double.leastNormalMagnitude
-      var averageHr = 0.0
-
-      durations.withUnsafeBufferPointer { durations in
-        values.withUnsafeBufferPointer { values in
-          for i in 0 ..< durations.count {
-            let value = values[i]
-            minHr = min(minHr, value)
-            maxHr = max(maxHr, value)
-            averageHr += value
-
-            switch value {
-            case zone1Range:
-              zones.0 += durations[i]
-            case zone2Range:
-              zones.1 += durations[i]
-            case zone3Range:
-              zones.2 += durations[i]
-            case zone4Range:
-              zones.3 += durations[i]
-            case zone5Range:
-              zones.4 += durations[i]
-            case zone6Range:
-              zones.5 += durations[i]
-            default:
-              continue
-            }
-          }
-        }
-      }
-
-      averageHr = averageHr / Double(durations.count)
-
-      return { patch in
-        patch.heartRateMaximum = Int(maxHr)
-        patch.heartRateMinimum = Int(minHr)
-        patch.heartRateMean = Int(averageHr)
-        patch.heartRateZone1 = Int(zones.0)
-        patch.heartRateZone2 = Int(zones.1)
-        patch.heartRateZone3 = Int(zones.2)
-        patch.heartRateZone4 = Int(zones.3)
-        patch.heartRateZone5 = Int(zones.4)
-        patch.heartRateZone6 = Int(zones.5)
-        patch.heartRateZoneMaxHr = zoneMaxHr
-        patch.heartRateZoneKnownAge = knownAge
-      }
-    }
-
-    async let applyStatistics = computeStatistics()
+    async let applyStatistics = computeHeartRateStatistics(in: queryInterval, predicates: predicates, zoneMaxHr: zoneMaxHr, knownAge: knownAge, workoutID: workout.uuid, in: healthKitStore)
     async let stream = computeWorkoutStream(for: workout, in: healthKitStore)
 
     (try await applyStatistics)?(&patch)
@@ -1769,7 +1692,7 @@ func queryMulti(
 }
 
 @HealthKitActor
-private func querySingle(
+func querySingle(
   _ healthKitStore: HKHealthStore,
   type: HKSampleType,
   limit: Int = 0,
