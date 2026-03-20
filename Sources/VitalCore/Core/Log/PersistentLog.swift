@@ -16,6 +16,28 @@ internal struct PersistentLoggerGistKey: GistKey {
   static let identifier: String = "persistentlogger"
 }
 
+internal struct LogWriter {
+  let stream: OutputStream
+
+  func writeString(_ string: String) {
+    var string = string + "\r\n"
+    string.withUTF8 { buffer in
+      let bytesWritten = stream.write(buffer.baseAddress!, maxLength: buffer.count)
+      precondition(bytesWritten > 0)
+    }
+  }
+
+  func writeData(_ bytes: Data) {
+    bytes.withUnsafeBytes { buffer in
+      let bytesWritten = stream.write(buffer.baseAddress!, maxLength: buffer.count)
+      precondition(bytesWritten > 0)
+    }
+
+    // New line
+    writeString("")
+  }
+}
+
 public final class VitalPersistentLogger: @unchecked Sendable {
 
   internal static let timeFormatter = {
@@ -38,6 +60,8 @@ public final class VitalPersistentLogger: @unchecked Sendable {
 
   private static let _lock = NSLock()
   private static var _shared: VitalPersistentLogger? = nil
+
+  private let logQueue = DispatchQueue(label: "io.tryvital.PersistentLogger", qos: .userInitiated)
 
   /// Enable persistent logging in Vital SDK. The enablement is persistent across app launches.
   ///
@@ -121,9 +145,9 @@ public final class VitalPersistentLogger: @unchecked Sendable {
   }
 
   func log<T>(_ request: Request<T>) {
-    self.logSync(.requestBody) { writeString, writeData in
-      writeString(Self.timeFormatter.string(from: Date()))
-      writeString("\(request.method.rawValue) \(request.url?.absoluteString ?? "UNKNOWN_URL")")
+    self.queue(.requestBody) { writer in
+      writer.writeString(Self.timeFormatter.string(from: Date()))
+      writer.writeString("\(request.method.rawValue) \(request.url?.absoluteString ?? "UNKNOWN_URL")")
 
       if let body = request.body {
         let encoder = JSONEncoder()
@@ -131,43 +155,30 @@ public final class VitalPersistentLogger: @unchecked Sendable {
 
         do {
           let data = try encoder.encode(body)
-          writeString("uncompressed size: \(data.count) bytes")
-          writeData(data)
+          writer.writeString("uncompressed size: \(data.count) bytes")
+          writer.writeData(data)
         } catch let error {
-          writeString("<encoder failure: \(error)>")
+          writer.writeString("<encoder failure: \(error)>")
         }
       }
 
       // New line
-      writeString("")
+      writer.writeString("")
     }
   }
 
-  func logSync(_ category: VitalLogger.Category, _ message: @escaping ((String) -> Void, (Data) -> Void) throws -> Void) {
+  func queue(_ category: VitalLogger.Category, _ message: @escaping (LogWriter) throws -> Void) {
+    logQueue.async { self._logSync(category, message) }
+  }
+
+  private func _logSync(_ category: VitalLogger.Category, _ message: (LogWriter) throws -> Void) {
     do {
       let stream = OutputStream(url: dayURL(for: category), append: true)!
       stream.open()
       defer { stream.close() }
 
-      func writeString(_ string: String) {
-        var string = string + "\r\n"
-        string.withUTF8 { buffer in
-          let bytesWritten = stream.write(buffer.baseAddress!, maxLength: buffer.count)
-          precondition(bytesWritten > 0)
-        }
-      }
-
-      func writeData(_ bytes: Data) {
-        bytes.withUnsafeBytes { buffer in
-          let bytesWritten = stream.write(buffer.baseAddress!, maxLength: buffer.count)
-          precondition(bytesWritten > 0)
-        }
-
-        // New line
-        writeString("")
-      }
-
-      try message(writeString, writeData)
+      let writer = LogWriter(stream: stream)
+      try message(writer)
     } catch _ {
 
     }
