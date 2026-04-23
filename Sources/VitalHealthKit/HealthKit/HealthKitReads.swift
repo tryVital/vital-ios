@@ -1389,8 +1389,12 @@ func handleWorkouts(
       NSCompoundPredicate(orPredicateWithSubpredicates: sampleMatching)
     ])
 
-    async let applyStatistics = computeHeartRateStatistics(in: queryInterval, predicates: predicates, zoneMaxHr: zoneMaxHr, knownAge: knownAge, workoutID: workout.uuid, in: healthKitStore)
-    async let stream = computeWorkoutStream(for: workout, in: healthKitStore)
+    async let applyStatistics = options.workoutHeartRate
+      ? computeHeartRateStatistics(in: queryInterval, predicates: predicates, zoneMaxHr: zoneMaxHr, knownAge: knownAge, workoutID: workout.uuid, in: healthKitStore)
+      : nil
+    async let stream = options.workoutStream
+      ? computeWorkoutStream(for: workout, in: healthKitStore)
+      : nil
 
     (try await applyStatistics)?(&patch)
     patch.stream = try await stream

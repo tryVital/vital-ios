@@ -94,10 +94,14 @@ public struct UserSDKHealthKitQueryChunkSizes: Codable {
 public struct UserSDKHealthKitParams: Codable {
   public let queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes
   public let queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes
+  public let workoutStream: Bool
+  public let workoutHeartRate: Bool
 
-  public init(queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes, queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes) {
+  public init(queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes, queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes, workoutStream: Bool, workoutHeartRate: Bool) {
     self.queryChunkSizesBackground = queryChunkSizesBackground
     self.queryChunkSizesForeground = queryChunkSizesForeground
+    self.workoutStream = workoutStream
+    self.workoutHeartRate = workoutHeartRate
   }
 }
 
