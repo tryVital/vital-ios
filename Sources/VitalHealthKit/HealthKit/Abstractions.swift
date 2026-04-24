@@ -14,15 +14,21 @@ struct ReadOptions {
   var perDeviceActivityTS: Bool
   var sleepDataAllowlist: AppAllowlist
   var queryChunkSizes: UserSDKHealthKitQueryChunkSizes
+  var workoutStream: Bool
+  var workoutHeartRate: Bool
 
   internal init(
     perDeviceActivityTS: Bool = false,
     sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist),
-    queryChunkSizes: UserSDKHealthKitQueryChunkSizes = UserSDKHealthKitParams.default.queryChunkSizesForeground
+    queryChunkSizes: UserSDKHealthKitQueryChunkSizes = UserSDKHealthKitParams.default.queryChunkSizesForeground,
+    workoutStream: Bool = UserSDKHealthKitParams.default.workoutStream,
+    workoutHeartRate: Bool = UserSDKHealthKitParams.default.workoutHeartRate
   ) {
     self.perDeviceActivityTS = perDeviceActivityTS
     self.sleepDataAllowlist = sleepDataAllowlist
     self.queryChunkSizes = queryChunkSizes
+    self.workoutStream = workoutStream
+    self.workoutHeartRate = workoutHeartRate
   }
 }
 

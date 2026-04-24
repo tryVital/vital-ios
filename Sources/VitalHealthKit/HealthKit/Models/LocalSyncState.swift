@@ -23,7 +23,10 @@ extension UserSDKHealthKitParams {
       // So this must be 0.
       sleep: 0,
       activityTimeseries: 10000
-    )
+    ),
+
+    workoutStream: true,
+    workoutHeartRate: true
   )
 }
 

@@ -1068,7 +1068,9 @@ extension VitalHealthKitClient {
         ReadOptions(
           perDeviceActivityTS: state.perDeviceActivityTS,
           sleepDataAllowlist: configuration.sleepDataAllowlist,
-          queryChunkSizes: appState == .background ? state.params.queryChunkSizesBackground : state.params.queryChunkSizesForeground
+          queryChunkSizes: appState == .background ? state.params.queryChunkSizesBackground : state.params.queryChunkSizesForeground,
+          workoutStream: state.params.workoutStream,
+          workoutHeartRate: state.params.workoutHeartRate
         )
       )
 
