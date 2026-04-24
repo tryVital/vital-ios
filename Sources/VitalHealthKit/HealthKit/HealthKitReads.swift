@@ -1982,6 +1982,7 @@ func queryActivityDaySummaries(
   let minHeartRate = keyedByDate(try await _minHeartRate)
   let averageHeartRate = keyedByDate(try await _averageHeartRate)
   let restingHeartRate = keyedByDate(try await _restingHeartRate)
+  
   let appleExerciseTime = keyedByDate(try await _appleExerciseTime)
   let distanceWheelchair = keyedByDate(try await _distanceWheelchair)
   let pushCount = keyedByDate(try await _pushCount)

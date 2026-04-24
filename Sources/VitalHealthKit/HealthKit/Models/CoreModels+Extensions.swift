@@ -483,13 +483,9 @@ extension HKQuantityType {
       // We always want sum for cumulative quantity types.
       return [.cumulativeSum]
 
-    case .discreteArithmetic:
+    case .discreteArithmetic, .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
       // Defaults to most recent reading.
       return [.mostRecent]
-
-    case .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
-      // Not supported.
-      return []
 
     @unknown default:
       return []
@@ -503,13 +499,9 @@ extension HKQuantityType {
       // We always want sum for cumulative quantity types.
       return statistics.sumQuantity()
 
-    case .discreteArithmetic:
+    case .discreteArithmetic, .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
       // Defaults to most recent reading.
       return statistics.mostRecentQuantity()
-
-    case .discreteTemporallyWeighted, .discreteEquivalentContinuousLevel:
-      // Not supported.
-      return nil
 
     @unknown default:
       return nil
