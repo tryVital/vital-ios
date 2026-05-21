@@ -26,12 +26,13 @@ public struct AppIdentifier: RawRepresentable, Codable {
   public static let eightsleep = AppIdentifier(rawValue: "com.eightsleep.Eight")
   public static let zepp = AppIdentifier(rawValue: "com.huami.watch")
   public static let zeppLife = AppIdentifier(rawValue: "HM.wristband")
+  public static let sleepCycle = AppIdentifier(rawValue: "com.lexwarelabs.goodmorning")
 
   public static let defaultsleepDataAllowlist = [
     AppIdentifier.appleHealthKit, AppIdentifier.oura, AppIdentifier.withings,
     AppIdentifier.whoop, AppIdentifier.garmin, AppIdentifier.fitbit, AppIdentifier.polar,
     AppIdentifier.coros, AppIdentifier.suunto, AppIdentifier.xiaomi, AppIdentifier.muse,
     AppIdentifier.biostrap, AppIdentifier.cardiomood, AppIdentifier.eightsleep,
-    AppIdentifier.zepp, AppIdentifier.zeppLife,
+    AppIdentifier.zepp, AppIdentifier.zeppLife, AppIdentifier.sleepCycle,
   ]
 }
