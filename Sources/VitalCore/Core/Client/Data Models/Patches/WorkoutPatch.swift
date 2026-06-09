@@ -99,6 +99,46 @@ public struct WorkoutPatch: Equatable, Encodable {
   }
 }
 
+public struct WorkoutStreamPatch: Equatable, Encodable {
+  public struct StreamAttachment: Equatable, Encodable {
+    public let patchType = "workout_stream"
+    public let id: UUID
+    public let startDate: Date
+    public let endDate: Date
+    public let sourceBundle: String
+    public let productType: String?
+    public let sport: String
+    public let metadata: [String: String]
+    public let stream: ManualWorkoutStream
+
+    public init(
+      id: UUID,
+      startDate: Date,
+      endDate: Date,
+      sourceBundle: String,
+      productType: String?,
+      sport: String,
+      metadata: [String: String],
+      stream: ManualWorkoutStream
+    ) {
+      self.id = id
+      self.startDate = startDate
+      self.endDate = endDate
+      self.sourceBundle = sourceBundle
+      self.productType = productType
+      self.sport = sport
+      self.metadata = metadata
+      self.stream = stream
+    }
+  }
+
+  public let workouts: [StreamAttachment]
+
+  public init(workouts: [StreamAttachment]) {
+    self.workouts = workouts
+  }
+}
+
 public struct ManualWorkoutStream: Hashable, Encodable {
   public let components: [Component: [BulkQuantitySample]]
 

@@ -82,11 +82,85 @@ actor WorkoutStreamStagingStore {
       hasMore: anchor?.hasMore ?? false,
       states: [:],
       pages: [],
-      uploadState: .extracting
+      uploadState: .extracting,
+      workItemIDs: nil,
+      componentPlanFingerprint: nil,
+      byteCount: nil
     )
 
     try writeManifest(manifest)
     return WorkoutStreamStagingSession(id: id)
+  }
+
+  func prepareWorklistSession(
+    queue: [WorkoutStreamWorkItem],
+    componentPlanFingerprint: String
+  ) throws -> WorkoutStreamStagingSession {
+    let queueIDs = queue.map(\.id)
+
+    if let existing = try findReusableWorklistSession(
+      queueIDs: queueIDs,
+      componentPlanFingerprint: componentPlanFingerprint
+    ) {
+      try pruneUnreferencedPages(id: existing.id)
+      return existing
+    }
+
+    try deleteWorklistSessions()
+
+    let id = "worklist-" + UUID().uuidString.lowercased()
+    let sessionURL = rootDirectoryURL.appendingPathComponent(id, isDirectory: true)
+    let pagesURL = sessionURL.appendingPathComponent("pages", isDirectory: true)
+    try fileManager.createDirectory(at: pagesURL, withIntermediateDirectories: true)
+
+    let manifest = WorkoutStreamStagingManifest(
+      version: Self.currentVersion,
+      sessionID: id,
+      createdAt: Date(),
+      updatedAt: Date(),
+      anchorKey: nil,
+      baseAnchorFingerprint: nil,
+      resultingAnchorFingerprint: nil,
+      hasMore: false,
+      states: [:],
+      pages: [],
+      uploadState: .extracting,
+      workItemIDs: [],
+      componentPlanFingerprint: componentPlanFingerprint,
+      byteCount: 0
+    )
+
+    try writeManifest(manifest)
+    return WorkoutStreamStagingSession(id: id)
+  }
+
+  func appendWorkItem(session: WorkoutStreamStagingSession, workoutID: UUID) throws {
+    var manifest = try loadManifest(session.id)
+    var workItemIDs = manifest.workItemIDs ?? []
+    if workItemIDs.contains(workoutID) == false {
+      workItemIDs.append(workoutID)
+      manifest.workItemIDs = workItemIDs
+      manifest.updatedAt = Date()
+      try writeManifest(manifest)
+    }
+  }
+
+  func workItemIDs(session: WorkoutStreamStagingSession) throws -> [UUID] {
+    let manifest = try loadManifest(session.id)
+    return manifest.workItemIDs ?? []
+  }
+
+  func byteCount(session: WorkoutStreamStagingSession) throws -> Int {
+    let manifest = try loadManifest(session.id)
+    if let byteCount = manifest.byteCount {
+      return byteCount
+    }
+    return manifest.pages.reduce(0) { count, page in count + (page.byteCount ?? 0) }
+  }
+
+  func deleteSession(_ session: WorkoutStreamStagingSession) {
+    let url = rootDirectoryURL.appendingPathComponent(session.id, isDirectory: true)
+    try? fileManager.removeItem(at: url)
   }
 
   func state(
@@ -154,6 +228,7 @@ actor WorkoutStreamStagingStore {
       cursorOut: cursorOut.timeIntervalSinceReferenceDate,
       boundaryUUIDsAtCursorOut: boundaryUUIDsAtCursorOut,
       sha256: data.hexEncodedSHA256,
+      byteCount: data.count,
       sampleCount: samples.reduce(0) { count, sample in count + sample.value.count }
     )
 
@@ -164,6 +239,7 @@ actor WorkoutStreamStagingStore {
 
     manifest.pages.append(pageRef)
     manifest.states[key] = state
+    manifest.byteCount = (manifest.byteCount ?? 0) + data.count
     manifest.updatedAt = Date()
     if manifest.states.values.allSatisfy(\.exhausted) {
       manifest.uploadState = .readyToFlush
@@ -307,6 +383,71 @@ actor WorkoutStreamStagingStore {
     }
   }
 
+  private func findReusableWorklistSession(
+    queueIDs: [UUID],
+    componentPlanFingerprint: String
+  ) throws -> WorkoutStreamStagingSession? {
+    guard let sessions = try? fileManager.contentsOfDirectory(
+      at: rootDirectoryURL,
+      includingPropertiesForKeys: [.contentModificationDateKey],
+      options: [.skipsHiddenFiles]
+    ) else {
+      return nil
+    }
+
+    let reusable = sessions.compactMap { sessionURL -> WorkoutStreamStagingManifest? in
+      guard let manifest = try? loadManifest(sessionURL.lastPathComponent),
+            manifest.workItemIDs != nil
+      else {
+        return nil
+      }
+
+      guard manifest.uploadState != .uploaded,
+            manifest.componentPlanFingerprint == componentPlanFingerprint,
+            isPrefix(manifest.workItemIDs ?? [], of: queueIDs),
+            manifest.pages.allSatisfy({ pageExistsAndMatchesHash(sessionID: manifest.sessionID, page: $0) })
+      else {
+        try? fileManager.removeItem(at: sessionURL)
+        return nil
+      }
+
+      return manifest
+    }
+
+    return reusable
+      .sorted { $0.updatedAt > $1.updatedAt }
+      .first
+      .map { WorkoutStreamStagingSession(id: $0.sessionID) }
+  }
+
+  private func deleteWorklistSessions() throws {
+    guard let sessions = try? fileManager.contentsOfDirectory(
+      at: rootDirectoryURL,
+      includingPropertiesForKeys: nil,
+      options: [.skipsHiddenFiles]
+    ) else {
+      return
+    }
+
+    for sessionURL in sessions {
+      guard let manifest = try? loadManifest(sessionURL.lastPathComponent),
+            manifest.workItemIDs != nil
+      else {
+        continue
+      }
+
+      try? fileManager.removeItem(at: sessionURL)
+    }
+  }
+
+  private func isPrefix(_ prefix: [UUID], of values: [UUID]) -> Bool {
+    guard prefix.count <= values.count else {
+      return false
+    }
+
+    return zip(prefix, values).allSatisfy { $0 == $1 }
+  }
+
   private func sessionID(
     workouts: [HKWorkout],
     anchor: StoredAnchor?,
@@ -407,6 +548,9 @@ private struct WorkoutStreamStagingManifest: Codable {
   var states: [String: WorkoutStreamTypeState]
   var pages: [WorkoutStreamPageRef]
   var uploadState: WorkoutStreamUploadState
+  var workItemIDs: [UUID]?
+  var componentPlanFingerprint: String?
+  var byteCount: Int?
 }
 
 struct WorkoutStreamTypeState: Codable, Sendable {
@@ -429,6 +573,7 @@ private struct WorkoutStreamPageRef: Codable {
   var cursorOut: TimeInterval?
   var boundaryUUIDsAtCursorOut: [UUID]
   var sha256: String
+  var byteCount: Int?
   var sampleCount: Int
 }
 

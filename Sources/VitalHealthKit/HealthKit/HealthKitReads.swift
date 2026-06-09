@@ -98,8 +98,17 @@ func read(
         endDate: instruction.query.upperBound,
         options: options
       )
-      
+
       return (.summary(.workout(payload.workoutPatch)), payload.anchors)
+
+    case .workoutStream:
+      let payload = try await handleWorkoutStream(
+        healthKitStore: healthKitStore,
+        vitalStorage: vitalStorage,
+        options: options
+      )
+
+      return (payload.workoutStreamPatch.map { .summary(.workoutStream($0)) }, payload.anchors)
 
     case .vitals(.bloodOxygen):
       let payload = try await handleTimeSeries(
@@ -1343,27 +1352,7 @@ func handleWorkouts(
     transform: { workout, _ in workout }
   )
   
-  let streamEntries: [(type: HKQuantityType, component: ManualWorkoutStream.Component)]
-  let streamSession: WorkoutStreamStagingSession?
-  if options.workoutStream && payload.sample.isEmpty == false {
-    streamEntries = try await queryableWorkoutStreamTypes()
-    if streamEntries.isEmpty == false {
-      await WorkoutStreamStagingStore.shared.reconcile(anchorStorage: vitalStorage)
-      streamSession = try await WorkoutStreamStagingStore.shared.prepareSession(
-        workouts: payload.sample,
-        anchor: payload.anchor,
-        baseAnchor: payload.anchor.flatMap { vitalStorage.read(key: $0.key) }
-      )
-    } else {
-      streamSession = nil
-    }
-  } else {
-    streamEntries = []
-    streamSession = nil
-  }
-
   if var anchor = payload.anchor {
-    anchor.artifactDirectory = streamSession?.artifactDirectory
     anchors.append(anchor)
   }
 
@@ -1414,26 +1403,106 @@ func handleWorkouts(
     async let applyStatistics = options.workoutHeartRate
       ? computeHeartRateStatistics(in: queryInterval, predicates: predicates, zoneMaxHr: zoneMaxHr, knownAge: knownAge, workoutID: workout.uuid, in: healthKitStore)
       : nil
-    let stream: ManualWorkoutStream?
-    if let streamSession {
-      stream = try await computeWorkoutStream(
-        for: workout,
-        in: healthKitStore,
-        session: streamSession,
-        entries: streamEntries,
-        concurrencyLimit: options.workoutStreamConcurrency
-      )
-    } else {
-      stream = nil
-    }
-
     (try await applyStatistics)?(&patch)
-    patch.stream = stream
 
     copies.append(patch)
   }
   
   return (.init(workouts: copies), anchors)
+}
+
+func handleWorkoutStream(
+  healthKitStore: HKHealthStore,
+  vitalStorage: AnchorStorage,
+  options: ReadOptions
+) async throws -> (workoutStreamPatch: WorkoutStreamPatch?, anchors: [StoredAnchor]) {
+  guard options.workoutStream else {
+    return (nil, [])
+  }
+
+  let queue = await WorkoutStreamWorklistStore.shared.snapshot()
+  guard queue.isEmpty == false else {
+    return (nil, [])
+  }
+
+  let streamEntries = try await queryableWorkoutStreamTypes()
+  guard streamEntries.isEmpty == false else {
+    return (nil, [])
+  }
+
+  let planFingerprint = workoutStreamComponentPlanFingerprint(streamEntries)
+  let stagingStore = WorkoutStreamStagingStore.shared
+  await stagingStore.reconcile(anchorStorage: vitalStorage)
+  let session = try await stagingStore.prepareWorklistSession(
+    queue: queue,
+    componentPlanFingerprint: planFingerprint
+  )
+
+  var attachments: [WorkoutStreamPatch.StreamAttachment] = []
+  var completedWithoutUpload: [UUID] = []
+
+  for item in queue {
+    try Task.checkCancellation()
+
+    try await stagingStore.appendWorkItem(session: session, workoutID: item.id)
+
+    guard let workout = try await queryWorkout(healthKitStore, id: item.id) else {
+      completedWithoutUpload.append(item.id)
+      continue
+    }
+
+    let stream = try await computeWorkoutStream(
+      for: workout,
+      in: healthKitStore,
+      session: session,
+      entries: streamEntries,
+      concurrencyLimit: options.workoutStreamConcurrency
+    )
+
+    guard stream.components.isEmpty == false else {
+      completedWithoutUpload.append(item.id)
+      continue
+    }
+
+    attachments.append(
+      WorkoutStreamPatch.StreamAttachment(
+        id: item.id,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        sourceBundle: item.sourceBundle,
+        productType: item.productType,
+        sport: item.sport,
+        metadata: item.metadata,
+        stream: stream
+      )
+    )
+
+    if try await stagingStore.byteCount(session: session) >= workoutStreamFlushByteThreshold {
+      break
+    }
+  }
+
+  await WorkoutStreamWorklistStore.shared.remove(completedWithoutUpload)
+
+  guard attachments.isEmpty == false else {
+    await stagingStore.deleteSession(session)
+    return (nil, [])
+  }
+
+  let attachmentIDs = Set(attachments.map(\.id))
+  let remainingQueue = await WorkoutStreamWorklistStore.shared.snapshot()
+  let hasMore = remainingQueue.contains { attachmentIDs.contains($0.id) == false }
+
+  let anchor = StoredAnchor(
+    key: "workout_stream_worklist",
+    anchor: nil,
+    date: nil,
+    vitalAnchors: nil,
+    hasMore: hasMore,
+    artifactDirectory: session.artifactDirectory
+  )
+
+  return (WorkoutStreamPatch(workouts: attachments), [anchor])
 }
 
 func handleBloodPressure(

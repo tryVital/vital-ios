@@ -220,6 +220,7 @@ public enum SummaryData: Equatable, Encodable {
   case activity(ActivityPatch)
   case sleep(SleepPatch)
   case workout(WorkoutPatch)
+  case workoutStream(WorkoutStreamPatch)
   case menstrualCycle(MenstrualCyclePatch)
   case meal(MealPatch)
   case electrocardiogram([ManualElectrocardiogram])
@@ -235,6 +236,8 @@ public enum SummaryData: Equatable, Encodable {
       case let .sleep(patch):
         return patch.sleep
       case let .workout(patch):
+        return patch.workouts
+      case let .workoutStream(patch):
         return patch.workouts
       case let .menstrualCycle(patch):
         return patch.cycles
@@ -252,6 +255,8 @@ public enum SummaryData: Equatable, Encodable {
       case let .body(patch):
         return patch.bodyFatPercentage.count + patch.bodyMass.count
       case let .workout(patch):
+        return patch.workouts.count
+      case let .workoutStream(patch):
         return patch.workouts.count
       case let .activity(patch):
         return patch.activities.count
@@ -277,6 +282,8 @@ public enum SummaryData: Equatable, Encodable {
       case .sleep:
         return "sleep"
       case .workout:
+        return "workouts"
+      case .workoutStream:
         return "workouts"
       case .menstrualCycle:
         return "menstrual_cycle"
