@@ -129,7 +129,17 @@ func computeHeartRateStatistics(
   }
 }
 
-func computeWorkoutStream(for workout: HKWorkout, in healthKitStore: HKHealthStore) async throws -> ManualWorkoutStream {
+let workoutStreamPageLimit = 500
+let workoutStreamBoundaryUUIDLimit = 2_000
+let workoutStreamQuerySlack: TimeInterval = 5 * 60
+
+func computeWorkoutStream(
+  for workout: HKWorkout,
+  in healthKitStore: HKHealthStore,
+  session: WorkoutStreamStagingSession,
+  entries: [(type: HKQuantityType, component: ManualWorkoutStream.Component)],
+  concurrencyLimit: Int
+) async throws -> ManualWorkoutStream {
   let shortID = "WorkoutStream"
   let workoutID = workout.uuid
   VitalLogger.healthKit.info("\(workoutID) begin", source: shortID)
@@ -137,77 +147,225 @@ func computeWorkoutStream(for workout: HKWorkout, in healthKitStore: HKHealthSto
     VitalLogger.healthKit.info("\(workoutID) ended", source: shortID)
   }
 
-  var types: Set<HKQuantityType> = [
-    .quantityType(forIdentifier: .distanceCycling)!,
-    .quantityType(forIdentifier: .distanceSwimming)!,
-    .quantityType(forIdentifier: .distanceWheelchair)!,
-    .quantityType(forIdentifier: .distanceWalkingRunning)!,
-    .quantityType(forIdentifier: .distanceDownhillSnowSports)!,
-    .quantityType(forIdentifier: .swimmingStrokeCount)!,
-  ]
+  let limit = max(concurrencyLimit, 1)
 
-  if #available(iOS 18, *) {
-    types.formUnion([
-      .quantityType(forIdentifier: .distanceRowing)!,
-      .quantityType(forIdentifier: .distancePaddleSports)!,
-      .quantityType(forIdentifier: .distanceSkatingSports)!,
-      .quantityType(forIdentifier: .distanceCrossCountrySkiing)!,
-    ])
-  }
+  try await withThrowingTaskGroup(of: Void.self) { group in
+    var iterator = entries.makeIterator()
 
-  let sampleGroups = try await queryMulti(
-    healthKitStore: healthKitStore,
-    types: types,
-    extraPredicates: Predicates([
-      HKQuery.predicateForObjects(from: workout)
-    ])
-  )
+    func addNext() {
+      guard let entry = iterator.next() else {
+        return
+      }
 
-  let anchor = workout.startDate
-  var components: [ManualWorkoutStream.Component: [BulkQuantitySample]] = [:]
-
-  for (sampleType, samples) in sampleGroups {
-    let component: ManualWorkoutStream.Component
-
-    switch sampleType {
-    case .quantityType(forIdentifier: .distanceCycling)!:
-      component = .distanceCycling
-    case .quantityType(forIdentifier: .distanceSwimming)!:
-      component = .distanceSwimming
-    case .quantityType(forIdentifier: .distanceWheelchair)!:
-      component = .distanceWheelchair
-    case .quantityType(forIdentifier: .distanceWalkingRunning)!:
-      component = .distanceWalkingRunning
-    case .quantityType(forIdentifier: .distanceDownhillSnowSports)!:
-      component = .distanceDownhillSnowSports
-    case .quantityType(forIdentifier: .swimmingStrokeCount)!:
-      component = .swimmingStrokeCount
-
-    default:
-      if #available(iOS 18, *) {
-        switch sampleType {
-        case .quantityType(forIdentifier: .distanceRowing)!:
-          component = .distanceRowing
-        case .quantityType(forIdentifier: .distancePaddleSports)!:
-          component = .distancePaddleSports
-        case .quantityType(forIdentifier: .distanceSkatingSports)!:
-          component = .distanceSkatingSports
-        case .quantityType(forIdentifier: .distanceCrossCountrySkiing)!:
-          component = .distanceCrossCountrySkiing
-        default:
-          throw VitalHealthKitClientError.healthKitInvalidState("unrecognized workout stream type: \(sampleType)")
-        }
-      } else {
-        throw VitalHealthKitClientError.healthKitInvalidState("unrecognized workout stream type: \(sampleType)")
+      group.addTask {
+        try await extractWorkoutStreamComponent(
+          for: workout,
+          entry: entry,
+          in: healthKitStore,
+          session: session
+        )
       }
     }
 
-    components[component, default: []].append(
-      contentsOf: groupIntoBulkSamples(samples, type: sampleType, anchor: anchor)
-    )
+    for _ in 0..<limit {
+      addNext()
+    }
+
+    while try await group.next() != nil {
+      addNext()
+    }
   }
 
-  return ManualWorkoutStream(components: components)
+  return try await WorkoutStreamStagingStore.shared.stream(
+    session: session,
+    workoutID: workoutID,
+    allowedComponents: Set(entries.map(\.component))
+  )
+}
+
+func queryableWorkoutStreamTypes() async throws -> [(type: HKQuantityType, component: ManualWorkoutStream.Component)] {
+  var entries: [(type: HKQuantityType, component: ManualWorkoutStream.Component)] = []
+
+  for entry in workoutStreamTypes() {
+    let authorizationStatus = try await VitalHealthKitStore.live.authorizationStateForHealthKitTypes([entry.type])[entry.type]
+    if authorizationStatus != .notDetermined {
+      entries.append(entry)
+    }
+  }
+
+  return entries
+}
+
+func workoutStreamTypes() -> [(type: HKQuantityType, component: ManualWorkoutStream.Component)] {
+  var types: [(HKQuantityType, ManualWorkoutStream.Component)] = [
+    (.quantityType(forIdentifier: .distanceCycling)!, .distanceCycling),
+    (.quantityType(forIdentifier: .distanceSwimming)!, .distanceSwimming),
+    (.quantityType(forIdentifier: .distanceWheelchair)!, .distanceWheelchair),
+    (.quantityType(forIdentifier: .distanceWalkingRunning)!, .distanceWalkingRunning),
+    (.quantityType(forIdentifier: .distanceDownhillSnowSports)!, .distanceDownhillSnowSports),
+    (.quantityType(forIdentifier: .swimmingStrokeCount)!, .swimmingStrokeCount),
+  ]
+
+  if #available(iOS 18, *) {
+    types.append(contentsOf: [
+      (.quantityType(forIdentifier: .distanceRowing)!, .distanceRowing),
+      (.quantityType(forIdentifier: .distancePaddleSports)!, .distancePaddleSports),
+      (.quantityType(forIdentifier: .distanceSkatingSports)!, .distanceSkatingSports),
+      (.quantityType(forIdentifier: .distanceCrossCountrySkiing)!, .distanceCrossCountrySkiing),
+    ])
+  }
+
+  return types
+}
+
+func extractWorkoutStreamComponent(
+  for workout: HKWorkout,
+  entry: (type: HKQuantityType, component: ManualWorkoutStream.Component),
+  in healthKitStore: HKHealthStore,
+  session: WorkoutStreamStagingSession
+) async throws {
+  let windowEnd = workout.endDate.addingTimeInterval(workoutStreamQuerySlack)
+  var state = try await WorkoutStreamStagingStore.shared.state(
+    session: session,
+    workoutID: workout.uuid,
+    component: entry.component,
+    initialCursor: workout.startDate.addingTimeInterval(-workoutStreamQuerySlack),
+    windowEnd: windowEnd
+  )
+
+  while state.exhausted == false {
+    try Task.checkCancellation()
+
+    let cursorIn = Date(timeIntervalSinceReferenceDate: state.cursorStart)
+    let samples = try await queryWorkoutStreamSamplePage(
+      healthKitStore,
+      type: entry.type,
+      workout: workout,
+      cursorStart: cursorIn,
+      windowEnd: windowEnd,
+      excluding: Set(state.boundaryUUIDsAtCursor),
+      limit: workoutStreamPageLimit
+    )
+
+    guard samples.isEmpty == false else {
+      state = try await WorkoutStreamStagingStore.shared.markExhausted(
+        session: session,
+        workoutID: workout.uuid,
+        component: entry.component
+      )
+      continue
+    }
+
+    let sortedSamples = samples.sorted(by: workoutStreamSampleOrder)
+    guard let cursorOut = sortedSamples.map(\.startDate).max() else {
+      state = try await WorkoutStreamStagingStore.shared.markExhausted(
+        session: session,
+        workoutID: workout.uuid,
+        component: entry.component
+      )
+      continue
+    }
+
+    var boundaryUUIDs = sortedSamples
+      .filter { $0.startDate == cursorOut }
+      .map(\.uuid)
+
+    if cursorOut == cursorIn {
+      boundaryUUIDs = Array(Set(boundaryUUIDs).union(state.boundaryUUIDsAtCursor))
+      if boundaryUUIDs.count > workoutStreamBoundaryUUIDLimit {
+        VitalLogger.healthKit.info(
+          "\(workout.uuid) \(entry.component.rawValue) boundary UUID threshold exceeded; marking exhausted",
+          source: "WorkoutStream"
+        )
+        state = try await WorkoutStreamStagingStore.shared.markExhausted(
+          session: session,
+          workoutID: workout.uuid,
+          component: entry.component
+        )
+        continue
+      }
+    }
+
+    let bulkSamples = groupIntoBulkSamples(sortedSamples, type: entry.type, anchor: workout.startDate)
+    state = try await WorkoutStreamStagingStore.shared.appendPage(
+      session: session,
+      workoutID: workout.uuid,
+      component: entry.component,
+      quantityTypeIdentifier: entry.type.identifier,
+      cursorIn: cursorIn,
+      cursorOut: cursorOut,
+      boundaryUUIDsAtCursorOut: boundaryUUIDs.sorted { $0.uuidString < $1.uuidString },
+      samples: bulkSamples,
+      exhausted: samples.count < workoutStreamPageLimit
+    )
+  }
+}
+
+@HealthKitActor
+func queryWorkoutStreamSamplePage(
+  _ healthKitStore: HKHealthStore,
+  type: HKQuantityType,
+  workout: HKWorkout,
+  cursorStart: Date,
+  windowEnd: Date,
+  excluding boundaryUUIDs: Set<UUID>,
+  limit: Int
+) async throws -> [HKQuantitySample] {
+  let shortID = "WorkoutStream,\(type.shortenedIdentifier)"
+
+  let handle = CancellableQueryHandle<[HKQuantitySample]>(timeoutSeconds: 8) { continuation in
+    let handler: SampleQueryHandler = { _, samples, error in
+      if let error = error {
+        handleHealthKitError(
+          error: error,
+          noDataRepresentation: { [] },
+          continuation: continuation,
+          source: shortID
+        )
+        return
+      }
+
+      continuation.resume(returning: (samples ?? []).compactMap { $0 as? HKQuantitySample })
+    }
+
+    var predicates: [NSPredicate] = [
+      HKQuery.predicateForSamples(withStart: cursorStart, end: windowEnd, options: [.strictStartDate]),
+      HKQuery.predicateForObjects(from: workout),
+    ]
+
+    if boundaryUUIDs.isEmpty == false {
+      predicates.append(
+        NSCompoundPredicate(
+          notPredicateWithSubpredicate: HKQuery.predicateForObjects(with: boundaryUUIDs)
+        )
+      )
+    }
+
+    let query = HKSampleQuery(
+      sampleType: type,
+      predicate: NSCompoundPredicate(andPredicateWithSubpredicates: predicates),
+      limit: limit,
+      sortDescriptors: [
+        NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true),
+        NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true),
+      ],
+      resultsHandler: handler
+    )
+
+    return query
+  }
+
+  return try await handle.execute(in: healthKitStore)
+}
+
+func workoutStreamSampleOrder(_ lhs: HKQuantitySample, _ rhs: HKQuantitySample) -> Bool {
+  if lhs.startDate != rhs.startDate {
+    return lhs.startDate < rhs.startDate
+  }
+  if lhs.endDate != rhs.endDate {
+    return lhs.endDate < rhs.endDate
+  }
+  return lhs.uuid.uuidString < rhs.uuid.uuidString
 }
 
 struct GroupingKey: Hashable {

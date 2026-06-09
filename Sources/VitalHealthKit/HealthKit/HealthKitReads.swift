@@ -1343,7 +1343,29 @@ func handleWorkouts(
     transform: { workout, _ in workout }
   )
   
-  anchors.appendOptional(payload.anchor)
+  let streamEntries: [(type: HKQuantityType, component: ManualWorkoutStream.Component)]
+  let streamSession: WorkoutStreamStagingSession?
+  if options.workoutStream && payload.sample.isEmpty == false {
+    streamEntries = try await queryableWorkoutStreamTypes()
+    if streamEntries.isEmpty == false {
+      await WorkoutStreamStagingStore.shared.reconcile(anchorStorage: vitalStorage)
+      streamSession = try await WorkoutStreamStagingStore.shared.prepareSession(
+        workouts: payload.sample,
+        anchor: payload.anchor,
+        baseAnchor: payload.anchor.flatMap { vitalStorage.read(key: $0.key) }
+      )
+    } else {
+      streamSession = nil
+    }
+  } else {
+    streamEntries = []
+    streamSession = nil
+  }
+
+  if var anchor = payload.anchor {
+    anchor.artifactDirectory = streamSession?.artifactDirectory
+    anchors.append(anchor)
+  }
 
   let knownAge: Int?
   do {
@@ -1392,12 +1414,21 @@ func handleWorkouts(
     async let applyStatistics = options.workoutHeartRate
       ? computeHeartRateStatistics(in: queryInterval, predicates: predicates, zoneMaxHr: zoneMaxHr, knownAge: knownAge, workoutID: workout.uuid, in: healthKitStore)
       : nil
-    async let stream = options.workoutStream
-      ? computeWorkoutStream(for: workout, in: healthKitStore)
-      : nil
+    let stream: ManualWorkoutStream?
+    if let streamSession {
+      stream = try await computeWorkoutStream(
+        for: workout,
+        in: healthKitStore,
+        session: streamSession,
+        entries: streamEntries,
+        concurrencyLimit: options.workoutStreamConcurrency
+      )
+    } else {
+      stream = nil
+    }
 
     (try await applyStatistics)?(&patch)
-    patch.stream = try await stream
+    patch.stream = stream
 
     copies.append(patch)
   }
