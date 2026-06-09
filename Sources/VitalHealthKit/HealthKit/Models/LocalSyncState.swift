@@ -26,7 +26,8 @@ extension UserSDKHealthKitParams {
     ),
 
     workoutStream: true,
-    workoutHeartRate: true
+    workoutHeartRate: true,
+    workoutStreamConcurrency: 3
   )
 }
 

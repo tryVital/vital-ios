@@ -1,1 +1,3 @@
-public struct TimeoutError: Error {}
+public struct TimeoutError: Error {
+  public init() {}
+}
