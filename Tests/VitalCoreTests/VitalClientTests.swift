@@ -225,6 +225,35 @@ class VitalClientTests: XCTestCase {
     XCTAssertEqual(VitalClient.identifiedExternalUser, "replacement-user")
   }
 
+  func testIdentifyRetriesAfterAutomaticSignOutBeginsDuringAuthentication() async throws {
+    let authenticationAttempts = AsyncCounter()
+    let signOutFinished = AsyncFlag()
+    let secondAttemptFollowedSignOut = AsyncFlag()
+
+    try await VitalClient.identifyExternalUser("replacement-user") { _ in
+      let attempt = await authenticationAttempts.increment()
+
+      if attempt == 1 {
+        VitalClient.scheduleAutomaticSignOut {
+          await VitalClient.shared.signOut()
+          await signOutFinished.set()
+        }
+      } else if await signOutFinished.value {
+        await secondAttemptFollowedSignOut.set()
+      }
+
+      return .apiKey(key: apiKey, userId: userId, environment)
+    }
+
+    let attemptCount = await authenticationAttempts.value
+    let didFinishSignOut = await signOutFinished.value
+    let didRetryAfterSignOut = await secondAttemptFollowedSignOut.value
+    XCTAssertEqual(attemptCount, 2)
+    XCTAssertTrue(didFinishSignOut)
+    XCTAssertTrue(didRetryAfterSignOut)
+    XCTAssertEqual(VitalClient.identifiedExternalUser, "replacement-user")
+  }
+
   func testRestorationStateBackwardCompatibility() throws {
     let decoder = JSONDecoder()
 
@@ -280,5 +309,14 @@ private actor AsyncFlag {
 
   func set() {
     value = true
+  }
+}
+
+private actor AsyncCounter {
+  private(set) var value = 0
+
+  func increment() -> Int {
+    value += 1
+    return value
   }
 }

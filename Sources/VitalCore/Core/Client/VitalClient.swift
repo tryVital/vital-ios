@@ -152,6 +152,42 @@ public enum AuthenticateRequest {
   case signInToken(rawToken: String)
 }
 
+private final class AutomaticSignOutState: @unchecked Sendable {
+  private let parkingLot = ParkingLot()
+  private let lock = NSLock()
+  private var generation: UInt = 0
+  private var isActive = false
+
+  func begin() -> Bool {
+    guard parkingLot.tryTo(.enable) else {
+      return false
+    }
+
+    lock.withLock {
+      generation &+= 1
+      isActive = true
+    }
+    return true
+  }
+
+  func finish() {
+    lock.withLock { isActive = false }
+    precondition(parkingLot.tryTo(.disable), "Automatic sign-out was not active")
+  }
+
+  func waitUntilIdle() async throws {
+    try await parkingLot.parkIfNeeded()
+  }
+
+  var generationIfIdle: UInt? {
+    lock.withLock { isActive ? nil : generation }
+  }
+
+  func hasChanged(since priorGeneration: UInt) -> Bool {
+    lock.withLock { isActive || generation != priorGeneration }
+  }
+}
+
 @objc public class VitalClient: NSObject {
   public static let sdkVersion = "1.8.8"
 
@@ -177,17 +213,25 @@ public enum AuthenticateRequest {
   private var postSignoutTasks: [@Sendable () async -> Void] = []
 
   private static let identifyParkingLot = ParkingLot()
-  private static let automaticSignOutParkingLot = ParkingLot()
+  private static let automaticSignOutState = AutomaticSignOutState()
 
   internal static func scheduleAutomaticSignOut(
     _ action: @Sendable @escaping () async -> Void
   ) {
-    guard automaticSignOutParkingLot.tryTo(.enable) else {
+    guard automaticSignOutState.begin() else {
       return
     }
     Task {
-      defer { _ = automaticSignOutParkingLot.tryTo(.disable) }
+      do {
+        try await identifyParkingLot.semaphore.acquire()
+      } catch {
+        automaticSignOutState.finish()
+        return
+      }
+
       await action()
+      identifyParkingLot.semaphore.release()
+      automaticSignOutState.finish()
     }
   }
 
@@ -304,14 +348,38 @@ public enum AuthenticateRequest {
     // Make sure client has been setup & automaticConfiguration has been ran once
     _ = shared
 
-    // Invalid JWT state schedules sign-out from a synchronous Combine sink.
-    // Wait for that teardown to finish before a new identity can be installed,
-    // otherwise the delayed sign-out can erase the newly created session.
-    try await automaticSignOutParkingLot.parkIfNeeded()
+    while true {
+      // Automatic invalid-user sign-out and identify share one lifecycle lock.
+      // If invalidation begins during identify, finish that attempt, let the
+      // queued sign-out clear it, then identify again from a clean state.
+      try await automaticSignOutState.waitUntilIdle()
+      try await identifyParkingLot.semaphore.acquire()
 
-    // Only one `identify` is allowed to run at any given time.
-    try await identifyParkingLot.semaphore.acquire()
-    defer { identifyParkingLot.semaphore.release() }
+      guard let generation = automaticSignOutState.generationIfIdle else {
+        identifyParkingLot.semaphore.release()
+        continue
+      }
+
+      do {
+        try await performIdentifyExternalUser(externalUserId, authenticate: authenticate)
+      } catch {
+        identifyParkingLot.semaphore.release()
+        throw error
+      }
+
+      let wasInvalidated = automaticSignOutState.hasChanged(since: generation)
+      identifyParkingLot.semaphore.release()
+
+      if wasInvalidated == false {
+        return
+      }
+    }
+  }
+
+  private static func performIdentifyExternalUser(
+    _ externalUserId: String,
+    authenticate: @Sendable (_ externalUserId: String) async throws -> AuthenticateRequest
+  ) async throws {
 
     let existingParams = Current.startupParamsStorage.get()
 
