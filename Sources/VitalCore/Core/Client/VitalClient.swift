@@ -177,6 +177,19 @@ public enum AuthenticateRequest {
   private var postSignoutTasks: [@Sendable () async -> Void] = []
 
   private static let identifyParkingLot = ParkingLot()
+  private static let automaticSignOutParkingLot = ParkingLot()
+
+  internal static func scheduleAutomaticSignOut(
+    _ action: @Sendable @escaping () async -> Void
+  ) {
+    guard automaticSignOutParkingLot.tryTo(.enable) else {
+      return
+    }
+    Task {
+      defer { _ = automaticSignOutParkingLot.tryTo(.disable) }
+      await action()
+    }
+  }
 
   public static var shared: VitalClient {
     let sharedClient = sharedNoAutoConfig
@@ -290,6 +303,11 @@ public enum AuthenticateRequest {
 
     // Make sure client has been setup & automaticConfiguration has been ran once
     _ = shared
+
+    // Invalid JWT state schedules sign-out from a synchronous Combine sink.
+    // Wait for that teardown to finish before a new identity can be installed,
+    // otherwise the delayed sign-out can erase the newly created session.
+    try await automaticSignOutParkingLot.parkIfNeeded()
 
     // Only one `identify` is allowed to run at any given time.
     try await identifyParkingLot.semaphore.acquire()
@@ -584,7 +602,7 @@ public enum AuthenticateRequest {
     jwtAuth.statusDidChange
       .filter { $0 == .userNoLongerValid }
       .sink { _ in
-        Task {
+        scheduleAutomaticSignOut {
           await client.signOut()
         }
       }

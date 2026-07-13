@@ -196,6 +196,35 @@ class VitalClientTests: XCTestCase {
     XCTAssertTrue(config2.localDebug)
   }
 
+  func testIdentifyWaitsForAutomaticSignOutToFinish() async throws {
+    let signOutGate = SuspensionGate()
+    let authentication = AsyncFlag()
+
+    VitalClient.scheduleAutomaticSignOut {
+      await signOutGate.wait()
+    }
+
+    let identify = Task {
+      try await VitalClient.identifyExternalUser("replacement-user") { _ in
+        await authentication.set()
+        return .apiKey(key: apiKey, userId: userId, environment)
+      }
+    }
+
+    while await signOutGate.isWaiting == false {
+      await Task.yield()
+    }
+    let authenticatedBeforeSignOut = await authentication.value
+    XCTAssertFalse(authenticatedBeforeSignOut)
+
+    await signOutGate.release()
+    try await identify.value
+
+    let authenticatedAfterSignOut = await authentication.value
+    XCTAssertTrue(authenticatedAfterSignOut)
+    XCTAssertEqual(VitalClient.identifiedExternalUser, "replacement-user")
+  }
+
   func testRestorationStateBackwardCompatibility() throws {
     let decoder = JSONDecoder()
 
@@ -228,5 +257,28 @@ class VitalClientTests: XCTestCase {
       VitalClientRestorationState(configuration: .init(logsEnable: true), apiVersion: "v2", apiKey: "", environment: nil, strategy: .jwt(.sandbox(.eu)))
     )
     XCTAssertEqual(try state3.resolveStrategy(), .jwt(.sandbox(.eu)))
+  }
+}
+
+private actor SuspensionGate {
+  private var continuation: CheckedContinuation<Void, Never>?
+  private(set) var isWaiting = false
+
+  func wait() async {
+    isWaiting = true
+    await withCheckedContinuation { continuation = $0 }
+  }
+
+  func release() {
+    continuation?.resume()
+    continuation = nil
+  }
+}
+
+private actor AsyncFlag {
+  private(set) var value = false
+
+  func set() {
+    value = true
   }
 }
