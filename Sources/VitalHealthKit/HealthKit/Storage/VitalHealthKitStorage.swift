@@ -36,7 +36,7 @@ class VitalHealthKitStorage: AnchorStorage {
   init(storage: VitalBackStorage) {
     self.storage = storage
   }
-  
+
   func markHistoricalStageDone(for resource: RemappedVitalResource) {
     storage.flagResource(resource.wrapped)
   }
@@ -177,11 +177,20 @@ struct StoredAnchor {
   /// There are more data to be fetched.
   var hasMore: Bool
 
-  init(key: String, anchor: HKQueryAnchor?, date: Date?, vitalAnchors: [VitalAnchor]?, hasMore: Bool = false) {
+  /// Transient reference to local artifacts that can be removed once this anchor
+  /// has been successfully committed. This value is intentionally not persisted.
+  var artifactDirectory: StoredAnchorArtifactDirectory?
+
+  init(key: String, anchor: HKQueryAnchor?, date: Date?, vitalAnchors: [VitalAnchor]?, hasMore: Bool = false, artifactDirectory: StoredAnchorArtifactDirectory? = nil) {
     self.key = key
     self.anchor = anchor
     self.date = date
     self.vitalAnchors = vitalAnchors
     self.hasMore = hasMore
+    self.artifactDirectory = artifactDirectory
   }
+}
+
+struct StoredAnchorArtifactDirectory: Hashable, Sendable {
+  let id: String
 }
