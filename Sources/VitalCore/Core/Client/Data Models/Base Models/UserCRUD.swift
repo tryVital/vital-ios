@@ -96,12 +96,31 @@ public struct UserSDKHealthKitParams: Codable {
   public let queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes
   public let workoutStream: Bool
   public let workoutHeartRate: Bool
+  public let workoutStreamConcurrency: Int
 
-  public init(queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes, queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes, workoutStream: Bool, workoutHeartRate: Bool) {
+  public init(queryChunkSizesBackground: UserSDKHealthKitQueryChunkSizes, queryChunkSizesForeground: UserSDKHealthKitQueryChunkSizes, workoutStream: Bool, workoutHeartRate: Bool, workoutStreamConcurrency: Int = 3) {
     self.queryChunkSizesBackground = queryChunkSizesBackground
     self.queryChunkSizesForeground = queryChunkSizesForeground
     self.workoutStream = workoutStream
     self.workoutHeartRate = workoutHeartRate
+    self.workoutStreamConcurrency = workoutStreamConcurrency
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case queryChunkSizesBackground
+    case queryChunkSizesForeground
+    case workoutStream
+    case workoutHeartRate
+    case workoutStreamConcurrency
+  }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.queryChunkSizesBackground = try container.decode(UserSDKHealthKitQueryChunkSizes.self, forKey: .queryChunkSizesBackground)
+    self.queryChunkSizesForeground = try container.decode(UserSDKHealthKitQueryChunkSizes.self, forKey: .queryChunkSizesForeground)
+    self.workoutStream = try container.decode(Bool.self, forKey: .workoutStream)
+    self.workoutHeartRate = try container.decode(Bool.self, forKey: .workoutHeartRate)
+    self.workoutStreamConcurrency = try container.decodeIfPresent(Int.self, forKey: .workoutStreamConcurrency) ?? 3
   }
 }
 

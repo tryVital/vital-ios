@@ -120,7 +120,7 @@ public struct ManualWorkoutStream: Hashable, Encodable {
 }
 
 extension ManualWorkoutStream {
-  public enum Component: String, Hashable, Codable {
+  public enum Component: String, Hashable, Codable, Sendable {
     case distanceCycling = "distance_cycling"
     case distanceWalkingRunning = "distance_walking_running"
     case distanceRowing = "distance_rowing"

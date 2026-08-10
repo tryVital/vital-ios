@@ -16,19 +16,22 @@ struct ReadOptions {
   var queryChunkSizes: UserSDKHealthKitQueryChunkSizes
   var workoutStream: Bool
   var workoutHeartRate: Bool
+  var workoutStreamConcurrency: Int
 
   internal init(
     perDeviceActivityTS: Bool = false,
     sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist),
     queryChunkSizes: UserSDKHealthKitQueryChunkSizes = UserSDKHealthKitParams.default.queryChunkSizesForeground,
     workoutStream: Bool = UserSDKHealthKitParams.default.workoutStream,
-    workoutHeartRate: Bool = UserSDKHealthKitParams.default.workoutHeartRate
+    workoutHeartRate: Bool = UserSDKHealthKitParams.default.workoutHeartRate,
+    workoutStreamConcurrency: Int = UserSDKHealthKitParams.default.workoutStreamConcurrency
   ) {
     self.perDeviceActivityTS = perDeviceActivityTS
     self.sleepDataAllowlist = sleepDataAllowlist
     self.queryChunkSizes = queryChunkSizes
     self.workoutStream = workoutStream
     self.workoutHeartRate = workoutHeartRate
+    self.workoutStreamConcurrency = workoutStreamConcurrency
   }
 }
 
@@ -780,22 +783,25 @@ final class CancellableQueryHandle<Result>: @unchecked Sendable {
         state = newState
         watchdog = Task { [timeoutSeconds, weak self] in
           try await Task.sleep(nanoseconds: NSEC_PER_SEC * timeoutSeconds)
-          self?.cancel()
+          self?.cancel(with: TimeoutError())
         }
         store.execute(query)
         return (nil, nil)
 
       case 
-        let (.running(_, _, continuation), .cancelled),
+        let (.running(store, query, continuation), .cancelled):
+
+        state = newState
+        watchdog?.cancel()
+        store.stop(query)
+
+        return (nil, continuation)
+
+      case
         let (.running(_, _, continuation), .completed):
 
         state = newState
         watchdog?.cancel()
-
-        // IMPORTANT:
-        // `HKHealthStore.stop(_:)` is NOT called here. As per documentation, `stop(_:)` is only
-        // intended for long-running queries with active store observation.
-        // The query is "cancelled" by being left orphaned with its callback being ignored.
 
         return (nil, continuation)
 

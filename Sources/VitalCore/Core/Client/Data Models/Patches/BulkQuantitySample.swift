@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BulkQuantitySample: Hashable, Encodable {
+public struct BulkQuantitySample: Hashable, Codable {
   public let anchor: Date
 
   public var value: [Double]
