@@ -86,6 +86,28 @@ private func single(_ type: HKObjectType) -> HealthKitObjectTypeRequirements {
   return HealthKitObjectTypeRequirements(required: [type], optional: [], supplementary: [])
 }
 
+private func workoutStreamObjectTypes() -> Set<HKObjectType> {
+  var types: Set<HKObjectType> = [
+    .quantityType(forIdentifier: .distanceCycling)!,
+    .quantityType(forIdentifier: .distanceSwimming)!,
+    .quantityType(forIdentifier: .distanceWheelchair)!,
+    .quantityType(forIdentifier: .distanceWalkingRunning)!,
+    .quantityType(forIdentifier: .distanceDownhillSnowSports)!,
+    .quantityType(forIdentifier: .swimmingStrokeCount)!,
+  ]
+
+  if #available(iOS 18, *) {
+    types.formUnion([
+      .quantityType(forIdentifier: .distanceRowing)!,
+      .quantityType(forIdentifier: .distancePaddleSports)!,
+      .quantityType(forIdentifier: .distanceSkatingSports)!,
+      .quantityType(forIdentifier: .distanceCrossCountrySkiing)!,
+    ])
+  }
+
+  return types
+}
+
 func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirements {
   switch resource {
   case .individual(.steps):
@@ -189,33 +211,22 @@ func toHealthKitTypes(resource: VitalResource) -> HealthKitObjectTypeRequirement
     )
 
   case .workout:
-    var workoutStreamTypes: Set<HKQuantityType> = [
-      .quantityType(forIdentifier: .distanceCycling)!,
-      .quantityType(forIdentifier: .distanceSwimming)!,
-      .quantityType(forIdentifier: .distanceWheelchair)!,
-      .quantityType(forIdentifier: .distanceWalkingRunning)!,
-      .quantityType(forIdentifier: .distanceDownhillSnowSports)!,
-      .quantityType(forIdentifier: .swimmingStrokeCount)!,
-    ]
-
-    if #available(iOS 18, *) {
-      workoutStreamTypes.formUnion([
-        .quantityType(forIdentifier: .distanceRowing)!,
-        .quantityType(forIdentifier: .distancePaddleSports)!,
-        .quantityType(forIdentifier: .distanceSkatingSports)!,
-        .quantityType(forIdentifier: .distanceCrossCountrySkiing)!,
-      ])
-    }
-
     return HealthKitObjectTypeRequirements(
       required: [HKSampleType.workoutType()],
       optional: [
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
       ],
-      supplementary: [
+      supplementary: Set<HKObjectType>([
         HKSampleType.quantityType(forIdentifier: .respiratoryRate)!,
         HKSampleType.quantityType(forIdentifier: .heartRate)!,
-      ] + workoutStreamTypes
+      ]).union(workoutStreamObjectTypes())
+    )
+
+  case .workoutStream:
+    return HealthKitObjectTypeRequirements(
+      required: [HKSampleType.workoutType()],
+      optional: workoutStreamObjectTypes(),
+      supplementary: []
     )
 
   case .vitals(.glucose):

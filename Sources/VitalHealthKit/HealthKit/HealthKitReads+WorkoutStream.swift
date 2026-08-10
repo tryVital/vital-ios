@@ -132,6 +132,7 @@ func computeHeartRateStatistics(
 let workoutStreamPageLimit = 500
 let workoutStreamBoundaryUUIDLimit = 2_000
 let workoutStreamQuerySlack: TimeInterval = 5 * 60
+let workoutStreamFlushByteThreshold = 10 * 1024 * 1024
 
 func computeWorkoutStream(
   for workout: HKWorkout,
@@ -194,6 +195,13 @@ func queryableWorkoutStreamTypes() async throws -> [(type: HKQuantityType, compo
   }
 
   return entries
+}
+
+func workoutStreamComponentPlanFingerprint(_ entries: [(type: HKQuantityType, component: ManualWorkoutStream.Component)]) -> String {
+  entries
+    .map { "\($0.component.rawValue):\($0.type.identifier)" }
+    .joined(separator: "|")
+    .sha256() ?? "empty"
 }
 
 func workoutStreamTypes() -> [(type: HKQuantityType, component: ManualWorkoutStream.Component)] {
@@ -299,6 +307,38 @@ func extractWorkoutStreamComponent(
       exhausted: samples.count < workoutStreamPageLimit
     )
   }
+}
+
+@HealthKitActor
+func queryWorkout(
+  _ healthKitStore: HKHealthStore,
+  id: UUID
+) async throws -> HKWorkout? {
+  let handle = CancellableQueryHandle<HKWorkout?>(timeoutSeconds: 8) { continuation in
+    let handler: SampleQueryHandler = { _, samples, error in
+      if let error = error {
+        handleHealthKitError(
+          error: error,
+          noDataRepresentation: { nil },
+          continuation: continuation,
+          source: "WorkoutStream,Workout"
+        )
+        return
+      }
+
+      continuation.resume(returning: samples?.compactMap { $0 as? HKWorkout }.first)
+    }
+
+    return HKSampleQuery(
+      sampleType: .workoutType(),
+      predicate: HKQuery.predicateForObjects(with: [id]),
+      limit: 1,
+      sortDescriptors: nil,
+      resultsHandler: handler
+    )
+  }
+
+  return try await handle.execute(in: healthKitStore)
 }
 
 @HealthKitActor

@@ -21,6 +21,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return 4
     case .workout, .individual(.vo2Max), .nutrition(.water), .nutrition(.caffeine):
       return 8
+    case .workoutStream:
+      return 9
     case .electrocardiogram, .heartRateAlert, .afibBurden, .standHour, .standDuration, .sleepApneaAlert, .sleepBreathingDisturbance, .forcedExpiratoryVolume1, .forcedVitalCapacity, .peakExpiratoryFlowRate, .inhalerUsage, .fall, .uvExposure, .daylightExposure, .handwashing, .basalBodyTemperature,
         .heartRateRecoveryOneMinute:
       return 12
@@ -79,6 +81,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
       return BackfillType.mindfulnessMinutes;
     case .workout:
       return BackfillType.workouts;
+    case .workoutStream:
+      return BackfillType.workoutStream
     case .menstrualCycle:
       return BackfillType.menstrualCycle
     case .vitals(.temperature):
@@ -228,6 +232,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
   case profile
   case body
   case workout
+  case workoutStream
   case activity
   case sleep
   case menstrualCycle
@@ -257,6 +262,7 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
     .profile,
     .body,
     .workout,
+    .workoutStream,
     .activity,
     .sleep,
     .menstrualCycle,
@@ -315,6 +321,8 @@ public enum VitalResource: Equatable, Hashable, Codable, Sendable {
         return "body"
       case .workout:
         return "workout"
+      case .workoutStream:
+        return "workoutStream"
       case .activity:
         return "activity"
       case .sleep:

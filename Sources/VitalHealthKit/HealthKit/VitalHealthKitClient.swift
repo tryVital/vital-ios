@@ -1070,7 +1070,8 @@ extension VitalHealthKitClient {
           sleepDataAllowlist: configuration.sleepDataAllowlist,
           queryChunkSizes: appState == .background ? state.params.queryChunkSizesBackground : state.params.queryChunkSizesForeground,
           workoutStream: state.params.workoutStream,
-          workoutHeartRate: state.params.workoutHeartRate
+          workoutHeartRate: state.params.workoutHeartRate,
+          workoutStreamConcurrency: state.params.workoutStreamConcurrency
         )
       )
 
@@ -1100,6 +1101,7 @@ extension VitalHealthKitClient {
         return 0
       }
 
+      let didPost: Bool
       if configuration.mode.isAutomatic {
         VitalLogger.healthKit.info("[\(description)] begin upload: \(instruction.stage)\(data.shouldSkipPost ? ",empty" : "")", source: "Sync")
 
@@ -1114,16 +1116,44 @@ extension VitalHealthKitClient {
           // Is final chunk?
           hasMore == false
         )
+        didPost = true
       } else {
         VitalLogger.healthKit.info("[\(description)] upload skipped in manual mode", source: "Sync")
+        didPost = false
+      }
+
+      var shouldTriggerWorkoutStream = false
+      if didPost {
+        switch data {
+        case let .summary(.workout(patch)) where resource == .workout && state.params.workoutStream:
+          await WorkoutStreamWorklistStore.shared.enqueue(patch.workouts)
+          shouldTriggerWorkoutStream = patch.workouts.contains { $0.id != nil }
+
+        case let .summary(.workoutStream(patch)) where resource == .workoutStream:
+          await WorkoutStreamWorklistStore.shared.complete(patch.workouts.map(\.id))
+
+        default:
+          break
+        }
       }
 
 
       // Save the anchor/date on a succesfull network call
       anchors.forEach(storage.store(entity:))
+      for anchor in anchors {
+        if let artifactDirectory = anchor.artifactDirectory {
+          await WorkoutStreamStagingStore.shared.deleteArtifactDirectory(artifactDirectory)
+        }
+      }
 
       // Signal success
       _status.send(.successSyncing(resource, data))
+
+      if shouldTriggerWorkoutStream {
+        scope.task(priority: .high) {
+          await self.sync(RemappedVitalResource(wrapped: .workoutStream), tags)
+        }
+      }
 
       VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
       return data.dataCount
@@ -1182,15 +1212,21 @@ extension VitalHealthKitClient {
               let signpost2 = VitalLogger.Signpost.begin(name: "upload", description: description)
               defer { signpost2.end() }
 
-              // Schedule an overlapping read
-              if hasMore {
+              let streamSync = resource == .workoutStream
+
+              // Schedule an overlapping read for anchor-based resources. Workout stream
+              // commits a FIFO worklist after upload, so it schedules the next read only
+              // after upload success below.
+              if hasMore && streamSync == false {
                 pipelineScheduler.yield(.read(uncommittedAnchors: anchors))
               }
 
               let dataCount = try await uploadStep(data: data, anchors: anchors, hasMore: hasMore)
               progressStore.recordSync(syncID, dataCount >= 0 ? .uploadedChunk : .noData, dataCount: dataCount)
 
-              if !hasMore {
+              if hasMore && streamSync {
+                pipelineScheduler.yield(.read())
+              } else if !hasMore {
                 pipelineScheduler.yield(.success)
               }
 
