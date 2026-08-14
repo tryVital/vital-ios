@@ -14,12 +14,38 @@ final class TaskHandle: Hashable, @unchecked Sendable {
     wrapped?.cancel()
   }
 
+  func wait() async {
+    guard let wrapped = wrapped else { return }
+    _ = await wrapped.result
+  }
+
   static func ==(lhs: TaskHandle, rhs: TaskHandle) -> Bool {
     lhs === rhs
   }
 
   func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(self))
+  }
+}
+
+final class OneShotCompletion<Value>: @unchecked Sendable {
+  private let lock = NSLock()
+  private var completion: ((Value) -> Void)?
+
+  init(_ completion: @escaping (Value) -> Void) {
+    self.completion = completion
+  }
+
+  @discardableResult
+  func complete(_ value: Value) -> Bool {
+    let completion: ((Value) -> Void)? = lock.withLock {
+      defer { self.completion = nil }
+      return self.completion
+    }
+
+    guard let completion = completion else { return false }
+    completion(value)
+    return true
   }
 }
 
