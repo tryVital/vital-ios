@@ -6,6 +6,15 @@ import UIKit
 import BackgroundTasks
 
 let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
+let processingTaskRetryInterval: TimeInterval = 6 * 60 * 60
+
+func makeProcessingTaskRequest(now: Date = Date()) -> BGProcessingTaskRequest {
+  let request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
+  request.requiresExternalPower = false
+  request.requiresNetworkConnectivity = true
+  request.earliestBeginDate = now.addingTimeInterval(processingTaskRetryInterval)
+  return request
+}
 
 public enum PermissionStatus: Equatable, Sendable {
   case asked
@@ -16,6 +25,85 @@ public enum PermissionOutcome: Equatable, Sendable {
   case success
   case failure(String)
   case healthKitNotAvailable
+}
+
+final class BackgroundDeliveryEnablementState: @unchecked Sendable {
+  private let lock = NSLock()
+  private var nextAttemptID: UInt = 0
+  private var latestAttemptIDs: [HKSampleType: UInt] = [:]
+  private var failedSampleTypes: Set<HKSampleType> = []
+
+  func beginAttempt(for sampleType: HKSampleType) -> UInt {
+    lock.withLock {
+      nextAttemptID &+= 1
+      latestAttemptIDs[sampleType] = nextAttemptID
+      return nextAttemptID
+    }
+  }
+
+  @discardableResult
+  func record(
+    _ sampleType: HKSampleType,
+    attemptID: UInt,
+    succeeded: Bool
+  ) -> Bool {
+    lock.withLock {
+      guard latestAttemptIDs[sampleType] == attemptID else {
+        return false
+      }
+
+      if succeeded {
+        failedSampleTypes.remove(sampleType)
+      } else {
+        failedSampleTypes.insert(sampleType)
+      }
+      return true
+    }
+  }
+
+  var hasFailures: Bool {
+    lock.withLock { !failedSampleTypes.isEmpty }
+  }
+
+  func failures(intersecting sampleTypes: Set<HKSampleType>) -> Set<HKSampleType> {
+    lock.withLock {
+      failedSampleTypes.formIntersection(sampleTypes)
+
+      let removedSampleTypes = latestAttemptIDs.keys.filter {
+        !sampleTypes.contains($0)
+      }
+      for sampleType in removedSampleTypes {
+        latestAttemptIDs.removeValue(forKey: sampleType)
+      }
+
+      return failedSampleTypes
+    }
+  }
+
+  func reset() {
+    lock.withLock {
+      failedSampleTypes.removeAll()
+      latestAttemptIDs.removeAll()
+    }
+  }
+}
+
+final class BackgroundProcessingTaskState: @unchecked Sendable {
+  private let lock = NSLock()
+  private var expired = false
+  private var succeeded = false
+
+  func markExpired() {
+    lock.withLock { expired = true }
+  }
+
+  func markSucceeded() {
+    lock.withLock { succeeded = true }
+  }
+
+  var shouldCompleteSuccessfully: Bool {
+    lock.withLock { succeeded && !expired }
+  }
 }
 
 @objc public class VitalHealthKitClient: NSObject {
@@ -68,6 +156,7 @@ public enum PermissionOutcome: Equatable, Sendable {
 
   private let _status: PassthroughSubject<Status, Never>
   private var backgroundDeliveryTask: BackgroundDeliveryTask? = nil
+  private let backgroundDeliveryEnablement = BackgroundDeliveryEnablementState()
 
   private var cancellables: Set<AnyCancellable> = []
 
@@ -130,6 +219,7 @@ public enum PermissionOutcome: Equatable, Sendable {
         break
 
       case .foreground:
+        client.retryFailedBackgroundDeliveryEnablement()
         client.scheduleDeprioritizedResourceRetries()
 
         // Sync profile since most of the content is not observable.
@@ -318,29 +408,37 @@ extension VitalHealthKitClient {
 
     let state = try await authorizationState(store: self.store)
     let currentTask = self.backgroundDeliveryTask
-
-    // Reconfigure the task only if the set of resources has changed, or we have not configured it
-    // before.
-    guard
+    let shouldReconfigureObservers =
       state.activeResources != currentTask?.resources
-        || state.determinedObjectTypes != currentTask?.objectTypes
-    else { return }
-
-    /// If it's already running, cancel it
-    currentTask?.cancel()
+      || state.determinedObjectTypes != currentTask?.objectTypes
 
     let bundles: Set<[HKSampleType]> = Set(
       observedSampleTypes()
         .map { Set($0).intersection(state.determinedObjectTypes).compactMap { $0 as? HKSampleType } }
         .filter { !$0.isEmpty }
     )
+    let observedSampleTypes = Set(bundles.lazy.flatMap { $0 })
+    let failedSampleTypes = backgroundDeliveryEnablement.failures(
+      intersecting: observedSampleTypes
+    )
+
+    guard shouldReconfigureObservers || !failedSampleTypes.isEmpty else { return }
+
+    if shouldReconfigureObservers {
+      currentTask?.cancel()
+    }
 
     if bundles.isEmpty {
       VitalLogger.healthKit.info("Not observing any type")
     }
 
-    /// Enable background deliveries
-    enableBackgroundDelivery(for: bundles.lazy.flatMap { $0 })
+    let sampleTypesToEnable = shouldReconfigureObservers
+      ? observedSampleTypes
+      : failedSampleTypes
+    enableBackgroundDelivery(for: sampleTypesToEnable)
+
+    // Retrying enablement must not replace healthy observer queries.
+    guard shouldReconfigureObservers else { return }
 
     /// Submit BGProcessingTasks
     scope.task { await self.submitProcessingTasks() }
@@ -434,11 +532,29 @@ extension VitalHealthKitClient {
     )
   }
 
-  private func enableBackgroundDelivery(for sampleTypes: some Sequence<HKSampleType>) {
-    for sampleType in sampleTypes {
-      store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
+  private func retryFailedBackgroundDeliveryEnablement() {
+    guard backgroundDeliveryEnablement.hasFailures else { return }
 
-        guard failure == nil && success else {
+    scope.task(priority: .high) { @MainActor in
+      let enabled = await self.backgroundDeliveryEnabled.get()
+      try await self.checkBackgroundUpdates(isBackgroundEnabled: enabled)
+    }
+  }
+
+  private func enableBackgroundDelivery(for sampleTypes: some Sequence<HKSampleType>) {
+    let enablementState = backgroundDeliveryEnablement
+
+    for sampleType in sampleTypes {
+      let attemptID = enablementState.beginAttempt(for: sampleType)
+      store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
+        let succeeded = failure == nil && success
+        guard enablementState.record(
+          sampleType,
+          attemptID: attemptID,
+          succeeded: succeeded
+        ) else { return }
+
+        guard succeeded else {
           VitalLogger.healthKit.error("failed: \(sampleType.shortenedIdentifier); error = \(String(describing: failure))", source: "EnableBgDelivery")
           return
         }
@@ -457,23 +573,21 @@ extension VitalHealthKitClient {
       scheduler.register(forTaskWithIdentifier: processingTaskIdentifier, using: nil) { task in
 
         VitalLogger.healthKit.info("begin", source: "ProcessingTask")
-        defer { VitalLogger.healthKit.info("ended", source: "ProcessingTask") }
 
-        task.expirationHandler = {
-          VitalLogger.healthKit.info("expired", source: "ProcessingTask")
-          SyncProgressStore.shared.flush()
-          task.setTaskCompleted(success: false)
+        let processingState = BackgroundProcessingTaskState()
+        let completion = OneShotCompletion<Bool> { success in
+          task.setTaskCompleted(success: success)
         }
-
-        self.scope.task(priority: .userInitiated) {
-          defer {
-            task.setTaskCompleted(success: true)
-          }
-
+        let work = self.scope.task(priority: .userInitiated) {
           guard VitalClient.status.contains(.signedIn) else {
             VitalLogger.healthKit.info("not signed in", source: "ProcessingTask")
+            processingState.markSucceeded()
             return
           }
+
+          // Keep a successor request pending even if this run expires while syncing.
+          await self.submitProcessingTasks()
+          try Task.checkCancellation()
 
           let state = try await authorizationState(store: self.store)
 
@@ -487,7 +601,24 @@ extension VitalHealthKitClient {
             }
           }
 
-          await self.submitProcessingTasks()
+          try Task.checkCancellation()
+          processingState.markSucceeded()
+        }
+
+        task.expirationHandler = {
+          VitalLogger.healthKit.info("expired", source: "ProcessingTask")
+          processingState.markExpired()
+          work?.cancel()
+          SyncProgressStore.shared.flush()
+        }
+
+        Task(priority: .userInitiated) {
+          if let work = work {
+            await work.wait()
+          }
+          SyncProgressStore.shared.flush()
+          completion.complete(processingState.shouldCompleteSuccessfully)
+          VitalLogger.healthKit.info("ended", source: "ProcessingTask")
         }
       }
     }
@@ -504,19 +635,7 @@ extension VitalHealthKitClient {
         return
       }
 
-      let request: BGProcessingTaskRequest
-
-      if #available(iOS 17.0, *) {
-        request = BGHealthResearchTaskRequest(identifier: processingTaskIdentifier)
-      } else {
-        request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
-      }
-
-      request.requiresExternalPower = true
-      request.requiresNetworkConnectivity = true
-
-      // Processing Tasks should be at minimum 6 hours apart
-      request.earliestBeginDate = Date().addingTimeInterval(3600 * 6)
+      let request = makeProcessingTaskRequest()
 
       do {
         try scheduler.submit(request)
@@ -595,9 +714,11 @@ extension VitalHealthKitClient {
         }
 
         let query = HKObserverQuery(queryDescriptors: descriptors) { query, sampleTypes, handler, error in
+          let observerCompletion = OneShotCompletion<Void> { handler() }
 
           guard error == nil else {
             VitalLogger.healthKit.error("observer errored for \(typesToObserve.map(\.shortenedIdentifier)); error = \(String(describing: error)).", source: "HealthKit")
+            observerCompletion.complete(())
             return
           }
 
@@ -605,6 +726,7 @@ extension VitalHealthKitClient {
           // populated.
           guard let sampleTypes = sampleTypes else {
             VitalLogger.healthKit.error("unexpected callout with no sample type", source: "HealthKit")
+            observerCompletion.complete(())
             return
           }
 
@@ -614,7 +736,7 @@ extension VitalHealthKitClient {
           let filteredSampleTypes = sampleTypes.intersection(typesToObserve)
 
           if filteredSampleTypes.isEmpty {
-            handler()
+            observerCompletion.complete(())
           } else {
 
             let matches = Set(filteredSampleTypes.flatMap(VitalHealthKitStore.sampleTypeToVitalResource(type:)))
@@ -625,13 +747,13 @@ extension VitalHealthKitClient {
               resources: remapped,
               completion: { completion in
                 if completion == .completed {
-                  handler()
+                  observerCompletion.complete(())
                 }
               }
             )
             VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-            continuation.yield(.received(payload))
+            yieldBackgroundDeliveryPayload(payload, to: continuation)
 
             SyncProgressStore.shared.recordSystem(
               remapped,
@@ -667,9 +789,11 @@ extension VitalHealthKitClient {
 
       for sampleType in sampleTypes {
         let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { query, handler, error in
+          let observerCompletion = OneShotCompletion<Void> { handler() }
 
           guard error == nil else {
             VitalLogger.healthKit.error("observer errored for \(sampleType.shortenedIdentifier); error = \(String(describing: error)).", source: "HealthKit")
+            observerCompletion.complete(())
             return
           }
 
@@ -683,13 +807,13 @@ extension VitalHealthKitClient {
             resources: remapped,
             completion: { completion in
               if completion == .completed {
-                handler()
+                observerCompletion.complete(())
               }
             }
           )
           VitalLogger.healthKit.info("notified: \(payload)", source: "HealthKit")
 
-          continuation.yield(.received(payload))
+          yieldBackgroundDeliveryPayload(payload, to: continuation)
 
           SyncProgressStore.shared.recordSystem(
             remapped,
@@ -745,6 +869,7 @@ extension VitalHealthKitClient {
 
     backgroundDeliveryTask = nil
     backgroundDeliveryEnabled.set(value: false)
+    backgroundDeliveryEnablement.reset()
 
     SyncProgressStore.shared.clear()
     storage.clean()
@@ -1451,6 +1576,24 @@ extension VitalHealthKitClient {
 enum BackgroundDeliveryStage {
   case received(BackgroundDeliveryPayload)
   case evaluate
+}
+
+func yieldBackgroundDeliveryPayload(
+  _ payload: BackgroundDeliveryPayload,
+  to continuation: AsyncStream<BackgroundDeliveryStage>.Continuation
+) {
+  switch continuation.yield(.received(payload)) {
+  case .enqueued(_):
+    break
+  case let .dropped(stage):
+    if case let .received(droppedPayload) = stage {
+      droppedPayload.completion(.completed)
+    }
+  case .terminated:
+    payload.completion(.completed)
+  @unknown default:
+    payload.completion(.completed)
+  }
 }
 
 enum PipelineStage {
