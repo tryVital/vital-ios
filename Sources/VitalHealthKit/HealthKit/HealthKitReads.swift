@@ -802,6 +802,37 @@ func handleBody(
   }
 }
 
+/// Metadata keys the meal processor recognises as the meal name when grouping dietary
+/// samples into meals.
+private let mealNameMetadataKeys: Set<String> = ["Meal", "HKFoodMeal", "meal"]
+
+/// Aliases some food apps write instead — e.g. Cal AI (com.viraldevelopment.CalAI) tags its
+/// samples with "foodName" — plus Apple's standard `HKMetadataKeyFoodType`. Samples carrying
+/// only an alias are valid HealthKit data, but cannot be grouped into a meal, and are dropped.
+private let mealNameMetadataAliases: [String] = ["foodName", HKMetadataKeyFoodType]
+
+func normalizeMealNameMetadata(_ metadata: [String: String]) -> [String: String] {
+  guard mealNameMetadataKeys.allSatisfy({ metadata[$0] == nil }) else {
+    return metadata
+  }
+  for alias in mealNameMetadataAliases {
+    if let name = metadata[alias], !name.isEmpty {
+      var normalized = metadata
+      normalized["Meal"] = name
+      return normalized
+    }
+  }
+  return metadata
+}
+
+private func mealSample(_ nutrient: HKSample, unit: QuantityUnit) -> LocalQuantitySample {
+  var sample = LocalQuantitySample(nutrient as! HKQuantitySample, unit: unit)
+  if let metadata = sample.metadata {
+    sample.metadata = normalizeMealNameMetadata(metadata)
+  }
+  return sample
+}
+
 func handleMeal(
   healthKitStore: HKHealthStore,
   vitalStorage: AnchorStorage,
@@ -862,115 +893,115 @@ func handleMeal(
           HealthKitNutritionRawData(
             sourceBundle: sourceBundle,
             energyTotal: groups[HKQuantityType.quantityType(forIdentifier: .dietaryEnergyConsumed)!]?.map{ nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryEnergyConsumed))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryEnergyConsumed))
             },
             carbohydrates: groups[HKQuantityType.quantityType(forIdentifier: .dietaryCarbohydrates)!]?.map{ nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryCarbohydrates))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryCarbohydrates))
             },
             fiber: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFiber)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFiber))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFiber))
             },
             sugar: groups[HKQuantityType.quantityType(forIdentifier: .dietarySugar)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietarySugar))
+              mealSample(nutrient, unit: QuantityUnit(.dietarySugar))
             },
             fatTotal: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFatTotal)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFatTotal))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFatTotal))
             },
             fatMonounsaturated: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFatMonounsaturated)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFatMonounsaturated))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFatMonounsaturated))
             },
             fatPolyunsaturated: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFatPolyunsaturated)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFatPolyunsaturated))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFatPolyunsaturated))
             },
             fatSaturated: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFatSaturated)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFatSaturated))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFatSaturated))
             },
             cholesterol: groups[HKQuantityType.quantityType(forIdentifier: .dietaryCholesterol)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryCholesterol))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryCholesterol))
             },
             protein: groups[HKQuantityType.quantityType(forIdentifier: .dietaryProtein)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryProtein))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryProtein))
             },
             vitaminA: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminA)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminA))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminA))
             },
             vitaminB1: groups[HKQuantityType.quantityType(forIdentifier: .dietaryThiamin)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryThiamin))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryThiamin))
             },
             riboflavin: groups[HKQuantityType.quantityType(forIdentifier: .dietaryRiboflavin)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryRiboflavin))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryRiboflavin))
             },
             niacin: groups[HKQuantityType.quantityType(forIdentifier: .dietaryNiacin)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryNiacin))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryNiacin))
             },
             pantothenicAcid: groups[HKQuantityType.quantityType(forIdentifier: .dietaryPantothenicAcid)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryPantothenicAcid))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryPantothenicAcid))
             },
             vitaminB6: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminB6)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminB6))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminB6))
             },
             biotin: groups[HKQuantityType.quantityType(forIdentifier: .dietaryBiotin)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryBiotin))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryBiotin))
             },
             vitaminB12: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminB12)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminB12))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminB12))
             },
             vitaminC: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminC)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminC))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminC))
             },
             vitaminD: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminD)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminD))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminD))
             },
             vitaminE: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminE)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminE))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminE))
             },
             vitaminK: groups[HKQuantityType.quantityType(forIdentifier: .dietaryVitaminK)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryVitaminK))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryVitaminK))
             },
             folicAcid: groups[HKQuantityType.quantityType(forIdentifier: .dietaryFolate)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryFolate))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryFolate))
             },
             calcium: groups[HKQuantityType.quantityType(forIdentifier: .dietaryCalcium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryCalcium))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryCalcium))
             },
             chloride: groups[HKQuantityType.quantityType(forIdentifier: .dietaryChloride)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryChloride))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryChloride))
             },
             iron: groups[HKQuantityType.quantityType(forIdentifier: .dietaryIron)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryIron))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryIron))
             },
             magnesium: groups[HKQuantityType.quantityType(forIdentifier: .dietaryMagnesium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryMagnesium))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryMagnesium))
             },
             phosphorus: groups[HKQuantityType.quantityType(forIdentifier: .dietaryPhosphorus)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryPhosphorus))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryPhosphorus))
             },
             potassium: groups[HKQuantityType.quantityType(forIdentifier: .dietaryPotassium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryPotassium))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryPotassium))
             },
             sodium: groups[HKQuantityType.quantityType(forIdentifier: .dietarySodium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietarySodium))
+              mealSample(nutrient, unit: QuantityUnit(.dietarySodium))
             },
             zinc: groups[HKQuantityType.quantityType(forIdentifier: .dietaryZinc)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryZinc))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryZinc))
             },
             chromium: groups[HKQuantityType.quantityType(forIdentifier: .dietaryChromium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryChromium))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryChromium))
             },
             copper: groups[HKQuantityType.quantityType(forIdentifier: .dietaryCopper)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryCopper))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryCopper))
             },
             iodine: groups[HKQuantityType.quantityType(forIdentifier: .dietaryIodine)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryIodine))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryIodine))
             },
             manganese: groups[HKQuantityType.quantityType(forIdentifier: .dietaryManganese)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryManganese))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryManganese))
             },
             molybdenum: groups[HKQuantityType.quantityType(forIdentifier: .dietaryMolybdenum)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietaryMolybdenum))
+              mealSample(nutrient, unit: QuantityUnit(.dietaryMolybdenum))
             },
             selenium: groups[HKQuantityType.quantityType(forIdentifier: .dietarySelenium)!]?.map { nutrient in
-              LocalQuantitySample(nutrient as! HKQuantitySample, unit: QuantityUnit(.dietarySelenium))
+              mealSample(nutrient, unit: QuantityUnit(.dietarySelenium))
             }
           )
         ]
