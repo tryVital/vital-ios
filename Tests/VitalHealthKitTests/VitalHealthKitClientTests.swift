@@ -4,6 +4,19 @@ import HealthKit
 @testable import VitalHealthKit
 @testable import VitalCore
 
+private final class LockedCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var count = 0
+
+  func increment() {
+    lock.withLock { count += 1 }
+  }
+
+  var value: Int {
+    lock.withLock { count }
+  }
+}
+
 class VitalHealthKitClientTests: XCTestCase {
   
   func testSetupWithoutVitalClient() {
@@ -80,5 +93,40 @@ class VitalHealthKitClientTests: XCTestCase {
     }
 
     continuation.resume(returning: 42)
+  }
+
+  func testExpiringTaskExecutionCancelsAndCompletesOnce() {
+    let execution = ExpiringTaskExecution()
+    let cancellationCount = LockedCounter()
+    execution.installCancellation { cancellationCount.increment() }
+
+    execution.expire()
+    XCTAssertEqual(cancellationCount.value, 1)
+    XCTAssertEqual(execution.complete(success: true), false)
+    XCTAssertNil(execution.complete(success: false))
+    execution.expire()
+    XCTAssertEqual(cancellationCount.value, 1)
+  }
+
+  func testExpiringTaskExecutionHandlesExpirationBeforeCancellationInstallation() {
+    let execution = ExpiringTaskExecution()
+    let cancellationCount = LockedCounter()
+
+    execution.expire()
+    execution.installCancellation { cancellationCount.increment() }
+
+    XCTAssertEqual(cancellationCount.value, 1)
+    XCTAssertEqual(execution.complete(success: true), false)
+    XCTAssertNil(execution.complete(success: false))
+  }
+
+  func testExpiringTaskExecutionCompletesNormallyOnce() {
+    let execution = ExpiringTaskExecution()
+    let cancellationCount = LockedCounter()
+    execution.installCancellation { cancellationCount.increment() }
+
+    XCTAssertEqual(execution.complete(success: true), true)
+    execution.expire()
+    XCTAssertEqual(cancellationCount.value, 0)
   }
 }

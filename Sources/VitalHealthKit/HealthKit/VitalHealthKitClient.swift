@@ -494,13 +494,13 @@ extension VitalHealthKitClient {
 
     if declaredBgTasks.contains(processingTaskIdentifier) {
       scheduler.register(forTaskWithIdentifier: processingTaskIdentifier, using: nil) { task in
-
         VitalLogger.healthKit.info("begin", source: "ProcessingTask")
-        defer { VitalLogger.healthKit.info("ended", source: "ProcessingTask") }
+        let execution = ExpiringTaskExecution()
 
         guard VitalClient.status.contains(.signedIn) else {
           VitalLogger.healthKit.info("not signed in", source: "ProcessingTask")
           task.setTaskCompleted(success: true)
+          VitalLogger.healthKit.info("ended", source: "ProcessingTask")
           return
         }
 
@@ -510,13 +510,17 @@ extension VitalHealthKitClient {
 
         task.expirationHandler = {
           VitalLogger.healthKit.info("expired", source: "ProcessingTask")
+          execution.expire()
           SyncProgressStore.shared.flush()
-          task.setTaskCompleted(success: false)
         }
 
-        self.scope.task(priority: .userInitiated) {
+        let handle = self.scope.task(priority: .userInitiated) {
+          var succeeded = false
           defer {
-            task.setTaskCompleted(success: true)
+            if let success = execution.complete(success: succeeded && Task.isCancelled == false) {
+              task.setTaskCompleted(success: success)
+            }
+            VitalLogger.healthKit.info("ended", source: "ProcessingTask")
           }
 
           let state = try await authorizationState(store: self.store)
@@ -530,7 +534,19 @@ extension VitalHealthKitClient {
               }
             }
           }
+          guard Task.isCancelled == false, execution.isExpired == false else {
+            return
+          }
+
+          succeeded = true
+        } onCancel: {
+          if let success = execution.complete(success: false) {
+            task.setTaskCompleted(success: success)
+            VitalLogger.healthKit.info("ended", source: "ProcessingTask")
+          }
         }
+
+        execution.installCancellation { handle?.cancel() }
       }
     }
   }
@@ -1779,27 +1795,6 @@ extension VitalHealthKitClient {
     SyncProgressStore.shared.publisher()
   }
 
-}
-
-extension ProtectedBox<UIBackgroundTaskIdentifier> {
-  func start(_ name: String, expiration: @escaping () -> Void) {
-    _ = startIfAvailable(name, expiration: expiration)
-  }
-
-  func startIfAvailable(_ name: String, expiration: @escaping () -> Void) -> Bool {
-    let taskId = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
-      expiration()
-      self?.endIfNeeded()
-    }
-    set(value: taskId)
-    return taskId != .invalid
-  }
-
-  func endIfNeeded() {
-    if let taskId = clean(), taskId != .invalid {
-      UIApplication.shared.endBackgroundTask(taskId)
-    }
-  }
 }
 
 private func healthkitCalloutEventType(_ state: AppState.Status) -> SyncProgress.SystemEventType {

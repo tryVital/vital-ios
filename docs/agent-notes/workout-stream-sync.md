@@ -35,6 +35,12 @@ lifetimes instead. BGProcessing schedules its next request before starting the c
 invocation, so expiration cancels current work without suppressing a future retry.
 Unfinished stream work remains durable for the next delivery, relaunch, or processing task.
 
+UIKit background-task expiration cancels the sync task that owns the assertion before
+ending it. BG processing expiration likewise cancels only that processing invocation,
+flushes durable progress, and reports failure exactly once. Its successor is already
+scheduled before current work starts, following Apple's recurring-task pattern. Processing
+requests continue to require external power and network access.
+
 Log archives include a `workout-stream-artifacts` snapshot containing `worklist.json`
 and the current staging directory. The snapshot is refreshed immediately before archive
 compression so manifests and their referenced pages can be inspected together.
