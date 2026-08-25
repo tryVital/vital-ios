@@ -23,6 +23,110 @@ final class TaskHandle: Hashable, @unchecked Sendable {
   }
 }
 
+final class CancellationLatch: @unchecked Sendable {
+  private let lock = NSLock()
+  private var cancellation: (@Sendable () -> Void)?
+  private var isCancelled = false
+
+  func install(_ cancellation: @escaping @Sendable () -> Void) {
+    let shouldCancel = lock.withLock {
+      self.cancellation = cancellation
+      return isCancelled
+    }
+
+    if shouldCancel {
+      cancellation()
+    }
+  }
+
+  func cancel() {
+    let cancellation = lock.withLock {
+      guard isCancelled == false else { return nil as (@Sendable () -> Void)? }
+      isCancelled = true
+      return self.cancellation
+    }
+
+    cancellation?()
+  }
+}
+
+final class CancellationAwareContinuation<Value>: @unchecked Sendable {
+  fileprivate typealias Continuation = UnsafeContinuation<Value, any Error>
+
+  private enum State {
+    case idle
+    case waiting(Continuation)
+    case resolved(Swift.Result<Value, any Error>)
+    case completed
+  }
+
+  private let lock = NSLock()
+  private var state: State = .idle
+
+  fileprivate func install(_ continuation: Continuation) -> Bool {
+    let result = lock.withLock { () -> Swift.Result<Value, any Error>? in
+      switch state {
+      case .idle:
+        state = .waiting(continuation)
+        return nil
+      case let .resolved(result):
+        state = .completed
+        return result
+      case .waiting, .completed:
+        return .failure(CancellationError())
+      }
+    }
+
+    if let result {
+      continuation.resume(with: result)
+      return false
+    }
+    return true
+  }
+
+  func resume(returning value: Value) {
+    resolve(.success(value))
+  }
+
+  func resume(throwing error: any Error) {
+    resolve(.failure(error))
+  }
+
+  private func resolve(_ result: Swift.Result<Value, any Error>) {
+    let continuation = lock.withLock { () -> Continuation? in
+      switch state {
+      case .idle:
+        state = .resolved(result)
+        return nil
+      case let .waiting(continuation):
+        state = .completed
+        return continuation
+      case .resolved, .completed:
+        return nil
+      }
+    }
+
+    continuation?.resume(with: result)
+  }
+}
+
+func withCancellationAwareContinuation<Value>(
+  _ operation: @escaping @Sendable (CancellationAwareContinuation<Value>) -> Void
+) async throws -> Value {
+  let continuation = CancellationAwareContinuation<Value>()
+
+  return try await withTaskCancellationHandler(operation: {
+    try Task.checkCancellation()
+    return try await withUnsafeThrowingContinuation { unsafeContinuation in
+      if continuation.install(unsafeContinuation) {
+        operation(continuation)
+      }
+    }
+  }, onCancel: {
+    continuation.resume(throwing: CancellationError())
+  })
+}
+
 final class SupervisorScope: Hashable, @unchecked Sendable {
   let lock = NSLock()
   private var activeTasks: Set<TaskHandle> = []

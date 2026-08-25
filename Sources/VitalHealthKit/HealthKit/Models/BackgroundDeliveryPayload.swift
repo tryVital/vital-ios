@@ -1,5 +1,6 @@
 import HealthKit
 import UIKit
+import Foundation
 
 public enum SyncContextTag: Int, Codable {
   case foreground = 0
@@ -17,7 +18,18 @@ public enum SyncContextTag: Int, Codable {
 
 struct BackgroundDeliveryPayload: CustomStringConvertible {
   let resources: [RemappedVitalResource]
+  let deadline: DispatchTime
   let completion: (Completion) -> Void
+
+  init(
+    resources: [RemappedVitalResource],
+    deadline: DispatchTime = backgroundSyncDeadline(),
+    completion: @escaping (Completion) -> Void
+  ) {
+    self.resources = resources
+    self.deadline = deadline
+    self.completion = completion
+  }
 
   var description: String {
     "\(resources.map(\.wrapped.logDescription).joined(separator: ",")))"

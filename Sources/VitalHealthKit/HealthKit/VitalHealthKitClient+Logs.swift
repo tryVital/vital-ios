@@ -59,6 +59,8 @@ extension VitalHealthKitClient {
     try await logStateSnapshot()
 
     let rootDirectoryURL = logger.directoryURL(for: nil)
+    try await snapshotWorkoutStreamArtifacts(in: rootDirectoryURL)
+
     let archiveUrl = FileManager.default.temporaryDirectory
       .appendingPathComponent("vital-\(Int(Date.now.timeIntervalSince1970)).aar")
     guard let archiveFilePath = FilePath(archiveUrl), let rootDirectoryPath = FilePath(rootDirectoryURL) else {
@@ -89,6 +91,24 @@ extension VitalHealthKitClient {
     }
 
     return archiveUrl
+  }
+
+  private static func snapshotWorkoutStreamArtifacts(in rootDirectoryURL: URL) async throws {
+    let fileManager = FileManager.default
+    let snapshotURL = rootDirectoryURL
+      .appendingPathComponent("workout-stream-artifacts", isDirectory: true)
+
+    if fileManager.fileExists(atPath: snapshotURL.path) {
+      try fileManager.removeItem(at: snapshotURL)
+    }
+    try fileManager.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
+
+    try await WorkoutStreamWorklistStore.shared.writeDiagnosticSnapshot(
+      to: snapshotURL.appendingPathComponent("worklist.json", isDirectory: false)
+    )
+    try await WorkoutStreamStagingStore.shared.writeDiagnosticSnapshot(
+      to: snapshotURL.appendingPathComponent("staging", isDirectory: true)
+    )
   }
 
   public static func clearLogs() throws {

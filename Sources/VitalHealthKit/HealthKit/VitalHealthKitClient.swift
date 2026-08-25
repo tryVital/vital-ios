@@ -6,6 +6,26 @@ import UIKit
 import BackgroundTasks
 
 let processingTaskIdentifier = "io.tryvital.VitalHealthKit.ProcessingTask"
+let backgroundSyncBudget: TimeInterval = 20
+
+func backgroundSyncDeadline(
+  from currentTime: DispatchTime = .now()
+) -> DispatchTime {
+  currentTime + backgroundSyncBudget
+}
+
+func backgroundSyncDuration(
+  deadline: DispatchTime,
+  currentTime: DispatchTime
+) -> TimeInterval? {
+  guard deadline.uptimeNanoseconds > currentTime.uptimeNanoseconds else {
+    return nil
+  }
+
+  let remaining = TimeInterval(deadline.uptimeNanoseconds - currentTime.uptimeNanoseconds)
+    / TimeInterval(NSEC_PER_SEC)
+  return remaining
+}
 
 public enum PermissionStatus: Equatable, Sendable {
   case asked
@@ -135,7 +155,9 @@ public enum PermissionOutcome: Equatable, Sendable {
         // Sync profile since most of the content is not observable.
         Task(priority: .high) {
           if try await client.store.authorizationState([.profile]).isActive[.profile]! {
-            await client.sync(RemappedVitalResource(wrapped: .profile), [.maintenanceTask])
+            await client.withUIKitBackgroundTask("vital-sync-profile") {
+              await client.sync(RemappedVitalResource(wrapped: .profile), [.maintenanceTask])
+            }
           }
         }
 
@@ -343,7 +365,7 @@ extension VitalHealthKitClient {
     enableBackgroundDelivery(for: bundles.lazy.flatMap { $0 })
 
     /// Submit BGProcessingTasks
-    scope.task { await self.submitProcessingTasks() }
+    await submitProcessingTasksIfNeeded()
 
     let stream: AsyncStream<BackgroundDeliveryStage>
     let streamContinuation: AsyncStream<BackgroundDeliveryStage>.Continuation
@@ -402,6 +424,7 @@ extension VitalHealthKitClient {
 
           let prioritizedResources = Set(payloads.flatMap(\.resources))
             .sorted(by: { $0.wrapped.priority < $1.wrapped.priority })
+          let containsWorkoutDelivery = prioritizedResources.contains { $0.wrapped == .workout }
           let syncsConcurrently = AppStateTracker.shared.state.status == .foreground
 
           VitalLogger.healthKit.info(
@@ -409,18 +432,34 @@ extension VitalHealthKitClient {
             source: "BgDelivery"
           )
 
-          if syncsConcurrently {
-            await withTaskGroup(of: Void.self) { group in
-              for resource in prioritizedResources {
-                group.addTask {
-                  await self.sync(resource, [.healthKit])
+          guard let deliveryDeadline = payloads.map(\.deadline).min() else {
+            continue
+          }
+
+          let completed = await self.withDeadline(deliveryDeadline) {
+            if syncsConcurrently {
+              await withTaskGroup(of: Void.self) { group in
+                for resource in prioritizedResources {
+                  group.addTask {
+                    await self.sync(resource, [.healthKit])
+                  }
                 }
               }
+            } else {
+              for resource in prioritizedResources {
+                await self.sync(resource, [.healthKit])
+              }
             }
-          } else {
-            for resource in prioritizedResources {
-              await self.sync(resource, [.healthKit])
+
+            // Workout deliveries drain from the workout sync's post-sync hook. Use
+            // unrelated deliveries to rescue previously queued durable stream work.
+            if containsWorkoutDelivery == false {
+              await self.attemptPendingWorkoutStreamSync([.healthKit])
             }
+          }
+
+          if completed == false {
+            VitalLogger.healthKit.info("cancelled at delivery deadline", source: "BgDelivery")
           }
         }
       }
@@ -459,6 +498,16 @@ extension VitalHealthKitClient {
         VitalLogger.healthKit.info("begin", source: "ProcessingTask")
         defer { VitalLogger.healthKit.info("ended", source: "ProcessingTask") }
 
+        guard VitalClient.status.contains(.signedIn) else {
+          VitalLogger.healthKit.info("not signed in", source: "ProcessingTask")
+          task.setTaskCompleted(success: true)
+          return
+        }
+
+        // Schedule the next invocation before starting this one. The future retry remains
+        // pending even if the system expires the current task.
+        self.submitProcessingTasks()
+
         task.expirationHandler = {
           VitalLogger.healthKit.info("expired", source: "ProcessingTask")
           SyncProgressStore.shared.flush()
@@ -468,11 +517,6 @@ extension VitalHealthKitClient {
         self.scope.task(priority: .userInitiated) {
           defer {
             task.setTaskCompleted(success: true)
-          }
-
-          guard VitalClient.status.contains(.signedIn) else {
-            VitalLogger.healthKit.info("not signed in", source: "ProcessingTask")
-            return
           }
 
           let state = try await authorizationState(store: self.store)
@@ -486,31 +530,32 @@ extension VitalHealthKitClient {
               }
             }
           }
-
-          await self.submitProcessingTasks()
         }
       }
     }
   }
 
-  func submitProcessingTasks() async {
+  func submitProcessingTasksIfNeeded() async {
+    let scheduler = BGTaskScheduler.shared
+    let declaredBgTasks = Set(Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? [])
+
+    guard declaredBgTasks.contains(processingTaskIdentifier) else { return }
+
+    let requests = await scheduler.pendingTaskRequests()
+    if requests.contains(where: { $0.identifier == processingTaskIdentifier }) {
+      VitalLogger.healthKit.info("found existing", source: "ProcessingTask")
+      return
+    }
+
+    submitProcessingTasks()
+  }
+
+  func submitProcessingTasks() {
     let scheduler = BGTaskScheduler.shared
     let declaredBgTasks = Set(Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? [])
 
     if declaredBgTasks.contains(processingTaskIdentifier) {
-      let requests = await scheduler.pendingTaskRequests()
-      if requests.contains(where: { $0.identifier == processingTaskIdentifier }) {
-        VitalLogger.healthKit.info("found existing", source: "ProcessingTask")
-        return
-      }
-
-      let request: BGProcessingTaskRequest
-
-      if #available(iOS 17.0, *) {
-        request = BGHealthResearchTaskRequest(identifier: processingTaskIdentifier)
-      } else {
-        request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
-      }
+      let request = BGProcessingTaskRequest(identifier: processingTaskIdentifier)
 
       request.requiresExternalPower = true
       request.requiresNetworkConnectivity = true
@@ -529,8 +574,10 @@ extension VitalHealthKitClient {
   }
 
   /// HKObserverQuery does not callout at app launch on resources that have no data.
-  /// Rescue these resources by checking t
+  /// Rescue these resources by checking their persisted sync state and durable work.
   func scheduleUnnotifiedResourceRescue() {
+    let rescueDeadline = backgroundSyncDeadline()
+
     scope.task { @MainActor in
       // 1 seconds after app launch or Ask
       try await Task.sleep(nanoseconds: 1 * NSEC_PER_SEC)
@@ -542,7 +589,7 @@ extension VitalHealthKitClient {
       let knownSyncingResources = SyncProgressReporter.shared.syncingResources()
       let progress = SyncProgressStore.shared.get()
 
-      let unnotifiedResources = state.activeResources.filter { resource in
+      var unnotifiedResources = state.activeResources.filter { resource in
         guard let resourceProgress = progress.backfillTypes[resource.wrapped.backfillType] else {
           // Doesn't even show up in `SyncProgress.resources`
           return true
@@ -567,11 +614,31 @@ extension VitalHealthKitClient {
         || (connectionActive && (lastStatus == .connectionPaused || lastStatus == .connectionDestroyed))
       }
 
-      // Rescue these resources
-      await withTaskGroup(of: Void.self) { group in
-        for resource in unnotifiedResources {
-          await self.sync(resource, [.maintenanceTask])
+      let workoutStream = VitalHealthKitStore.remapResource(.workoutStream)
+      unnotifiedResources.remove(workoutStream)
+      let resourcesToRescue = unnotifiedResources
+      let activeResources = state.activeResources
+      let completed = await self.withDeadline(rescueDeadline) {
+        await self.withUIKitBackgroundTask("vital-unnotified-resource-rescue") {
+          // Rescue these resources
+          for resource in resourcesToRescue {
+            await self.sync(resource, [.maintenanceTask])
+          }
+
+          let hasPendingWorkoutStreamWork = await WorkoutStreamWorklistStore.shared
+            .snapshot()
+            .isEmpty == false
+          let rescueWorkoutStream = activeResources.contains(workoutStream)
+            && hasPendingWorkoutStreamWork
+          if rescueWorkoutStream {
+            VitalLogger.healthKit.info("rescuing pending workout stream worklist", source: "Sync")
+            await self.attemptPendingWorkoutStreamSync([.maintenanceTask])
+          }
         }
+      }
+
+      if completed == false {
+        VitalLogger.healthKit.info("cancelled at rescue deadline", source: "Sync")
       }
     }
   }
@@ -713,6 +780,11 @@ extension VitalHealthKitClient {
   }
 
   public func syncData() {
+    guard AppStateTracker.shared.state.status == .foreground else {
+      VitalLogger.healthKit.info("ignored syncData; app is not foreground", source: "ManualSync")
+      return
+    }
+
     scope.task(priority: .high) {
       let state = try await authorizationState(store: self.store)
       self.syncData(for: state.activeResources.map(\.wrapped))
@@ -720,13 +792,32 @@ extension VitalHealthKitClient {
   }
 
   public func syncData(for resources: [VitalResource]) {
+    guard AppStateTracker.shared.state.status == .foreground else {
+      VitalLogger.healthKit.info("ignored syncData(for:); app is not foreground", source: "ManualSync")
+      return
+    }
+
     let remappedResources = Set(resources.map(VitalHealthKitStore.remapResource(_:)))
 
     scope.task(priority: .high) { @MainActor in
-      await withTaskGroup(of: Void.self) { group in
-        for resource in remappedResources {
-          group.addTask { await self.sync(resource, [.manual]) }
+      let started = await self.withUIKitBackgroundTask(
+        "vital-manual-sync",
+        runWithoutAssertion: false
+      ) {
+        await withTaskGroup(of: Void.self) { group in
+          for resource in remappedResources {
+            group.addTask {
+              await self.sync(resource, [.manual])
+            }
+          }
         }
+      }
+
+      if started == false {
+        VitalLogger.healthKit.info(
+          "ignored scheduled sync; foreground assertion unavailable",
+          source: "ManualSync"
+        )
       }
     }
   }
@@ -930,7 +1021,82 @@ extension VitalHealthKitClient {
     }
   }
 
-  private func sync(_ remappedResource: RemappedVitalResource, _ tags: Set<SyncContextTag>) async {
+  private func withDeadline(
+    _ deadline: DispatchTime,
+    operation: @Sendable @escaping () async -> Void
+  ) async -> Bool {
+    guard let duration = backgroundSyncDuration(
+      deadline: deadline,
+      currentTime: .now()
+    ) else {
+      return false
+    }
+
+    return await withTaskGroup(of: Bool.self, returning: Bool.self) { group in
+      group.addTask {
+        await operation()
+        return true
+      }
+      group.addTask {
+        try? await Task.sleep(nanoseconds: UInt64(duration * Double(NSEC_PER_SEC)))
+        return false
+      }
+
+      let completed = await group.next() ?? true
+      group.cancelAll()
+      return completed
+    }
+  }
+
+  @discardableResult
+  private func withUIKitBackgroundTask(
+    _ name: String,
+    runWithoutAssertion: Bool = true,
+    operation: @Sendable @escaping () async -> Void
+  ) async -> Bool {
+    guard AppStateTracker.shared.state.status == .foreground else {
+      if runWithoutAssertion {
+        await operation()
+      }
+      return false
+    }
+
+    let taskName = "\(name)-\(UUID().uuidString.lowercased())"
+    let cancellation = CancellationLatch()
+    let osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
+    let acquired = osBackgroundTask.startIfAvailable(taskName, expiration: {
+      cancellation.cancel()
+      SyncProgressStore.shared.flush()
+    })
+    guard acquired else {
+      if runWithoutAssertion {
+        await operation()
+      }
+      return false
+    }
+    VitalLogger.healthKit.info("started: \(taskName)", source: "UIKitBgTask")
+    defer {
+      osBackgroundTask.endIfNeeded()
+      VitalLogger.healthKit.info("ended: \(taskName)", source: "UIKitBgTask")
+    }
+
+    let worker = Task {
+      await operation()
+    }
+    cancellation.install { worker.cancel() }
+
+    await withTaskCancellationHandler(operation: {
+      await worker.value
+    }, onCancel: {
+      cancellation.cancel()
+    })
+    return true
+  }
+
+  private func sync(
+    _ remappedResource: RemappedVitalResource,
+    _ tags: Set<SyncContextTag>
+  ) async {
     let progressStore = SyncProgressStore.shared
     let progressReporter = SyncProgressReporter.shared
 
@@ -938,6 +1104,11 @@ extension VitalHealthKitClient {
 
     let resource = remappedResource.wrapped
     let description = resource.logDescription
+
+    guard Task.isCancelled == false else {
+      VitalLogger.healthKit.info("[\(description)] skipped (cancelled)", source: "Sync")
+      return
+    }
 
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
@@ -971,7 +1142,12 @@ extension VitalHealthKitClient {
       VitalLogger.healthKit.info("[\(description)] -1 parked; \(tags)", source: "Sync")
       return
     }
-    defer { _ = parkingLot.tryTo(.disable) }
+    var holdsParkingLot = true
+    defer {
+      if holdsParkingLot {
+        _ = parkingLot.tryTo(.disable)
+      }
+    }
 
     defer { progressStore.flush() }
 
@@ -990,6 +1166,11 @@ extension VitalHealthKitClient {
       return
     }
 
+    guard Task.isCancelled == false else {
+      VitalLogger.healthKit.info("[\(description)] skipped (cancelled)", source: "Sync")
+      return
+    }
+
     VitalLogger.healthKit.info("[\(description)] begin \(tags)", source: "Sync")
 
     guard let configuration = configuration.value else {
@@ -1003,22 +1184,6 @@ extension VitalHealthKitClient {
     // Make sure the entry in UserHistoryStore for today is up to date.
     UserHistoryStore.shared.record(TimeZone.current)
 
-    // If we receive this payload in foreground, wrap the sync work in
-    // a UIKit background task, in case the user will move the app to background soon.
-
-    let osBackgroundTask: ProtectedBox<UIBackgroundTaskIdentifier>?
-
-    if AppStateTracker.shared.state.status == .foreground {
-      osBackgroundTask = ProtectedBox<UIBackgroundTaskIdentifier>()
-      osBackgroundTask!.start("vital-sync-\(description)", expiration: {
-        progressStore.flush()
-      })
-      VitalLogger.healthKit.info("started: daily:\(description)", source: "UIKitBgTask")
-
-    } else {
-      osBackgroundTask = nil
-    }
-
     // IMPORTANT: Must be called on ALL exit paths below.
     // Pay extra attention when doing early exits with returns and throws.
     func syncEnded(success: Bool) async {
@@ -1027,11 +1192,6 @@ extension VitalHealthKitClient {
       }
 
       await progressReporter.syncEnded(syncID)
-
-      if let osBackgroundTask = osBackgroundTask {
-        osBackgroundTask.endIfNeeded()
-        VitalLogger.healthKit.info("ended: daily:\(description)", source: "UIKitBgTask")
-      }
     }
 
     let instruction: SyncInstruction
@@ -1050,12 +1210,20 @@ extension VitalHealthKitClient {
       return
     }
 
+    guard Task.isCancelled == false else {
+      progressStore.recordSync(syncID, .cancelled)
+      await syncEnded(success: false)
+      return
+    }
+
     VitalLogger.healthKit.info("[\(description)] \(instruction)", source: "Sync")
 
     // Signal syncing (so the consumer can convey it to the user)
     _status.send(.syncing(resource))
 
     @Sendable func readStep(uncommittedAnchors: [StoredAnchor]) async throws -> (ProcessedResourceData?, [StoredAnchor], hasMore: Bool) {
+      try Task.checkCancellation()
+
       // Fetch from HealthKit
       let (data, anchors): (ProcessedResourceData?, [StoredAnchor])
 
@@ -1074,6 +1242,7 @@ extension VitalHealthKitClient {
           workoutStreamConcurrency: state.params.workoutStreamConcurrency
         )
       )
+      try Task.checkCancellation()
 
       // Continue the loop if any anchor reports hasMore=true.
       let hasMore = anchors.contains(where: \.hasMore)
@@ -1086,6 +1255,7 @@ extension VitalHealthKitClient {
       anchors: [StoredAnchor],
       hasMore: Bool
     ) async throws -> Int {
+      try Task.checkCancellation()
 
       // We skip empty POST only in daily stage.
       // Empty POST is sent for historical stage, so we would consistently emit
@@ -1122,12 +1292,10 @@ extension VitalHealthKitClient {
         didPost = false
       }
 
-      var shouldTriggerWorkoutStream = false
       if didPost {
         switch data {
         case let .summary(.workout(patch)) where resource == .workout && state.params.workoutStream:
           await WorkoutStreamWorklistStore.shared.enqueue(patch.workouts)
-          shouldTriggerWorkoutStream = patch.workouts.contains { $0.id != nil }
 
         case let .summary(.workoutStream(patch)) where resource == .workoutStream:
           await WorkoutStreamWorklistStore.shared.complete(patch.workouts.map(\.id))
@@ -1148,12 +1316,6 @@ extension VitalHealthKitClient {
 
       // Signal success
       _status.send(.successSyncing(resource, data))
-
-      if shouldTriggerWorkoutStream {
-        scope.task(priority: .high) {
-          await self.sync(RemappedVitalResource(wrapped: .workoutStream), tags)
-        }
-      }
 
       VitalLogger.healthKit.info("[\(description)] completed: \(hasMore ? "hasMore" : "noMore")", source: "Sync")
       return data.dataCount
@@ -1267,6 +1429,44 @@ extension VitalHealthKitClient {
     }
 
     await syncEnded(success: success)
+
+    // The resource sync is complete. Release its serializer before any follow-up work so
+    // a new delivery can read newly arrived samples while workout stream drains.
+    _ = parkingLot.tryTo(.disable)
+    holdsParkingLot = false
+
+    guard Task.isCancelled == false else {
+      return
+    }
+
+    // Start stream extraction only after the workout sync has fully completed. In the
+    // historical stage, starting it from uploadStep races prioritization while workout
+    // is still marked as in progress, causing workoutStream to be deprioritized.
+    if success,
+       resource == .workout,
+       state.params.workoutStream,
+       configuration.mode.isAutomatic
+    {
+      await self.attemptPendingWorkoutStreamSync(tags)
+    }
+  }
+
+  private func attemptPendingWorkoutStreamSync(_ tags: Set<SyncContextTag>) async {
+    guard Task.isCancelled == false else {
+      return
+    }
+
+    guard await WorkoutStreamWorklistStore.shared.snapshot().isEmpty == false else {
+      return
+    }
+
+    guard Task.isCancelled == false,
+          AppStateTracker.shared.state.status != .terminating
+    else {
+      return
+    }
+
+    await self.sync(RemappedVitalResource(wrapped: .workoutStream), tags)
   }
 
   private func scheduleDeprioritizedResourceRetries() {
@@ -1285,10 +1485,12 @@ extension VitalHealthKitClient {
       //
       // If their prerequisites still were not satisfied, they will re-enter
       // `syncDeprioritizedQueue` eventually.
-      await withTaskGroup(of: Void.self) { group in
-        for resource in Set(deprioritized) {
-          group.addTask {
-            await self.sync(resource, [])
+      await self.withUIKitBackgroundTask("vital-deprioritized-retries") {
+        await withTaskGroup(of: Void.self) { group in
+          for resource in Set(deprioritized) {
+            group.addTask {
+              await self.sync(resource, [])
+            }
           }
         }
       }
@@ -1581,15 +1783,20 @@ extension VitalHealthKitClient {
 
 extension ProtectedBox<UIBackgroundTaskIdentifier> {
   func start(_ name: String, expiration: @escaping () -> Void) {
+    _ = startIfAvailable(name, expiration: expiration)
+  }
+
+  func startIfAvailable(_ name: String, expiration: @escaping () -> Void) -> Bool {
     let taskId = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
       expiration()
       self?.endIfNeeded()
     }
     set(value: taskId)
+    return taskId != .invalid
   }
 
   func endIfNeeded() {
-    if let taskId = clean() {
+    if let taskId = clean(), taskId != .invalid {
       UIApplication.shared.endBackgroundTask(taskId)
     }
   }
