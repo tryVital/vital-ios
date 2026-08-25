@@ -147,6 +147,7 @@ public struct Provider: Equatable {
     case eightSleep
     case withings
     case googleFit
+    case googleHealth
     case hammerhead
     case dexcom
     case dexcomV3
@@ -183,6 +184,7 @@ public struct Provider: Equatable {
       case .eightSleep: return "eight_sleep"
       case .withings: return "withings"
       case .googleFit: return "google_fit"
+      case .googleHealth: return "google_health"
       case .hammerhead: return "hammerhead"
       case .dexcom: return "dexcom"
       case .dexcomV3: return "dexcom_v3"
@@ -221,6 +223,7 @@ public struct Provider: Equatable {
       case "eight_sleep": self = .eightSleep
       case "withings": self = .withings
       case "google_fit": self = .googleFit
+      case "google_health": self = .googleHealth
       case "hammerhead": self = .hammerhead
       case "dexcom": self = .dexcom
       case "dexcom_v3": self = .dexcomV3
