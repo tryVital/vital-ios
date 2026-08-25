@@ -302,6 +302,20 @@ actor WorkoutStreamStagingStore {
     try? fileManager.removeItem(at: url)
   }
 
+  func writeDiagnosticSnapshot(to destinationURL: URL) throws {
+    try fileManager.createDirectory(
+      at: destinationURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+
+    guard fileManager.fileExists(atPath: rootDirectoryURL.path) else {
+      try fileManager.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+      return
+    }
+
+    try fileManager.copyItem(at: rootDirectoryURL, to: destinationURL)
+  }
+
   private func reconcileSession(at sessionURL: URL, anchorStorage: AnchorStorage) {
     let manifestURL = sessionURL.appendingPathComponent("manifest.json", isDirectory: false)
 

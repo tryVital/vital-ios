@@ -33,6 +33,18 @@ actor WorkoutStreamWorklistStore {
     loadState().items
   }
 
+  func writeDiagnosticSnapshot(to url: URL) throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    try encoder.encode(loadState()).write(to: url, options: .atomic)
+  }
+
   func remove(_ ids: some Sequence<UUID>) {
     let idSet = Set(ids)
     guard idSet.isEmpty == false else {
