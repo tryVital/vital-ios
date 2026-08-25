@@ -127,6 +127,42 @@ func withCancellationAwareContinuation<Value>(
   })
 }
 
+final class ExpiringTaskExecution: @unchecked Sendable {
+  private let lock = NSLock()
+  private let cancellation = CancellationLatch()
+  private var completed = false
+  private var expired = false
+
+  func installCancellation(_ action: @escaping @Sendable () -> Void) {
+    cancellation.install(action)
+  }
+
+  func expire() {
+    let shouldCancel = lock.withLock {
+      guard completed == false else { return false }
+      expired = true
+      return true
+    }
+
+    if shouldCancel {
+      cancellation.cancel()
+    }
+  }
+
+  /// Returns the completion result to report, or `nil` if completion was already reported.
+  func complete(success: Bool) -> Bool? {
+    lock.withLock {
+      guard completed == false else { return nil }
+      completed = true
+      return expired ? false : success
+    }
+  }
+
+  var isExpired: Bool {
+    lock.withLock { expired }
+  }
+}
+
 final class SupervisorScope: Hashable, @unchecked Sendable {
   let lock = NSLock()
   private var activeTasks: Set<TaskHandle> = []
