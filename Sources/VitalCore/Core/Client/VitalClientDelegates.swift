@@ -53,7 +53,7 @@ class VitalClientDelegate: APIClientDelegate {
   func client(_ client: APIClient, shouldRetry task: URLSessionTask, error: Error, attempts: Int) async throws -> Bool {
     guard
       attempts <= 3,
-      case .unacceptableStatusCode(401) = error as? APIError
+      (error as? NetworkError)?.statusCode == 401
     else { return false }
     
     switch authStrategy {

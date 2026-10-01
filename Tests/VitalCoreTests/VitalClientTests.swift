@@ -178,6 +178,29 @@ class VitalClientTests: XCTestCase {
     XCTAssertTrue(isConnected)
   }
 
+  func testUnauthorizedResponseAttemptsJWTRefresh() async {
+    let delegate = VitalClientDelegate(environment: environment, authStrategy: .jwt(VitalJWTAuth()))
+    let client = APIClient(baseURL: URL(string: environment.host)!)
+    let task = client.session.dataTask(with: URL(string: environment.host)!)
+    let response = HTTPURLResponse(url: task.originalRequest!.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+    let responseError: Error
+
+    do {
+      try delegate.client(client, validateResponse: response, data: Data(), task: task)
+      XCTFail("A 401 response should fail validation")
+      return
+    } catch {
+      responseError = error
+    }
+
+    do {
+      _ = try await delegate.client(client, shouldRetry: task, error: responseError, attempts: 1)
+      XCTFail("An unsigned-in SDK should fail when attempting to refresh")
+    } catch {
+      XCTAssertEqual(error as? VitalJWTAuthError, .notSignedIn)
+    }
+  }
+
   func testConfigurationBackwardCompatibility() throws {
     let decoder = JSONDecoder()
 
