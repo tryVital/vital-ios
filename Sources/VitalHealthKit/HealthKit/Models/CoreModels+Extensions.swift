@@ -305,7 +305,7 @@ struct QuantityUnit {
     mapping[.height] = .centimeter
     mapping[.heartRate] = .bpm
     mapping[.respiratoryRate] = .bpm
-    mapping[.heartRateVariabilitySDNN] = .rmssd
+    mapping[.heartRateVariabilitySDNN] = .sdnn
     mapping[.oxygenSaturation] = .percentage
     mapping[.restingHeartRate] = .bpm
     mapping[.activeEnergyBurned] = .kcal

@@ -69,6 +69,7 @@ public struct LocalQuantitySample: Hashable, Encodable {
     case centimeter
     case bpm
     case rmssd
+    case sdnn
     case percentage = "%"
     case kcal
     case count
