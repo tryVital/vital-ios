@@ -300,7 +300,7 @@ public extension VitalHealthKitClient {
       connectionPolicy: ConnectionPolicy = .autoConnect
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
-      self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 365)
+      self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 1095)
       self.logsEnabled = logsEnabled
       self.mode = mode
       self.sleepDataAllowlist = sleepDataAllowlist
