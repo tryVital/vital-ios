@@ -52,6 +52,25 @@ private class MockHealthStore: HKHealthStore {
 
 class SampleTypeTests: XCTestCase {
 
+  func test_hrv_sample_preserves_sdnn_in_milliseconds() throws {
+    let sampleType = try XCTUnwrap(HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN))
+    let date = Date(timeIntervalSince1970: 0)
+    let sample = HKQuantitySample(
+      type: sampleType,
+      quantity: HKQuantity(unit: .second(), doubleValue: 0.042),
+      start: date,
+      end: date
+    )
+    let result = LocalQuantitySample(sample, unit: QuantityUnit(.heartRateVariabilitySDNN))
+
+    XCTAssertEqual(result.value, 42, accuracy: 0.000001)
+    XCTAssertEqual(result.unit, .sdnn)
+    let encoded = try JSONEncoder().encode(result)
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    XCTAssertEqual(json["unit"] as? String, "sdnn")
+    XCTAssertEqual(json["value"] as? Double, 42)
+  }
+
   @available(iOS 16.0, *)
   func test_observed_types_are_mappable_to_resources() async throws {
     let resources = observedSampleTypes()
