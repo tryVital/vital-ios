@@ -36,6 +36,60 @@ class VitalClientTests: XCTestCase {
     XCTAssertTrue(client === VitalClient.shared)
   }
 
+  func testUnauthorizedResponseAttemptsJWTRefresh() async throws {
+    let delegate = VitalClientDelegate(environment: environment, authStrategy: .jwt(VitalJWTAuth()))
+    let apiClient = APIClient(baseURL: nil)
+    let task = apiClient.session.dataTask(with: URL(string: "https://example.com")!)
+    let response = HTTPURLResponse(url: task.originalRequest!.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+
+    let responseError: Error
+    do {
+      try delegate.client(apiClient, validateResponse: response, data: Data(), task: task)
+      return XCTFail("Expected the unauthorized response to fail validation")
+    } catch {
+      responseError = error
+    }
+
+    for attempts in 1...3 {
+      do {
+        _ = try await delegate.client(apiClient, shouldRetry: task, error: responseError, attempts: attempts)
+        XCTFail("Expected token refresh to fail because no JWT user is signed in")
+      } catch {
+        // This error proves the validator's error reached refreshToken().
+        XCTAssertEqual(error as? VitalJWTAuthError, .notSignedIn)
+      }
+    }
+
+    let retriesAfterLimit = try await delegate.client(apiClient, shouldRetry: task, error: responseError, attempts: 4)
+    XCTAssertFalse(retriesAfterLimit)
+  }
+
+  func testJWTDoesNotRetryOtherErrors() async throws {
+    let delegate = VitalClientDelegate(environment: environment, authStrategy: .jwt(VitalJWTAuth()))
+    let apiClient = APIClient(baseURL: nil)
+    let task = apiClient.session.dataTask(with: URL(string: "https://example.com")!)
+    let errors: [Error] = [
+      NetworkError(url: nil, headers: [:], statusCode: 403, payload: nil),
+      NetworkError(url: nil, headers: [:], statusCode: 500, payload: nil),
+      URLError(.timedOut)
+    ]
+
+    for error in errors {
+      let retries = try await delegate.client(apiClient, shouldRetry: task, error: error, attempts: 1)
+      XCTAssertFalse(retries)
+    }
+  }
+
+  func testUnauthorizedAPIKeyDoesNotRetry() async throws {
+    let delegate = VitalClientDelegate(environment: environment, authStrategy: .apiKey(apiKey))
+    let apiClient = APIClient(baseURL: nil)
+    let task = apiClient.session.dataTask(with: URL(string: "https://example.com")!)
+    let error = NetworkError(url: nil, headers: [:], statusCode: 401, payload: nil)
+
+    let retries = try await delegate.client(apiClient, shouldRetry: task, error: error, attempts: 1)
+    XCTAssertFalse(retries)
+  }
+
   func testAutomaticConfiguration_autoMigrateFromLegacyAPIMode() async throws {
     let _: Void = await withUnsafeContinuation { continuation in
       VitalClient.automaticConfiguration {
