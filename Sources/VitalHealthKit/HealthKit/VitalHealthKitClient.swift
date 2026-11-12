@@ -265,6 +265,32 @@ public extension VitalHealthKitClient {
     case explicit
   }
 
+  /// The maximum frequency at which HealthKit wakes the app to deliver new samples in the
+  /// background. Mirrors `HKUpdateFrequency`.
+  ///
+  /// This only governs background wakes. While the app is running, observer queries still fire as
+  /// soon as new data is written to HealthKit. HealthKit may also enforce a slower frequency for
+  /// some types (e.g. step count is capped at hourly) regardless of this setting.
+  enum BackgroundDeliveryFrequency: String, Codable, Sendable {
+    case immediate
+    case hourly
+    case daily
+    case weekly
+
+    var hkUpdateFrequency: HKUpdateFrequency {
+      switch self {
+      case .immediate:
+        return .immediate
+      case .hourly:
+        return .hourly
+      case .daily:
+        return .daily
+      case .weekly:
+        return .weekly
+      }
+    }
+  }
+
   struct Configuration: Codable {
     public enum DataPushMode: String, Codable {
       case manual
@@ -290,6 +316,7 @@ public extension VitalHealthKitClient {
     public let mode: DataPushMode
     public let sleepDataAllowlist: AppAllowlist
     public let connectionPolicy: ConnectionPolicy
+    public let backgroundDeliveryFrequency: BackgroundDeliveryFrequency
 
     public init(
       backgroundDeliveryEnabled: Bool = false,
@@ -297,7 +324,8 @@ public extension VitalHealthKitClient {
       logsEnabled: Bool = true,
       mode: DataPushMode = .automatic,
       sleepDataAllowlist: AppAllowlist = .specific(AppIdentifier.defaultsleepDataAllowlist),
-      connectionPolicy: ConnectionPolicy = .autoConnect
+      connectionPolicy: ConnectionPolicy = .autoConnect,
+      backgroundDeliveryFrequency: BackgroundDeliveryFrequency = .immediate
     ) {
       self.backgroundDeliveryEnabled = backgroundDeliveryEnabled
       self.numberOfDaysToBackFill = min(numberOfDaysToBackFill, 1095)
@@ -305,6 +333,7 @@ public extension VitalHealthKitClient {
       self.mode = mode
       self.sleepDataAllowlist = sleepDataAllowlist
       self.connectionPolicy = connectionPolicy
+      self.backgroundDeliveryFrequency = backgroundDeliveryFrequency
     }
 
     public init(from decoder: any Decoder) throws {
@@ -316,6 +345,7 @@ public extension VitalHealthKitClient {
       self.sleepDataAllowlist = try container.decodeIfPresent(AppAllowlist.self, forKey: .sleepDataAllowlist)
       ?? .specific(AppIdentifier.defaultsleepDataAllowlist)
       self.connectionPolicy = try container.decodeIfPresent(ConnectionPolicy.self, forKey: .connectionPolicy) ?? .autoConnect
+      self.backgroundDeliveryFrequency = try container.decodeIfPresent(BackgroundDeliveryFrequency.self, forKey: .backgroundDeliveryFrequency) ?? .immediate
     }
   }
 
@@ -362,7 +392,10 @@ extension VitalHealthKitClient {
     }
 
     /// Enable background deliveries
-    enableBackgroundDelivery(for: bundles.lazy.flatMap { $0 })
+    enableBackgroundDelivery(
+      for: bundles.lazy.flatMap { $0 },
+      frequency: self.configuration.value?.backgroundDeliveryFrequency ?? .immediate
+    )
 
     /// Submit BGProcessingTasks
     await submitProcessingTasksIfNeeded()
@@ -473,16 +506,19 @@ extension VitalHealthKitClient {
     )
   }
 
-  private func enableBackgroundDelivery(for sampleTypes: some Sequence<HKSampleType>) {
+  private func enableBackgroundDelivery(
+    for sampleTypes: some Sequence<HKSampleType>,
+    frequency: BackgroundDeliveryFrequency
+  ) {
     for sampleType in sampleTypes {
-      store.enableBackgroundDelivery(sampleType, .immediate) { success, failure in
+      store.enableBackgroundDelivery(sampleType, frequency.hkUpdateFrequency) { success, failure in
 
         guard failure == nil && success else {
           VitalLogger.healthKit.error("failed: \(sampleType.shortenedIdentifier); error = \(String(describing: failure))", source: "EnableBgDelivery")
           return
         }
 
-        VitalLogger.healthKit.info("enabled: \(sampleType.shortenedIdentifier)", source: "EnableBgDelivery")
+        VitalLogger.healthKit.info("enabled: \(sampleType.shortenedIdentifier) (\(frequency.rawValue))", source: "EnableBgDelivery")
       }
     }
   }

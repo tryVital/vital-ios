@@ -28,6 +28,49 @@ class VitalHealthKitClientTests: XCTestCase {
     )
   }
 
+  func testConfigurationDefaultsBackgroundDeliveryFrequencyToImmediate() {
+    XCTAssertEqual(VitalHealthKitClient.Configuration().backgroundDeliveryFrequency, .immediate)
+  }
+
+  func testConfigurationDecodesLegacyPayloadWithoutBackgroundDeliveryFrequency() throws {
+    let legacy = """
+    {
+      "backgroundDeliveryEnabled": true,
+      "numberOfDaysToBackFill": 30,
+      "logsEnabled": false,
+      "mode": "automatic"
+    }
+    """
+
+    let configuration = try JSONDecoder().decode(
+      VitalHealthKitClient.Configuration.self,
+      from: Data(legacy.utf8)
+    )
+
+    XCTAssertEqual(configuration.backgroundDeliveryFrequency, .immediate)
+  }
+
+  func testConfigurationRoundTripsBackgroundDeliveryFrequency() throws {
+    let original = VitalHealthKitClient.Configuration(
+      backgroundDeliveryEnabled: true,
+      backgroundDeliveryFrequency: .hourly
+    )
+
+    let decoded = try JSONDecoder().decode(
+      VitalHealthKitClient.Configuration.self,
+      from: JSONEncoder().encode(original)
+    )
+
+    XCTAssertEqual(decoded.backgroundDeliveryFrequency, .hourly)
+  }
+
+  func testBackgroundDeliveryFrequencyMapsToHKUpdateFrequency() {
+    XCTAssertEqual(VitalHealthKitClient.BackgroundDeliveryFrequency.immediate.hkUpdateFrequency, .immediate)
+    XCTAssertEqual(VitalHealthKitClient.BackgroundDeliveryFrequency.hourly.hkUpdateFrequency, .hourly)
+    XCTAssertEqual(VitalHealthKitClient.BackgroundDeliveryFrequency.daily.hkUpdateFrequency, .daily)
+    XCTAssertEqual(VitalHealthKitClient.BackgroundDeliveryFrequency.weekly.hkUpdateFrequency, .weekly)
+  }
+
   func testAskingForPermissionsContinuesWithoutAuthentication() async throws {
 
     await VitalClient.shared.signOut()
