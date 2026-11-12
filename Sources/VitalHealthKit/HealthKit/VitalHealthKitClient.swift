@@ -238,7 +238,6 @@ public enum PermissionOutcome: Equatable, Sendable {
       VitalLogger.healthKit.info("We weren't able to securely store Configuration: \(error)")
     }
 
-    let previousFrequency = self.configuration.value?.backgroundDeliveryFrequency
     self.configuration.set(value: configuration)
     _connectionStatusDidChange.send(())
 
@@ -255,15 +254,6 @@ public enum PermissionOutcome: Equatable, Sendable {
         let enabled = await self.backgroundDeliveryEnabled.get()
         try await self.checkBackgroundUpdates(isBackgroundEnabled: enabled)
         self.scheduleUnnotifiedResourceRescue()
-      }
-    } else if
-      configuration.backgroundDeliveryEnabled,
-      previousFrequency != configuration.backgroundDeliveryFrequency
-    {
-      // Background delivery is already active; re-register at the new frequency.
-      scope.task(priority: .high) {
-        let enabled = await self.backgroundDeliveryEnabled.get()
-        try await self.checkBackgroundUpdates(isBackgroundEnabled: enabled)
       }
     }
   }
@@ -363,7 +353,6 @@ public extension VitalHealthKitClient {
     let task: TaskHandle?
     let resources: Set<RemappedVitalResource>
     let objectTypes: Set<HKObjectType>
-    let frequency: BackgroundDeliveryFrequency
     let streamContinuation: AsyncStream<BackgroundDeliveryStage>.Continuation
 
     func cancel() {
@@ -381,14 +370,12 @@ extension VitalHealthKitClient {
 
     let state = try await authorizationState(store: self.store)
     let currentTask = self.backgroundDeliveryTask
-    let frequency = self.configuration.value?.backgroundDeliveryFrequency ?? .immediate
 
-    // Reconfigure the task only if the set of resources or the delivery frequency has changed, or
-    // we have not configured it before.
+    // Reconfigure the task only if the set of resources has changed, or we have not configured it
+    // before.
     guard
       state.activeResources != currentTask?.resources
         || state.determinedObjectTypes != currentTask?.objectTypes
-        || frequency != currentTask?.frequency
     else { return }
 
     /// If it's already running, cancel it
@@ -405,7 +392,10 @@ extension VitalHealthKitClient {
     }
 
     /// Enable background deliveries
-    enableBackgroundDelivery(for: bundles.lazy.flatMap { $0 }, frequency: frequency)
+    enableBackgroundDelivery(
+      for: bundles.lazy.flatMap { $0 },
+      frequency: self.configuration.value?.backgroundDeliveryFrequency ?? .immediate
+    )
 
     /// Submit BGProcessingTasks
     await submitProcessingTasksIfNeeded()
@@ -512,7 +502,6 @@ extension VitalHealthKitClient {
       task: payloadListener,
       resources: state.activeResources,
       objectTypes: state.determinedObjectTypes,
-      frequency: frequency,
       streamContinuation: streamContinuation
     )
   }
