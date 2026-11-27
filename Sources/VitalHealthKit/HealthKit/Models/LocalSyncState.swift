@@ -32,6 +32,7 @@ extension UserSDKHealthKitParams {
 }
 
 internal struct LocalSyncState: Codable {
+  let historicalPullId: UUID?
   let status: Status?
   
   let historicalStageAnchor: Date
@@ -47,7 +48,8 @@ internal struct LocalSyncState: Codable {
 
   var params: UserSDKHealthKitParams
 
-  init(status: Status?, historicalStageAnchor: Date, defaultDaysToBackfill: Int, teamDataPullPreferences: TeamDataPullPreferences?, ingestionStart: Date, ingestionEnd: Date?, perDeviceActivityTS: Bool, expiresAt: Date, reportingInterval: Double?, params: UserSDKHealthKitParams) {
+  init(status: Status?, historicalStageAnchor: Date, defaultDaysToBackfill: Int, teamDataPullPreferences: TeamDataPullPreferences?, ingestionStart: Date, ingestionEnd: Date?, perDeviceActivityTS: Bool, expiresAt: Date, reportingInterval: Double?, params: UserSDKHealthKitParams, historicalPullId: UUID? = nil) {
+    self.historicalPullId = historicalPullId
     self.status = status
     self.historicalStageAnchor = historicalStageAnchor
     self.defaultDaysToBackfill = defaultDaysToBackfill
@@ -62,6 +64,7 @@ internal struct LocalSyncState: Codable {
 
   init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.historicalPullId = try container.decodeIfPresent(UUID.self, forKey: .historicalPullId)
     self.status = try container.decodeIfPresent(Status.self, forKey: .status)
     self.historicalStageAnchor = try container.decode(Date.self, forKey: .historicalStageAnchor)
     self.defaultDaysToBackfill = try container.decode(Int.self, forKey: .defaultDaysToBackfill)
@@ -72,6 +75,10 @@ internal struct LocalSyncState: Codable {
     self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
     self.reportingInterval = try container.decodeIfPresent(Double.self, forKey: .reportingInterval)
     self.params = try container.decodeIfPresent(UserSDKHealthKitParams.self, forKey: .params) ?? UserSDKHealthKitParams.default
+  }
+
+  var historicalEndDate: Date {
+    min(historicalStageAnchor, ingestionEnd ?? historicalStageAnchor)
   }
 
   func historicalStartDate(for resource: VitalResource) -> Date {

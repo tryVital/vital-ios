@@ -97,6 +97,7 @@ public enum PermissionOutcome: Equatable, Sendable {
 
   let configuration: ProtectedBox<Configuration>
 
+  let recentPassSerializer = ParkingLot()
   let syncSerializerLock = NSLock()
   var syncSerializer: [RemappedVitalResource: ParkingLot] = [:]
 
@@ -859,7 +860,7 @@ extension VitalHealthKitClient {
     VitalLogger.healthKit.info("done", source: "Reset")
   }
 
-  private func getLocalSyncState(
+  func getLocalSyncState(
     syncID: SyncProgress.SyncID? = nil,
     forceRemoteCheck: Bool = false
   ) async throws -> LocalSyncState {
@@ -921,7 +922,8 @@ extension VitalHealthKitClient {
         tzinfo: TimeZone.current.identifier,
         requestStartDate: proposedStart,
         requestEndDate: now,
-        grantedPermissions: grantedPermissions
+        grantedPermissions: grantedPermissions,
+        supportsHistoricalProgress: configuration.mode.isAutomatic && (previousState == nil || previousState?.historicalPullId != nil)
       )
     )
 
@@ -947,7 +949,8 @@ extension VitalHealthKitClient {
       expiresAt: Date().addingTimeInterval(Double(backendState.expiresIn ?? 14400)),
 
       reportingInterval: backendState.reportingInterval ?? previousState?.reportingInterval,
-      params: backendState.healthKitParams ?? UserSDKHealthKitParams.default
+      params: backendState.healthKitParams ?? UserSDKHealthKitParams.default,
+      historicalPullId: backendState.historicalPullId ?? (backendState.status == .paused ? previousState?.historicalPullId : nil)
     )
 
     try storage.setLocalSyncState(state)
@@ -983,8 +986,9 @@ extension VitalHealthKitClient {
     let hasCompletedHistoricalStage = storage.historicalStageDone(for: resource)
     || resource.wrapped == .profile
 
-    let now = Date()
-    let query = state.historicalStartDate(for: resource.wrapped) ..< (state.ingestionEnd ?? now)
+    let currentEnd = state.ingestionEnd ?? Date()
+    let historyEnd = state.historicalPullId == nil ? currentEnd : state.historicalEndDate
+    let query = state.historicalStartDate(for: resource.wrapped) ..< (hasCompletedHistoricalStage ? currentEnd : historyEnd)
 
     let instruction = SyncInstruction(stage: hasCompletedHistoricalStage ? .daily : .historical, query: query)
 
@@ -994,7 +998,8 @@ extension VitalHealthKitClient {
         UserSDKHistoricalStageBeginBody(
           rangeStart: query.lowerBound,
           rangeEnd: query.upperBound,
-          backfillType: resource.wrapped.backfillType
+          backfillType: resource.wrapped.backfillType,
+          historicalPullId: state.historicalPullId
         )
       )
     }
@@ -1025,7 +1030,7 @@ extension VitalHealthKitClient {
         return true
       }
 
-      if let latestSync = syncProgress.backfillTypes[resource.wrapped.backfillType]?.latestSync {
+      if let latestSync = syncProgress.backfillTypes[resource.wrapped.backfillType]?.syncs.last(where: { !$0.tags.contains(.recentHistory) }) {
         // IF historical stage not done, but last status is not in progress (incl. deprioritized)
         // We will let it through.
         // This ensures overall forward progress if one particular resource is erroring or stuck
@@ -1109,14 +1114,56 @@ extension VitalHealthKitClient {
     return true
   }
 
+  @discardableResult
+  func syncRecentHistory(_ tags: Set<SyncContextTag>) async throws -> Bool {
+    while !recentPassSerializer.tryTo(.enable) {
+      try await recentPassSerializer.parkIfNeeded()
+    }
+    defer { _ = recentPassSerializer.tryTo(.disable) }
+    let state = try await getLocalSyncState(syncID: nil)
+    guard configuration.value?.mode.isAutomatic == true, state.historicalPullId != nil else { return true }
+    let authorization = try await authorizationState(store: store)
+    let permissions = (grantedPermissions(from: authorization.askedPermissions) ?? []).sorted()
+    var allRecentPassesCompleted = true
+    for resource in authorization.activeResources.sorted(by: { $0.wrapped.priority < $1.wrapped.priority }) {
+      try Task.checkCancellation()
+      guard !storage.historicalStageDone(for: resource), resource.wrapped != .profile,
+            let candidate = RecentHistoryPass.make(state: state, resource: resource.wrapped, permissions: permissions) else { continue }
+      let saved = try storage.recentPass(for: resource)
+      // A completed milestone remains complete for the pull; full history handles refreshed constraints.
+      if saved?.pullId == candidate.pullId && saved?.completed == true { continue }
+      if saved?.pullId != candidate.pullId || saved?.permissions != permissions || saved?.historyStart != candidate.historyStart || saved?.historyEnd != candidate.historyEnd {
+        storage.clearRecentAnchors(for: resource)
+        try storage.setRecentPass(candidate, for: resource)
+      }
+      if resource.wrapped == .workoutStream {
+        let workout = VitalHealthKitStore.remapResource(.workout)
+        // Stream work is enqueued only after workout uploads succeed.
+        if !storage.historicalStageDone(for: workout), try storage.recentPass(for: workout)?.completed != true {
+          allRecentPassesCompleted = false
+          continue
+        }
+      }
+      if try storage.recentPass(for: resource)?.completed == false {
+        let waitsForStreams = resource.wrapped == .workout && state.params.workoutStream
+          && authorization.activeResources.contains(VitalHealthKitStore.remapResource(.workoutStream))
+        await sync(resource, tags, recentOnly: true, recentEmitsProgress: !waitsForStreams)
+      }
+      if try storage.recentPass(for: resource)?.completed != true { allRecentPassesCompleted = false }
+    }
+    return allRecentPassesCompleted
+  }
+
   private func sync(
     _ remappedResource: RemappedVitalResource,
-    _ tags: Set<SyncContextTag>
+    _ tags: Set<SyncContextTag>,
+    recentOnly: Bool = false,
+    recentEmitsProgress: Bool = true
   ) async {
     let progressStore = SyncProgressStore.shared
     let progressReporter = SyncProgressReporter.shared
 
-    var syncID = SyncProgress.SyncID(resource: remappedResource.wrapped, tags: tags)
+    var syncID = SyncProgress.SyncID(resource: remappedResource.wrapped, tags: recentOnly ? tags.union([.recentHistory, .historicalStage]) : tags)
 
     let resource = remappedResource.wrapped
     let description = resource.logDescription
@@ -1129,6 +1176,15 @@ extension VitalHealthKitClient {
     guard self.pauseSynchronization == false else {
       VitalLogger.healthKit.info("[\(description)] skipped (sync paused)", source: "Sync")
       return
+    }
+
+    if !recentOnly && configuration.value?.mode.isAutomatic == true && !storage.historicalStageDone(for: remappedResource) && resource != .profile {
+      do {
+        guard try await syncRecentHistory(tags) else { return }
+      } catch {
+        progressStore.recordError(syncID, error, context: "Recent history")
+        return
+      }
     }
 
     let parkingLot = self.syncSerializerLock.withLock {
@@ -1170,7 +1226,7 @@ extension VitalHealthKitClient {
     let canProceed: Bool
 
     do {
-      canProceed = try await self.prioritizeSync(remappedResource, tags)
+      canProceed = recentOnly ? true : try await self.prioritizeSync(remappedResource, tags)
     } catch let error {
       progressStore.recordError(syncID, error, context: "prioritizeSync")
       return
@@ -1203,7 +1259,7 @@ extension VitalHealthKitClient {
     // IMPORTANT: Must be called on ALL exit paths below.
     // Pay extra attention when doing early exits with returns and throws.
     func syncEnded(success: Bool) async {
-      if success {
+      if success && !recentOnly {
         scheduleDeprioritizedResourceRetries()
       }
 
@@ -1212,9 +1268,13 @@ extension VitalHealthKitClient {
 
     let instruction: SyncInstruction
     let state: LocalSyncState
+    let recentPass: RecentHistoryPass?
 
     do {
-      (instruction, state) = try await computeSyncInstruction(remappedResource, syncID: syncID)
+      let (fullInstruction, localState) = try await computeSyncInstruction(remappedResource, syncID: syncID)
+      state = localState
+      recentPass = recentOnly ? try storage.recentPass(for: remappedResource) : nil
+      instruction = recentPass.map { SyncInstruction(stage: .historical, query: $0.recentStart ..< $0.historyEnd) } ?? fullInstruction
 
       if instruction.stage == .historical {
         syncID.tags.insert(.historicalStage)
@@ -1237,6 +1297,8 @@ extension VitalHealthKitClient {
     // Signal syncing (so the consumer can convey it to the user)
     _status.send(.syncing(resource))
 
+    let anchorStorage = recentOnly ? storage.recentStorage(for: remappedResource) : storage
+
     @Sendable func readStep(uncommittedAnchors: [StoredAnchor]) async throws -> (ProcessedResourceData?, [StoredAnchor], hasMore: Bool) {
       try Task.checkCancellation()
 
@@ -1248,7 +1310,7 @@ extension VitalHealthKitClient {
       (data, anchors) = try await store.readResource(
         remappedResource,
         instruction,
-        AnchorStorageOverlay(wrapped: self.storage, uncommittedAnchors: uncommittedAnchors),
+        AnchorStorageOverlay(wrapped: anchorStorage, uncommittedAnchors: uncommittedAnchors),
         ReadOptions(
           perDeviceActivityTS: state.perDeviceActivityTS,
           sleepDataAllowlist: configuration.sleepDataAllowlist,
@@ -1273,6 +1335,17 @@ extension VitalHealthKitClient {
     ) async throws -> Int {
       try Task.checkCancellation()
 
+      // Empty aggregate queries return nil, but recent history still needs its marker.
+      var data = data
+      if recentOnly && data == nil {
+        switch resource {
+        case .body: data = .summary(.body(BodyPatch(timeZones: [:])))
+        case .activity: data = .summary(.activity(ActivityPatch(activities: [])))
+        case .workoutStream where state.params.workoutStream: data = .summary(.workoutStream(WorkoutStreamPatch(workouts: [])))
+        default: break
+        }
+      }
+
       // We skip empty POST only in daily stage.
       // Empty POST is sent for historical stage, so we would consistently emit
       // historical.data.*.created events.
@@ -1294,13 +1367,14 @@ extension VitalHealthKitClient {
         // Post data
         try await vitalClient.post(
           data,
-          instruction.taggedPayloadStage,
+          recentPass.map { .historical(start: $0.historyStart, end: $0.historyEnd) } ?? instruction.taggedPayloadStage,
           .appleHealthKit,
           /// We can't use `vitalCalendar` here. We want to send the user's timezone
           /// rather than UTC (which is what `vitalCalendar` is set to).
-          TimeZone.current,
+          recentPass.flatMap { TimeZone(identifier: $0.timeZone) } ?? TimeZone.current,
           // Is final chunk?
-          hasMore == false
+          !recentOnly && !hasMore,
+          recentPass?.upload(isLastBatch: !hasMore && recentEmitsProgress) ?? (instruction.stage == .historical ? state.historicalPullId.map { SDKHistoricalUpload(historicalPullId: $0) } : nil)
         )
         didPost = true
       } else {
@@ -1323,7 +1397,7 @@ extension VitalHealthKitClient {
 
 
       // Save the anchor/date on a succesfull network call
-      anchors.forEach(storage.store(entity:))
+      anchors.forEach(anchorStorage.store(entity:))
       for anchor in anchors {
         if let artifactDirectory = anchor.artifactDirectory {
           await WorkoutStreamStagingStore.shared.deleteArtifactDirectory(artifactDirectory)
@@ -1434,7 +1508,16 @@ extension VitalHealthKitClient {
           return false
 
         case .success:
-          self.storage.markHistoricalStageDone(for: remappedResource)
+          if var recent = recentPass {
+            recent.completed = true
+            do { try self.storage.setRecentPass(recent, for: remappedResource) }
+            catch {
+              progressStore.recordError(syncID, error, context: "Recent checkpoint")
+              return false
+            }
+          } else {
+            self.storage.markHistoricalStageDone(for: remappedResource)
+          }
           progressStore.recordSync(syncID, .completed)
           VitalLogger.healthKit.info("[\(description)] completed", source: "Sync")
           return true
@@ -1458,7 +1541,7 @@ extension VitalHealthKitClient {
     // Start stream extraction only after the workout sync has fully completed. In the
     // historical stage, starting it from uploadStep races prioritization while workout
     // is still marked as in progress, causing workoutStream to be deprioritized.
-    if success,
+    if success, !recentOnly,
        resource == .workout,
        state.params.workoutStream,
        configuration.mode.isAutomatic

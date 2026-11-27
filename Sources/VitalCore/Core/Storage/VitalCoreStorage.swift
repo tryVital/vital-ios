@@ -109,11 +109,18 @@ public struct VitalBackStorage {
       return value.map(Date.init(timeIntervalSince1970:))
     } remove: { key in
       dataStorage.removeValue(forKey: key)
+      doubleStorage.removeValue(forKey: key)
+      dateStorage.removeValue(forKey: key)
     } clean: {
       storage = [:]
       dataStorage = [:]
+      doubleStorage = [:]
+      dateStorage = [:]
     } dump: {
-      return [:]
+      var values: [String: Any?] = dataStorage.mapValues { $0 }
+      for (key, value) in doubleStorage { values[key] = value }
+      for (key, value) in dateStorage { values[key] = value }
+      return values
     }
   }
 }

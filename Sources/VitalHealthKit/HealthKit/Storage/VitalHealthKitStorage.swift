@@ -1,5 +1,5 @@
 import HealthKit
-import VitalCore
+@_spi(VitalSDKInternals) import VitalCore
 
 protocol AnchorStorage {
   func read(key: String) -> StoredAnchor?
@@ -32,9 +32,29 @@ class VitalHealthKitStorage: AnchorStorage {
   private let pauseSync = "pause_sync"
 
   private let storage: VitalBackStorage
+  private let namespace: String
 
-  init(storage: VitalBackStorage) {
+  init(storage: VitalBackStorage, namespace: String = "") {
     self.storage = storage
+    self.namespace = namespace
+  }
+
+  func recentStorage(for resource: RemappedVitalResource) -> VitalHealthKitStorage {
+    VitalHealthKitStorage(storage: storage, namespace: "recent/\(resource.wrapped.backfillType.rawValue)/")
+  }
+
+  func recentPass(for resource: RemappedVitalResource) throws -> RecentHistoryPass? {
+    guard let data = storage.read("recent-pass/\(resource.wrapped.backfillType.rawValue)") else { return nil }
+    return try JSONDecoder().decode(RecentHistoryPass.self, from: data)
+  }
+
+  func setRecentPass(_ pass: RecentHistoryPass, for resource: RemappedVitalResource) throws {
+    storage.store(try JSONEncoder().encode(pass), "recent-pass/\(resource.wrapped.backfillType.rawValue)")
+  }
+
+  func clearRecentAnchors(for resource: RemappedVitalResource) {
+    let prefix = "recent/\(resource.wrapped.backfillType.rawValue)/"
+    for key in storage.dump().keys where key.hasPrefix(prefix) { storage.remove(key) }
   }
 
   func markHistoricalStageDone(for resource: RemappedVitalResource) {
@@ -73,9 +93,9 @@ class VitalHealthKitStorage: AnchorStorage {
   }
   
   func store(entity: StoredAnchor) {
-    let anchorPrefix = anchorPrefix + entity.key
-    let datePrefix = datePrefix + entity.key
-    let anchorsPrefix = anchorsPrefix + entity.key
+    let anchorPrefix = namespace + anchorPrefix + entity.key
+    let datePrefix = namespace + datePrefix + entity.key
+    let anchorsPrefix = namespace + anchorsPrefix + entity.key
 
     if let anchor = entity.anchor,
        let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
@@ -98,9 +118,9 @@ class VitalHealthKitStorage: AnchorStorage {
   }
   
   func read(key: String) -> StoredAnchor? {
-    let anchorPrefix = anchorPrefix + key
-    let datePrefix = datePrefix + key
-    let anchorsPrefix = anchorsPrefix + key
+    let anchorPrefix = namespace + anchorPrefix + key
+    let datePrefix = namespace + datePrefix + key
+    let anchorsPrefix = namespace + anchorsPrefix + key
 
     var storeAnchor: StoredAnchor = .init(key: key, anchor: nil, date: nil, vitalAnchors: nil)
     

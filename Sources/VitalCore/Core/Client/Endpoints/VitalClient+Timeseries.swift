@@ -28,7 +28,8 @@ public extension VitalClient.TimeSeries {
     stage: TaggedPayload.Stage,
     provider: Provider.Slug,
     timeZone: TimeZone,
-    isFinalChunk: Bool = true
+    isFinalChunk: Bool = true,
+    historicalUpload: SDKHistoricalUpload? = nil
   ) async throws -> Void {
     let userId = try await self.client.getUserId()
     let configuration = await self.client.configuration.get()
@@ -38,7 +39,8 @@ public extension VitalClient.TimeSeries {
       timeZone: timeZone,
       provider: provider,
       data: VitalAnyEncodable(timeSeriesData.payload),
-      isFinalChunk: isFinalChunk
+      isFinalChunk: isFinalChunk,
+      historicalUpload: historicalUpload
     )
     
     let fullPath = makePath(for: timeSeriesData.name, userId: userId)

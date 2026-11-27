@@ -14,6 +14,7 @@ public enum SyncContextTag: Int, Codable {
   case manual = 8
   case appLaunching = 9
   case appTerminating = 10
+  case recentHistory = 11
 }
 
 struct BackgroundDeliveryPayload: CustomStringConvertible {

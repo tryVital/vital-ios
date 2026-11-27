@@ -488,7 +488,7 @@ extension VitalHealthKitStore {
 }
 
 struct VitalClientProtocol {
-  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone, Bool) async throws -> Void
+  var post: (ProcessedResourceData, TaggedPayload.Stage, Provider.Slug, TimeZone, Bool, SDKHistoricalUpload?) async throws -> Void
   var checkConnectedSource: (Provider.Slug, [String]?) async throws -> Void
   var sdkStateSync: (UserSDKSyncStateBody) async throws -> UserSDKSyncStateResponse
   var sdkStartHistoricalStage: (UserSDKHistoricalStageBeginBody) async throws -> Void
@@ -497,7 +497,7 @@ struct VitalClientProtocol {
 
 extension VitalClientProtocol {
   static var live: VitalClientProtocol {
-    .init { data, stage, provider, timeZone, isFinalChunk in
+    .init { data, stage, provider, timeZone, isFinalChunk, historicalUpload in
       switch data {
         case let .summary(summaryData):
           try await VitalClient.shared.summary.post(
@@ -505,7 +505,8 @@ extension VitalClientProtocol {
             stage: stage,
             provider: provider,
             timeZone: timeZone,
-            isFinalChunk: isFinalChunk
+            isFinalChunk: isFinalChunk,
+            historicalUpload: historicalUpload
           )
         case let .timeSeries(timeSeriesData):
           try await VitalClient.shared.timeSeries.post(
@@ -513,7 +514,8 @@ extension VitalClientProtocol {
             stage: stage,
             provider: provider,
             timeZone: timeZone,
-            isFinalChunk: isFinalChunk
+            isFinalChunk: isFinalChunk,
+            historicalUpload: historicalUpload
           )
       }
     } checkConnectedSource: { provider, grantedPermissions in
@@ -528,7 +530,7 @@ extension VitalClientProtocol {
   }
   
   static var debug: VitalClientProtocol {
-    .init { _,_,_,_,_ in
+    .init { _,_,_,_,_,_ in
       return ()
     } checkConnectedSource: { _, _ in
       return

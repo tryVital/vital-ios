@@ -126,6 +126,7 @@ public struct UserSDKHealthKitParams: Codable {
 
 @_spi(VitalSDKInternals)
 public struct UserSDKSyncStateResponse: Decodable {
+  public var historicalPullId: UUID? = nil
   public let status: Status
   public let ingestionStart: Date?
   public let requestStartDate: Date?
@@ -144,28 +145,32 @@ public enum Stage: String, Encodable {
 
 @_spi(VitalSDKInternals)
 public struct UserSDKSyncStateBody: Encodable {
+  public let supportsHistoricalProgress: Bool
   public let tzinfo: String
   public let requestStartDate: Date?
   public let requestEndDate: Date?
   public let grantedPermissions: [String]?
 
-  public init(tzinfo: String, requestStartDate: Date? = nil, requestEndDate: Date? = nil, grantedPermissions: [String]? = nil) {
+  public init(tzinfo: String, requestStartDate: Date? = nil, requestEndDate: Date? = nil, grantedPermissions: [String]? = nil, supportsHistoricalProgress: Bool = false) {
     self.tzinfo = tzinfo
     self.requestStartDate = requestStartDate
     self.requestEndDate = requestEndDate
     self.grantedPermissions = grantedPermissions
+    self.supportsHistoricalProgress = supportsHistoricalProgress
   }
 }
 
 @_spi(VitalSDKInternals)
 public struct UserSDKHistoricalStageBeginBody: Encodable {
+  public let historicalPullId: UUID?
   public let rangeStart: Date
   public let rangeEnd: Date
   public let backfillType: BackfillType
 
-  public init(rangeStart: Date, rangeEnd: Date, backfillType: BackfillType) {
+  public init(rangeStart: Date, rangeEnd: Date, backfillType: BackfillType, historicalPullId: UUID? = nil) {
     self.rangeStart = rangeStart
     self.rangeEnd = rangeEnd
     self.backfillType = backfillType
+    self.historicalPullId = historicalPullId
   }
 }

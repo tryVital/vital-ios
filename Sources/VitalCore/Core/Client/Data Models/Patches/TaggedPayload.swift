@@ -1,6 +1,8 @@
 import Foundation
 
 public struct TaggedPayload: Encodable {
+  public let historicalPullId: UUID?
+  public let recentPass: SDKRecentPass?
   public let stage: String
   public let startDate: Date?
   public let endDate: Date?
@@ -14,8 +16,11 @@ public struct TaggedPayload: Encodable {
     timeZone: TimeZone,
     provider: Provider.Slug = .manual,
     data: VitalAnyEncodable,
-    isFinalChunk: Bool = true
+    isFinalChunk: Bool = true,
+    historicalUpload: SDKHistoricalUpload? = nil
   ) {
+    self.historicalPullId = historicalUpload?.historicalPullId
+    self.recentPass = historicalUpload?.recentPass
     self.provider = provider
     self.data = data
     self.timeZone = timeZone.identifier
@@ -60,3 +65,25 @@ public extension TaggedPayload {
   }
 }
 
+
+public struct SDKRecentPass: Encodable {
+  public let startDate: String
+  public let endDate: String
+  public let isLastBatch: Bool
+
+  public init(startDate: String, endDate: String, isLastBatch: Bool) {
+    self.startDate = startDate
+    self.endDate = endDate
+    self.isLastBatch = isLastBatch
+  }
+}
+
+public struct SDKHistoricalUpload {
+  public let historicalPullId: UUID
+  public let recentPass: SDKRecentPass?
+
+  public init(historicalPullId: UUID, recentPass: SDKRecentPass? = nil) {
+    self.historicalPullId = historicalPullId
+    self.recentPass = recentPass
+  }
+}
